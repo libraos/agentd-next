@@ -5,6 +5,31 @@ import * as Schema from "effect/Schema";
 
 export const LIBRAOS_GATEWAY_ORIGIN = "https://api.libraos.com";
 export const LIBRAOS_CONSOLE_API_KEYS_URL = "https://console.libraos.com/api-keys";
+/** LibraOS Cloud: device sign-in (RFC 8628) and the Gateway keys a sign-in may make. */
+export const LIBRAOS_CLOUD_ORIGIN = "https://app.libraos.com";
+export const LIBRAOS_DEVICE_CLIENT_ID = "agentd-desktop";
+
+export const LibraosGatewaySignInPurpose = Schema.Literals(["connect", "revoke"]);
+export type LibraosGatewaySignInPurpose = typeof LibraosGatewaySignInPurpose.Type;
+
+/** A device sign-in waiting for the person to approve its code in the browser. */
+export const LibraosGatewaySignIn = Schema.Struct({
+  /** connect: make a Gateway key and connect it; revoke: revoke the connected key, then disconnect. */
+  purpose: LibraosGatewaySignInPurpose,
+  userCode: Schema.String,
+  verificationUri: Schema.String,
+  /** The verification page with the code filled in. */
+  verificationUriComplete: Schema.String,
+  /** Epoch milliseconds. */
+  expiresAt: Schema.Number,
+});
+export type LibraosGatewaySignIn = typeof LibraosGatewaySignIn.Type;
+
+export const LibraosGatewayAccount = Schema.Struct({
+  email: Schema.String,
+  workspace: Schema.String,
+});
+export type LibraosGatewayAccount = typeof LibraosGatewayAccount.Type;
 
 /** The provider instances a connected key adds; their models are the key's, not the user's. */
 export const LIBRAOS_GATEWAY_INSTANCE_IDS = {
@@ -49,6 +74,12 @@ export const LibraosGatewayStatus = Schema.Struct({
   agentd: Schema.NullOr(LibraosGatewayAgentdSetup),
   /** The Gateway's reason for refusing the key at its last refresh; null while it serves it. */
   refusal: Schema.optional(Schema.NullOr(Schema.String)),
+  /** The account a sign-in made the key for; null for a pasted key. Disconnect then revokes it. */
+  account: Schema.NullOr(LibraosGatewayAccount),
+  /** The device sign-in waiting for approval, if any. */
+  signIn: Schema.NullOr(LibraosGatewaySignIn),
+  /** What the last disconnect did to the key in LibraOS (revoked, or why not). */
+  notice: Schema.NullOr(Schema.String),
 });
 export type LibraosGatewayStatus = typeof LibraosGatewayStatus.Type;
 
@@ -56,6 +87,11 @@ export const LibraosGatewayConnectInput = Schema.Struct({
   key: Schema.String.check(Schema.isMaxLength(4096)),
 });
 export type LibraosGatewayConnectInput = typeof LibraosGatewayConnectInput.Type;
+
+export const LibraosGatewaySignInStartInput = Schema.Struct({
+  purpose: LibraosGatewaySignInPurpose,
+});
+export type LibraosGatewaySignInStartInput = typeof LibraosGatewaySignInStartInput.Type;
 
 export class LibraosGatewayError extends Schema.TaggedError<LibraosGatewayError>()(
   "LibraosGatewayError",
