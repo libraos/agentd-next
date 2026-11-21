@@ -27,8 +27,8 @@ export class AndroidIconRenderError extends Schema.TaggedError<AndroidIconRender
   { layer: Schema.String, cause: Schema.Defect() },
 ) {}
 
-const wordmarkTransform = (size: number) => {
-  const scale = (size * WORDMARK_FRACTION) / MARK.height;
+const wordmarkTransform = (size: number, fraction = WORDMARK_FRACTION) => {
+  const scale = (size * fraction) / MARK.height;
   const tx = (size - MARK.width * scale) / 2 - MARK.x * scale;
   const ty = (size - MARK.height * scale) / 2 - MARK.y * scale;
   return `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(4)})`;
@@ -93,6 +93,21 @@ const renderForeground = Effect.fn("androidIcons.renderForeground")(function* (
   return yield* rasterize(
     "foreground",
     canvasSvg(size, `<g transform="${wordmarkTransform(size)}">${svgBody(mark)}</g>`),
+    size,
+  );
+});
+
+// The status bar and themed icons keep only the shape, so the mark is drawn in one colour.
+const renderMonochrome = Effect.fn("androidIcons.renderMonochrome")(function* (
+  repositoryRoot: string,
+  size: number,
+  fraction: number,
+) {
+  const mark = yield* readLayerSource(repositoryRoot, "prod", "text.svg");
+  const white = svgBody(mark).replace(/(stroke|fill)="#[0-9a-fA-F]{6}"/g, '$1="#ffffff"');
+  return yield* rasterize(
+    "monochrome",
+    canvasSvg(size, `<g transform="${wordmarkTransform(size, fraction)}">${white}</g>`),
     size,
   );
 });
@@ -195,6 +210,8 @@ const exportAndroidIcons = Effect.gen(function* () {
       "android-icon-background-nightly.png",
       yield* renderNightlyBackground(repositoryRoot, ADAPTIVE_CANVAS),
     ],
+    ["android-icon-mark.png", yield* renderMonochrome(repositoryRoot, ADAPTIVE_CANVAS, 0.48)],
+    ["android-notification-icon.png", yield* renderMonochrome(repositoryRoot, 96, 0.8)],
     ["android-splash-icon-dev.png", yield* renderSplashIcon(repositoryRoot, "dev")],
     ["android-splash-icon-nightly.png", yield* renderSplashIcon(repositoryRoot, "nightly")],
     ["android-splash-icon-prod.png", yield* renderSplashIcon(repositoryRoot, "prod")],
