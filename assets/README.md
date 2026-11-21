@@ -60,10 +60,11 @@ is instead rendered from the same Icon Composer SVG sources by `vp run icons:exp
 
 - `apps/mobile/assets/android-icon-foreground.png`: the shared transparent wordmark, sized to stay
   inside the safe zone
-- `apps/mobile/assets/android-icon-background-dev.png` and `-nightly.png`: full-bleed variant
-  artwork (blueprint grid and annotations; night sky and clouds). Production uses a solid color.
+- `apps/mobile/assets/android-icon-background-nightly.png`: full-bleed variant artwork (night sky
+  and clouds). Development and production use a solid color.
 - `apps/mobile/assets/android-splash-icon-*.png`: the two layers composed into one 288dp image, so
   the splash mask reproduces the launcher icon's framing.
 
-Rerun the export after changing a layer SVG. `android-icon-mark.png` remains a flat silhouette for
-Android's monochrome themed icon.
+Rerun the export after changing a layer SVG. It also writes the mark in one color:
+`android-icon-mark.png` for Android's themed icon and `android-notification-icon.png` for the
+status bar.

@@ -21,6 +21,8 @@ const COMPOSER_CANVAS_PT = 1024;
 const SVG_DENSITY = 300;
 const OUTPUT_DIRECTORY = "apps/mobile/assets";
 const PRODUCTION_BACKGROUND_COLOR = "#000000";
+// The desktop icon's plate: the mark's blue arcs vanish on the blueprint.
+const DEVELOPMENT_BACKGROUND_COLOR = "#132040";
 
 export class AndroidIconRenderError extends Schema.TaggedError<AndroidIconRenderError>()(
   "AndroidIconRenderError",
@@ -112,20 +114,6 @@ const renderMonochrome = Effect.fn("androidIcons.renderMonochrome")(function* (
   );
 });
 
-const renderDevelopmentBackground = Effect.fn("androidIcons.renderDevelopmentBackground")(
-  function* (repositoryRoot: string, size: number) {
-    const annotations = yield* readLayerSource(repositoryRoot, "dev", "annotations.svg");
-    const paper = yield* readLayerSource(repositoryRoot, "dev", "background.svg");
-    const background = yield* rasterize("dev-background", fullBleed(paper), size);
-    const overlay = yield* rasterize(
-      "dev-annotations",
-      canvasSvg(size, `<g transform="${wordmarkTransform(size)}">${svgBody(annotations)}</g>`),
-      size,
-    );
-    return yield* composite("dev-background", background, [{ input: overlay }]);
-  },
-);
-
 const renderNightlyBackground = Effect.fn("androidIcons.renderNightlyBackground")(function* (
   repositoryRoot: string,
   size: number,
@@ -179,7 +167,7 @@ const renderBackground = Effect.fn("androidIcons.renderBackground")(function* (
 ) {
   switch (variant) {
     case "dev":
-      return yield* renderDevelopmentBackground(repositoryRoot, size);
+      return yield* solidCanvas("dev-background", size, DEVELOPMENT_BACKGROUND_COLOR);
     case "nightly":
       return yield* renderNightlyBackground(repositoryRoot, size);
     case "prod":
@@ -202,10 +190,6 @@ const exportAndroidIcons = Effect.gen(function* () {
   const repositoryRoot = path.resolve(import.meta.dirname, "..");
   const outputs = [
     ["android-icon-foreground.png", yield* renderForeground(repositoryRoot, ADAPTIVE_CANVAS)],
-    [
-      "android-icon-background-dev.png",
-      yield* renderDevelopmentBackground(repositoryRoot, ADAPTIVE_CANVAS),
-    ],
     [
       "android-icon-background-nightly.png",
       yield* renderNightlyBackground(repositoryRoot, ADAPTIVE_CANVAS),
