@@ -35,6 +35,8 @@ export interface MediaJob {
   readonly id: string;
   readonly status: "queued" | "in_progress" | "completed" | "failed";
   readonly seconds: number | null;
+  /** As the gateway names it; null when its job does not say. */
+  readonly model: string | null;
   readonly costUsd: number | null;
   readonly error: string | null;
 }
@@ -229,6 +231,7 @@ function readJob(body: unknown, fallbackId?: string): MediaJob | null {
     id,
     status,
     seconds: numberOf(body.seconds) ?? numberOf(body.duration),
+    model: typeof body.model === "string" && body.model !== "" ? body.model : null,
     costUsd: numberOf(usage.cost) ?? numberOf(body.cost),
     error: status === "failed" ? (errorText ?? raw) : null,
   };

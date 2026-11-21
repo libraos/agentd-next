@@ -60,7 +60,7 @@ export const MediaToolkit = Toolkit.make(
   mediaTool("media_generate_video", {
     title: "Make a video",
     description:
-      "Make a video with the custom gateway and save it in this thread's workspace. Waits until it is done (up to 55 minutes); if it is still running, call `media_video_status` with the job id. Costs money on the gateway.",
+      "Make a video with the custom gateway and save it in this thread's workspace. Waits until it is done (up to 55 minutes); if it is still running, call `media_video_status` with the job id. Costs money on the gateway. A gateway can have several video models: when the person named none, list them and ask which, and say which model made the video.",
     parameters: GatewayMediaVideoInput,
     success: GatewayMediaJobResult,
     readonly: false,
@@ -75,7 +75,7 @@ export const MediaToolkit = Toolkit.make(
   mediaTool("media_generate_speech", {
     title: "Make speech",
     description:
-      "Turn text into speech with the custom gateway and save the audio in this thread's workspace.",
+      "Turn text into speech with the custom gateway and save the audio in this thread's workspace. Say which model made it.",
     parameters: GatewayMediaSpeechInput,
     success: GatewayMediaFileResult,
     readonly: false,
@@ -91,7 +91,7 @@ export const MediaToolkit = Toolkit.make(
   mediaTool("media_generate_audio", {
     title: "Make audio",
     description:
-      "Make music or sound effects with the custom gateway and save them in this thread's workspace. Not every gateway offers this.",
+      "Make music or sound effects with the custom gateway and save them in this thread's workspace. Not every gateway offers this. Say which model made it.",
     parameters: GatewayMediaAudioInput,
     success: GatewayMediaJobResult,
     readonly: false,

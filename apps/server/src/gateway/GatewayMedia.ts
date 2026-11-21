@@ -244,6 +244,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
     readonly extension: string;
     readonly outputPath: string | undefined;
     readonly seconds: number | undefined;
+    readonly model: string | undefined;
   }) {
     const job = yield* waitForJob(options.job, options.poll, {
       maxWait: MEDIA_MAX_WAIT,
@@ -252,6 +253,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
     const base = {
       jobId: job.id,
       seconds: job.seconds ?? options.seconds ?? null,
+      model: options.model ?? job.model,
       costUsd: job.costUsd,
       gateway: options.connection.name,
     };
@@ -273,6 +275,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
       dialect: "openai" | "openrouter",
     ) => Effect.Effect<MediaJob, GatewayMediaFailure>,
     seconds: number | undefined,
+    model: string | undefined,
   ) {
     const workspace = yield* workspaceOf(scope);
     const connection = yield* connectionOf(scope, requested.gateway);
@@ -292,6 +295,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
       extension: "mp4",
       outputPath: requested.outputPath,
       seconds,
+      model,
     });
   });
 
@@ -301,6 +305,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
       input,
       (connection, dialect) => withServices(submitVideo(connection, dialect, input)),
       input.seconds,
+      input.model,
     );
 
   const videoStatus: GatewayMedia["Service"]["videoStatus"] = (scope, input) =>
@@ -311,6 +316,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
         withServices(
           input.jobId === undefined ? latestVideo(connection) : pollVideo(connection, input.jobId),
         ),
+      undefined,
       undefined,
     );
 
@@ -332,6 +338,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
         extension: "mp3",
         outputPath: input.outputPath,
         seconds: input.seconds,
+        model: input.model,
       });
     },
   );
@@ -346,7 +353,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
         `speech-${yield* timestamp}.${input.format ?? "mp3"}`,
       );
       yield* withServices(requestSpeech(connection, input, file));
-      return { path: shown(workspace, file), gateway: connection.name };
+      return { path: shown(workspace, file), model: input.model, gateway: connection.name };
     },
   );
 
@@ -369,7 +376,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
           translate: input.translate,
         }),
       );
-      return { text, gateway: connection.name };
+      return { text, model: input.model, gateway: connection.name };
     },
   );
 

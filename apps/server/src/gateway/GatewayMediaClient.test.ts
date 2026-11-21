@@ -171,7 +171,7 @@ it.effect("the newest video stands in for a lost job id", () =>
       "GET /v1/videos": () =>
         Response.json({
           object: "list",
-          data: [{ id: "video_9", status: "completed", seconds: "3" }],
+          data: [{ id: "video_9", status: "completed", seconds: "3", model: "veo-fast" }],
           has_more: true,
         }),
     });
@@ -180,5 +180,6 @@ it.effect("the newest video stands in for a lost job id", () =>
     );
     assert.strictEqual(job.id, "video_9");
     assert.strictEqual(job.status, "completed");
+    assert.strictEqual(job.model, "veo-fast");
   }),
 );

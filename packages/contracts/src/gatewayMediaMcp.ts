@@ -17,7 +17,12 @@ const outputPath = Schema.optional(
 );
 
 const model = TrimmedNonEmptyString.annotate({
-  description: "Model id on the gateway; `media_list_models` lists them.",
+  description:
+    "Model id on the gateway; `media_list_models` lists them. When the person named none and more than one fits, ask them which before calling.",
+});
+
+const usedModel = Schema.String.annotate({
+  description: "The model that did this. Tell the person which it was.",
 });
 
 const seconds = Schema.Number.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(3600));
@@ -111,6 +116,7 @@ export const GatewayMediaJobResult = Schema.Struct({
   jobId: Schema.String,
   path: Schema.NullOr(Schema.String).annotate({ description: "Saved file, workspace-relative." }),
   seconds: Schema.NullOr(Schema.Number),
+  model: Schema.NullOr(usedModel),
   costUsd: Schema.NullOr(Schema.Number),
   gateway: Schema.String,
 });
@@ -118,12 +124,14 @@ export type GatewayMediaJobResult = typeof GatewayMediaJobResult.Type;
 
 export const GatewayMediaFileResult = Schema.Struct({
   path: Schema.String.annotate({ description: "Saved file, workspace-relative." }),
+  model: usedModel,
   gateway: Schema.String,
 });
 export type GatewayMediaFileResult = typeof GatewayMediaFileResult.Type;
 
 export const GatewayMediaTranscriptResult = Schema.Struct({
   text: Schema.String,
+  model: usedModel,
   gateway: Schema.String,
 });
 export type GatewayMediaTranscriptResult = typeof GatewayMediaTranscriptResult.Type;
