@@ -278,7 +278,7 @@ export function useTaskPlan({
     if (cloud.waiting)
       return { kind: "refused", reason: gt("Couldn’t reach AgentD to check Cloud Workers.") };
     if (!cloud.enabled) {
-      const current = await refreshBranch({ environmentId, input: { cwd, localOnly: true } });
+      const current = await refreshBranch({ environmentId, input: { cwd } });
       if (current._tag === "Failure") {
         return {
           kind: "failed",
