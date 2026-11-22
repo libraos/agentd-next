@@ -1256,6 +1256,8 @@
   "23eed587f1bef1a6": "Grok, Composer et Auto utilisent ce quota.",
   "d2becdc27390c92c": "Autres modèles",
   "3abbefc7732635ff": "Quota d’utilisation des modèles tiers comme Claude, GPT et Gemini.",
+  "aed729dfffe642dc": "Minutes de worker",
+  "ce2e22d775deb946": "{left, number} min restantes sur {included, number}",
   "7d72af75b2812d60": "{provider} sur {environment}",
   "bb34eaf6ddc55a72": "Ce compte n’a pas de limites d’abonnement.",
   "42a2622893a6bced": "Impossible de lire les limites.",

@@ -40,6 +40,7 @@ import {
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
+import { useLibraosLimitAccount } from "../agentd/useLibraosLimitAccount";
 import { formatResetsIn, resetCreditChoices } from "@t3tools/shared/usageLimitsCopy";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
@@ -253,6 +254,7 @@ export function LimitWindows({
             <WindowBar color={color} window={window} now={now} />
             <span className="flex items-center gap-2 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
               {pace ? <PaceIcon pace={pace} /> : null}
+              {window.amountText ? <span>{window.amountText}</span> : null}
               <span className="ms-auto shrink-0">{resetsIn ?? ""}</span>
             </span>
           </Fragment>
@@ -428,5 +430,12 @@ export function UsageLimitsSection({
       ];
     }),
   );
-  return <UsageLimitsPooled presentations={selected} now={now} />;
+  const libraos = useLibraosLimitAccount((id) => selected.get(id)?.entry.target.label ?? null);
+  return (
+    <UsageLimitsPooled
+      presentations={selected}
+      extraAccounts={libraos ? [libraos] : []}
+      now={now}
+    />
+  );
 }

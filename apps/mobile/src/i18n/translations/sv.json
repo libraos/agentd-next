@@ -1256,6 +1256,8 @@
   "23eed587f1bef1a6": "Grok, Composer och Auto använder den här kvoten.",
   "d2becdc27390c92c": "Andra modeller",
   "3abbefc7732635ff": "Användningskvot för tredjepartsmodeller som Claude, GPT och Gemini.",
+  "aed729dfffe642dc": "Workerminuter",
+  "ce2e22d775deb946": "{left, number} av {included, number} min kvar",
   "7d72af75b2812d60": "{provider} på {environment}",
   "bb34eaf6ddc55a72": "Det här kontot har inga prenumerationsgränser.",
   "42a2622893a6bced": "Kunde inte läsa gränser.",

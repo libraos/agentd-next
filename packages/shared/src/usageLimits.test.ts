@@ -25,8 +25,10 @@ import {
   paceRemainingPercent,
   usesChatGptSharing,
   resolveNewThreadModelSelection,
+  libraosLimitAccount,
+  nextLibraosReading,
 } from "./usageLimits.ts";
-import { collectLimitNotices } from "./usageLimitsCopy.ts";
+import { collectLimitNotices, libraosCopy } from "./usageLimitsCopy.ts";
 
 const now = Date.parse("2026-09-03T12:00:00.000Z");
 
@@ -209,6 +211,107 @@ describe("new thread model fallback", () => {
       ).toEqual(usesFallback ? fallback : defaultSelection);
     },
   );
+});
+
+describe("LibraOS account", () => {
+  const environment = { environmentId: EnvironmentId.make("env-1"), label: "Laptop" };
+  const setup = {
+    supported: true,
+    project: null,
+    balanceUsd: 8.5,
+    balanceText: null,
+    defaultBudget: null,
+    problem: null,
+  } as const;
+  const plan = {
+    name: "Team",
+    includedMinutes: 3600,
+    usedMinutes: 1800,
+    reservedMinutes: 200,
+    leftMinutes: 1600,
+    monthEndsAt: "2026-10-01T00:00:00Z",
+  };
+  const account = (next: Parameters<typeof nextLibraosReading>[1], previous = null) =>
+    libraosLimitAccount(nextLibraosReading(previous, next, now), environment, libraosCopy());
+
+  it("shows a plan as one monthly window with reserved minutes counted as used", () => {
+    expect(account({ ...setup, plan })).toEqual({
+      key: "env-1:libraos",
+      driver: "libraos",
+      displayName: "LibraOS",
+      email: undefined,
+      plan: "Team",
+      accentColor: undefined,
+      environments: [environment],
+      sourceLabel: null,
+      redeem: null,
+      creditUsd: 8.5,
+      limits: {
+        checkedAt: "2026-09-03T12:00:00.000Z",
+        windows: [
+          {
+            id: "libraos-worker-minutes",
+            kind: "monthly",
+            label: "Worker minutes",
+            usedPercent: (2000 / 3600) * 100,
+            resetsAt: "2026-10-01T00:00:00Z",
+            amountText: "1,600 of 3,600 min left",
+          },
+        ],
+      },
+    });
+    const pools = collectLimitPools([account({ ...setup, plan })!], now);
+    expect(pools.map((pool) => [pool.driver, pool.windows[0]?.remainingPercent])).toEqual([
+      ["libraos", 44],
+    ]);
+  });
+
+  it("shows only the credit without a plan or with a plan it cannot measure", () => {
+    for (const [shown, credit] of [
+      [{ ...setup }, 8.5],
+      [{ ...setup, plan: null }, 8.5],
+      [{ ...setup, plan: { ...plan, includedMinutes: 0 } }, 8.5],
+      [
+        {
+          ...setup,
+          balanceUsd: null,
+          plan: { ...plan, usedMinutes: null, reservedMinutes: null, leftMinutes: null },
+        },
+        null,
+      ],
+    ] as const) {
+      expect(account(shown)).toMatchObject({ creditUsd: credit, limits: { windows: [] } });
+    }
+  });
+
+  it("keeps the bar within 0 to 100 percent when usage passes the allowance", () => {
+    const over = account({
+      ...setup,
+      plan: { ...plan, name: null, usedMinutes: 4000, leftMinutes: null },
+    });
+    expect(over?.plan).toBeUndefined();
+    expect(over?.limits.windows[0]).toMatchObject({
+      usedPercent: 100,
+      amountText: "0 of 3,600 min left",
+    });
+  });
+
+  it("clears when signed out or agentd lacks cloud, and keeps the last reading when a read fails", () => {
+    const good = nextLibraosReading(null, { ...setup, plan }, now);
+    expect(nextLibraosReading(good, { ...setup, balanceUsd: null, problem: "setup" }, now)).toBe(
+      null,
+    );
+    expect(nextLibraosReading(good, { ...setup, supported: false }, now)).toBe(null);
+    for (const failed of [
+      null,
+      { ...setup, balanceUsd: null, problem: "balance" },
+      { ...setup, unreachable: true },
+      { ...setup, balanceUsd: null, balanceText: "not json" },
+    ] as const) {
+      expect(nextLibraosReading(good, failed, now + 60_000)).toBe(good);
+    }
+    expect(account({ ...setup, balanceUsd: null, problem: "balance" })).toBe(null);
+  });
 });
 
 describe("pace", () => {

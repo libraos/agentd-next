@@ -608,6 +608,17 @@ export const AgentdCloudSubscription = Schema.Struct({
   setupUnavailable: Schema.Boolean,
 });
 export type AgentdCloudSubscription = typeof AgentdCloudSubscription.Type;
+/** A plan account's worker minutes this month, as `agentd cloud balance` reports them. */
+export const AgentdCloudPlanUsage = Schema.Struct({
+  name: Schema.NullOr(Schema.String),
+  includedMinutes: Schema.NullOr(Schema.Number),
+  usedMinutes: Schema.NullOr(Schema.Number),
+  reservedMinutes: Schema.NullOr(Schema.Number),
+  leftMinutes: Schema.NullOr(Schema.Number),
+  /** RFC 3339; null when agentd didn't give a valid one. */
+  monthEndsAt: Schema.NullOr(Schema.String),
+});
+export type AgentdCloudPlanUsage = typeof AgentdCloudPlanUsage.Type;
 export const AgentdCloudSetup = Schema.Struct({
   supported: Schema.Boolean,
   /** agentd did not answer the cloud probe; whether it has Cloud Workers is unknown. */
@@ -623,6 +634,8 @@ export const AgentdCloudSetup = Schema.Struct({
   project: Schema.NullOr(Schema.String),
   balanceUsd: Schema.NullOr(Schema.Number),
   balanceText: Schema.NullOr(Schema.String),
+  /** Absent when the balance was not read or the account has no plan. */
+  plan: Schema.optionalKey(Schema.NullOr(AgentdCloudPlanUsage)),
   defaultBudget: Schema.NullOr(AgentdCloudBudget),
   problem: Schema.NullOr(Schema.Literals(["setup", "credit", "repository", "balance"])),
 });

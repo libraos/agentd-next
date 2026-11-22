@@ -148,6 +148,21 @@ export function useAgentdCloudAccount(target: EnvironmentId | null) {
   );
 }
 
+/** The cloud account for the Usage page, through the primary environment's agentd. */
+export function useAgentdCloudBalance() {
+  const environmentId = useAgentdEnvironment(undefined);
+  const query = useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : agentdEnvironment.cloudBalance({
+          environmentId,
+          input: { cwd: null, includeBalance: true },
+        }),
+    useMessages(),
+  );
+  return { environmentId, data: query.data, dataUpdatedAt: query.dataUpdatedAt };
+}
+
 export function useAgentdCloudSetup(
   cwd: string | null,
   target: EnvironmentId,

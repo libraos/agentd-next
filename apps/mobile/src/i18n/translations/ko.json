@@ -1256,6 +1256,8 @@
   "23eed587f1bef1a6": "Grok, Composer, Auto가 이 사용량을 사용합니다.",
   "d2becdc27390c92c": "기타 모델",
   "3abbefc7732635ff": "Claude, GPT, Gemini 등 타사 모델의 사용 한도입니다.",
+  "aed729dfffe642dc": "워커 사용 시간(분)",
+  "ce2e22d775deb946": "{included, number}분 중 {left, number}분 남음",
   "7d72af75b2812d60": "{environment}의 {provider}",
   "bb34eaf6ddc55a72": "이 계정에는 구독 한도가 없습니다.",
   "42a2622893a6bced": "한도를 읽을 수 없습니다.",
