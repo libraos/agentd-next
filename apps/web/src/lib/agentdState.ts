@@ -5,6 +5,7 @@ import {
   type AgentdTaskOthersInput,
   type AgentdTaskSize,
   type EnvironmentId,
+  type ProjectId,
 } from "@t3tools/contracts";
 import { useMessages } from "gt-react";
 
@@ -134,6 +135,33 @@ export function useAgentdCommands() {
     cloudKeyFileFix: useAtomCommand(agentdEnvironment.cloudKeyFileFix),
     repairServices: useAtomCommand(agentdEnvironment.repairServices),
     setWorkerGateway: useAtomCommand(agentdEnvironment.setWorkerGateway, { reportFailure: false }),
+  };
+}
+
+/** The catalogue's plugins and, for the project named, whether a send runs a before-send hook. */
+export function useAgentdPlugins(target: EnvironmentId | null, projectId?: ProjectId | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : agentdEnvironment.plugins({
+          environmentId,
+          input: projectId === null || projectId === undefined ? {} : { projectId },
+        }),
+    useMessages(),
+  );
+}
+
+/** Each fails with a message the caller shows beside the plugin or in the review. */
+export function useAgentdPluginCommands() {
+  const quiet = { reportFailure: false } as const;
+  return {
+    install: useAtomCommand(agentdEnvironment.pluginsInstall, quiet),
+    remove: useAtomCommand(agentdEnvironment.pluginsRemove, quiet),
+    setEnabled: useAtomCommand(agentdEnvironment.pluginsSetEnabled, quiet),
+    review: useAtomCommand(agentdEnvironment.beforeSendReview, quiet),
+    confirm: useAtomCommand(agentdEnvironment.beforeSendConfirm, quiet),
+    discard: useAtomCommand(agentdEnvironment.beforeSendDiscard, quiet),
   };
 }
 

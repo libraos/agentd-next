@@ -41,8 +41,44 @@ export function createAgentdEnvironmentAtoms<R, E>(
     tag: WS_METHODS.agentdInbox,
     staleTimeMs: 5_000,
   });
+  const plugins = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:agentd:plugins",
+    tag: WS_METHODS.agentdPluginsList,
+    staleTimeMs: 30_000,
+  });
   return {
     status,
+    plugins,
+    pluginsInstall: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-install",
+      tag: WS_METHODS.agentdPluginsInstall,
+      scheduler,
+    }),
+    pluginsRemove: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-remove",
+      tag: WS_METHODS.agentdPluginsRemove,
+      scheduler,
+    }),
+    pluginsSetEnabled: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-set-enabled",
+      tag: WS_METHODS.agentdPluginsSetEnabled,
+      scheduler,
+    }),
+    beforeSendReview: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-review",
+      tag: WS_METHODS.agentdBeforeSendReview,
+      scheduler,
+    }),
+    beforeSendConfirm: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-confirm",
+      tag: WS_METHODS.agentdBeforeSendConfirm,
+      scheduler,
+    }),
+    beforeSendDiscard: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-discard",
+      tag: WS_METHODS.agentdBeforeSendDiscard,
+      scheduler,
+    }),
     tasks: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:agentd:tasks",
       tag: WS_METHODS.agentdSubscribeTasks,

@@ -69,8 +69,12 @@ export const checkClientCommand = Effect.fn("beforeSendGate.checkClientCommand")
   const service = yield* plugins;
   if (Option.isNone(service) || (yield* AgentdPlugins.BeforeSendChecked)) return;
   if (command.type !== "message.dispatch" && command.type !== "queued-run.edit") return;
-  // A guest's message is checked at dispatch, where its text is known.
-  if (command.type === "message.dispatch" && command.guestMessageId !== undefined) return;
+  // A guest's message is checked at dispatch, where its text is known; a compaction is not a message.
+  if (
+    command.type === "message.dispatch" &&
+    (command.guestMessageId !== undefined || command.idleCompaction !== undefined)
+  )
+    return;
   if (yield* reads.hasReceipt(command.commandId)) return;
   const projectId = yield* reads.projectOf(command.threadId);
   if (projectId === null) return;
