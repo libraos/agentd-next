@@ -1,6 +1,3 @@
-import * as NodePath from "node:path";
-import * as NodeURL from "node:url";
-
 import { isCommandAvailable } from "@t3tools/shared/shell";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -21,12 +18,11 @@ const BUNDLED_CLI = [
 const SCRIPT = /\.(?:c|m)?js$/i;
 
 /** The shipped Pi's CLI script, or null when this build has none. */
-export const findBundledPiCli = Effect.fn("PiBinary.findBundledPiCli")(function* (
-  from: string = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)),
-) {
+export const findBundledPiCli = Effect.fn("PiBinary.findBundledPiCli")(function* (from?: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  let dir = from;
+  let dir =
+    from ?? path.dirname(yield* path.fromFileUrl(new URL(import.meta.url)).pipe(Effect.orDie));
   for (;;) {
     const candidate = path.join(dir, ...BUNDLED_CLI);
     if (yield* fs.exists(candidate).pipe(Effect.orElseSucceed(() => false))) return candidate;
