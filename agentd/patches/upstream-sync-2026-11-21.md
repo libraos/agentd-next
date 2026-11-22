@@ -16,6 +16,7 @@ Linked threads and the environments map, structured run output (`submit_output` 
 - **Web.** `ChatView.tsx` keeps the `showCodeSurfaces` gate around upstream's new panel props. `Sidebar.tsx` keeps the chat tab's `startChat` before upstream's scoped project ref. `ThreadDetailsPanel.tsx` keeps our single Environment section. `taskPlan.tsx` drops `localOnly`, which `refreshLocalStatusForPicker` now sets itself.
 - **Desktop.** `DesktopWslEnvironment.ts` is upstream's, with the runtime parent taken from `DESKTOP_HOME_DIRECTORY_NAME`. The version in `apps/desktop/package.json` stays ours.
 - **Deleted files upstream changed.** `.github/VOUCHED.td` and the `agent-context-budget`, `mobile-showcase-screenshots` and `release-desktop` workflows stay deleted.
+- **Tests.** Upstream's new tests are renamed the same way: `mcp__agentd-next__` in `evals/mcp-tool-use/run.test.ts` and `ProviderSessionManager.test.ts`, `agentd-desktop.service` in `bootService.test.ts`. `openPullRequestLink.browser.test.tsx` is ours again: upstream's new case opens a pull request from the Issues page, which the product profile hides.
 - **Translation catalogs.** Web and mobile: both sides merged, then regenerated. The three sentences renamed in this sync are translated in all nine locales.
 - **`agentContextBudget.json`.** Set to the values measured after the merge.
 

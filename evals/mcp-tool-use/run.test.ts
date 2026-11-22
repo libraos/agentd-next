@@ -1514,10 +1514,10 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       arm: "raw",
     });
     const names = (base: typeof tools) => base.t3.map((tool) => tool.name);
-    assert.include(names(tools), "mcp__t3-code__pull_request_read");
-    assert.notInclude(names(raw), "mcp__t3-code__pull_request_read");
-    assert.notInclude(names(raw), "mcp__t3-code__link_issue");
-    assert.include(names(raw), "mcp__t3-code__delegate_task");
+    assert.include(names(tools), "mcp__agentd-next__pull_request_read");
+    assert.notInclude(names(raw), "mcp__agentd-next__pull_request_read");
+    assert.notInclude(names(raw), "mcp__agentd-next__link_issue");
+    assert.include(names(raw), "mcp__agentd-next__delegate_task");
     assert.include(JSON.stringify(tools.system), "<pull_request_linking>");
     assert.notInclude(JSON.stringify(raw.system), "<pull_request_linking>");
 
@@ -1532,7 +1532,7 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
     const setup = { ...childCase.setup, role: "top" as const, priorTurns: [], world, mocks };
     const sample = makeSample({ ...childCase, setup }, tools);
     for (const name of ["pull_request_create", "pull_request_merge", "ci_rerun"]) {
-      sample.tools.push({ name: `mcp__t3-code__${name}` });
+      sample.tools.push({ name: `mcp__agentd-next__${name}` });
     }
     const config = {
       apiKey: "",
@@ -1545,7 +1545,7 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       answerToolCall(sample, config, {
         type: "tool_use",
         id,
-        name: `mcp__t3-code__${name}`,
+        name: `mcp__agentd-next__${name}`,
         input,
       });
     const create = { title: "Feature", body: "Body" };
@@ -1587,12 +1587,12 @@ it.effect("the raw arm drops T3's forge tools and text; both arms meet T3's refu
       },
     };
     const own = makeSample({ ...childCase, setup: ownSetup }, tools);
-    own.tools.push({ name: "mcp__t3-code__pull_request_merge" });
+    own.tools.push({ name: "mcp__agentd-next__pull_request_merge" });
     const merge = (id: string, expectedHeadSha: string) =>
       answerToolCall(own, config, {
         type: "tool_use",
         id,
-        name: "mcp__t3-code__pull_request_merge",
+        name: "mcp__agentd-next__pull_request_merge",
         input: { number: 8, expectedHeadSha },
       });
     assert.isTrue((yield* merge("o1", "fff0000")).is_error);
@@ -1636,7 +1636,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       const refused = yield* answerToolCall(sample, config, {
         type: "tool_use",
         id: "f",
-        name: "mcp__t3-code__request_secret",
+        name: "mcp__agentd-next__request_secret",
         input: { label: "Login", fields: [{ name: "password", label: "Password" }], ...extra },
       });
       assert.isTrue(refused.is_error);
@@ -1652,7 +1652,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
     const login = yield* answerToolCall(sample, config, {
       type: "tool_use",
       id: "g",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__agentd-next__request_secret",
       input: {
         label: "Login",
         fields: [
