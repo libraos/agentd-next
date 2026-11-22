@@ -107,6 +107,12 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdCloudSetup,
       staleTimeMs: 0,
     }),
+    // The Usage page's LibraOS account: read when it opens, at most once a minute.
+    cloudBalance: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:cloud-balance",
+      tag: WS_METHODS.agentdCloudSetup,
+      staleTimeMs: 60_000,
+    }),
     // The caller refreshes its own cloud setup reads: they are keyed by a working directory.
     cloudConfigure: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:cloud-configure",

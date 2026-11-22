@@ -3,6 +3,7 @@ import {
   collectLimitAccounts,
   collectLimitPools,
   displayLimitWindows,
+  LIBRAOS_DRIVER,
   type LimitAccount,
   type LimitPool,
   type LimitPoolMember,
@@ -11,10 +12,10 @@ import {
   remainingPercent,
   type ResetCreditChoice,
 } from "@t3tools/shared/usageLimits";
-import { T, useGT, useMessages } from "gt-react";
+import { T, useGT, useLocale, useMessages } from "gt-react";
 import type { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { normalizeProviderAccentColor } from "@t3tools/client-runtime/state/provider-instance-display";
-import { AlertTriangleIcon, ExternalLinkIcon, TicketIcon } from "lucide-react";
+import { AlertTriangleIcon, CloudIcon, ExternalLinkIcon, TicketIcon } from "lucide-react";
 import {
   createContext,
   Fragment,
@@ -622,6 +623,11 @@ function PoolWindowCard({
             {pool.pace ? <PaceIcon pace={pool.pace} /> : null}
           </span>
         </span>
+        {pool.members.length === 1 && pool.members[0]?.window.amountText ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {pool.members[0].window.amountText}
+          </span>
+        ) : null}
         {nextRefill && pool.columns.length > 1 ? (
           <span className="text-xs font-medium text-foreground tabular-nums">
             ↻ +{nextRefill.restoresPercent}%
@@ -636,21 +642,44 @@ function PoolWindowCard({
   );
 }
 
+function CreditLine({ accounts }: { readonly accounts: readonly LimitAccount[] }) {
+  const locale = useLocale();
+  const gt = useGT();
+  const credit = accounts.find((account) => account.creditUsd != null)?.creditUsd;
+  if (credit == null) return null;
+  return (
+    <p className="text-sm text-muted-foreground tabular-nums">
+      {gt("{credit} credit", {
+        credit: new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(
+          credit,
+        ),
+      })}
+    </p>
+  );
+}
+
 function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: number }) {
   const color = barColor(pool.driver);
-  const label = providerClients.get(pool.driver)?.label ?? String(pool.driver);
+  const libraos = pool.driver === LIBRAOS_DRIVER;
+  const label = libraos
+    ? "LibraOS"
+    : (providerClients.get(pool.driver)?.label ?? String(pool.driver));
   const windows = displayLimitWindows(pool);
   const m = useMessages();
   return (
     <section className="flex flex-col gap-3">
       <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
-        <ProviderInstanceIcon
-          driverKind={pool.driver}
-          displayName={label}
-          indicatorBackground="var(--background)"
-          className="size-5"
-          iconClassName="size-4 text-foreground/80"
-        />
+        {libraos ? (
+          <CloudIcon className="size-4 text-foreground/80" aria-hidden />
+        ) : (
+          <ProviderInstanceIcon
+            driverKind={pool.driver}
+            displayName={label}
+            indicatorBackground="var(--background)"
+            className="size-5"
+            iconClassName="size-4 text-foreground/80"
+          />
+        )}
         {label}
       </h2>
       {windows.map((window) => {
@@ -667,22 +696,26 @@ function PoolSection({ pool, now }: { readonly pool: LimitPool; readonly now: nu
           />
         );
       })}
+      {libraos ? <CreditLine accounts={pool.accounts} /> : null}
     </section>
   );
 }
 
 export function UsageLimitsPooled({
   presentations,
+  extraAccounts = [],
   now,
 }: {
   readonly presentations: Parameters<typeof collectLimitAccounts>[0];
+  /** Accounts that are not a provider's, such as LibraOS. */
+  readonly extraAccounts?: readonly LimitAccount[];
   readonly now: number;
 }) {
   const gt = useGT();
   const m = useMessages();
   const [segmentPopover] = useState(() => PopoverCreateHandle<SegmentPayload>());
   const segmentPopoverActions = useRef<PopoverPrimitive.Root.Actions | null>(null);
-  const pools = collectLimitPools(collectLimitAccounts(presentations), now);
+  const pools = collectLimitPools([...collectLimitAccounts(presentations), ...extraAccounts], now);
   const notices = collectLimitNotices(presentations, m);
   const externalLinks = collectExternalUsageLinks(presentations, m);
   return (

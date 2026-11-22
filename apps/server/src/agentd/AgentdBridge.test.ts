@@ -992,9 +992,56 @@ describe("AgentdBridge", () => {
         project: "fork-owner/its-fork",
         balanceUsd: 12.75,
         balanceText: null,
+        plan: null,
         defaultBudget: "30m,$5",
         problem: null,
       });
+      balance = output(
+        JSON.stringify({
+          available_usd: "8.50",
+          held_usd: "1.00",
+          plan: {
+            name: "Team",
+            worker_minutes_included: 3600,
+            worker_minutes_used: "1800",
+            worker_minutes_reserved: 200,
+            worker_minutes_left: 1600,
+            month_ends_at: "2026-12-01T00:00:00Z",
+          },
+        }),
+      );
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 8.5,
+        plan: {
+          name: "Team",
+          includedMinutes: 3600,
+          usedMinutes: 1800,
+          reservedMinutes: 200,
+          leftMinutes: 1600,
+          monthEndsAt: "2026-12-01T00:00:00Z",
+        },
+      });
+      // A malformed plan keeps the credit and drops only what can't be read.
+      balance = output(
+        '{"available_usd":2,"plan":{"worker_minutes_included":"lots","worker_minutes_used":-5,"month_ends_at":"soon"}}',
+      );
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 2,
+        plan: {
+          name: null,
+          includedMinutes: null,
+          usedMinutes: null,
+          reservedMinutes: null,
+          leftMinutes: null,
+          monthEndsAt: null,
+        },
+      });
+      balance = output('{"available_usd":2,"plan":"pro"}');
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 2,
+        plan: null,
+      });
+      balance = output('{"available_usd":"12.75","default_budget":"30m,$5"}');
       expect(
         yield* bridge.startTask({ ...input, cloud: { modelAccess: "libraos", budget: "$5" } }),
       ).toEqual({ id: "hof-abc123", started: true, note: null });
@@ -1067,7 +1114,7 @@ describe("AgentdBridge", () => {
       expect(runs.filter(({ args }) => args.includes("--help"))).toHaveLength(2);
       expect(
         runs.filter(({ args }) => args[0] === "remote").map((run) => [run.args, run.cwd]),
-      ).toEqual(Array.from({ length: 3 }, () => [["remote", "get-url", "--", "origin"], cwd]));
+      ).toEqual(Array.from({ length: 6 }, () => [["remote", "get-url", "--", "origin"], cwd]));
 
       const pastedKey = "sk-example-credential";
       yield* Effect.flip(

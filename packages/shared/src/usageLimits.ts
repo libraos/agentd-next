@@ -1,5 +1,8 @@
 import {
+  type AgentdCloudPlanUsage,
+  type AgentdCloudSetup,
   type EnvironmentId,
+  ProviderDriverKind,
   type ModelSelection,
   type ServerSettings,
   type ProjectId,
@@ -318,6 +321,86 @@ export interface LimitAccount {
     readonly input: ProviderConsumeResetCreditInput;
   } | null;
   readonly limits: ServerProviderUsageLimits;
+  /** A prepaid credit balance, shown as text beside the windows; only LibraOS reports one. */
+  readonly creditUsd?: number | null | undefined;
+}
+
+export const LIBRAOS_DRIVER = ProviderDriverKind.make("libraos");
+
+/** The last good read of the LibraOS account, from `agentd cloud balance`. */
+export interface LibraosReading {
+  readonly checkedAt: number;
+  readonly balanceUsd: number | null;
+  readonly plan: AgentdCloudPlanUsage | null;
+}
+
+/** Not signed in clears the reading; a failed or unanswered read keeps the last good one. */
+export function nextLibraosReading(
+  previous: LibraosReading | null,
+  setup: AgentdCloudSetup | null,
+  checkedAt: number,
+): LibraosReading | null {
+  if (setup === null || setup.unreachable === true) return previous;
+  if (!setup.supported || setup.problem === "setup") return null;
+  const plan = setup.plan ?? null;
+  if (setup.problem !== null || (setup.balanceUsd === null && plan === null)) return previous;
+  return { checkedAt, balanceUsd: setup.balanceUsd, plan };
+}
+
+function minutesWindow(
+  plan: AgentdCloudPlanUsage,
+  copy: LibraosCopy,
+): ServerProviderUsageWindow | null {
+  const included = plan.includedMinutes;
+  if (included === null || !(included > 0)) return null;
+  const { usedMinutes: used, reservedMinutes: reserved, leftMinutes: left } = plan;
+  const consumed =
+    used !== null || reserved !== null
+      ? (used ?? 0) + (reserved ?? 0)
+      : left !== null
+        ? included - left
+        : null;
+  if (consumed === null) return null;
+  const shownLeft = Math.min(included, Math.max(0, left ?? included - consumed));
+  return {
+    id: "libraos-worker-minutes",
+    kind: "monthly",
+    label: copy.windowLabel,
+    usedPercent: Math.min(100, Math.max(0, (consumed / included) * 100)),
+    ...(plan.monthEndsAt ? { resetsAt: plan.monthEndsAt } : {}),
+    amountText: copy.minutesLeft(shownLeft, included),
+  };
+}
+
+export interface LibraosCopy {
+  readonly windowLabel: string;
+  readonly minutesLeft: (left: number, included: number) => string;
+}
+
+/** The LibraOS account as a usage row: one monthly window for a plan, and the credit balance. */
+export function libraosLimitAccount(
+  reading: LibraosReading | null,
+  environment: { readonly environmentId: EnvironmentId; readonly label: string },
+  copy: LibraosCopy,
+): LimitAccount | null {
+  if (reading === null) return null;
+  const window = reading.plan ? minutesWindow(reading.plan, copy) : null;
+  return {
+    key: `${environment.environmentId}:libraos`,
+    driver: LIBRAOS_DRIVER,
+    displayName: "LibraOS",
+    email: undefined,
+    plan: reading.plan?.name ?? undefined,
+    accentColor: undefined,
+    environments: [environment],
+    sourceLabel: null,
+    redeem: null,
+    limits: {
+      checkedAt: DateTime.formatIso(DateTime.makeUnsafe(reading.checkedAt)),
+      windows: window ? [window] : [],
+    },
+    creditUsd: reading.balanceUsd,
+  };
 }
 
 export function collectLimitAccounts(presentations: LimitPresentations): readonly LimitAccount[] {

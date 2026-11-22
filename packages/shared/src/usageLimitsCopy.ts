@@ -11,6 +11,7 @@ import {
   collectExternalUsageLinks as collectExternalUsageLinksWith,
   cursorUsageWindowDetails as cursorUsageWindowDetailsBase,
   type LimitPool,
+  type LibraosCopy,
   type LimitPresentations,
   providersWithLimits,
   type ResetCreditChoice,
@@ -38,6 +39,20 @@ const CURSOR_USAGE_WINDOW_COPY: Readonly<
     description: msg("Usage allowance for third-party models such as Claude, GPT, and Gemini."),
   },
 };
+
+/** English unless a resolver is given; numbers are grouped for the resolver's locale. */
+export function libraosCopy(resolve: MFunctionType = mFallback): LibraosCopy {
+  return {
+    windowLabel: resolve(msg("Worker minutes", { $context: "LibraOS monthly plan allowance" })),
+    minutesLeft: (left, included) =>
+      resolve(
+        msg("{left, number} of {included, number} min left", {
+          left: Math.round(left),
+          included: Math.round(included),
+        }),
+      ),
+  };
+}
 
 /** @public */
 export function cursorUsageWindowDetails(

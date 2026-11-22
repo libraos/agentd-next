@@ -5,6 +5,7 @@ import {
   type AgentdCloudConfigureInput,
   type AgentdCloudConfigured,
   type AgentdCloudPlanState,
+  type AgentdCloudPlanUsage,
   type AgentdCloudSetup,
   type AgentdCloudSubscription,
   type AgentdCloudSetupInput,
@@ -48,6 +49,17 @@ const balanceDetails = Schema.decodeUnknownOption(
     available_usd: Schema.optionalKey(Schema.Unknown),
     balance_usd: Schema.optionalKey(Schema.Unknown),
     default_budget: Schema.optionalKey(Schema.Unknown),
+    plan: Schema.optionalKey(Schema.Unknown),
+  }),
+);
+const planDetails = Schema.decodeUnknownOption(
+  Schema.Struct({
+    name: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_included: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_used: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_reserved: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_left: Schema.optionalKey(Schema.Unknown),
+    month_ends_at: Schema.optionalKey(Schema.Unknown),
   }),
 );
 const offerReceipt = Schema.decodeUnknownOption(
@@ -124,6 +136,29 @@ function configText(stdout: string): string | null {
 function usdAmount(value: unknown): number | null {
   const usd = typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : value;
   return typeof usd === "number" && Number.isFinite(usd) ? usd : null;
+}
+
+function minutes(value: unknown): number | null {
+  const amount = usdAmount(value);
+  return amount !== null && amount >= 0 ? amount : null;
+}
+
+/** A plan account's `plan` object; null for an account without one or one that isn't an object. */
+function planUsage(value: unknown): AgentdCloudPlanUsage | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const decoded = planDetails(value);
+  if (decoded._tag === "None") return null;
+  const plan = decoded.value;
+  const ends = plan.month_ends_at;
+  const name = typeof plan.name === "string" && plan.name.trim() !== "" ? plan.name.trim() : null;
+  return {
+    name,
+    includedMinutes: minutes(plan.worker_minutes_included),
+    usedMinutes: minutes(plan.worker_minutes_used),
+    reservedMinutes: minutes(plan.worker_minutes_reserved),
+    leftMinutes: minutes(plan.worker_minutes_left),
+    monthEndsAt: typeof ends === "string" && !Number.isNaN(Date.parse(ends)) ? ends : null,
+  };
 }
 
 /** `today` is YYYY-MM-DD: an expiry before it is not valid, whatever else agentd said. */
@@ -226,6 +261,7 @@ function readBalance(stdout: string) {
   return {
     ...emptySetup,
     balanceUsd,
+    plan: details._tag === "Some" ? planUsage(details.value.plan) : null,
     defaultBudget:
       details._tag === "Some" && isCloudTask(details.value.default_budget)
         ? details.value.default_budget
