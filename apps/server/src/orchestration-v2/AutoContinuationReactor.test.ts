@@ -64,6 +64,7 @@ type ItemInput =
   | { readonly type: "tool"; readonly output?: string }
   | { readonly type: "stop" }
   | { readonly type: "question" }
+  | { readonly type: "approval" }
   | { readonly type: "usage_limit" };
 
 const setup = Effect.gen(function* () {
@@ -163,6 +164,14 @@ const endLatestRun = (
             type: "user_input_request",
             requestId: RuntimeRequestId.make(`request:${run.id}`),
             questions: [],
+          };
+        case "approval":
+          return {
+            ...base(index),
+            status: "waiting",
+            type: "approval_request",
+            requestId: RuntimeRequestId.make(`approval:${run.id}`),
+            requestKind: "command",
           };
         case "usage_limit":
           return {
@@ -371,6 +380,12 @@ it.effect.each([
     items: [{ type: "question" }, { type: "assistant", text: REMAINING }],
     status: "completed",
     says: "waiting for your answer",
+  },
+  {
+    name: "the turn waits for an approval",
+    items: [{ type: "approval" }, { type: "assistant", text: REMAINING }],
+    status: "completed",
+    says: "waiting for your answer, approval or input",
   },
   {
     name: "the agent names a blocker",
