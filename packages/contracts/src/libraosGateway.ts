@@ -11,6 +11,7 @@ export const LIBRAOS_GATEWAY_INSTANCE_IDS = {
   claude: "libraosClaude",
   codex: "libraosCodex",
   opencode: "libraosOpencode",
+  pi: "libraosPi",
 } as const;
 
 export const isLibraosGatewayInstanceId = (instanceId: string): boolean =>

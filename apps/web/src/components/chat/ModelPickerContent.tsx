@@ -8,6 +8,7 @@ import {
   type ResolvedKeybindingsConfig,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
   customGatewayIdOfInstance,
+  isGatewayInstanceId,
   isManagedDriverAllowed,
   isProviderDriverOffered,
 } from "@t3tools/contracts";
@@ -378,6 +379,9 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const instanceEntries = props.instanceEntries.filter(
     (entry) =>
       isProviderDriverOffered(managedPolicy, showOtherAgents, entry.driverKind) ||
+      // A connected gateway's agents (Pi among them) were asked for, whatever discovery offers.
+      (isGatewayInstanceId(entry.instanceId) &&
+        isManagedDriverAllowed(managedPolicy, entry.driverKind)) ||
       (entry.instanceId === props.activeInstanceId &&
         entry.driverKind === props.lockedProvider &&
         isManagedDriverAllowed(managedPolicy, entry.driverKind)),

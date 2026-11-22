@@ -23,6 +23,7 @@ const agents: ReadonlyArray<{ readonly id: CustomGatewayAgent; readonly label: s
   { id: "claude", label: "Claude Code" },
   { id: "codex", label: "Codex" },
   { id: "opencode", label: "opencode" },
+  { id: "pi", label: "Pi" },
 ];
 
 /** Add a gateway by URL: its agents appear in the model picker under the name it is given. */

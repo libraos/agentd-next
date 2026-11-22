@@ -6,7 +6,7 @@ An IDE for working with coding agents. You chat with an agent, work on a project
 
 ## Is AgentD Next a harness?
 
-No. A harness is what turns a model into an agent: it gives the model tools, runs them and hands the results back. Claude Code, Codex and opencode are harnesses. AgentD Next starts the harness you already use and shows its work; it does not work without one.
+No. A harness is what turns a model into an agent: it gives the model tools, runs them and hands the results back. Claude Code, Codex and opencode are harnesses. AgentD Next starts the harness you already use and shows its work. With none installed, it runs the Pi it ships through a gateway you connect.
 
 Supported: Claude Code, Codex, Cursor, Grok Build, OpenCode, Google Antigravity, Kiro, Pi, Muse Code, fx, and agents from the ACP Registry. [Provider setup](./install.md#providers)
 

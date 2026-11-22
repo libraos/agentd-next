@@ -29,6 +29,7 @@ import {
   type ProviderInstanceConfig,
   type ProviderInstanceId,
   type ServerProvider,
+  isGatewayInstanceId,
   isProviderDriverOffered,
   resolveEnvironmentMachineKind,
   resolveProjectProviderInstanceEnabled,
@@ -811,7 +812,7 @@ export function EnvironmentProviderSettings({
   >();
   for (const [rawId, instance] of Object.entries(settings.providerInstances ?? {})) {
     const driver = instance.driver;
-    if (rawId !== targetInstanceId && !isOffered(driver)) continue;
+    if (rawId !== targetInstanceId && !isOffered(driver) && !isGatewayInstanceId(rawId)) continue;
     const list = instancesByDriver.get(driver) ?? [];
     list.push([rawId as ProviderInstanceId, instance]);
     instancesByDriver.set(driver, list);

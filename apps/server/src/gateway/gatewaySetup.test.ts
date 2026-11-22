@@ -9,6 +9,10 @@ import {
   gatewayProviderInstances,
   GATEWAY_INSTANCE_IDS,
   gatewayRefusal,
+  customGatewayModels,
+  customPiTarget,
+  LIBRAOS_PI_TARGET,
+  piGatewayFiles,
   withCustomGateway,
   withGatewayModels,
 } from "./gatewaySetup.ts";
@@ -42,6 +46,7 @@ const customGateway = {
   format: "openai" as const,
   key: "k1" as string | null,
   models: [{ id: "gpt-x" }],
+  piAgentDir: "/state/pi-gateway/gw-a1-pi",
 };
 
 describe("gatewaySetup", () => {
@@ -61,13 +66,17 @@ describe("gatewaySetup", () => {
   });
 
   it("lists every key model on both agents, the agent's own family first, and keeps the key out of plain values", () => {
-    const [claude, codex, opencode] = gatewayProviderInstances("lk_test_key_123456", [
-      { id: "anthropic/claude-opus-5-5", name: "Claude Opus 5.5" },
-      { id: "openai/gpt-5.5" },
-      { id: "google/gemini-3" },
-      { id: "gemini/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-      { id: "Qwen/Qwen3.5-Plus" },
-    ]);
+    const [claude, codex, opencode] = gatewayProviderInstances(
+      "lk_test_key_123456",
+      [
+        { id: "anthropic/claude-opus-5-5", name: "Claude Opus 5.5" },
+        { id: "openai/gpt-5.5" },
+        { id: "google/gemini-3" },
+        { id: "gemini/gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+        { id: "Qwen/Qwen3.5-Plus" },
+      ],
+      "/pi",
+    );
     // The own family drops its prefix to keep its catalog entry, and its full id is a row too
     // (options from that entry); the rest keep the Gateway's id.
     expect(claude?.instance.config).toEqual({
@@ -126,7 +135,10 @@ describe("gatewaySetup", () => {
       { id: "claude-opus-5-5" },
     ];
     const initial = Object.fromEntries(
-      gatewayProviderInstances(key, both).map(({ instanceId, instance }) => [instanceId, instance]),
+      gatewayProviderInstances(key, both, "/pi").map(({ instanceId, instance }) => [
+        instanceId,
+        instance,
+      ]),
     );
     const entries = (config: unknown) =>
       readCustomModelEntries((config as { customModels?: unknown } | undefined)?.customModels).map(
@@ -159,7 +171,7 @@ describe("gatewaySetup", () => {
       { id: "gemini/gemini-2.5-pro" },
     ];
     const current = Object.fromEntries(
-      gatewayProviderInstances(key, before)
+      gatewayProviderInstances(key, before, "/pi")
         .filter(({ instanceId }) => instanceId !== "libraosOpencode")
         .map(({ instanceId, instance }) => [instanceId, instance]),
     );
@@ -214,16 +226,20 @@ describe("gatewaySetup", () => {
   });
 
   it("offers Claude Code only the ids it sends as they are", () => {
-    const [claude, codex] = gatewayProviderInstances("lk_test_key_123456", [
-      { id: "anthropic/opusplan" },
-      { id: "anthropic/opus" },
-      { id: "anthropic/claude-opus-4-1" },
-      { id: "best" },
-      { id: "default" },
-      { id: "Sonnet" },
-      { id: "haiku" },
-      { id: "gemini/gemini-2.5-pro[1m]" },
-    ]);
+    const [claude, codex] = gatewayProviderInstances(
+      "lk_test_key_123456",
+      [
+        { id: "anthropic/opusplan" },
+        { id: "anthropic/opus" },
+        { id: "anthropic/claude-opus-4-1" },
+        { id: "best" },
+        { id: "default" },
+        { id: "Sonnet" },
+        { id: "haiku" },
+        { id: "gemini/gemini-2.5-pro[1m]" },
+      ],
+      "/pi",
+    );
     // No legacy remap (`claude-opus-4-1` to the current Opus), no fallback to another model.
     expect(
       claude?.instance.environment?.filter(({ name }) => name.startsWith("CLAUDE_CODE_")),
@@ -258,7 +274,7 @@ describe("gatewaySetup", () => {
 
   it("gives opencode the new list without touching its other variables", () => {
     const key = "lk_test_key_123456";
-    const opencode = gatewayProviderInstances(key, [{ id: "openai/gpt-5.5" }]).find(
+    const opencode = gatewayProviderInstances(key, [{ id: "openai/gpt-5.5" }], "/pi").find(
       ({ instanceId }) => instanceId === "libraosOpencode",
     )!.instance;
     const proxy = { name: "HTTPS_PROXY", value: "http://proxy:3128", sensitive: false };
@@ -303,9 +319,11 @@ describe("gatewaySetup", () => {
   });
 
   it("limits agents connected before #117 to the models they already list", () => {
-    const { onlyCustomModels: _flag, ...config } = gatewayProviderInstances("lk_test_key_123456", [
-      { id: "openai/gpt-5.5" },
-    ]).find(({ instanceId }) => instanceId === "libraosCodex")!.instance.config as Record<
+    const { onlyCustomModels: _flag, ...config } = gatewayProviderInstances(
+      "lk_test_key_123456",
+      [{ id: "openai/gpt-5.5" }],
+      "/pi",
+    ).find(({ instanceId }) => instanceId === "libraosCodex")!.instance.config as Record<
       string,
       unknown
     >;
@@ -334,7 +352,11 @@ describe("gatewaySetup", () => {
 
   it("openai format builds codex and opencode with one /v1", () => {
     const entries = customGatewayInstances(customGateway);
-    expect(entries.map(({ instanceId }) => instanceId)).toEqual(["gw-a1-codex", "gw-a1-opencode"]);
+    expect(entries.map(({ instanceId }) => instanceId)).toEqual([
+      "gw-a1-codex",
+      "gw-a1-opencode",
+      "gw-a1-pi",
+    ]);
     const [codex] = entries;
     expect(codex?.instance.displayName).toBe("Codex · My GW");
     expect(codex?.instance.environment).toEqual([
@@ -425,6 +447,81 @@ describe("gatewaySetup", () => {
     );
     expect(opencode.provider.gw_a1.name).toBe("Work");
     expect(Object.keys(opencode.provider.gw_a1.models)).toEqual(["gpt-x"]);
+    expect(next[ProviderInstanceId.make("gw-a1-pi")]?.displayName).toBe("Pi · Work");
+    expect(next[ProviderInstanceId.make("gw-a1-pi")]?.environment).toEqual(
+      current[ProviderInstanceId.make("gw-a1-pi")]?.environment,
+    );
     expect(withCustomGateway(next, renamed, null)).toBe(next);
+  });
+
+  it("a gateway with only its Pi agent keeps its list there, and a new list reaches it", () => {
+    const current = Object.fromEntries(
+      customGatewayInstances(customGateway)
+        .filter(({ instanceId }) => instanceId === "gw-a1-pi")
+        .map(({ instanceId, instance }) => [instanceId, instance]),
+    );
+    expect(customGatewayModels(current, "a1")).toEqual([{ id: "gpt-x" }]);
+    const next = withCustomGateway(current, customGateway, [{ id: "gpt-y", name: "Y" }]);
+    expect(next[ProviderInstanceId.make("gw-a1-pi")]?.config).toEqual({
+      customModels: [{ slug: "gw_a1/gpt-y", name: "Y" }],
+    });
+    expect(customGatewayModels(next, "a1")).toEqual([{ id: "gpt-y", name: "Y" }]);
+  });
+
+  it("an Anthropic-format gateway gets no Pi agent", () => {
+    const entries = customGatewayInstances({ ...customGateway, format: "anthropic" });
+    expect(entries.map(({ instanceId }) => instanceId)).not.toContain("gw-a1-pi");
+  });
+});
+
+describe("piGatewayFiles", () => {
+  const models = [{ id: "openai/gpt-5.5" }, { id: "anthropic/claude-opus-5-5", name: "Opus" }];
+
+  it("makes the gateway Pi's only provider, the key named by its variable", () => {
+    const files = piGatewayFiles(LIBRAOS_PI_TARGET, models, undefined);
+    expect(JSON.parse(files.models)).toEqual({
+      providers: {
+        libraos: {
+          baseUrl: "https://api.libraos.com/v1",
+          api: "openai-completions",
+          apiKey: "$LIBRAOS_API_KEY",
+          models: [{ id: "openai/gpt-5.5" }, { id: "anthropic/claude-opus-5-5", name: "Opus" }],
+        },
+      },
+    });
+    expect(JSON.parse(files.settings)).toEqual({
+      defaultProvider: "libraos",
+      defaultModel: "anthropic/claude-opus-5-5",
+    });
+  });
+
+  it("a keyless custom gateway gets a placeholder key and its own /v1 base", () => {
+    const target = customPiTarget({ id: "a1", url: "http://localhost:4000/v1/" }, false);
+    const provider = JSON.parse(piGatewayFiles(target, models, undefined).models).providers.gw_a1;
+    expect(provider.baseUrl).toBe("http://localhost:4000/v1");
+    expect(provider.apiKey).toBe("none");
+  });
+
+  it("keeps what Pi saved and its model while the gateway still serves it", () => {
+    const saved = JSON.stringify({
+      defaultProvider: "libraos",
+      defaultModel: "openai/gpt-5.5",
+      theme: "dark",
+    });
+    expect(JSON.parse(piGatewayFiles(LIBRAOS_PI_TARGET, models, saved).settings)).toEqual({
+      defaultProvider: "libraos",
+      defaultModel: "openai/gpt-5.5",
+      theme: "dark",
+    });
+    const gone = piGatewayFiles(LIBRAOS_PI_TARGET, [{ id: "openai/gpt-6" }], saved);
+    expect(JSON.parse(gone.settings)).toEqual({
+      defaultProvider: "libraos",
+      defaultModel: "openai/gpt-6",
+      theme: "dark",
+    });
+    expect(JSON.parse(piGatewayFiles(LIBRAOS_PI_TARGET, models, "{not json").settings)).toEqual({
+      defaultProvider: "libraos",
+      defaultModel: "anthropic/claude-opus-5-5",
+    });
   });
 });

@@ -31,6 +31,7 @@ export const GATEWAY_INSTANCE_IDS = {
   claude: ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.claude),
   codex: ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.codex),
   opencode: ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.opencode),
+  pi: ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.pi),
 } as const;
 
 /** A trimmed key of the shape Console issues, or why it is not one. */
@@ -165,8 +166,8 @@ const codexConfigArg = (key: string, value: string) => `-c '${key}=${tomlString(
 type GatewayAgent = "claude" | "codex";
 
 /** Where a gateway's instances point and how they authenticate; one per gateway. */
-interface GatewayShape {
-  readonly ids: Readonly<Record<GatewayAgent | "opencode", ProviderInstanceId>>;
+interface GatewayShape extends PiGatewayTarget {
+  readonly ids: Readonly<Record<GatewayAgent | "opencode" | "pi", ProviderInstanceId>>;
   /** The provider id in Codex's and opencode's config. */
   readonly providerId: string;
   readonly name: string;
@@ -177,8 +178,10 @@ interface GatewayShape {
   /** The variable Codex and opencode read the key from; null when the gateway takes none. */
   readonly keyEnv: string | null;
   readonly opencodeNpm: string;
-  /** The agents besides opencode that speak the gateway's format. */
+  /** The agents besides opencode and Pi that speak the gateway's format. */
   readonly agents: ReadonlyArray<GatewayAgent>;
+  /** Pi speaks the gateway's format (OpenAI's). */
+  readonly pi: boolean;
   /** A rename rewrites the provider name inside opencode's config. */
   readonly renamable: boolean;
   /** Variables set to "1" for Claude Code, added to agents connected before they existed. */
@@ -198,6 +201,7 @@ const LIBRAOS_SHAPE: GatewayShape = {
   keyEnv: KEY_ENV,
   opencodeNpm: "@ai-sdk/openai-compatible",
   agents: ["claude", "codex"],
+  pi: true,
   renamable: false,
   claudeEnvironment: CLAUDE_CODE_KEEP_MODEL,
   // Every key model runs on both agents, by the rules of `gatewayAgentModels`.
@@ -243,6 +247,76 @@ function opencodeGatewayConfig(
   });
 }
 
+/** Where Pi sends a gateway's requests: its own provider in models.json, the only one there. */
+export interface PiGatewayTarget {
+  readonly providerId: string;
+  /** Ending in `/v1`. */
+  readonly base: string;
+  /** The variable the key is read from; null when the gateway takes none. */
+  readonly keyEnv: string | null;
+}
+
+/** Pi reads models.json and settings.json from here instead of ~/.pi/agent. */
+const PI_AGENT_DIR_ENV = "PI_CODING_AGENT_DIR";
+
+/** Pi's slug for a gateway model is `<provider>/<id>`; listing them shows a refresh at once. */
+const piGatewayModels = (target: PiGatewayTarget, models: ReadonlyArray<LibraosGatewayModel>) =>
+  models.map((model) => ({
+    slug: `${target.providerId}/${model.id}`,
+    ...(model.name ? { name: model.name } : {}),
+  }));
+
+/**
+ * The files of a gateway's Pi agent directory. models.json names the key's variable, never the
+ * key. settings.json keeps what Pi wrote there and points its default model at the gateway's when
+ * the one it has is gone.
+ */
+export function piGatewayFiles(
+  target: PiGatewayTarget,
+  models: ReadonlyArray<LibraosGatewayModel>,
+  currentSettings: string | undefined,
+): { readonly models: string; readonly settings: string } {
+  const modelsJson = {
+    providers: {
+      [target.providerId]: {
+        baseUrl: target.base,
+        api: "openai-completions",
+        // Pi will not use a provider without a key; a keyless gateway ignores this one.
+        apiKey: target.keyEnv === null ? "none" : `$${target.keyEnv}`,
+        models: models.map((model) => ({
+          id: model.id,
+          ...(model.name ? { name: model.name } : {}),
+        })),
+      },
+    },
+  };
+  let parsed: unknown;
+  try {
+    parsed = currentSettings === undefined ? undefined : JSON.parse(currentSettings);
+  } catch {
+    parsed = undefined;
+  }
+  const settings: Record<string, unknown> = isRecord(parsed) ? { ...parsed } : {};
+  const kept =
+    settings.defaultProvider === target.providerId &&
+    models.some((model) => model.id === settings.defaultModel);
+  const first = models.find((model) => model.id.startsWith("anthropic/")) ?? models[0];
+  if (!kept && first !== undefined) {
+    settings.defaultProvider = target.providerId;
+    settings.defaultModel = first.id;
+  }
+  return {
+    models: `${JSON.stringify(modelsJson, null, 2)}\n`,
+    settings: `${JSON.stringify(settings, null, 2)}\n`,
+  };
+}
+
+export const LIBRAOS_PI_TARGET: PiGatewayTarget = {
+  providerId: PROVIDER_ID,
+  base: `${LIBRAOS_GATEWAY_ORIGIN}/v1`,
+  keyEnv: KEY_ENV,
+};
+
 const secret = (name: string, value: string) => ({ name, value, sensitive: true });
 const plain = (name: string, value: string) => ({ name, value, sensitive: false });
 
@@ -255,6 +329,7 @@ function shapeInstances(
   shape: GatewayShape,
   key: string | null,
   models: ReadonlyArray<LibraosGatewayModel>,
+  piAgentDir: string,
 ): GatewayInstances {
   const keyVariable = shape.keyEnv !== null && key !== null ? [secret(shape.keyEnv, key)] : [];
   const agents: Record<GatewayAgent, ProviderInstanceConfig> = {
@@ -298,13 +373,29 @@ function shapeInstances(
         config: { enabled: true },
       },
     },
+    ...(shape.pi
+      ? [
+          {
+            instanceId: shape.ids.pi,
+            instance: {
+              driver: ProviderDriverKind.make("pi"),
+              displayName: `Pi · ${shape.name}`,
+              enabled: true,
+              environment: [...keyVariable, plain(PI_AGENT_DIR_ENV, piAgentDir)],
+              config: { customModels: piGatewayModels(shape, models) },
+            },
+          },
+        ]
+      : []),
   ];
 }
 
+/** `piAgentDir` is the directory the server keeps for the Pi agent's models.json. */
 export const gatewayProviderInstances = (
   key: string,
   models: ReadonlyArray<LibraosGatewayModel>,
-): GatewayInstances => shapeInstances(LIBRAOS_SHAPE, key, models);
+  piAgentDir: string,
+): GatewayInstances => shapeInstances(LIBRAOS_SHAPE, key, models, piAgentDir);
 
 const CUSTOM_KEY_ENV = "CUSTOM_GATEWAY_API_KEY";
 const CUSTOM_ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -322,6 +413,7 @@ export const customGatewayInstanceIds = (id: string) => ({
   claude: ProviderInstanceId.make(`gw-${id}-claude`),
   codex: ProviderInstanceId.make(`gw-${id}-codex`),
   opencode: ProviderInstanceId.make(`gw-${id}-opencode`),
+  pi: ProviderInstanceId.make(`gw-${id}-pi`),
 });
 
 /** The URL as entered without trailing slashes, which is also the name a gateway gets by default. */
@@ -347,6 +439,8 @@ function customShape(gateway: Omit<CustomGatewayInput, "key">, hasKey: boolean):
     keyEnv: hasKey ? CUSTOM_KEY_ENV : null,
     opencodeNpm: gateway.format === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible",
     agents: [gateway.format === "anthropic" ? "claude" : "codex"],
+    // Pi's anthropic-messages API would serve the other format; untested, so not offered yet.
+    pi: gateway.format === "openai",
     renamable: true,
     claudeEnvironment: [],
     // A custom gateway's ids are what its agents ask for, as given.
@@ -354,6 +448,18 @@ function customShape(gateway: Omit<CustomGatewayInput, "key">, hasKey: boolean):
       models.map((model) => ({ slug: model.id, ...(model.name ? { name: model.name } : {}) })),
   };
 }
+
+/** The Pi target of a custom gateway, `hasKey` when it keeps a key. */
+export const customPiTarget = (
+  gateway: Pick<CustomGatewayInput, "id" | "url">,
+  hasKey: boolean,
+): PiGatewayTarget => {
+  const { providerId, base, keyEnv } = customShape(
+    { ...gateway, name: "", format: "openai" },
+    hasKey,
+  );
+  return { providerId, base, keyEnv };
+};
 
 const GATEWAY_ACCENT_COLORS = [
   "#2563eb",
@@ -375,9 +481,17 @@ export function nextGatewayAccentColor(current: ProviderInstanceConfigMap): stri
 }
 
 export const customGatewayInstances = (
-  gateway: CustomGatewayInput & { readonly models: ReadonlyArray<LibraosGatewayModel> },
+  gateway: CustomGatewayInput & {
+    readonly models: ReadonlyArray<LibraosGatewayModel>;
+    readonly piAgentDir: string;
+  },
 ): GatewayInstances =>
-  shapeInstances(customShape(gateway, gateway.key !== null), gateway.key, gateway.models);
+  shapeInstances(
+    customShape(gateway, gateway.key !== null),
+    gateway.key,
+    gateway.models,
+    gateway.piAgentDir,
+  );
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -466,6 +580,21 @@ export function customGatewayModels(
         : [],
     );
   }
+  // Pi's slugs carry its provider id in front of the gateway's.
+  const pi = current[ids.pi]?.config;
+  if (isRecord(pi) && Array.isArray(pi.customModels)) {
+    const prefix = `gw_${id}/`;
+    return pi.customModels.flatMap((model: unknown) =>
+      isRecord(model) && typeof model.slug === "string" && model.slug.startsWith(prefix)
+        ? [
+            {
+              id: model.slug.slice(prefix.length),
+              ...(typeof model.name === "string" ? { name: model.name } : {}),
+            },
+          ]
+        : [],
+    );
+  }
   // A gateway with opencode alone keeps its list in opencode's inline config.
   const inline = current[ids.opencode]?.environment?.find(
     (variable) => variable.name === OPENCODE_CONFIG_ENV,
@@ -490,7 +619,7 @@ export function withCustomGateway(
 ): ProviderInstanceConfigMap {
   const ids = customGatewayInstanceIds(gateway.id);
   const codex = current[ids.codex];
-  const hasKey = [ids.codex, ids.opencode].some((id) =>
+  const hasKey = [ids.codex, ids.opencode, ids.pi].some((id) =>
     current[id]?.environment?.some((variable) => variable.name === CUSTOM_KEY_ENV),
   );
   const shape = customShape(gateway, hasKey);
@@ -499,6 +628,7 @@ export function withCustomGateway(
     ["claude", "Claude Code"],
     ["codex", "Codex"],
     ["opencode", "opencode"],
+    ["pi", "Pi"],
   ] as const) {
     const existing = current[ids[agent]];
     if (existing !== undefined)
@@ -593,6 +723,14 @@ function withShapeModels(
                 )
               : [...environment, plain(OPENCODE_CONFIG_ENV, value)],
           }),
+    });
+  }
+  const pi = current[shape.ids.pi];
+  if (pi !== undefined && models !== null) {
+    const config = isRecord(pi.config) ? pi.config : {};
+    set(shape.ids.pi, {
+      ...pi,
+      config: { ...config, customModels: piGatewayModels(shape, models) },
     });
   }
   return changed ? next : current;

@@ -1,6 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import { CommandAvailability } from "@t3tools/shared/shell";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
@@ -34,10 +35,14 @@ const ownFullId = (slug: string) => ({ slug, subProvider: slug.split("/")[0] });
 const GOOD_KEY = "lk_good_key_0123456789";
 // A key the user put on the opencode Gateway agent instead of the connected one.
 const OWN_KEY = "lk_own_key_0123456789";
-const GATEWAY_INSTANCES = ["libraosClaude", "libraosCodex", "libraosOpencode"];
+const GATEWAY_INSTANCES = ["libraosClaude", "libraosCodex", "libraosOpencode", "libraosPi"];
 
 function setup(
-  options: { readonly settings?: Parameters<typeof ServerSettingsService.layerTest>[0] } = {},
+  options: {
+    readonly settings?: Parameters<typeof ServerSettingsService.layerTest>[0];
+    /** Agent commands on this host's PATH. */
+    readonly found?: ReadonlyArray<string>;
+  } = {},
 ) {
   // What Console says of the key now: served, revoked, or the Gateway is down.
   const gatewayState = { now: "served" as "served" | "revoked" | "down" };
@@ -97,6 +102,9 @@ function setup(
         Layer.succeed(ProcessRunner.ProcessRunner, runner),
         Layer.succeed(HttpClient.HttpClient, http),
         Layer.mock(AgentdBridge)({ binary: Effect.succeed("agentd") }),
+        Layer.succeed(CommandAvailability, (command: string) =>
+          Effect.succeed(options.found?.includes(command) ?? false),
+        ),
         ServerSettingsService.layerTest(options.settings),
         ServerConfig.layerTest(process.cwd(), { prefix: "t3-gateway-test-" }),
       ),
@@ -150,6 +158,43 @@ it.effect("connect keeps the key for agentd and the agents; disconnect removes i
     const instances = (yield* settings.getSettings).providerInstances;
     for (const id of GATEWAY_INSTANCES) assert.property(instances, id);
 
+    // Pi reaches the Gateway alone, from a directory of the server's; the key stays in the env.
+    const piDir = path.join((yield* ServerConfig.ServerConfig).stateDir, "pi-gateway", "libraosPi");
+    const pi = instances[GATEWAY_INSTANCE_IDS.pi];
+    assert.strictEqual(pi?.driver, "pi");
+    assert.strictEqual(pi?.displayName, "Pi · LibraOS Gateway");
+    assert.deepStrictEqual(pi?.environment, [
+      { name: "LIBRAOS_API_KEY", value: GOOD_KEY, sensitive: true },
+      { name: "PI_CODING_AGENT_DIR", value: piDir, sensitive: false },
+    ]);
+    assert.deepStrictEqual(pi?.config, {
+      customModels: [
+        { slug: "libraos/anthropic/claude-opus-5-5" },
+        { slug: "libraos/openai/gpt-5.5" },
+      ],
+    });
+    const modelsJson = yield* fs.readFileString(path.join(piDir, "models.json"));
+    assert.notInclude(modelsJson, GOOD_KEY);
+    assert.deepStrictEqual(JSON.parse(modelsJson), {
+      providers: {
+        libraos: {
+          baseUrl: "https://api.libraos.com/v1",
+          api: "openai-completions",
+          apiKey: "$LIBRAOS_API_KEY",
+          models: [{ id: "anthropic/claude-opus-5-5" }, { id: "openai/gpt-5.5" }],
+        },
+      },
+    });
+    assert.deepStrictEqual(
+      JSON.parse(yield* fs.readFileString(path.join(piDir, "settings.json"))),
+      { defaultProvider: "libraos", defaultModel: "anthropic/claude-opus-5-5" },
+    );
+    // No other agent on this host: Pi is the first-run default.
+    assert.deepStrictEqual((yield* settings.getSettings).defaultModelSelection, {
+      instanceId: GATEWAY_INSTANCE_IDS.pi,
+      model: "default",
+    });
+
     const disconnected = yield* gateway.disconnect;
     assert.deepStrictEqual(disconnected, {
       connected: false,
@@ -161,8 +206,35 @@ it.effect("connect keeps the key for agentd and the agents; disconnect removes i
     assert.isFalse(yield* fs.exists(keyFile));
     const remaining = Object.keys((yield* settings.getSettings).providerInstances);
     for (const id of GATEWAY_INSTANCES) assert.notInclude(remaining, id);
+    assert.isFalse(yield* fs.exists(piDir));
+    assert.isNull((yield* settings.getSettings).defaultModelSelection);
   }).pipe(Effect.provide(layer));
 });
+
+it.effect("with Claude Code or Codex on the host, connecting leaves the default alone", () =>
+  Effect.gen(function* () {
+    for (const found of [["claude"], ["codex"]]) {
+      const { layer } = setup({ found });
+      yield* Effect.gen(function* () {
+        yield* (yield* LibraosGateway.LibraosGateway).connect(GOOD_KEY);
+        const settings = yield* (yield* ServerSettingsService).getSettings;
+        assert.property(settings.providerInstances, GATEWAY_INSTANCE_IDS.pi);
+        assert.isNull(settings.defaultModelSelection);
+      }).pipe(Effect.provide(layer));
+    }
+    // A default the user chose stays, and disconnecting does not clear it.
+    const chosen = { instanceId: GATEWAY_INSTANCE_IDS.codex, model: "gpt-5.5" };
+    const { layer } = setup({ settings: { defaultModelSelection: chosen } });
+    yield* Effect.gen(function* () {
+      const gateway = yield* LibraosGateway.LibraosGateway;
+      const settings = yield* ServerSettingsService;
+      yield* gateway.connect(GOOD_KEY);
+      assert.deepStrictEqual((yield* settings.getSettings).defaultModelSelection, chosen);
+      yield* gateway.disconnect;
+      assert.deepStrictEqual((yield* settings.getSettings).defaultModelSelection, chosen);
+    }).pipe(Effect.provide(layer));
+  }),
+);
 
 it.effect("a refresh gives the Gateway agents the key's models as they are now", () => {
   const { served, layer } = setup();
@@ -256,6 +328,29 @@ it.effect("a refresh gives the Gateway agents the key's models as they are now",
       "openai/gpt-6-sol",
     ]);
     assert.strictEqual(opencodeConfig.model, "libraos/openai/gpt-6-sol");
+
+    // Pi gets the connected key's list, in its config and its models.json; Pi's own pick stays.
+    assert.deepStrictEqual(
+      (instances[GATEWAY_INSTANCE_IDS.pi]?.config as { customModels?: unknown } | undefined)
+        ?.customModels,
+      [{ slug: "libraos/openai/gpt-5.5" }, { slug: "libraos/openai/gpt-6-luna" }],
+    );
+    const piDir = String(
+      instances[GATEWAY_INSTANCE_IDS.pi]?.environment?.find(
+        (variable) => variable.name === "PI_CODING_AGENT_DIR",
+      )?.value,
+    );
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const modelsJson = JSON.parse(yield* fs.readFileString(path.join(piDir, "models.json")));
+    assert.deepStrictEqual(modelsJson.providers.libraos.models, [
+      { id: "openai/gpt-5.5" },
+      { id: "openai/gpt-6-luna" },
+    ]);
+    assert.deepStrictEqual(
+      JSON.parse(yield* fs.readFileString(path.join(piDir, "settings.json"))),
+      { defaultProvider: "libraos", defaultModel: "openai/gpt-5.5" },
+    );
   }).pipe(Effect.provide(layer));
 });
 
@@ -295,7 +390,7 @@ it.effect("a refresh after the key is revoked leaves the agents no models and sa
 it.effect(
   "agents connected before #117 are limited to the key's models without the Gateway",
   () => {
-    const existing = gatewayProviderInstances(GOOD_KEY, [{ id: "openai/gpt-5.5" }]).map(
+    const existing = gatewayProviderInstances(GOOD_KEY, [{ id: "openai/gpt-5.5" }], "/pi").map(
       ({ instanceId, instance }) => {
         const { onlyCustomModels: _flag, ...config } = instance.config as Record<string, unknown>;
         return [instanceId, { ...instance, config }] as const;
