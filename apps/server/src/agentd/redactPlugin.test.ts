@@ -23,17 +23,18 @@ function run(
   script: string,
   args: ReadonlyArray<string>,
   unshown: ReadonlyArray<{ id: string; name: string }> = [],
+  message = content,
 ) {
   const data = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "redact-plugin-"));
   try {
     const result = NodeChildProcess.spawnSync("python3", [script, ...args], {
       cwd: PLUGIN,
-      input: hookInput({ content, unshown, projectId: "p", threadId: "t", source: "web" }),
+      input: hookInput({ content: message, unshown, projectId: "p", threadId: "t", source: "web" }),
       env: { ...process.env, AGENTD_REDACT_DATA_DIR: data },
       encoding: "utf8",
     });
     expect(result.status).toBe(0);
-    return parseHookOutput(result.stdout, content);
+    return parseHookOutput(result.stdout, message);
   } finally {
     NodeFS.rmSync(data, { recursive: true, force: true });
   }
@@ -55,6 +56,14 @@ describe("redaction plugin hook", () => {
     expect(decision._tag).toBe("Rewrite");
     const sent = JSON.stringify(decision._tag === "Rewrite" ? decision.content : null);
     for (const secret of [NAME, EMAIL, API_KEY]) expect(sent).not.toContain(secret);
+  });
+
+  it("passes a message with nothing to redact", () => {
+    const plain = {
+      text: "Refactor the parser.",
+      attachments: [{ id: "a", name: "x.txt", text: "plain" }],
+    };
+    expect(run("tests/fake_hook.py", [], [], plain)._tag).toBe("Pass");
   });
 
   it.each([
