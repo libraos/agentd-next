@@ -1,12 +1,12 @@
-import type {
-  ChatAttachment,
+import {
   CommandId,
-  MessageId,
-  OrchestrationV2Command,
-  OrchestrationV2CreationSource,
-  OrchestrationV2ServerCommand,
-  ProjectId,
-  ThreadId,
+  type ChatAttachment,
+  type MessageId,
+  type OrchestrationV2Command,
+  type OrchestrationV2CreationSource,
+  type OrchestrationV2ServerCommand,
+  type ProjectId,
+  type ThreadId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -17,8 +17,8 @@ import * as AgentdPlugins from "./AgentdPlugins.ts";
 
 // Where sends meet the before-send hooks. The intake checks what a client sends, before its
 // attachments are claimed, and can hold a rewrite for review. Everything else that reaches
-// dispatch with new content (MCP, scheduled tasks, launches not from a client) is checked there,
-// where a rewrite cannot be reviewed and so stops the send.
+// dispatch with new content (MCP, scheduled tasks, guest sends, launches not from a client) is
+// checked there, where a rewrite cannot be reviewed and so stops the send.
 
 /** A person at a client can review a rewrite of their own message. */
 const reviewable = (createdBy: string, source: OrchestrationV2CreationSource) =>
@@ -30,6 +30,8 @@ interface Message {
   readonly text: string;
   readonly attachments: ReadonlyArray<ChatAttachment>;
 }
+
+type Content = Pick<Message, "text" | "attachments">;
 
 /** Reads the dispatch needs, given by the caller so this module does not own a thread store. */
 export interface GateReads {
@@ -43,12 +45,23 @@ export interface GateReads {
     readonly messageId: MessageId;
     readonly attachments: ReadonlyArray<ChatAttachment>;
   } | null>;
-  readonly messageExists: (threadId: ThreadId, messageId: MessageId) => Effect.Effect<boolean>;
+  /** What is stored under a message id; a dispatch naming it stores its own text there. */
+  readonly storedMessage: (
+    threadId: ThreadId,
+    messageId: MessageId,
+  ) => Effect.Effect<Content | null>;
   /** The pending guest message's text, which is what a guest send carries to the provider. */
   readonly guestText: (threadId: ThreadId, guestMessageId: string) => Effect.Effect<string | null>;
 }
 
 const plugins = Effect.serviceOption(AgentdPlugins.AgentdPluginsService);
+
+const alreadyChecked = Effect.fnUntraced(function* (commandId: CommandId) {
+  return (yield* AgentdPlugins.BeforeSendChecked).has(commandId);
+});
+
+const sameContent = (a: Content, b: Content) =>
+  a.text === b.text && JSON.stringify(a.attachments) === JSON.stringify(b.attachments);
 
 const check = Effect.fn("beforeSendGate.check")(function* (
   service: AgentdPlugins.AgentdPluginsService["Service"],
@@ -61,31 +74,32 @@ const check = Effect.fn("beforeSendGate.check")(function* (
   yield* service.checkBeforeSend({ projectId, ...message, source, resend });
 });
 
-/** A client's message.dispatch or queued-run.edit; other commands pass. */
+/**
+ * A client's message.dispatch or queued-run.edit; other commands pass. Answers whether the
+ * command is covered here: only then may the intake mark it checked for the backstop.
+ */
 export const checkClientCommand = Effect.fn("beforeSendGate.checkClientCommand")(function* (
   command: OrchestrationV2Command,
   reads: GateReads,
 ) {
   const service = yield* plugins;
-  if (Option.isNone(service) || (yield* AgentdPlugins.BeforeSendChecked)) return;
-  if (command.type !== "message.dispatch" && command.type !== "queued-run.edit") return;
-  // A guest's message is checked at dispatch, where its text is known; a compaction is not a message.
-  if (
-    command.type === "message.dispatch" &&
-    (command.guestMessageId !== undefined || command.idleCompaction !== undefined)
-  )
-    return;
-  if (yield* reads.hasReceipt(command.commandId)) return;
+  if (Option.isNone(service)) return false;
+  if (yield* alreadyChecked(command.commandId)) return true;
+  if (command.type !== "message.dispatch" && command.type !== "queued-run.edit") return false;
+  // A guest's message is checked at dispatch, where the guest's own text is read.
+  if (command.type === "message.dispatch" && command.guestMessageId !== undefined) return false;
+  if (yield* reads.hasReceipt(command.commandId)) return true;
   const projectId = yield* reads.projectOf(command.threadId);
-  if (projectId === null) return;
+  if (projectId === null) return false;
   if (command.type === "message.dispatch") {
     const resend = reviewable(command.createdBy, command.creationSource)
       ? ({ kind: "dispatch", command } as const)
       : undefined;
-    return yield* check(service.value, projectId, command, command.creationSource, resend);
+    yield* check(service.value, projectId, command, command.creationSource, resend);
+    return true;
   }
   const queued = yield* reads.queuedMessage(command.threadId, command.runId);
-  if (queued === null) return;
+  if (queued === null) return false;
   yield* check(
     service.value,
     projectId,
@@ -98,16 +112,28 @@ export const checkClientCommand = Effect.fn("beforeSendGate.checkClientCommand")
     "web",
     { kind: "dispatch", command },
   );
+  return true;
 });
 
-/** A launch's first message; a person can review it only when the client named its id. */
+/** The commands ThreadLaunchService dispatches a launch's first message in. */
+export const launchMessageCommandIds = (input: Pick<ThreadLaunchInput, "commandId">) => [
+  input.commandId,
+  CommandId.make(`${input.commandId}:initial-message`),
+];
+
+/**
+ * A launch's first message; a person can review it only when the client named its id. Answers
+ * whether it was checked here, which needs the thread id.
+ */
 export const checkLaunch = Effect.fn("beforeSendGate.checkLaunch")(function* (
   input: ThreadLaunchInput,
 ) {
   const service = yield* plugins;
   const initial = input.initialMessage;
-  if (Option.isNone(service) || initial === undefined || input.threadId === undefined) return;
-  if (yield* AgentdPlugins.BeforeSendChecked) return;
+  if (Option.isNone(service) || initial === undefined || input.threadId === undefined) {
+    return false;
+  }
+  if (yield* alreadyChecked(input.commandId)) return true;
   const messageId = initial.messageId;
   yield* check(
     service.value,
@@ -123,29 +149,20 @@ export const checkLaunch = Effect.fn("beforeSendGate.checkLaunch")(function* (
       ? { kind: "launch", input }
       : undefined,
   );
+  return true;
 });
 
-const INTERNAL_FIELDS = [
-  "notification",
-  "delegatedCompletion",
-  "idleCompaction",
-  "restartContinuationOfRunId",
-  "usageLimitContinuationOfRunId",
-  "manualContinuationOfRunId",
-  "steerFollowUpOfRunId",
-  "usageLimitRecoveryRequestId",
-] as const;
-
 /**
- * The backstop at dispatch: new content not already checked by the intake. Re-dispatches of a
- * stored message, replays and the server's own continuations carry what was already confirmed.
+ * The backstop at dispatch: new content not already checked by the intake. Replays, the system's
+ * own messages and re-dispatches of exactly what is stored pass; anything else is checked,
+ * whatever continuation fields it carries, since a client can set those too.
  */
 export const checkDispatch = Effect.fn("beforeSendGate.checkDispatch")(function* (
   command: OrchestrationV2ServerCommand,
   reads: GateReads,
 ) {
   const service = yield* plugins;
-  if (Option.isNone(service) || (yield* AgentdPlugins.BeforeSendChecked)) return;
+  if (Option.isNone(service) || (yield* alreadyChecked(command.commandId))) return;
   if (command.type === "thread.create") {
     const initial = command.initialMessage;
     if (initial === undefined || (yield* reads.hasReceipt(command.commandId))) return;
@@ -161,9 +178,8 @@ export const checkDispatch = Effect.fn("beforeSendGate.checkDispatch")(function*
     return yield* checkClientCommandWithoutReview(service.value, command, reads);
   }
   if (command.type !== "message.dispatch" || command.createdBy === "system") return;
-  if (INTERNAL_FIELDS.some((field) => command[field] !== undefined)) return;
+  // A reused command id replays its receipt and stores nothing new, whatever its text.
   if (yield* reads.hasReceipt(command.commandId)) return;
-  if (yield* reads.messageExists(command.threadId, command.messageId)) return;
   const projectId = yield* reads.projectOf(command.threadId);
   if (projectId === null) return;
   const text =
@@ -172,14 +188,16 @@ export const checkDispatch = Effect.fn("beforeSendGate.checkDispatch")(function*
       : yield* reads.guestText(command.threadId, command.guestMessageId);
   // A guest message no longer pending is refused by the orchestrator.
   if (text === null) return;
+  const content: Content = {
+    text,
+    attachments: command.guestMessageId === undefined ? command.attachments : [],
+  };
+  const stored = yield* reads.storedMessage(command.threadId, command.messageId);
+  if (stored !== null && sameContent(stored, content)) return;
   yield* check(
     service.value,
     projectId,
-    {
-      ...command,
-      text,
-      attachments: command.guestMessageId === undefined ? command.attachments : [],
-    },
+    { ...command, ...content },
     command.creationSource,
     undefined,
   );
@@ -208,9 +226,18 @@ const checkClientCommandWithoutReview = Effect.fn("beforeSendGate.checkQueuedEdi
   );
 });
 
-/** The intake's mark that a send's hooks ran, for everything it dispatches. */
-export const checked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  Effect.provideService(effect, AgentdPlugins.BeforeSendChecked, true);
+/** The intake's mark that these commands' hooks ran; nothing else it dispatches is marked. */
+export const checked = Effect.fn("beforeSendGate.checked")(function* <A, E, R>(
+  commandIds: ReadonlyArray<CommandId>,
+  effect: Effect.Effect<A, E, R>,
+) {
+  const ids = yield* AgentdPlugins.BeforeSendChecked;
+  return yield* Effect.provideService(
+    effect,
+    AgentdPlugins.BeforeSendChecked,
+    new Set([...ids, ...commandIds]),
+  );
+});
 
 type ThreadReads = Pick<
   Orchestrator.OrchestratorV2["Service"],
@@ -245,10 +272,15 @@ export const gateReads = (
       }),
       Effect.orElseSucceed(() => null),
     ),
-  messageExists: (threadId, messageId) =>
+  storedMessage: (threadId, messageId) =>
     threads.getMessagesById(threadId, [messageId]).pipe(
-      Effect.map((messages) => messages.has(messageId)),
-      Effect.orElseSucceed(() => false),
+      Effect.map((messages) => {
+        const message = messages.get(messageId);
+        return message === undefined
+          ? null
+          : { text: message.text, attachments: message.attachments };
+      }),
+      Effect.orElseSucceed(() => null),
     ),
   guestText: (threadId, guestMessageId) =>
     threads.getThreadSnapshotWindow(threadId, { rowLimit: 1 }).pipe(

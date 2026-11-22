@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 
 import * as ThreadMessageIntake from "../orchestration-v2/ThreadMessageIntake.ts";
 import type { BeforeSendResend } from "./AgentdPlugins.ts";
-import { checked } from "./beforeSendGate.ts";
+import { checked, launchMessageCommandIds } from "./beforeSendGate.ts";
 
 /** Sends a confirmed message through the intake; its hooks already ran, so they do not run again. */
 export const sendConfirmed = Effect.fn("beforeSendConfirm.sendConfirmed")(function* (
@@ -10,8 +10,14 @@ export const sendConfirmed = Effect.fn("beforeSendConfirm.sendConfirmed")(functi
   sender: { readonly managesProviders: boolean },
 ) {
   if (resend.kind === "launch") {
-    yield* checked(ThreadMessageIntake.launchThread(resend.input));
+    yield* checked(
+      launchMessageCommandIds(resend.input),
+      ThreadMessageIntake.launchThread(resend.input),
+    );
     return;
   }
-  yield* checked(ThreadMessageIntake.dispatchCommand(resend.command, sender));
+  yield* checked(
+    [resend.command.commandId],
+    ThreadMessageIntake.dispatchCommand(resend.command, sender),
+  );
 });

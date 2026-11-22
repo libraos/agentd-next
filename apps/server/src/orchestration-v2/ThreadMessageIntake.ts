@@ -140,11 +140,13 @@ export const dispatchCommand = Effect.fn("ThreadMessageIntake.dispatchCommand")(
         : incoming;
   const threads = yield* ThreadManagement.ThreadManagementService;
   // Before attachments are claimed, so a held or blocked send leaves the uploads to the draft.
-  yield* BeforeSendGate.checkClientCommand(
+  const covered = yield* BeforeSendGate.checkClientCommand(
     command,
     BeforeSendGate.gateReads(threads, threads.hasReceipt),
   );
-  return yield* BeforeSendGate.checked(dispatchCheckedCommand(command));
+  return yield* covered
+    ? BeforeSendGate.checked([command.commandId], dispatchCheckedCommand(command))
+    : dispatchCheckedCommand(command);
 });
 
 const dispatchCheckedCommand = Effect.fn("ThreadMessageIntake.dispatchCheckedCommand")(function* (
@@ -291,8 +293,13 @@ export const sendToThread = Effect.fn("ThreadMessageIntake.sendToThread")(functi
 export const launchThread = Effect.fn("ThreadMessageIntake.launchThread")(function* (
   input: ThreadLaunch.ThreadLaunchInput,
 ) {
-  yield* BeforeSendGate.checkLaunch(input);
-  return yield* BeforeSendGate.checked(launchCheckedThread(input));
+  const covered = yield* BeforeSendGate.checkLaunch(input);
+  return yield* covered
+    ? BeforeSendGate.checked(
+        BeforeSendGate.launchMessageCommandIds(input),
+        launchCheckedThread(input),
+      )
+    : launchCheckedThread(input);
 });
 
 const launchCheckedThread = Effect.fn("ThreadMessageIntake.launchCheckedThread")(function* (

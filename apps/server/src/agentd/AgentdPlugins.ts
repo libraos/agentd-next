@@ -12,6 +12,7 @@ import {
   type AgentdPlugins,
   type AgentdPluginsListInput,
   type ChatAttachment,
+  type CommandId,
   type MessageId,
   type OrchestrationV2Command,
   type ProjectId,
@@ -76,10 +77,13 @@ import {
 // or missing command stops the send. A reviewable rewrite is held until confirmed or closed.
 // Message text never goes to logs or spans: hook stdout and stderr are read and dropped.
 
-/** Set by the intake once a send's hooks ran, so the dispatch backstop does not run them again. */
-export const BeforeSendChecked = Context.Reference<boolean>(
+/**
+ * The commands whose hooks the intake ran, so the dispatch backstop does not run them again.
+ * Only those ids: anything else dispatched inside the same call is still checked.
+ */
+export const BeforeSendChecked = Context.Reference<ReadonlySet<CommandId>>(
   "t3/agentd/AgentdPlugins/BeforeSendChecked",
-  { defaultValue: () => false },
+  { defaultValue: () => new Set() },
 );
 
 /** How to send a held message again once the person confirms it. */

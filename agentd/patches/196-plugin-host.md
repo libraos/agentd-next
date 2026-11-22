@@ -9,7 +9,7 @@ Ours (no upstream counterpart):
 - `packages/contracts/src/agentdPlugins.ts`: listing, inputs, review and the two errors.
 - `apps/server/src/agentd/pluginCatalog.ts` (+ test): catalogue, manifest, install record, settings, the hook's stdin and its parsed output, and hook command resolution (a file in the plugin's folder, or a program on PATH).
 - `apps/server/src/agentd/AgentdPlugins.ts` (+ test): install, remove, enable, list, running the hooks, the held reviews (in memory, 15 minutes, one per message).
-- `apps/server/src/agentd/beforeSendGate.ts`: where sends meet the hooks. It runs once in the intake for a client's send (it can be reviewed) and again in `ThreadManagementService.dispatch` as a backstop for everything else (it cannot be reviewed). It skips re-dispatches of stored messages, receipt replays, guest messages until their text is known, and the server's own continuations.
+- `apps/server/src/agentd/beforeSendGate.ts` (+ test): where sends meet the hooks. It runs once in the intake for a client's send (it can be reviewed) and again in `ThreadManagementService.dispatch` as a backstop for everything else (it cannot be reviewed). The intake marks only the one command it checked, so nothing else dispatched in the same call skips the backstop; guest sends are left to the backstop, which reads the guest's text. The backstop skips receipt replays, `createdBy: "system"`, and a dispatch whose text and attachments equal what is stored under its message id; continuation fields alone do not skip it, since a client can send them.
 - `apps/server/src/agentd/beforeSendConfirm.ts`: sends a confirmed message through the intake.
 - `apps/server/src/agentd/AgentdSkills.ts`, `skillCatalog.ts`: the pinned download and file plan are shared with plugins.
 - `packages/client-runtime/src/state/agentd.ts`, `apps/web/src/lib/agentdState.ts`: plugin atoms and hooks.
@@ -23,12 +23,12 @@ Upstream files:
 - `packages/contracts/src/clientRpcPermissions.ts`: install, remove and enable need environment maintain; confirm and discard need orchestration operate.
 - `apps/server/src/auth/RpcAuthorization.ts`: list and review need orchestration read.
 - `apps/server/src/observability/RpcInstrumentation.ts`: the new methods count as `agentd`.
-- `apps/server/src/orchestration-v2/ThreadMessageIntake.ts`: run the gate before attachments are claimed, for `dispatchCommand` and `launchThread`.
+- `apps/server/src/orchestration-v2/ThreadMessageIntake.ts`: run the gate before attachments are claimed, for `dispatchCommand` and `launchThread`, and mark only what it checked.
 - `apps/server/src/orchestration-v2/ThreadManagementService.ts`: run the backstop gate before `orchestrator.dispatch`.
 - `apps/server/src/ws.ts`: the RPC handlers; a launch's before-send error maps to the launch error.
 - `apps/server/src/server.ts`: provide the plugin service to the RPC layer and the orchestration runtime (one shared value).
 - `apps/server/src/ws.test.ts`: mock the plugin service.
-- `apps/server/src/orchestration-v2/SteeringCompletion.integration.test.ts`: a blocked send reaches no provider; a confirmed rewrite is what is stored and what the adapter receives.
+- `apps/server/src/orchestration-v2/SteeringCompletion.integration.test.ts`: a blocked send reaches no provider; a confirmed rewrite is what is stored and what the adapter receives; a reused command id stores and sends nothing new; a guest send is checked; the backstop checks new text under a stored message id and on continuations.
 - `apps/web/src/components/chat/ChatComposer.tsx`: render `BeforeSendControls` beside Send.
 - `apps/web/src/components/chat/useComposerSend.ts`: after a failed send, ask for a held review; a confirmed send clears the restored draft.
 - `apps/web/src/i18n/translations/*.json`: the new text in every locale.
