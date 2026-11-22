@@ -4,7 +4,7 @@
 
 1. Set the version in `apps/desktop/package.json` (`x.y.z`, ours: minor for features, patch for fixes) and merge it.
 2. Tag that commit and push the tag to `origin`: `git tag v0.2.0`, then push `v0.2.0`. A tag that differs from `apps/desktop/package.json` fails the run; a suffixed tag does not run it.
-3. `.github/workflows/release.yml` builds on GitHub-hosted runners, in parallel: Linux x64 (`ubuntu-24.04`: AppImage and `.deb`), Windows x64 (`windows-latest`: NSIS `.exe`, MSVC on the runner), macOS arm64 (`macos-15`) and macOS x64 (`macos-15-intel`; GitHub retired `macos-13`): `.dmg` and `.zip`. Each runs `agentd/scripts/build-desktop.sh <platform> <arch>` with `AGENTD_BUILD_ON_HOST=1`.
+3. `.github/workflows/release.yml` builds on GitHub-hosted runners, in parallel: Linux x64 (`ubuntu-24.04`: AppImage and `.deb`), Windows x64 (`windows-latest`: NSIS `.exe`, MSVC on the runner), macOS arm64 (`macos-26`) and macOS x64 (`macos-26-intel`; Xcode 26, which the Apple Speech helper needs, is their default): `.dmg` and `.zip`. Each runs `agentd/scripts/build-desktop.sh <platform> <arch>` with `AGENTD_BUILD_ON_HOST=1`.
 4. A job merges the two macOS `latest-mac.yml` files into one, checks that every installer and `latest.yml`, `latest-linux.yml` and `latest-mac.yml` are there for this version, and writes `SHA256SUMS`. The last job creates a **draft** release for the tag with all of them, the blockmaps and notes on the unsigned builds and the agentd version inside.
 5. Review the draft on GitHub (download an installer, check it against `SHA256SUMS`), then publish it as the latest release. Nothing is public until then, and installed apps are offered it only once it is published and marked latest.
 
