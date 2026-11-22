@@ -12,6 +12,7 @@ Upstream T3 Code names still showed to agents (tool names), in the CLI, in T3 Co
   - A resumed session gets the new server config, and the model calls the tools by the names it is now given. The server does not answer calls to the old names.
 - **CLI.** The settings row installs `agentd-desktop` and a `t3` alias next to it: a symlink on macOS and Linux, a marked `t3.cmd` on Windows. Removing removes both. A `t3` that is not ours is never replaced or removed. The branch prefix example is `agentd/`.
 - **Text.** "T3 Code" is now "AgentD Desktop" in web, desktop (GNOME extension, macOS usage strings), mobile (app names, widget text, permission strings, native clipboard/folder labels), server CLI, notification and error text, runtime instructions, marketing, recorded replay fixtures and `.github/triage/PLAYBOOK.md` (kept byte-identical to `triagePrompt.ts`). The icon id for app tools is now `agentd-desktop`; it is derived and never stored.
+- **Theme name.** The built-in light theme shown as "T3 Chat" is now shown as "Rose". Its id stays `t3-chat`, so a saved theme choice still applies.
 
 ## Hidden behind a flag (off by default)
 
@@ -26,7 +27,7 @@ Upstream T3 Code names still showed to agents (tool names), in the CLI, in T3 Co
 
 ## Kept, and why
 
-- `t3code:` / `t3:` storage keys, the `t3-code` theme id, `T3CODE_*` env vars, the `t3_session` cookie and `t3-thread://` links. Renaming them would drop saved settings and sessions.
+- `t3code:` / `t3:` storage keys, the `t3-code` and `t3-chat` theme ids, `T3CODE_*` env vars, the `t3_session` cookie and `t3-thread://` links. Renaming them would drop saved settings and sessions.
 - `@t3tools/*` package names, the `t3` server package name, lint rule names (`t3code/…`), and file, component and native module names.
 - The mobile Expo `slug`, bundle ids and URL schemes. Changing them breaks installs and EAS links.
 - Prompt tag names such as `<t3_code_instructions>` (their text now says AgentD Desktop), and MCP tool titles such as "Create T3 threads".
