@@ -533,6 +533,7 @@ const make = Effect.gen(function* () {
     hook: Hook,
     request: BeforeSendRequest,
     content: AgentdBeforeSendContent,
+    unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>,
   ) {
     const fix = "Install it again or turn it off on the AgentD page.";
     const command = yield* hookCommand(hook);
@@ -546,6 +547,7 @@ const make = Effect.gen(function* () {
         cwd: hook.folder,
         stdin: hookInput({
           content,
+          unshown,
           projectId: request.projectId,
           threadId: request.threadId,
           source: request.source,
@@ -609,10 +611,13 @@ const make = Effect.gen(function* () {
       text: request.text,
       attachments: yield* textAttachments(request.threadId, request.attachments),
     };
+    const unshown = request.attachments
+      .filter((attachment) => !original.attachments.some((shown) => shown.id === attachment.id))
+      .map((attachment) => ({ id: attachment.id, name: attachment.name }));
     let content = original;
     const changedBy: string[] = [];
     for (const hook of hooks) {
-      const next = yield* runHook(hook, request, content);
+      const next = yield* runHook(hook, request, content, unshown);
       if (!sameContent(next, content)) changedBy.push(hook.name);
       content = next;
     }

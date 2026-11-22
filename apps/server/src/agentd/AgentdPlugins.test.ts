@@ -14,7 +14,7 @@ import * as FileSystem from "effect/FileSystem";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import type * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
@@ -240,6 +240,56 @@ it.live("a pass hook lets the message go as it is", () =>
       text: "hello",
       attachments: [],
       source: "web",
+    });
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.live("the hook reads text attachments and is told which attachments it cannot read", () =>
+  Effect.gen(function* () {
+    const stdin: string[] = [];
+    const h = yield* harness(
+      Layer.succeed(ProcessRunner.ProcessRunner, {
+        run: (input) => {
+          stdin.push(input.stdin ?? "");
+          return Effect.succeed({
+            stdout: JSON.stringify({ decision: "pass" }),
+            stderr: "",
+            code: ChildProcessSpawner.ExitCode(0),
+            timedOut: false,
+            stdoutTruncated: false,
+            stderrTruncated: false,
+            stdoutInvalidUtf8: false,
+            stderrInvalidUtf8: false,
+          });
+        },
+      }),
+    );
+    yield* h.enable("pass");
+    const textId = createPendingAttachmentId("txt");
+    const binaryId = createPendingAttachmentId("bin");
+    const attachments = [
+      { type: "file", id: textId, name: "notes.txt", mimeType: "text/plain", sizeBytes: 5 },
+      { type: "file", id: binaryId, name: "scan.pdf", mimeType: "application/pdf", sizeBytes: 3 },
+    ] as unknown as ReadonlyArray<ChatAttachment>;
+    for (const [attachment, bytes] of [
+      [attachments[0]!, text("notes")],
+      [attachments[1]!, new Uint8Array([0, 1, 2])],
+    ] as const) {
+      const file = resolveAttachmentPath({ attachmentsDir: h.config.attachmentsDir, attachment })!;
+      yield* h.fs.makeDirectory(h.path.dirname(file), { recursive: true });
+      yield* h.fs.writeFile(file, bytes);
+    }
+    yield* h.service.checkBeforeSend({
+      projectId: PROJECT,
+      threadId: THREAD,
+      messageId: MESSAGE,
+      text: "hello",
+      attachments,
+      source: "web",
+    });
+    expect(JSON.parse(stdin[0]!)).toMatchObject({
+      message: { text: "hello", attachments: [{ id: textId, name: "notes.txt", text: "notes" }] },
+      unshownAttachments: [{ id: binaryId, name: "scan.pdf" }],
     });
   }).pipe(Effect.provide(dependencies)),
 );
