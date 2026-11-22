@@ -17,6 +17,7 @@ It creates a Python environment with CPU torch and transformers in the plugin's 
 ## What to know
 
 - Redaction can miss sensitive details. Read the change before you send it.
+- A value found anywhere in the message is replaced everywhere in it, in the text and every attachment; for a name, each part of three or more letters is replaced on its own too.
 - It covers the messages you send from the composer: the text and UTF-8 text files up to 1 MB. A message with an image or another file is stopped; remove the file or paste its text. What agents read from your files, tool output and workspace context is not covered.
 - One message can hold up to 100,000 characters; split longer ones.
 - The original text and the placeholder map are kept only in memory while the message is checked. Placeholders are not turned back into the original values.

@@ -124,7 +124,7 @@ def load_detector(folder):
                 continue
             label = tag.split("-", 1)[1]
             prev = spans[-1] if spans else None
-            if prev and prev["label"] == label and not text[prev["end"] : a].strip():
+            if prev and prev["label"] == label and _joinable(text[prev["end"] : a]):
                 prev["end"] = b
             else:
                 spans.append({"start": a, "end": b, "label": label})
@@ -196,6 +196,45 @@ def merge_spans(spans):
     return merged
 
 
+# --- spans into placeholders ----------------------------------------------------------------
+
+# A word character for widening and for word boundaries. CJK script is left out: it has no spaces
+# between words, so widening there would swallow the whole line.
+_WORD_CLASS = r"[^\W\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff]"
+_WORD = re.compile(_WORD_CLASS)
+_SPACE_GAP = re.compile(r"[^\S\r\n]*")
+_NAME_PART = re.compile(_WORD_CLASS + "+")
+
+
+def _is_word(char):
+    return bool(_WORD.fullmatch(char))
+
+
+def _joinable(gap):
+    """Same-label spans join across spaces or an untagged subword; a line break ends a span."""
+    return bool(_SPACE_GAP.fullmatch(gap) or _NAME_PART.fullmatch(gap))
+
+
+def refine_spans(text, spans):
+    """Widen model spans to whole words, then join same-label spans the model split apart."""
+    widened = []
+    for span in sorted(spans, key=lambda s: s["start"]):
+        start, end = span["start"], span["end"]
+        while start > 0 and _is_word(text[start - 1]) and _is_word(text[start]):
+            start -= 1
+        while end < len(text) and _is_word(text[end]) and _is_word(text[end - 1]):
+            end += 1
+        widened.append({"start": start, "end": end, "label": span["label"]})
+    joined = []
+    for span in merge_spans(widened):
+        prev = joined[-1] if joined else None
+        if prev and prev["label"] == span["label"] and _joinable(text[prev["end"] : span["start"]]):
+            prev["end"] = span["end"]
+        else:
+            joined.append(span)
+    return joined
+
+
 class Placeholders:
     """One placeholder per distinct value and label across the whole message; held in memory only."""
 
@@ -211,24 +250,67 @@ class Placeholders:
         return self._by_value[key]
 
 
-def redact_text(text, detect, deadline, placeholders):
-    spans = merge_spans(list(detect(text, deadline)) + rule_spans(text))
+def _trimmed(text, span):
+    start, end = span["start"], span["end"]
+    # Keep surrounding whitespace out of the placeholder.
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    return {"start": start, "end": end, "label": span["label"]} if start < end else None
+
+
+def find_spans(text, detect, deadline):
+    spans = merge_spans(refine_spans(text, detect(text, deadline)) + rule_spans(text))
+    return [span for span in (_trimmed(text, s) for s in spans) if span]
+
+
+def _value_pattern(values):
+    """Matches any of values, longest first, only where it is not part of a longer word."""
+    alternatives = []
+    for value in sorted(values, key=lambda v: (-len(v), v)):
+        head = f"(?<!{_WORD_CLASS})" if _is_word(value[0]) else ""
+        tail = f"(?!{_WORD_CLASS})" if _is_word(value[-1]) else ""
+        alternatives.append(head + re.escape(value) + tail)
+    return re.compile("|".join(alternatives))
+
+
+def redact_all(texts, detect, deadline, placeholders):
+    """Redact every text, replacing each value found in any of them everywhere it occurs.
+
+    A person's name parts of three or more letters are replaced on their own too.
+    """
+    found = [find_spans(text, detect, deadline) for text in texts]
+    label_of = {}
+    for text, spans in zip(texts, found):
+        for span in spans:
+            label_of.setdefault(text[span["start"] : span["end"]], span["label"])
+    for value, label in list(label_of.items()):
+        if label == "person":
+            for part in _NAME_PART.findall(value):
+                if len(part) >= 3 and part != value and any(c.isalpha() for c in part):
+                    label_of.setdefault(part, label)
+    if not label_of:
+        return list(texts)
+    pattern = _value_pattern(label_of)
     out = []
-    cursor = 0
-    for span in spans:
-        start, end = span["start"], span["end"]
-        # Keep surrounding whitespace out of the placeholder.
-        while start < end and text[start].isspace():
-            start += 1
-        while end > start and text[end - 1].isspace():
-            end -= 1
-        if start >= end or start < cursor:
-            continue
-        out.append(text[cursor:start])
-        out.append(placeholders.for_value(span["label"], text[start:end]))
-        cursor = end
-    out.append(text[cursor:])
-    return "".join(out)
+    for text, spans in zip(texts, found):
+        matches = [{"start": m.start(), "end": m.end(), "label": label_of[m[0]]} for m in pattern.finditer(text)]
+        pieces = []
+        cursor = 0
+        for span in merge_spans(spans + matches):
+            start, end = span["start"], span["end"]
+            value = text[start:end]
+            pieces.append(text[cursor:start])
+            pieces.append(placeholders.for_value(label_of.get(value, span["label"]), value))
+            cursor = end
+        pieces.append(text[cursor:])
+        out.append("".join(pieces))
+    return out
+
+
+def redact_text(text, detect, deadline, placeholders):
+    return redact_all([text], detect, deadline, placeholders)[0]
 
 
 # --- the hook --------------------------------------------------------------------------------
@@ -278,12 +360,13 @@ def decide(raw, folder, load=load_detector, clock=time.monotonic):
         detect = load(folder)
         deadline = started + DETECT_DEADLINE_SECONDS
         placeholders = Placeholders()
-        new_text = redact_text(text, detect, deadline, placeholders)
+        new_text, *redacted = redact_all(
+            [text] + [attachment["text"] for attachment in attachments], detect, deadline, placeholders
+        )
         changed = [
-            {"id": attachment["id"], "text": redacted}
-            for attachment in attachments
-            for redacted in [redact_text(attachment["text"], detect, deadline, placeholders)]
-            if redacted != attachment["text"]
+            {"id": attachment["id"], "text": out}
+            for attachment, out in zip(attachments, redacted)
+            if out != attachment["text"]
         ]
     except Blocked as blocked:
         return _block(str(blocked))

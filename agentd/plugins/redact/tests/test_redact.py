@@ -202,6 +202,63 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(out, "mail [EMAIL_1] please")
 
 
+def tagging(*fragments, label="person"):
+    """A fake detector that tags every occurrence of each fragment, as veil-detect tags subwords."""
+
+    def detect(text, _deadline):
+        spans = []
+        for fragment in fragments:
+            start = text.find(fragment)
+            while start >= 0:
+                spans.append({"start": start, "end": start + len(fragment), "label": label})
+                start = text.find(fragment, start + 1)
+        return spans
+
+    return detect
+
+
+def redact_all(texts, detect):
+    return redact.redact_all(texts, detect, float("inf"), redact.Placeholders())
+
+
+class SpanTest(unittest.TestCase):
+    def test_a_subword_span_widens_to_the_whole_word(self):
+        self.assertEqual(redact_all(["Holloway signed on Monday."], tagging("oway")), ["[PERSON_1] signed on Monday."])
+
+    def test_spans_split_by_an_untagged_subword_join_into_one(self):
+        # What veil-detect v1.0.0 does with this attachment: "Maren" and "oway" tagged, "Holl" not.
+        out = redact_all(["Client: Maren Holloway\nEmail: none"], tagging("Maren", "oway"))
+        self.assertEqual(out, ["Client: [PERSON_1]\nEmail: none"])
+        out = redact_all(["Mar|en"], tagging("Mar", "en"))
+        self.assertEqual(out, ["[PERSON_1]|[PERSON_2]"])
+        self.assertEqual(redact_all(["Ma ren x"], tagging("Ma", "ren")), ["[PERSON_1] x"])
+
+    def test_a_line_break_ends_a_span(self):
+        out = redact_all(["Maren\nHolloway"], tagging("Maren", "Holloway"))
+        self.assertEqual(out, ["[PERSON_1]\n[PERSON_2]"])
+
+    def test_a_value_found_in_one_text_is_replaced_in_all_name_parts_included(self):
+        draft = f"Review the lease for {NAME}."
+        notes = f"Client: {NAME}\nHolloway signed. Maren paid. Hollowayville and Marenko are places."
+        out = redact_all([draft, notes], tagging(NAME))
+        self.assertEqual(out[0], "Review the lease for [PERSON_1].")
+        self.assertEqual(
+            out[1], "Client: [PERSON_1]\n[PERSON_2] signed. [PERSON_3] paid. Hollowayville and Marenko are places."
+        )
+
+    def test_name_parts_shorter_than_three_letters_stay(self):
+        out = redact_all(["Al Holloway", "Al wrote to Holloway"], tagging("Al Holloway"))
+        self.assertEqual(out, ["[PERSON_1]", "Al wrote to [PERSON_2]"])
+
+    def test_a_rule_value_is_replaced_everywhere_but_not_inside_another_word(self):
+        out = redact_all([f"key {API_KEY}", f"again {API_KEY} and x{API_KEY}y"], tagging())
+        self.assertEqual(out[0], "key [CREDENTIAL_1]")
+        self.assertTrue(out[1].startswith("again [CREDENTIAL_1] and x"))
+
+    def test_cjk_spans_do_not_widen_across_the_line(self):
+        self.assertEqual(redact_all(["客户张三已签约"], tagging("张三")), ["客户[PERSON_1]已签约"])
+
+
 def run_hook(script, stdin, *args, env=None):
     return subprocess.run(
         [sys.executable, str(script), *args], input=stdin.encode(), capture_output=True, env=env, timeout=60, check=False
