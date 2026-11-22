@@ -83,13 +83,13 @@ jobs:
             arch: x64
             rust_target: x86_64-pc-windows-msvc
           - label: macOS arm64
-            runner: macos-15
+            runner: macos-26
             platform: mac
             arch: arm64
             rust_target: aarch64-apple-darwin
-          # GitHub retired macos-13; macos-15-intel is its Intel successor.
+          # macOS 26 images default to Xcode 26, which the Apple Speech helper needs.
           - label: macOS x64
-            runner: macos-15-intel
+            runner: macos-26-intel
             platform: mac
             arch: x64
             rust_target: x86_64-apple-darwin
