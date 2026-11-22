@@ -422,6 +422,14 @@ export interface OrchestratorV2Shape {
   readonly dispatch: (
     command: OrchestrationV2ServerCommand,
   ) => Effect.Effect<OrchestratorV2DispatchResult, OrchestratorV2Error>;
+  /** Writes one system notice for a settled run; a repeat with the same signal replaces it. */
+  readonly noteRunSystemNotice: (input: {
+    readonly threadId: ThreadId;
+    readonly runId: RunId;
+    readonly signal: string;
+    readonly title: string;
+    readonly message: string;
+  }) => Effect.Effect<void, OrchestratorV2Error>;
   readonly autoArmLimitRecovery: (input: {
     readonly commandId: CommandId;
     readonly threadId: ThreadId;
@@ -7083,6 +7091,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         ? {
             keepRunIds: [
               command.manualContinuationOfRunId,
+              command.autoContinuationOfRunId,
               command.restartContinuationOfRunId,
               command.usageLimitContinuationOfRunId,
               command.steerFollowUpOfRunId,
@@ -7160,6 +7169,30 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           commandId: command.commandId,
           commandType: command.type,
           cause: "This thread can no longer be resumed from that run.",
+        });
+      }
+    }
+    if (command.autoContinuationOfRunId !== undefined) {
+      const source = projection.runs.find((run) => run.id === command.autoContinuationOfRunId);
+      // An automatic continuation never widens the provider, model or reach of the run it continues.
+      if (
+        command.dispatchMode.type !== "start_immediately" ||
+        source === undefined ||
+        source.status !== "completed" ||
+        latestExecutedRun(projection.runs)?.id !== source.id ||
+        projection.runs.some((run) => run.ordinal > source.ordinal) ||
+        projection.thread.providerInstanceId !== source.providerInstanceId ||
+        command.modelSelection === undefined ||
+        !modelSelectionsEqual(source.modelSelection, command.modelSelection) ||
+        command.freshContext === true ||
+        projection.thread.archivedAt !== null ||
+        projection.thread.deletedAt !== null ||
+        projection.runtimeRequests.some((request) => request.status === "pending")
+      ) {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: "This thread can no longer continue automatically from that run.",
         });
       }
     }
@@ -7524,7 +7557,8 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         (command.creationSource !== "server" && command.creationSource !== "provider") ||
         (dispatchMode.type !== "queue_after_active" &&
           !(
-            command.restartContinuationOfRunId !== undefined &&
+            (command.restartContinuationOfRunId !== undefined ||
+              command.autoContinuationOfRunId !== undefined) &&
             dispatchMode.type === "start_immediately"
           )))
     ) {
@@ -8052,6 +8086,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         ...(command.manualContinuationOfRunId === undefined
           ? {}
           : { manualContinuationOfRunId: command.manualContinuationOfRunId }),
+        ...(command.autoContinuationOfRunId === undefined
+          ? {}
+          : { autoContinuationOfRunId: command.autoContinuationOfRunId }),
         ...(command.usageLimitContinuationOfRunId === undefined
           ? {}
           : { usageLimitContinuationOfRunId: command.usageLimitContinuationOfRunId }),
@@ -8472,6 +8509,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         ...(command.manualContinuationOfRunId === undefined
           ? {}
           : { manualContinuationOfRunId: command.manualContinuationOfRunId }),
+        ...(command.autoContinuationOfRunId === undefined
+          ? {}
+          : { autoContinuationOfRunId: command.autoContinuationOfRunId }),
         ...(command.usageLimitContinuationOfRunId === undefined
           ? {}
           : { usageLimitContinuationOfRunId: command.usageLimitContinuationOfRunId }),
@@ -9289,6 +9329,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       ...(command.manualContinuationOfRunId === undefined
         ? {}
         : { manualContinuationOfRunId: command.manualContinuationOfRunId }),
+      ...(command.autoContinuationOfRunId === undefined
+        ? {}
+        : { autoContinuationOfRunId: command.autoContinuationOfRunId }),
       ...(command.usageLimitContinuationOfRunId === undefined
         ? {}
         : { usageLimitContinuationOfRunId: command.usageLimitContinuationOfRunId }),
@@ -16777,6 +16820,64 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       return effectOutbox.awaitSettled(`effect:restart-continuation:${run.id}`).pipe(Effect.ignore);
     }),
     dispatch: dispatchWithReceipt,
+    noteRunSystemNotice: Effect.fn("OrchestratorV2.noteRunSystemNotice")(function (input) {
+      return threadDispatch.withLock(
+        input.threadId,
+        Effect.gen(function* () {
+          const { runs, turnItems } = yield* projectionStore
+            .getThreadRecords(input.threadId, ["runs", "turnItems"], {
+              runIds: [input.runId],
+              turnItemRunIds: [input.runId],
+            })
+            .pipe(
+              Effect.mapError(
+                (cause) => new OrchestratorProjectionError({ threadId: input.threadId, cause }),
+              ),
+            );
+          const run = runs.find((candidate) => candidate.id === input.runId);
+          if (run === undefined || run.rootNodeId === null) return;
+          const id = idAllocator.derive.runSignalTurnItem({
+            runId: run.id,
+            signal: input.signal,
+          });
+          if (turnItems.some((item) => item.id === id)) return;
+          const now = yield* DateTime.now;
+          yield* writeSystemEvents([
+            {
+              type: "turn-item.updated",
+              threadId: input.threadId,
+              runId: run.id,
+              nodeId: run.rootNodeId,
+              providerInstanceId: run.providerInstanceId,
+              occurredAt: now,
+              payload: {
+                id,
+                threadId: input.threadId,
+                runId: run.id,
+                nodeId: run.rootNodeId,
+                providerThreadId: run.providerThreadId,
+                providerTurnId: null,
+                nativeItemRef: null,
+                parentItemId: null,
+                // EventSink allocates the real position, after the run's existing items.
+                ordinal: 0,
+                type: "system_notice" as const,
+                status: "completed" as const,
+                title: input.title,
+                message: input.message,
+                startedAt: now,
+                completedAt: now,
+                updatedAt: now,
+              },
+            },
+          ]).pipe(
+            Effect.mapError(
+              (cause) => new OrchestratorProjectionError({ threadId: input.threadId, cause }),
+            ),
+          );
+        }),
+      );
+    }),
     autoArmLimitRecovery: Effect.fn("OrchestratorV2.autoArmLimitRecovery")(function (input) {
       return threadDispatch.withLock(
         input.threadId,

@@ -1,0 +1,203 @@
+import {
+  CommandId,
+  MessageId,
+  type OrchestrationV2DomainEvent,
+  type OrchestrationV2Run,
+  type OrchestrationV2TurnItem,
+  type ThreadId,
+} from "@t3tools/contracts";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import type * as Scope from "effect/Scope";
+import * as Stream from "effect/Stream";
+
+import * as KeyedLock from "@t3tools/shared/KeyedLock";
+import {
+  autoContinuationPrompt,
+  autoContinuationStopMessage,
+  decideAutoContinuation,
+} from "@t3tools/shared/orchestrationV2AutoContinuation";
+import { latestRootProviderFailure } from "@t3tools/shared/orchestrationV2ThreadError";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+
+import { forkParked } from "../serverActivation.ts";
+import * as ServerSettings from "../serverSettings.ts";
+import * as Orchestrator from "./Orchestrator.ts";
+import * as ProjectionStore from "./ProjectionStore.ts";
+
+export class AutoContinuationReactor extends Context.Service<
+  AutoContinuationReactor,
+  {
+    readonly start: () => Effect.Effect<void, never, Scope.Scope>;
+    readonly handle: (event: OrchestrationV2DomainEvent) => Effect.Effect<void>;
+  }
+>()("t3/orchestration-v2/AutoContinuationReactor") {}
+
+const SETTLED_STATUSES: ReadonlyArray<OrchestrationV2Run["status"]> = [
+  "completed",
+  "failed",
+  "interrupted",
+  "cancelled",
+];
+
+const PROGRESS_ITEM_TYPES: ReadonlySet<OrchestrationV2TurnItem["type"]> = new Set([
+  "command_execution",
+  "file_change",
+  "dynamic_tool",
+  "file_search",
+  "web_search",
+  "subagent",
+]);
+
+const autoContinuationIds = (runId: OrchestrationV2Run["id"]) => ({
+  commandId: CommandId.make(`command:auto-continuation:${runId}`),
+  messageId: MessageId.make(`message:auto-continuation:${runId}`),
+});
+
+const make = Effect.gen(function* () {
+  const engine = yield* Orchestrator.OrchestratorV2;
+  const projections = yield* ProjectionStore.ProjectionStoreV2;
+  const settings = yield* ServerSettings.ServerSettingsService;
+
+  const handle: AutoContinuationReactor["Service"]["handle"] = Effect.fnUntraced(
+    function* (event) {
+      if (event.type !== "run.updated" || !SETTLED_STATUSES.includes(event.payload.status)) return;
+      const runId = event.payload.id;
+      const projection = yield* projections.getThreadRecords(
+        event.threadId,
+        ["runs", "turnItems", "runtimeRequests"],
+        { turnItemRunIds: [runId] },
+      );
+      const { thread, runs } = projection;
+      // Delegated children report to their parent, which decides what follows.
+      if (
+        thread.archivedAt !== null ||
+        thread.deletedAt !== null ||
+        thread.lineage.relationshipToParent === "subagent"
+      )
+        return;
+      const run = runs.find((candidate) => candidate.id === runId);
+      if (
+        run === undefined ||
+        run.rootNodeId === null ||
+        run.delegatedTaskId !== undefined ||
+        !SETTLED_STATUSES.includes(run.status) ||
+        // A later message, or a continuation already made for this run, owns what follows.
+        runs.some((candidate) => candidate.ordinal > run.ordinal)
+      )
+        return;
+      const items = projection.turnItems.filter((item) => item.runId === run.id);
+      const finalMessage = items
+        .filter(
+          (item): item is Extract<OrchestrationV2TurnItem, { type: "assistant_message" }> =>
+            item.type === "assistant_message" &&
+            item.nodeId === run.rootNodeId &&
+            item.phase !== "commentary",
+        )
+        .reduce<Extract<OrchestrationV2TurnItem, { type: "assistant_message" }> | undefined>(
+          (latest, item) => (latest === undefined || item.ordinal > latest.ordinal ? item : latest),
+          undefined,
+        );
+      let continuationsSoFar = 0;
+      const visited = new Set<OrchestrationV2Run["id"]>();
+      for (
+        let source: OrchestrationV2Run | undefined = run;
+        source?.autoContinuationOfRunId !== undefined && !visited.has(source.id);
+        source = runs.find((candidate) => candidate.id === source?.autoContinuationOfRunId)
+      ) {
+        visited.add(source.id);
+        continuationsSoFar += 1;
+      }
+      const resolved = yield* settings.getSettings.pipe(
+        Effect.map((value) => resolveProjectSettings(value, thread.projectId).settings),
+        Effect.orElseSucceed(() => null),
+      );
+      if (resolved === null) return;
+      const decision = decideAutoContinuation({
+        enabled: resolved.continueWhileWorkRemains,
+        maxContinuations: resolved.maxAutomaticContinuations,
+        runStatus: run.status === "completed" ? "completed" : (run.status as "failed"),
+        finalMessage: finalMessage?.text,
+        userStopped: items.some((item) => item.type === "run_interrupt_request"),
+        awaitingUser:
+          projection.runtimeRequests.some(
+            (request) =>
+              request.status === "pending" &&
+              request.kind !== "dynamic_tool_call" &&
+              request.kind !== "auth_refresh",
+          ) ||
+          items.some(
+            (item) =>
+              (item.type === "user_input_request" || item.type === "approval_request") &&
+              (item.status === "pending" || item.status === "waiting"),
+          ),
+        usageLimited:
+          thread.limitRecovery?.runId === run.id ||
+          latestRootProviderFailure(run, items)?.class === "usage_limit",
+        continuationsSoFar,
+        madeProgress: items.some((item) => PROGRESS_ITEM_TYPES.has(item.type)),
+      });
+      if (decision.type === "none") return;
+      if (decision.type === "stop") {
+        yield* engine.noteRunSystemNotice({
+          threadId: thread.id,
+          runId: run.id,
+          signal: "auto-continuation-stop",
+          title: "Not continued automatically",
+          message: autoContinuationStopMessage(decision.reason, decision.remaining),
+        });
+        return;
+      }
+      const { commandId, messageId } = autoContinuationIds(run.id);
+      const text = autoContinuationPrompt(decision.remaining);
+      yield* engine.dispatch({
+        type: "message.dispatch",
+        commandId,
+        threadId: thread.id,
+        messageId,
+        text,
+        notification: {
+          source: { kind: "system" },
+          outcome: "updated",
+          summary: `Continuing automatically (${decision.continuation} of ${resolved.maxAutomaticContinuations})`,
+          detail: text,
+        },
+        attachments: [],
+        // The continuation keeps the source run's provider and model; the thread keeps its mode.
+        modelSelection: run.modelSelection,
+        dispatchMode: { type: "start_immediately" },
+        createdBy: "agent",
+        creationSource: "server",
+        autoContinuationOfRunId: run.id,
+      });
+    },
+    (effect, event) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("automatic continuation failed", { threadId: event.threadId, cause }),
+        ),
+      ),
+  );
+
+  const start: AutoContinuationReactor["Service"]["start"] = Effect.fn(
+    "AutoContinuationReactor.start",
+  )(function* () {
+    const threadReactions = yield* KeyedLock.makeRunner<ThreadId>();
+    yield* forkParked(
+      Stream.runForEach(engine.streamDomainEvents, (event) =>
+        event.type === "run.updated"
+          ? threadReactions.run(event.threadId, handle(event))
+          : Effect.void,
+      ).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logWarning("automatic continuation event stream failed", { cause }),
+        ),
+      ),
+    );
+  });
+
+  return { start, handle } satisfies AutoContinuationReactor["Service"];
+});
+
+export const layer = Layer.effect(AutoContinuationReactor, make);

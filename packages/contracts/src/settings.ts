@@ -96,6 +96,11 @@ export const SidebarAutoSettleAfterDays = Schema.Number.check(
   }),
 );
 export type SidebarAutoSettleAfterDays = typeof SidebarAutoSettleAfterDays.Type;
+const MAX_AUTOMATIC_CONTINUATIONS = 10;
+/** Automatic continuations per message the user sends; 0 keeps the agent's status line only. */
+export const AutomaticContinuationLimit = Schema.Int.check(
+  Schema.isBetween({ minimum: 0, maximum: MAX_AUTOMATIC_CONTINUATIONS }),
+);
 const DEFAULT_SIDEBAR_AUTO_SETTLE_AFTER_DAYS: SidebarAutoSettleAfterDays = 7;
 
 export const MAX_SNOOZE_PRESET_MINUTES = 30 * 24 * 60;
@@ -1216,6 +1221,8 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "sidebarAutoSettleAfterDays",
   "sidebarAutoSettleKeepPullRequests",
   "continueThreadsAfterServerUpdate",
+  "continueWhileWorkRemains",
+  "maxAutomaticContinuations",
   "responseStreamingMode",
   "speechProjectCustomWords",
 ] as const;
@@ -1254,6 +1261,8 @@ export const ProjectSettingsOverrides = Schema.Struct({
   sidebarAutoSettleAfterDays: Schema.optionalKey(Schema.NullOr(SidebarAutoSettleAfterDays)),
   sidebarAutoSettleKeepPullRequests: Schema.optionalKey(Schema.Boolean),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
+  continueWhileWorkRemains: Schema.optionalKey(Schema.Boolean),
+  maxAutomaticContinuations: Schema.optionalKey(AutomaticContinuationLimit),
   responseStreamingMode: Schema.optionalKey(ResponseStreamingMode),
   speechProjectCustomWords: Schema.optionalKey(SpeechCustomWords),
   providerInstances: Schema.optionalKey(
@@ -1408,6 +1417,11 @@ export const ServerSettings = Schema.Struct({
   showOtherAgents: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   continueThreadsAfterServerUpdate: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
+  ),
+  /** Starts another turn when the agent's final status line says work it can do remains. */
+  continueWhileWorkRemains: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  maxAutomaticContinuations: AutomaticContinuationLimit.pipe(
+    Schema.withDecodingDefault(Effect.succeed(3)),
   ),
   /** Holds an OS sleep inhibitor while any run is active; closing a laptop lid still sleeps it. */
   keepAwakeWhileAgentsWork: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
@@ -1883,6 +1897,8 @@ export const ServerSettingsPatch = Schema.Struct({
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),
   showOtherAgents: Schema.optionalKey(Schema.Boolean),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
+  continueWhileWorkRemains: Schema.optionalKey(Schema.Boolean),
+  maxAutomaticContinuations: Schema.optionalKey(AutomaticContinuationLimit),
   keepAwakeWhileAgentsWork: Schema.optionalKey(Schema.Boolean),
   requireConnectDeviceApproval: Schema.optionalKey(Schema.Boolean),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
