@@ -1,4 +1,8 @@
-import { GitCommandError, OrchestrationDispatchCommandError } from "@t3tools/contracts";
+import {
+  AgentdBeforeSendError,
+  GitCommandError,
+  OrchestrationDispatchCommandError,
+} from "@t3tools/contracts";
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- A synchronous digest inside the pure provider mapping.
 import * as NodeCrypto from "node:crypto";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -255,6 +259,8 @@ import { agentdBackupsDir } from "./agentd/agentdBackup.ts";
 import * as AgentdTeamNode from "./agentd/AgentdTeamNode.ts";
 import * as AgentdInit from "./agentd/agentdInit.ts";
 import * as AgentdSkills from "./agentd/AgentdSkills.ts";
+import * as AgentdPlugins from "./agentd/AgentdPlugins.ts";
+import { sendConfirmed } from "./agentd/beforeSendConfirm.ts";
 import { enteredKeyFiles, startErrorFor } from "./agentd/cloudFailure.ts";
 import * as LibraosGateway from "./gateway/LibraosGateway.ts";
 import * as CustomGateway from "./gateway/CustomGateway.ts";
@@ -1473,6 +1479,7 @@ export const layerWsRpc = (
         | ServerConfig.ServerConfig
         | ServerSettings.ServerSettingsService
         | DocumentText.DocumentText
+        | AgentdPlugins.AgentdPluginsService
       >();
       const applicationEvents = yield* OrchestrationEventStore.OrchestrationEventStore;
       const projectStore = yield* ProjectStore.ProjectStoreV2;
@@ -1627,6 +1634,7 @@ export const layerWsRpc = (
       const teamNode = yield* AgentdTeamNode.AgentdTeamNode;
       const agentdInit = yield* AgentdInit.AgentdInit;
       const agentdSkills = yield* AgentdSkills.AgentdSkillsService;
+      const agentdPlugins = yield* AgentdPlugins.AgentdPluginsService;
       const libraosGateway = yield* LibraosGateway.LibraosGateway;
       const customGateway = yield* CustomGateway.CustomGateway;
       const secretPaths = yield* Path.Path;
@@ -2309,6 +2317,13 @@ export const layerWsRpc = (
                   })),
                   Effect.catchTags({
                     AttachmentClaimError: (cause) =>
+                      new OrchestrationV2ThreadLaunchError({
+                        commandId: input.commandId,
+                        projectId: input.projectId,
+                        message: cause.message,
+                        cause,
+                      }),
+                    AgentdBeforeSendError: (cause) =>
                       new OrchestrationV2ThreadLaunchError({
                         commandId: input.commandId,
                         projectId: input.projectId,
@@ -3818,6 +3833,35 @@ export const layerWsRpc = (
         [WS_METHODS.agentdSkillsList]: (_input) => agentdSkills.list,
         [WS_METHODS.agentdSkillsInstall]: (input) => agentdSkills.install(input),
         [WS_METHODS.agentdSkillsRemove]: (input) => agentdSkills.remove(input),
+        [WS_METHODS.agentdPluginsList]: (input) => agentdPlugins.list(input),
+        [WS_METHODS.agentdPluginsInstall]: (input) => agentdPlugins.install(input),
+        [WS_METHODS.agentdPluginsRemove]: (input) => agentdPlugins.remove(input),
+        [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
+        [WS_METHODS.agentdBeforeSendReview]: (input) => agentdPlugins.review(input),
+        [WS_METHODS.agentdBeforeSendDiscard]: (input) =>
+          agentdPlugins.discard(input.reviewId).pipe(Effect.as({})),
+        // The held send goes again, as the person confirmed it, through the same intake.
+        [WS_METHODS.agentdBeforeSendConfirm]: (input) =>
+          agentdPlugins.confirm(input).pipe(
+            Effect.flatMap((resend) =>
+              startup.enqueueCommand(
+                sendConfirmed(resend, {
+                  managesProviders: currentSession.scopes.includes(AuthProvidersManageScope),
+                }).pipe(Effect.provide(intakeContext)),
+              ),
+            ),
+            Effect.as({}),
+            Effect.mapError((cause) =>
+              cause._tag === "EnvironmentAuthorizationError" ||
+              cause._tag === "AgentdBeforeSendError"
+                ? cause
+                : new AgentdBeforeSendError({
+                    reason: "blocked",
+                    message:
+                      userFacingDispatchErrorMessage(cause) ?? "The message could not be sent.",
+                  }),
+            ),
+          ),
         [WS_METHODS.libraosGatewayStatus]: (_input) => libraosGateway.status,
         [WS_METHODS.libraosGatewayConnect]: (input) => libraosGateway.connect(input.key),
         [WS_METHODS.libraosGatewayDisconnect]: (_input) => libraosGateway.disconnect,

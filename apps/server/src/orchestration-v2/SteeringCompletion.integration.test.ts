@@ -42,6 +42,14 @@ import * as Orchestrator from "./Orchestrator.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
+import * as ThreadMessageIntake from "./ThreadMessageIntake.ts";
+import * as ThreadLaunchService from "./ThreadLaunchService.ts";
+import * as DocumentText from "../provider/DocumentText.ts";
+import * as ServerConfig from "../config.ts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
+import { sendConfirmed } from "../agentd/beforeSendConfirm.ts";
+import { AgentdBeforeSendError } from "@t3tools/contracts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
@@ -3930,4 +3938,104 @@ it.effect("a side chat that opens with /goal gets its context on the next questi
       assert.isTrue(question?.endsWith("What is the main thread doing?"));
     }).pipe(Effect.provide(layer));
   }),
+);
+
+it.effect(
+  "a before-send block reaches no provider; a confirmed rewrite is what is stored and sent",
+  () =>
+    Effect.gen(function* () {
+      const name = "before-send";
+      const { started, layer } = yield* nextTurnSelectionHarness(name);
+      const hookRuns: string[] = [];
+      const plugins = Layer.mock(AgentdPlugins.AgentdPluginsService)({
+        hasBeforeSend: () => Effect.succeed(true),
+        checkBeforeSend: (request) =>
+          Effect.sync(() => hookRuns.push(request.text)).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new AgentdBeforeSendError({ reason: "blocked", message: "Redactor: no" }),
+              ),
+            ),
+          ),
+      });
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const threadId = ThreadId.make(`thread:${name}`);
+        yield* orchestrator.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make("create"),
+          threadId,
+          projectId: ProjectId.make(`project:${name}`),
+          title: "Before send",
+          modelSelection: runSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        const messageId = MessageId.make("message:secret");
+        const command = {
+          type: "message.dispatch",
+          commandId: CommandId.make("send-secret"),
+          threadId,
+          messageId,
+          text: "my password is hunter2",
+          attachments: [],
+          modelSelection: runSelection,
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        } as const;
+        const error = yield* ThreadMessageIntake.dispatchCommand(command, {
+          managesProviders: true,
+        }).pipe(Effect.flip);
+        yield* worker.drain();
+        assert.equal(error._tag, "AgentdBeforeSendError");
+        assert.equal(error.message, "Redactor: no");
+        assert.lengthOf(started, 0);
+        assert.isUndefined(
+          (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+            (message) => message.id === messageId,
+          ),
+        );
+
+        // The person confirmed an edited rewrite; its hooks ran already, so they do not run again.
+        yield* sendConfirmed(
+          { kind: "dispatch", command: { ...command, text: "my password is [redacted]" } },
+          { managesProviders: true },
+        );
+        yield* worker.drain();
+        assert.deepEqual(hookRuns, ["my password is hunter2"]);
+        assert.deepEqual(
+          started.map((turn) => turn.message.text),
+          ["my password is [redacted]"],
+        );
+        const stored = (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+          (message) => message.id === messageId,
+        );
+        assert.equal(stored?.text, "my password is [redacted]");
+      }).pipe(
+        Effect.provide(
+          ThreadManagementService.layer.pipe(
+            Layer.provideMerge(layer),
+            Layer.provide(ServerSettings.layerTest()),
+            Layer.provide(
+              CommandReceiptStore.layer.pipe(Layer.provide(SqlitePersistence.layerMemory)),
+            ),
+            Layer.provideMerge(plugins),
+            Layer.provideMerge(Layer.mock(ThreadLaunchService.ThreadLaunchService)({})),
+            Layer.provideMerge(
+              Layer.effect(
+                ServerConfig.ServerConfig,
+                ProviderReplayHarness.makeReplayServerConfig(name).pipe(Effect.orDie),
+              ),
+            ),
+            Layer.provideMerge(DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+          ),
+        ),
+      );
+    }),
 );

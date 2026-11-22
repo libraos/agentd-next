@@ -62,6 +62,8 @@ import * as Stream from "effect/Stream";
 
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as Orchestrator from "./Orchestrator.ts";
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
+import * as BeforeSendGate from "../agentd/beforeSendGate.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import { projectedRowEncodedBytes } from "./threadHistoryPaging.ts";
 import { threadPullRequestsOf } from "../sourceControl/threadPullRequests.ts";
@@ -646,6 +648,14 @@ const make = Effect.gen(function* () {
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
   const worktreeRestore = yield* ThreadWorktreeRestore;
+  // Optional, so a runtime without plugins (most tests) dispatches as before.
+  const beforeSendContext = Option.match(
+    yield* Effect.serviceOption(AgentdPlugins.AgentdPluginsService),
+    {
+      onNone: () => Context.empty(),
+      onSome: (plugins) => Context.make(AgentdPlugins.AgentdPluginsService, plugins),
+    },
+  );
 
   const assertProviderInstanceEnabled: ThreadManagementServiceShape["assertProviderInstanceEnabled"] =
     (input) =>
@@ -840,9 +850,23 @@ const make = Effect.gen(function* () {
     }
   };
 
+  const beforeSendReads = BeforeSendGate.gateReads(orchestrator, hasReceipt);
   const dispatch: ThreadManagementServiceShape["dispatch"] = (command) =>
     ensureCommandTranscripts(command).pipe(
       Effect.andThen(assertDispatchTargetEnabled(command)),
+      Effect.andThen(
+        BeforeSendGate.checkDispatch(command, beforeSendReads).pipe(
+          Effect.mapError(
+            (cause) =>
+              new Orchestrator.OrchestratorCommandRejectedError({
+                commandId: command.commandId,
+                commandType: command.type,
+                cause,
+              }),
+          ),
+          Effect.provide(beforeSendContext),
+        ),
+      ),
       Effect.andThen(orchestrator.dispatch(command)),
     );
 

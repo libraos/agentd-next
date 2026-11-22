@@ -452,6 +452,18 @@ import {
   AgentdSkills,
 } from "./agentdSkills.ts";
 import {
+  AgentdBeforeSendConfirmInput,
+  AgentdBeforeSendDiscardInput,
+  AgentdBeforeSendError,
+  AgentdBeforeSendReview,
+  AgentdBeforeSendReviewInput,
+  AgentdPluginEnableInput,
+  AgentdPluginError,
+  AgentdPluginInput,
+  AgentdPlugins,
+  AgentdPluginsListInput,
+} from "./agentdPlugins.ts";
+import {
   LibraosGatewayConnectInput,
   LibraosGatewayError,
   LibraosGatewayStatus,
@@ -804,6 +816,13 @@ export const WS_METHODS = {
   agentdSkillsList: "agentd.skillsList",
   agentdSkillsInstall: "agentd.skillsInstall",
   agentdSkillsRemove: "agentd.skillsRemove",
+  agentdPluginsList: "agentd.pluginsList",
+  agentdPluginsInstall: "agentd.pluginsInstall",
+  agentdPluginsRemove: "agentd.pluginsRemove",
+  agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
+  agentdBeforeSendReview: "agentd.beforeSendReview",
+  agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
+  agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
 
   libraosGatewayStatus: "libraosGateway.status",
   libraosGatewayConnect: "libraosGateway.connect",
@@ -2670,6 +2689,50 @@ const WsAgentdSkillsRemoveRpc = Rpc.make(WS_METHODS.agentdSkillsRemove, {
   error: AgentdSkillsRpcError,
 });
 
+const AgentdPluginsRpcError = Schema.Union([AgentdPluginError, EnvironmentAuthorizationError]);
+
+const WsAgentdPluginsListRpc = Rpc.make(WS_METHODS.agentdPluginsList, {
+  payload: AgentdPluginsListInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsInstallRpc = Rpc.make(WS_METHODS.agentdPluginsInstall, {
+  payload: AgentdPluginInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsRemoveRpc = Rpc.make(WS_METHODS.agentdPluginsRemove, {
+  payload: AgentdPluginInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsSetEnabledRpc = Rpc.make(WS_METHODS.agentdPluginsSetEnabled, {
+  payload: AgentdPluginEnableInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdBeforeSendReviewRpc = Rpc.make(WS_METHODS.agentdBeforeSendReview, {
+  payload: AgentdBeforeSendReviewInput,
+  success: Schema.NullOr(AgentdBeforeSendReview),
+  error: EnvironmentAuthorizationError,
+});
+
+const WsAgentdBeforeSendConfirmRpc = Rpc.make(WS_METHODS.agentdBeforeSendConfirm, {
+  payload: AgentdBeforeSendConfirmInput,
+  success: Schema.Struct({}),
+  error: Schema.Union([AgentdBeforeSendError, EnvironmentAuthorizationError]),
+});
+
+const WsAgentdBeforeSendDiscardRpc = Rpc.make(WS_METHODS.agentdBeforeSendDiscard, {
+  payload: AgentdBeforeSendDiscardInput,
+  success: Schema.Struct({}),
+  error: EnvironmentAuthorizationError,
+});
+
 const LibraosGatewayRpcError = Schema.Union([LibraosGatewayError, EnvironmentAuthorizationError]);
 
 const WsLibraosGatewayStatusRpc = Rpc.make(WS_METHODS.libraosGatewayStatus, {
@@ -2989,6 +3052,13 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdSkillsListRpc,
   WsAgentdSkillsInstallRpc,
   WsAgentdSkillsRemoveRpc,
+  WsAgentdPluginsListRpc,
+  WsAgentdPluginsInstallRpc,
+  WsAgentdPluginsRemoveRpc,
+  WsAgentdPluginsSetEnabledRpc,
+  WsAgentdBeforeSendReviewRpc,
+  WsAgentdBeforeSendConfirmRpc,
+  WsAgentdBeforeSendDiscardRpc,
   WsAgentdSubscribeSetupRpc,
   WsLibraosGatewayStatusRpc,
   WsLibraosGatewayConnectRpc,
