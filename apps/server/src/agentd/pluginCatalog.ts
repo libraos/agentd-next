@@ -231,9 +231,10 @@ export const sameContent = (left: AgentdBeforeSendContent, right: AgentdBeforeSe
       attachment.text === right.attachments[index]?.text,
   );
 
-/** What a hook reads on stdin. */
+/** What a hook reads on stdin; `unshownAttachments` go with the message but the hook cannot read them. */
 export const hookInput = (input: {
   readonly content: AgentdBeforeSendContent;
+  readonly unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>;
   readonly projectId: string;
   readonly threadId: string;
   readonly source: string;
@@ -242,6 +243,7 @@ export const hookInput = (input: {
     version: 1,
     event: "before-send",
     message: input.content,
+    unshownAttachments: input.unshown,
     context: { projectId: input.projectId, threadId: input.threadId, source: input.source },
   });
 
