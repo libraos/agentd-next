@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema";
 import { resolveAttachmentPath } from "../attachmentStore.ts";
 import { rpcAuthorizationError } from "../auth/RpcAuthorization.ts";
 import * as ServerConfig from "../config.ts";
+import * as BeforeSendGate from "../agentd/beforeSendGate.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 
 import * as AttachmentClaims from "./AttachmentClaims.ts";
@@ -137,6 +138,20 @@ export const dispatchCommand = Effect.fn("ThreadMessageIntake.dispatchCommand")(
       : incoming.type === "queued-run.edit" && !sender.managesProviders
         ? yield* withQueuedAttachmentsOnSignOutText(incoming)
         : incoming;
+  const threads = yield* ThreadManagement.ThreadManagementService;
+  // Before attachments are claimed, so a held or blocked send leaves the uploads to the draft.
+  const covered = yield* BeforeSendGate.checkClientCommand(
+    command,
+    BeforeSendGate.gateReads(threads, threads.hasReceipt),
+  );
+  return yield* covered
+    ? BeforeSendGate.checked([command.commandId], dispatchCheckedCommand(command))
+    : dispatchCheckedCommand(command);
+});
+
+const dispatchCheckedCommand = Effect.fn("ThreadMessageIntake.dispatchCheckedCommand")(function* (
+  command: OrchestrationV2Command,
+) {
   const threads = yield* ThreadManagement.ThreadManagementService;
   if (command.type === "runtime-request.respond" && command.attachmentsByQuestionId) {
     const config = yield* ServerConfig.ServerConfig;
@@ -276,6 +291,18 @@ export const sendToThread = Effect.fn("ThreadMessageIntake.sendToThread")(functi
 });
 
 export const launchThread = Effect.fn("ThreadMessageIntake.launchThread")(function* (
+  input: ThreadLaunch.ThreadLaunchInput,
+) {
+  const covered = yield* BeforeSendGate.checkLaunch(input);
+  return yield* covered
+    ? BeforeSendGate.checked(
+        BeforeSendGate.launchMessageCommandIds(input),
+        launchCheckedThread(input),
+      )
+    : launchCheckedThread(input);
+});
+
+const launchCheckedThread = Effect.fn("ThreadMessageIntake.launchCheckedThread")(function* (
   input: ThreadLaunch.ThreadLaunchInput,
 ) {
   const launches = yield* ThreadLaunch.ThreadLaunchService;

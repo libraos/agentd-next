@@ -8,12 +8,15 @@ import {
   EnvironmentId,
   MessageId,
   EventId,
+  GuestMessageId,
+  GuestShareId,
   NodeId,
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
   ProviderThreadId,
   ProviderTurnId,
+  RunId,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   ScheduledTaskId,
   ThreadId,
@@ -42,6 +45,14 @@ import * as Orchestrator from "./Orchestrator.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
+import * as ThreadMessageIntake from "./ThreadMessageIntake.ts";
+import * as ThreadLaunchService from "./ThreadLaunchService.ts";
+import * as DocumentText from "../provider/DocumentText.ts";
+import * as ServerConfig from "../config.ts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
+import { sendConfirmed } from "../agentd/beforeSendConfirm.ts";
+import { AgentdBeforeSendError } from "@t3tools/contracts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
@@ -3930,4 +3941,283 @@ it.effect("a side chat that opens with /goal gets its context on the next questi
       assert.isTrue(question?.endsWith("What is the main thread doing?"));
     }).pipe(Effect.provide(layer));
   }),
+);
+
+type BeforeSendHook = AgentdPlugins.AgentdPluginsService["Service"]["checkBeforeSend"];
+
+/** One enabled hook over the replay harness, with the thread `thread:<name>` already created. */
+const beforeSendHarness = Effect.fn("beforeSendHarness")(function* (
+  name: string,
+  hook: BeforeSendHook,
+) {
+  const { started, layer: harness } = yield* nextTurnSelectionHarness(name);
+  const threadId = ThreadId.make(`thread:${name}`);
+  const plugins = Layer.mock(AgentdPlugins.AgentdPluginsService)({
+    hasBeforeSend: () => Effect.succeed(true),
+    checkBeforeSend: hook,
+  });
+  const services = ThreadManagementService.layer.pipe(
+    Layer.provideMerge(harness),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(CommandReceiptStore.layer.pipe(Layer.provide(SqlitePersistence.layerMemory))),
+    Layer.provideMerge(plugins),
+    Layer.provideMerge(Layer.mock(ThreadLaunchService.ThreadLaunchService)({})),
+    Layer.provideMerge(
+      Layer.effect(
+        ServerConfig.ServerConfig,
+        ProviderReplayHarness.makeReplayServerConfig(name).pipe(Effect.orDie),
+      ),
+    ),
+    Layer.provideMerge(DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+  );
+  const createThread = Layer.effectDiscard(
+    Effect.gen(function* () {
+      yield* (yield* Orchestrator.OrchestratorV2).dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("create"),
+        threadId,
+        projectId: ProjectId.make(`project:${name}`),
+        title: "Before send",
+        modelSelection: runSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdBy: "user",
+        creationSource: "web",
+      });
+    }).pipe(Effect.orDie),
+  );
+  return { threadId, started, layer: createThread.pipe(Layer.provideMerge(services)) };
+});
+
+/** A hook that rewrites every message: held for review when it can be, otherwise blocked. */
+const rewritingHook =
+  (seen: Array<AgentdPlugins.BeforeSendRequest>): BeforeSendHook =>
+  (request) =>
+    Effect.sync(() => seen.push(request)).pipe(
+      Effect.andThen(
+        Effect.fail(
+          request.resend === undefined
+            ? new AgentdBeforeSendError({ reason: "blocked", message: "Redactor needs review" })
+            : new AgentdBeforeSendError({ reason: "review", message: "Review", reviewId: "r" }),
+        ),
+      ),
+    );
+
+const passingHook =
+  (seen: Array<AgentdPlugins.BeforeSendRequest>): BeforeSendHook =>
+  (request) =>
+    Effect.sync(() => {
+      seen.push(request);
+    });
+
+it.effect(
+  "a before-send block reaches no provider; a confirmed rewrite is what is stored and sent",
+  () =>
+    Effect.gen(function* () {
+      const hookRuns: string[] = [];
+      const { threadId, started, layer } = yield* beforeSendHarness("before-send", (request) =>
+        Effect.sync(() => hookRuns.push(request.text)).pipe(
+          Effect.andThen(
+            Effect.fail(new AgentdBeforeSendError({ reason: "blocked", message: "Redactor: no" })),
+          ),
+        ),
+      );
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const messageId = MessageId.make("message:secret");
+        const command = {
+          type: "message.dispatch",
+          commandId: CommandId.make("send-secret"),
+          threadId,
+          messageId,
+          text: "my password is hunter2",
+          attachments: [],
+          modelSelection: runSelection,
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        } as const;
+        const error = yield* ThreadMessageIntake.dispatchCommand(command, {
+          managesProviders: true,
+        }).pipe(Effect.flip);
+        yield* worker.drain();
+        assert.equal(error._tag, "AgentdBeforeSendError");
+        assert.equal(error.message, "Redactor: no");
+        assert.lengthOf(started, 0);
+        assert.isUndefined(
+          (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+            (message) => message.id === messageId,
+          ),
+        );
+
+        // The person confirmed an edited rewrite; its hooks ran already, so they do not run again.
+        yield* sendConfirmed(
+          { kind: "dispatch", command: { ...command, text: "my password is [redacted]" } },
+          { managesProviders: true },
+        );
+        yield* worker.drain();
+        assert.deepEqual(hookRuns, ["my password is hunter2"]);
+        assert.deepEqual(
+          started.map((turn) => turn.message.text),
+          ["my password is [redacted]"],
+        );
+        const stored = (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+          (message) => message.id === messageId,
+        );
+        assert.equal(stored?.text, "my password is [redacted]");
+
+        // A retry of that commandId with other text replays the receipt: nothing new is stored or sent.
+        yield* (yield* ThreadManagementService.ThreadManagementService).dispatch({
+          ...command,
+          text: "my password is hunter2, again",
+        });
+        yield* ThreadMessageIntake.dispatchCommand(
+          { ...command, text: "my password is hunter2, again" },
+          { managesProviders: true },
+        );
+        yield* worker.drain();
+        assert.deepEqual(hookRuns, ["my password is hunter2"]);
+        assert.deepEqual(
+          started.map((turn) => turn.message.text),
+          ["my password is [redacted]"],
+        );
+        const projection = yield* orchestrator.getThreadProjection(threadId);
+        assert.deepEqual(
+          projection.messages.filter((message) => message.role === "user").map((m) => m.text),
+          ["my password is [redacted]"],
+        );
+      }).pipe(Effect.provide(layer));
+    }),
+);
+
+it.effect("a guest send runs the before-send hook; a block or a rewrite sends nothing", () =>
+  Effect.gen(function* () {
+    const seen: Array<AgentdPlugins.BeforeSendRequest> = [];
+    const { threadId, started, layer } = yield* beforeSendHarness(
+      "before-send-guest",
+      rewritingHook(seen),
+    );
+    yield* Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const shareId = GuestShareId.make("share:before-send");
+      const guestMessageId = GuestMessageId.make("guest-message:before-send");
+      yield* orchestrator.dispatch({
+        type: "thread.guest-share.open",
+        commandId: CommandId.make("open-share"),
+        threadId,
+        shareId,
+        host: "env.t3.test",
+        expiresAt: DateTime.formatIso(DateTime.add(yield* DateTime.now, { hours: 24 })),
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.guest-share.redeem",
+        commandId: CommandId.make("redeem-share"),
+        threadId,
+        shareId,
+        guestName: "Sam",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.guest-message.submit",
+        commandId: CommandId.make("submit-guest"),
+        threadId,
+        shareId,
+        guestMessageId,
+        text: "the guest's secret",
+      });
+      const error = yield* ThreadMessageIntake.dispatchCommand(
+        {
+          type: "message.dispatch",
+          commandId: CommandId.make("send-guest"),
+          threadId,
+          messageId: MessageId.make("message:guest"),
+          guestMessageId,
+          text: "ignored: the server sends the guest's own text",
+          attachments: [],
+          modelSelection: runSelection,
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        },
+        { managesProviders: true },
+      ).pipe(Effect.flip);
+      yield* worker.drain();
+      assert.deepEqual(
+        seen.map((request) => [request.text, request.resend === undefined]),
+        [["the guest's secret", true]],
+      );
+      // The backstop stops it; a rewrite there cannot be reviewed, so it blocks.
+      assert.equal(error._tag, "OrchestratorCommandRejectedError");
+      assert.deepInclude(error._tag === "OrchestratorCommandRejectedError" ? error.cause : null, {
+        _tag: "AgentdBeforeSendError",
+        reason: "blocked",
+      });
+      assert.lengthOf(started, 0);
+      const projection = yield* orchestrator.getThreadProjection(threadId);
+      assert.lengthOf(projection.runs, 0);
+      assert.deepEqual(
+        projection.thread.guestShare?.messages.map((message) => message.status),
+        ["pending"],
+      );
+    }).pipe(Effect.provide(layer));
+  }),
+);
+
+it.effect(
+  "the before-send backstop checks new text under a stored message id and on continuations",
+  () =>
+    Effect.gen(function* () {
+      const seen: Array<AgentdPlugins.BeforeSendRequest> = [];
+      const { threadId, layer } = yield* beforeSendHarness(
+        "before-send-backstop",
+        passingHook(seen),
+      );
+      yield* Effect.gen(function* () {
+        const service = yield* ThreadManagementService.ThreadManagementService;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const send = (
+          id: string,
+          text: string,
+          extra: Partial<{
+            readonly messageId: MessageId;
+            readonly manualContinuationOfRunId: RunId;
+            readonly createdBy: "user" | "agent" | "system";
+          }> = {},
+        ) =>
+          service.dispatch({
+            type: "message.dispatch",
+            commandId: CommandId.make(id),
+            threadId,
+            messageId: MessageId.make(`message:${id}`),
+            text,
+            attachments: [],
+            modelSelection: runSelection,
+            dispatchMode: { type: "defer_start" },
+            createdBy: "agent",
+            creationSource: "mcp",
+            ...extra,
+          });
+        yield* send("first", "first text");
+        const stored = MessageId.make("message:first");
+        // The same text under the stored id is a re-dispatch of what was checked.
+        yield* send("again-same", "first text", { messageId: stored }).pipe(Effect.ignore);
+        // New text under the stored id is new content.
+        yield* send("again-new", "swapped text", { messageId: stored }).pipe(Effect.ignore);
+        const run = (yield* service.getThreadRecords(threadId, ["runs"])).runs[0];
+        assert.isDefined(run);
+        yield* send("resume", "resume with new text", {
+          manualContinuationOfRunId: run!.id,
+          createdBy: "user",
+        }).pipe(Effect.ignore);
+        yield* send("system", "server note", { createdBy: "system" }).pipe(Effect.ignore);
+        yield* worker.drain();
+        assert.deepEqual(
+          seen.map((request) => request.text),
+          ["first text", "swapped text", "resume with new text"],
+        );
+      }).pipe(Effect.provide(layer));
+    }),
 );

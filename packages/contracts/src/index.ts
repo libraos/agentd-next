@@ -72,6 +72,7 @@ export * from "./gatewayMediaMcp.ts";
 export * from "./resourceTelemetry.ts";
 export * from "./agentd.ts";
 export * from "./agentdSkills.ts";
+export * from "./agentdPlugins.ts";
 export * from "./libraosGateway.ts";
 export * from "./customGateway.ts";
 export * from "./rpc.ts";

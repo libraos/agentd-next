@@ -221,6 +221,7 @@ import {
 } from "./ComposerAttachmentStrip";
 import { CollapsedComposerStopAction, ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ComposerFooterPrimaryActions } from "./ComposerFooterControls";
+import { BeforeSendControls } from "../agentd/BeforeSendControls";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import { resolveComposerMenuActiveItemId } from "./composerMenuHighlight";
 import { buildPullRequestReferenceContext } from "../pullRequest/pullRequestDetail.logic";
@@ -4013,6 +4014,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                         />
                       </>
                     ) : null}
+                    <BeforeSendControls environmentId={environmentId} projectId={activeProjectId} />
                     <VoiceInputSetup
                       environmentId={speechInput.transcriptionEnvironmentId}
                       open={speechInput.setup.open}

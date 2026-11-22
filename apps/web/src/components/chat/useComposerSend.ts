@@ -64,6 +64,7 @@ import {
 } from "../../composer-logic";
 import { type ChatMessage, DEFAULT_INTERACTION_MODE } from "../../types";
 import { stackedThreadToast, toastManager } from "../ui/toast";
+import { requestBeforeSendReview } from "../agentd/beforeSendReviewStore";
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { newMessageId, newThreadId } from "~/lib/utils";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
@@ -1687,6 +1688,15 @@ export function useComposerSend(input: ComposerSendInput) {
         }
       }
       if (!isAtomCommandInterrupted(failure)) {
+        requestBeforeSendReview({
+          environmentId,
+          threadId: threadIdForSend,
+          messageId: messageIdForSend,
+          onSent: () => {
+            clearComposerDraftContent(composerDraftTarget);
+            setThreadError(threadIdForSend, null);
+          },
+        });
         const error = squashAtomCommandFailure(failure);
         setThreadError(
           threadIdForSend,

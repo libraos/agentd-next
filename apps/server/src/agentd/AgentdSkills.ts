@@ -78,6 +78,52 @@ type Served = Omit<AgentdSkills, "skills" | "groups"> & { readonly catalog: Cata
 
 const supports = (entry: CatalogEntry, agent: AgentdSkillAgent) => entry.agents.includes(agent);
 
+/** A URL's body, or why it could not be had. */
+export const getUrlBytes = Effect.fn("AgentdSkills.get")(function* (url: string) {
+  const http = yield* HttpClient.HttpClient;
+  const response = yield* http.execute(HttpClientRequest.get(url)).pipe(
+    Effect.timeout(REQUEST_TIMEOUT),
+    Effect.mapError(() => `${url}: the request failed`),
+  );
+  if (response.status !== 200) return yield* Effect.fail(`${url}: HTTP ${response.status}`);
+  const buffer = yield* response.arrayBuffer.pipe(
+    Effect.timeout(REQUEST_TIMEOUT),
+    Effect.mapError(() => `${url}: the response could not be read`),
+  );
+  return new Uint8Array(buffer);
+});
+
+/**
+ * Every file of a pinned folder, fetched and checked against the commit's ids; nothing is written.
+ * Skills and plugins both install through this.
+ */
+export const downloadPinned = Effect.fn("AgentdSkills.download")(function* (
+  entry: PinnedSource,
+  layout?: Parameters<typeof planFiles>[2],
+) {
+  const treeUrl = `https://api.github.com/repos/${urlPath(entry.repository)}/git/trees/${entry.commit}?recursive=1`;
+  const treeBytes = yield* getUrlBytes(treeUrl).pipe(
+    Effect.catch((detail) =>
+      fail("download", `Commit ${entry.commit} could not be read: ${detail}`),
+    ),
+  );
+  const tree = decodeGitTree(new TextDecoder().decode(treeBytes));
+  if (Option.isNone(tree))
+    return yield* fail("download", `Commit ${entry.commit} could not be read.`);
+  const plan = planFiles(entry, tree.value, layout);
+  if (plan._tag === "Refused") return yield* fail(plan.reason, plan.detail);
+  const files: Array<{ readonly target: string; readonly bytes: Uint8Array }> = [];
+  for (const file of plan.files) {
+    const url = `https://raw.githubusercontent.com/${urlPath(entry.repository, entry.commit, file.source)}`;
+    const bytes = yield* getUrlBytes(url).pipe(Effect.catch((detail) => fail("download", detail)));
+    if (gitBlobId(bytes) !== file.sha) {
+      return yield* fail("download", `${file.source} does not match commit ${entry.commit}.`);
+    }
+    files.push({ target: file.target, bytes });
+  }
+  return files;
+});
+
 const make = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -94,18 +140,8 @@ const make = Effect.gen(function* () {
 
   const deniedBy = () => ManagedPolicy.deniedBy(policy, "skillCatalog");
 
-  const getBytes = Effect.fn("AgentdSkills.get")(function* (url: string) {
-    const response = yield* http.execute(HttpClientRequest.get(url)).pipe(
-      Effect.timeout(REQUEST_TIMEOUT),
-      Effect.mapError(() => `${url}: the request failed`),
-    );
-    if (response.status !== 200) return yield* Effect.fail(`${url}: HTTP ${response.status}`);
-    const buffer = yield* response.arrayBuffer.pipe(
-      Effect.timeout(REQUEST_TIMEOUT),
-      Effect.mapError(() => `${url}: the response could not be read`),
-    );
-    return new Uint8Array(buffer);
-  });
+  const getBytes = (url: string) =>
+    getUrlBytes(url).pipe(Effect.provideService(HttpClient.HttpClient, http));
 
   const iso = (millis: number) => DateTime.formatIso(DateTime.makeUnsafe(millis));
 
@@ -212,30 +248,8 @@ const make = Effect.gen(function* () {
     return { ...rest, groups: served.catalog?.groups ?? [], skills } satisfies AgentdSkills;
   });
 
-  /** Every file of the Skill, fetched and checked against the commit's ids; nothing is written. */
-  const download = Effect.fn("AgentdSkills.download")(function* (entry: PinnedSource) {
-    const treeUrl = `https://api.github.com/repos/${urlPath(entry.repository)}/git/trees/${entry.commit}?recursive=1`;
-    const treeBytes = yield* getBytes(treeUrl).pipe(
-      Effect.catch((detail) =>
-        fail("download", `Commit ${entry.commit} could not be read: ${detail}`),
-      ),
-    );
-    const tree = decodeGitTree(new TextDecoder().decode(treeBytes));
-    if (Option.isNone(tree))
-      return yield* fail("download", `Commit ${entry.commit} could not be read.`);
-    const plan = planFiles(entry, tree.value);
-    if (plan._tag === "Refused") return yield* fail(plan.reason, plan.detail);
-    const files: Array<{ readonly target: string; readonly bytes: Uint8Array }> = [];
-    for (const file of plan.files) {
-      const url = `https://raw.githubusercontent.com/${urlPath(entry.repository, entry.commit, file.source)}`;
-      const bytes = yield* getBytes(url).pipe(Effect.catch((detail) => fail("download", detail)));
-      if (gitBlobId(bytes) !== file.sha) {
-        return yield* fail("download", `${file.source} does not match commit ${entry.commit}.`);
-      }
-      files.push({ target: file.target, bytes });
-    }
-    return files;
-  });
+  const download = (entry: PinnedSource) =>
+    downloadPinned(entry).pipe(Effect.provideService(HttpClient.HttpClient, http));
 
   const filesystem = (what: string) => () =>
     new AgentdSkillError({ reason: "filesystem", message: `Could not ${what}.` });

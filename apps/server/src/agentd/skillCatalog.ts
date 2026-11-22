@@ -125,7 +125,7 @@ export const decodeCatalogCache = Schema.decodeUnknownOption(Schema.fromJsonStri
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Whether a request may be made now: none in the last day, successful or not. */
-export function fetchDue(cache: CatalogCache | null, now: number): boolean {
+export function fetchDue(cache: Pick<CatalogCache, "attemptedAt"> | null, now: number): boolean {
   if (cache === null) return true;
   const last = Date.parse(cache.attemptedAt);
   // A time in the future (a clock moved back) counts as due rather than blocking for good.
@@ -239,10 +239,18 @@ export interface PinnedSource {
 
 /**
  * The files to write for `entry` from the commit's whole tree: everything under its folder, plus
- * its notices at the folder's top under their own names. Refuses the whole Skill on a symlink,
+ * its notices at the folder's top under their own names; `layout` names the file it must hold and
+ * the install record it must not. Refuses the whole Skill on a symlink,
  * submodule, unsafe path, name clash, a listing git cut short, or limits passed.
  */
-export function planFiles(entry: PinnedSource, tree: typeof GitTree.Type): Plan {
+export function planFiles(
+  entry: PinnedSource,
+  tree: typeof GitTree.Type,
+  layout: { readonly required: string; readonly manifest: string } = {
+    required: "SKILL.md",
+    manifest: MANIFEST_FILE,
+  },
+): Plan {
   if (tree.truncated) return refused("download", "the repository listing was cut short");
   const prefix = `${entry.path}/`;
   const files: PlannedFile[] = [];
@@ -251,7 +259,7 @@ export function planFiles(entry: PinnedSource, tree: typeof GitTree.Type): Plan 
     if (item.type !== "blob" || (item.mode !== "100644" && item.mode !== "100755")) {
       return refused("unsafe", `${item.path} is not a plain file`);
     }
-    if (safeRelativePath(target) === null || target === MANIFEST_FILE) {
+    if (safeRelativePath(target) === null || target === layout.manifest) {
       return refused("unsafe", `${item.path} has an unsafe path`);
     }
     if (!/^[0-9a-f]{40}$/.test(item.sha)) return refused("download", `${item.path} has no id`);
@@ -269,8 +277,8 @@ export function planFiles(entry: PinnedSource, tree: typeof GitTree.Type): Plan 
     const failed = add(item, item.path.slice(prefix.length));
     if (failed !== undefined) return failed;
   }
-  if (!files.some((file) => file.target === "SKILL.md")) {
-    return refused("download", `${entry.path}/SKILL.md is not in commit ${entry.commit}`);
+  if (!files.some((file) => file.target === layout.required)) {
+    return refused("download", `${entry.path}/${layout.required} is not in commit ${entry.commit}`);
   }
   for (const notice of entry.notices ?? []) {
     const item = tree.tree.find((candidate) => candidate.path === notice);

@@ -105,6 +105,12 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // Skills are written into, and removed from, the agents' Skills folders on this host.
   [WS_METHODS.agentdSkillsInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdSkillsRemove]: AuthEnvironmentMaintainScope,
+  // Plugins install under the server's state and their hooks run on every send here.
+  [WS_METHODS.agentdPluginsInstall]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsRemove]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsSetEnabled]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdBeforeSendConfirm]: AuthOrchestrationOperateScope,
+  [WS_METHODS.agentdBeforeSendDiscard]: AuthOrchestrationOperateScope,
   // The Gateway key goes to this host's agentd and its agents' sessions.
   [WS_METHODS.libraosGatewayConnect]: AuthEnvironmentMaintainScope,
   [WS_METHODS.libraosGatewayDisconnect]: AuthEnvironmentMaintainScope,
