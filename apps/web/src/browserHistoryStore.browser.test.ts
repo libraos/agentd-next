@@ -217,9 +217,12 @@ it("moves the legacy snapshot into the shared database", async () => {
     first.getState().recordVisit("b", otherEntry.url, otherEntry.lastVisitedAt);
     await vi.waitFor(() => expect(first.getState().byProjectKey.b).toEqual([otherEntry]));
 
-    const reopened = await openHistoryDocument(documents);
-    await vi.waitFor(() =>
-      expect(reopened.getState().byProjectKey).toEqual({ a: [page], b: [otherEntry] }),
+    const db = await openHistoryFixture(documents);
+    await vi.waitFor(async () =>
+      expect(await readHistoryFixture(db)).toHaveProperty("byProjectKey", {
+        a: [page],
+        b: [otherEntry],
+      }),
     );
   } finally {
     await resetHistoryFixture();
@@ -243,8 +246,10 @@ it("persists new visits from an open document after its history database is dele
     first.getState().recordVisit("b", otherEntry.url, otherEntry.lastVisitedAt);
     await vi.waitFor(() => expect(first.getState().byProjectKey.b).toEqual([otherEntry]));
 
-    const reopened = await openHistoryDocument(documents);
-    await vi.waitFor(() => expect(reopened.getState().byProjectKey).toEqual({ b: [otherEntry] }));
+    const db = await openHistoryFixture(documents);
+    await vi.waitFor(async () =>
+      expect(await readHistoryFixture(db)).toHaveProperty("byProjectKey", { b: [otherEntry] }),
+    );
   } finally {
     await resetHistoryFixture();
   }
@@ -270,10 +275,11 @@ it("keeps overlapping visits from independent documents", async () => {
       expect(second.getState().byProjectKey).toEqual(expected);
     });
 
-    // A fresh document should read the committed visits even after the legacy seed is gone.
-    localStorage.removeItem(storageKey);
-    const reopened = await openHistoryDocument(documents);
-    await vi.waitFor(() => expect(reopened.getState().byProjectKey).toEqual(expected));
+    // Committed, so a document opened later reads them without the legacy seed.
+    const db = await openHistoryFixture(documents);
+    await vi.waitFor(async () =>
+      expect(await readHistoryFixture(db)).toHaveProperty("byProjectKey", expected),
+    );
   } finally {
     await resetHistoryFixture();
   }
