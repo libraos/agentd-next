@@ -51,7 +51,7 @@ it("clears the invite immediately, shows the refusal, and confirms a successful 
   await submit.click();
   await expect
     .element(screen.getByRole("alert"))
-    .toHaveTextContent("Paste a complete AgentD team invitation link.");
+    .toHaveTextContent("Paste a complete LibraOS Core team invitation link.");
   await input.fill("http://team.example/?ticket=adt_0123456789abcdef");
   await submit.click();
   await expect

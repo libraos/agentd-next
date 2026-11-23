@@ -90,10 +90,11 @@ export function CloudWorkersSetup({
         <CloudWorkersSetupLink />
         <p>
           <T>
-            To set up Cloud Workers here, AgentD needs an upgrade. Run this, then reopen this view:
+            To set up Cloud Workers here, LibraOS Core needs an upgrade. Run this, then reopen this
+            view:
           </T>
         </p>
-        <CommandBlock command="agentd upgrade" />
+        <CommandBlock command="libraos-core upgrade" />
       </div>
     );
   }
@@ -101,7 +102,9 @@ export function CloudWorkersSetup({
     return (
       <div className="space-y-1 text-xs">
         <p>
-          <T>AgentD didn’t say where it would send an account key, so none is asked for here.</T>
+          <T>
+            LibraOS Core didn’t say where it would send an account key, so none is asked for here.
+          </T>
         </p>
         <CloudWorkersSetupLink />
       </div>
@@ -137,7 +140,7 @@ export function CloudWorkersSetup({
         reason:
           cause instanceof Error && cause.message
             ? cause.message.replaceAll(key, "[redacted]")
-            : gt("AgentD couldn’t set up Cloud Workers."),
+            : gt("LibraOS Core couldn’t set up Cloud Workers."),
       });
       return;
     }
@@ -169,8 +172,8 @@ export function CloudWorkersSetup({
         </li>
         <li>
           <T>
-            Paste the key here. AgentD sends it to <Var>{setupUrl}</Var> to check it, then saves it
-            in a private file on this environment’s machine.
+            Paste the key here. LibraOS Core sends it to <Var>{setupUrl}</Var> to check it, then
+            saves it in a private file on this environment’s machine.
           </T>
         </li>
       </ol>

@@ -245,15 +245,15 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     "Create\nCreating\nCreated\nAgentD Next threads",
     {
       detail: msg(
-        "{status, select, inProgress {Creating AgentD Next threads} completed {Created AgentD Next threads} failed {Failed to create AgentD Next threads} declined {Declined to create AgentD Next threads} stopped {Stopped creating AgentD Next threads} other {Creating AgentD Next threads}}",
+        "{status, select, inProgress {Creating LibraOS Next threads} completed {Created LibraOS Next threads} failed {Failed to create LibraOS Next threads} declined {Declined to create LibraOS Next threads} stopped {Stopped creating LibraOS Next threads} other {Creating LibraOS Next threads}}",
       ),
     },
   ],
   [
-    "Start\nStarting\nStarted\na AgentD Next thread",
+    "Start\nStarting\nStarted\na LibraOS Next thread",
     {
       detail: msg(
-        "{status, select, inProgress {Starting an AgentD Next thread} completed {Started an AgentD Next thread} failed {Failed to start an AgentD Next thread} declined {Declined to start an AgentD Next thread} stopped {Stopped starting an AgentD Next thread} other {Starting an AgentD Next thread}}",
+        "{status, select, inProgress {Starting a LibraOS Next thread} completed {Started a LibraOS Next thread} failed {Failed to start a LibraOS Next thread} declined {Declined to start a LibraOS Next thread} stopped {Stopped starting a LibraOS Next thread} other {Starting a LibraOS Next thread}}",
       ),
     },
   ],
@@ -261,31 +261,31 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     "List\nListing\nListed\nAgentD Next threads",
     {
       detail: msg(
-        "{status, select, inProgress {Listing AgentD Next threads} completed {Listed AgentD Next threads} failed {Failed to list AgentD Next threads} declined {Declined to list AgentD Next threads} stopped {Stopped listing AgentD Next threads} other {Listing AgentD Next threads}}",
+        "{status, select, inProgress {Listing LibraOS Next threads} completed {Listed LibraOS Next threads} failed {Failed to list LibraOS Next threads} declined {Declined to list LibraOS Next threads} stopped {Stopped listing LibraOS Next threads} other {Listing LibraOS Next threads}}",
       ),
     },
   ],
   [
-    "Read\nReading\nRead\na AgentD Next thread",
+    "Read\nReading\nRead\na LibraOS Next thread",
     {
       detail: msg(
-        "{status, select, inProgress {Reading an AgentD Next thread} completed {Read an AgentD Next thread} failed {Failed to read an AgentD Next thread} declined {Declined to read an AgentD Next thread} stopped {Stopped reading an AgentD Next thread} other {Reading an AgentD Next thread}}",
+        "{status, select, inProgress {Reading a LibraOS Next thread} completed {Read a LibraOS Next thread} failed {Failed to read a LibraOS Next thread} declined {Declined to read a LibraOS Next thread} stopped {Stopped reading a LibraOS Next thread} other {Reading a LibraOS Next thread}}",
       ),
     },
   ],
   [
-    "Send\nSending\nSent\nto an AgentD Next thread",
+    "Send\nSending\nSent\nto a LibraOS Next thread",
     {
       detail: msg(
-        "{status, select, inProgress {Sending to an AgentD Next thread} completed {Sent to an AgentD Next thread} failed {Failed to send to an AgentD Next thread} declined {Declined to send to an AgentD Next thread} stopped {Stopped sending to an AgentD Next thread} other {Sending to an AgentD Next thread}}",
+        "{status, select, inProgress {Sending to a LibraOS Next thread} completed {Sent to a LibraOS Next thread} failed {Failed to send to a LibraOS Next thread} declined {Declined to send to a LibraOS Next thread} stopped {Stopped sending to a LibraOS Next thread} other {Sending to a LibraOS Next thread}}",
       ),
     },
   ],
   [
-    "Wait\nWaiting\nWaited\nfor an AgentD Next thread",
+    "Wait\nWaiting\nWaited\nfor a LibraOS Next thread",
     {
       detail: msg(
-        "{status, select, inProgress {Waiting for an AgentD Next thread} completed {Waited for an AgentD Next thread} failed {Failed to wait for an AgentD Next thread} declined {Declined to wait for an AgentD Next thread} stopped {Stopped waiting for an AgentD Next thread} other {Waiting for an AgentD Next thread}}",
+        "{status, select, inProgress {Waiting for a LibraOS Next thread} completed {Waited for a LibraOS Next thread} failed {Failed to wait for a LibraOS Next thread} declined {Declined to wait for a LibraOS Next thread} stopped {Stopped waiting for a LibraOS Next thread} other {Waiting for a LibraOS Next thread}}",
       ),
     },
   ],
@@ -306,10 +306,10 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     },
   ],
   [
-    "Interrupt\nInterrupting\nRequested an interrupt of\na AgentD Next thread",
+    "Interrupt\nInterrupting\nRequested an interrupt of\na LibraOS Next thread",
     {
       detail: msg(
-        "{status, select, inProgress {Interrupting an AgentD Next thread} completed {Requested an interrupt of an AgentD Next thread} failed {Failed to interrupt an AgentD Next thread} declined {Declined to interrupt an AgentD Next thread} stopped {Stopped interrupting an AgentD Next thread} other {Interrupting an AgentD Next thread}}",
+        "{status, select, inProgress {Interrupting a LibraOS Next thread} completed {Requested an interrupt of a LibraOS Next thread} failed {Failed to interrupt a LibraOS Next thread} declined {Declined to interrupt a LibraOS Next thread} stopped {Stopped interrupting a LibraOS Next thread} other {Interrupting a LibraOS Next thread}}",
       ),
     },
   ],
@@ -685,7 +685,7 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     "Update\nUpdating\nUpdated\nAgentD Next thread metadata",
     {
       detail: msg(
-        "{status, select, inProgress {Updating AgentD Next thread metadata} completed {Updated AgentD Next thread metadata} failed {Failed to update AgentD Next thread metadata} declined {Declined to update AgentD Next thread metadata} stopped {Stopped updating AgentD Next thread metadata} other {Updating AgentD Next thread metadata}}",
+        "{status, select, inProgress {Updating LibraOS Next thread metadata} completed {Updated LibraOS Next thread metadata} failed {Failed to update LibraOS Next thread metadata} declined {Declined to update LibraOS Next thread metadata} stopped {Stopped updating LibraOS Next thread metadata} other {Updating LibraOS Next thread metadata}}",
       ),
     },
   ],

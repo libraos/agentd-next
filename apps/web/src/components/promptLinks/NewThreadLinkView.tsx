@@ -145,7 +145,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       replace: true,
     }).catch(() => null);
     if (opened === null) {
-      setState({ status: "failed", message: gt("AgentD Next could not open a new thread.") });
+      setState({ status: "failed", message: gt("LibraOS Next could not open a new thread.") });
       return;
     }
     setState({ status: "opened" });
@@ -218,7 +218,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       setState({
         status: "failed",
         message: gt(
-          "This machine cannot clone from a link. Update AgentD Next on it, or clone the repository from the command palette.",
+          "This machine cannot clone from a link. Update LibraOS Next on it, or clone the repository from the command palette.",
         ),
       });
       return;

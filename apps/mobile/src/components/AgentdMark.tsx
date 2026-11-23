@@ -14,7 +14,7 @@ export function AgentdMark(props: {
   const color = { color: props.color, colorClassName: props.colorClassName };
   return (
     <Svg
-      accessibilityLabel="AgentD Next"
+      accessibilityLabel="LibraOS Next"
       height={props.height}
       width={props.height * aspectRatio}
       viewBox="28 14 139 174"

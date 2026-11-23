@@ -47,7 +47,9 @@ export function BlockedTaskStart({
     setBusy(false);
     if (result._tag === "Failure") {
       const failure = squashAtomCommandFailure(result);
-      setError(failure instanceof Error ? failure.message : gt("AgentD could not start the task."));
+      setError(
+        failure instanceof Error ? failure.message : gt("LibraOS Core could not start the task."),
+      );
       return;
     }
     onResult(result.value);

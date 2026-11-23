@@ -46,7 +46,7 @@ export function HostedEmptyState() {
               ) : cloudEnabled ? (
                 <T>Your agents run on your computer.</T>
               ) : (
-                <T>Your agents run on your computer. Start AgentD Next there first.</T>
+                <T>Your agents run on your computer. Start LibraOS Next there first.</T>
               )}
             </EmptyDescription>
           </EmptyHeader>
@@ -97,7 +97,7 @@ function T3ConnectSteps() {
         )}
       </SetupStep>
       <SetupStep number={2}>
-        <RunOnComputer command="agentd-next connect" />
+        <RunOnComputer command="libraos-next connect" />
         {isSignedIn ? (
           <div className="mt-4 space-y-1.5">
             <CloudEnvironmentConnectRows
@@ -132,7 +132,7 @@ function PairingSteps() {
   return (
     <>
       <SetupStep number={1}>
-        <RunOnComputer command="agentd-next pair" />
+        <RunOnComputer command="libraos-next pair" />
       </SetupStep>
       <SetupStep number={2}>
         <Button render={<Link to="/settings/connections" />} size="sm">

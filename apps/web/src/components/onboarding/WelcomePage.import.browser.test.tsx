@@ -591,7 +591,7 @@ it("stays busy while setup saves after an import with nothing to open", async ()
   expect(state.createProject).toHaveBeenCalledOnce();
 });
 
-it("leaves projects already in AgentD Next out when the box is checked, unless they are all there", async () => {
+it("leaves projects already in LibraOS Next out when the box is checked, unless they are all there", async () => {
   using _now = setup();
   const existing = ProjectId.make("existing");
   const justAdded = ProjectId.make("just-added");

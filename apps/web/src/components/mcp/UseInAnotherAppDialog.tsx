@@ -86,7 +86,7 @@ export function UseInAnotherAppDialogHost() {
 function UseInAnotherAppDialog({ requested }: { readonly requested: EnvironmentId | null }) {
   const { environment, label } = useAccessEnvironment(requested);
   const gt = useGT();
-  const title = `${gt("Use AgentD Next in another app (MCP)")} · ${label ?? "AgentD Next"}`;
+  const title = `${gt("Use LibraOS Next in another app (MCP)")} · ${label ?? "LibraOS Next"}`;
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : close())}>
       <WizardPopup>
@@ -452,7 +452,7 @@ function GateScreen({
       );
     case "update":
       return (
-        <GateMessage title={gt("Update AgentD Next on {environment}", { environment: name })} />
+        <GateMessage title={gt("Update LibraOS Next on {environment}", { environment: name })} />
       );
     case "no-relay-read":
       return (
@@ -517,10 +517,10 @@ function GateScreen({
             <p className="text-sm text-muted-foreground">{turnOnHere.reason}</p>
           ) : (
             <div className="space-y-2 text-sm">
-              <CommandBlock command="agentd-next connect link" />
+              <CommandBlock command="libraos-next connect link" />
               <p>
                 <T>
-                  Restart AgentD Next on <Var>{name}</Var>.
+                  Restart LibraOS Next on <Var>{name}</Var>.
                 </T>
               </p>
               {checkAgain}

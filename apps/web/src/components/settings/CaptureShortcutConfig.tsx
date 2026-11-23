@@ -225,8 +225,8 @@ export function CaptureShortcutConfig({
         <>
           <p className="text-muted-foreground">
             <T>
-              Allow AgentD Next to read your desktop settings. You'll review any changes here before
-              saving.
+              Allow LibraOS Next to read your desktop settings. You'll review any changes here
+              before saving.
             </T>
           </p>
           <Button
@@ -247,7 +247,7 @@ export function CaptureShortcutConfig({
         <p role="status" className="text-muted-foreground">
           {state.shortcutPending
             ? gt("Connecting to your desktop…")
-            : gt("Restart AgentD Next to finish connecting your shortcut.")}
+            : gt("Restart LibraOS Next to finish connecting your shortcut.")}
         </p>
       ) : null}
       <details className="text-xs text-muted-foreground">
@@ -274,7 +274,7 @@ export function CaptureShortcutConfig({
             </p>
             {niri ? (
               <p>
-                <T>AgentD Next also reads any files included by this file.</T>
+                <T>LibraOS Next also reads any files included by this file.</T>
               </p>
             ) : null}
             {preview && preview.resolvedPath !== preview.path ? (
@@ -353,7 +353,7 @@ export function CaptureShortcutConfig({
           </Button>
           <p>
             <T>
-              Turn capture off in AgentD Next to stop it. Remove the shortcut from{" "}
+              Turn capture off in LibraOS Next to stop it. Remove the shortcut from{" "}
               <Var>{desktop}</Var> to free up the keys.
             </T>
           </p>

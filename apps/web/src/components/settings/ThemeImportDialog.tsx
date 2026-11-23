@@ -537,7 +537,7 @@ function ThemeImportBody({
                   <T>Theme file</T>
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {fileName ?? gt("Drop AgentD Next or VS Code .json files")}
+                  {fileName ?? gt("Drop LibraOS Next or VS Code .json files")}
                 </p>
               </div>
               {chooseButton()}

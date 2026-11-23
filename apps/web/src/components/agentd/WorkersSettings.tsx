@@ -41,7 +41,7 @@ export function WorkersSettings() {
 
   return (
     <SettingsPageContainer>
-      <SettingsSection id="workers-status" title={gt("AgentD")}>
+      <SettingsSection id="workers-status" title={gt("LibraOS Core")}>
         <div className="space-y-3 px-3 py-3 sm:px-4">
           {environmentId === null ? null : (
             <AgentdStatusLines environmentId={environmentId} state={state} status={status} />
@@ -52,11 +52,11 @@ export function WorkersSettings() {
               variant="outline"
               onClick={() => openAgentdSetupDialog(environmentId)}
             >
-              <T>Set up AgentD</T>
+              <T>Set up LibraOS Core</T>
             </Button>
           ) : (
             <Button size="xs" variant="outline" render={<Link to="/agentd" />}>
-              <T>AgentD page</T>
+              <T>LibraOS Core page</T>
             </Button>
           )}
         </div>
@@ -92,7 +92,8 @@ export function WorkersSettings() {
               <T>Where Hand to a worker starts a task. You can change it for each task.</T>
             ) : (
               <T>
-                Cloud Workers need AgentD set up and your LibraOS account linked on the AgentD page.
+                Cloud Workers need LibraOS Core set up and your LibraOS account linked on the
+                LibraOS Core page.
               </T>
             )
           }
@@ -132,10 +133,13 @@ export function WorkersSettings() {
           title={gt("LibraOS account")}
           description={
             linked === true ? (
-              <T>Your LibraOS account is linked. Its credit and key are on the AgentD page.</T>
+              <T>
+                Your LibraOS account is linked. Its credit and key are on the LibraOS Core page.
+              </T>
             ) : (
               <T>
-                Run tasks on LibraOS machines instead of this one. Set them up on the AgentD page.
+                Run tasks on LibraOS machines instead of this one. Set them up on the LibraOS Core
+                page.
               </T>
             )
           }
@@ -179,11 +183,12 @@ function DefaultBudgetRow({
           </span>
         ) : dollarBudgets === false ? (
           <T>
-            Used when AgentD has no estimate for the task. AgentD on this machine has no model
-            prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.
+            Used when LibraOS Core has no estimate for the task. LibraOS Core on this machine has no
+            model prices, so tasks here get only the minutes; the dollar amount applies to Cloud
+            Workers.
           </T>
         ) : (
-          <T>Used when AgentD has no estimate for the task.</T>
+          <T>Used when LibraOS Core has no estimate for the task.</T>
         )
       }
       control={

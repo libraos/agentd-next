@@ -92,7 +92,7 @@ export function BranchNamingSettings() {
           settingKeys={["branchNamePrefix"]}
           title={gt("Branch prefix")}
           description={gt(
-            "For example, agentd or agentd/ produces agentd/add-search. Leave empty for no prefix.",
+            "For example, libraos or libraos/ produces libraos/add-search. Leave empty for no prefix.",
           )}
           resetAction={
             prefixMixed ||

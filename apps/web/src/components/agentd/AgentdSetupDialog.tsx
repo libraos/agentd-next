@@ -168,7 +168,7 @@ function AgentdSetupDialog({
           <DialogHeader>
             <DialogTitle>
               {succeeded || alreadySetUp ? (
-                <T>AgentD is set up</T>
+                <T>LibraOS Core is set up</T>
               ) : (
                 <T>Link your LibraOS account</T>
               )}
@@ -184,8 +184,8 @@ function AgentdSetupDialog({
                 {ours?.permissionModeIgnored === true ? (
                   <p className="text-muted-foreground text-sm">
                     <T>
-                      This version of agentd could not take your choice about background workers, so
-                      they ask first. See Settings → Workers.
+                      This version of LibraOS Core could not take your choice about background
+                      workers, so they ask first. See Settings → Workers.
                     </T>
                   </p>
                 ) : null}
@@ -231,7 +231,7 @@ function AgentdSetupDialog({
       setStartError(
         failure instanceof Error && failure.message
           ? failure.message
-          : gt("AgentD could not start agentd init."),
+          : gt("LibraOS Core could not start libraos-core init."),
       );
     }
   };
@@ -239,14 +239,14 @@ function AgentdSetupDialog({
   const stoppedReason =
     shown?.stopped === "prompt"
       ? gt(
-          "agentd init asked a question this app does not answer, so it was stopped. Run agentd init in a terminal to answer it.",
+          "libraos-core init asked a question this app does not answer, so it was stopped. Run libraos-core init in a terminal to answer it.",
         )
       : shown?.stopped === "timeout"
-        ? gt("agentd init took longer than 10 minutes and was stopped.")
+        ? gt("libraos-core init took longer than 10 minutes and was stopped.")
         : shown?.stopped === "spawn"
-          ? gt("agentd init could not be started.")
+          ? gt("libraos-core init could not be started.")
           : shown?.phase === "failed"
-            ? gt("agentd init did not finish (exit code {code}). What it said is above.", {
+            ? gt("libraos-core init did not finish (exit code {code}). What it said is above.", {
                 code: String(shown.exitCode ?? "?"),
               })
             : null;
@@ -261,7 +261,7 @@ function AgentdSetupDialog({
       <DialogPopup showCloseButton={!running} className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            <T>Set up AgentD</T>
+            <T>Set up LibraOS Core</T>
           </DialogTitle>
         </DialogHeader>
         <DialogPanel>
@@ -301,13 +301,14 @@ function AgentdSetupDialog({
                       {eula.error ? (
                         <p role="alert" className="text-destructive text-sm">
                           <T>
-                            Couldn&apos;t read the agreement from agentd: <Var>{eula.error}</Var>
+                            Couldn&apos;t read the agreement from LibraOS Core:{" "}
+                            <Var>{eula.error}</Var>
                           </T>
                         </p>
                       ) : (
                         <div
                           role="document"
-                          aria-label={gt("AgentD End User Agreement")}
+                          aria-label={gt("LibraOS Core End User Agreement")}
                           tabIndex={0}
                           className="max-h-72 overflow-y-auto rounded-lg border border-border p-3"
                         >
@@ -344,28 +345,28 @@ function AgentdSetupDialog({
                 ) : null}
                 <p className="text-muted-foreground text-xs">
                   <T>
-                    Accept records that you accept the AgentD End User Agreement and runs{" "}
-                    <code>agentd init</code> on this environment.
+                    Accept records that you accept the LibraOS Core End User Agreement and runs{" "}
+                    <code>libraos-core init</code> on this environment.
                   </T>
                 </p>
                 {!canSetUp && (
                   <p className="text-muted-foreground text-sm">
-                    <T>This connection cannot set up AgentD on this environment.</T>
+                    <T>This connection cannot set up LibraOS Core on this environment.</T>
                   </p>
                 )}
               </>
             ) : (
               <>
                 <p role="status" className="font-medium text-sm">
-                  {running ? <T>Setting up AgentD…</T> : <T>agentd init stopped</T>}
+                  {running ? <T>Setting up LibraOS Core…</T> : <T>libraos-core init stopped</T>}
                 </p>
                 <div
                   role="log"
-                  aria-label={gt("agentd init output")}
+                  aria-label={gt("libraos-core init output")}
                   className="max-h-72 overflow-y-auto rounded-lg border border-border p-3"
                 >
                   <pre className="wrap-anywhere whitespace-pre-wrap font-mono text-xs">
-                    {shown.output === "" ? gt("Starting agentd init…") : shown.output}
+                    {shown.output === "" ? gt("Starting libraos-core init…") : shown.output}
                   </pre>
                 </div>
                 {stoppedReason !== null && (

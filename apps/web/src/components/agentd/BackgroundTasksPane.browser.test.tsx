@@ -211,7 +211,7 @@ it("follows a running task's output and only stops the task after confirmation",
   await expect.element(screen.getByRole("button", { name: "Stop requested" })).toBeDisabled();
   expect(bridge.stopTask).toHaveBeenCalledExactlyOnceWith({
     environmentId: threadRef.environmentId,
-    input: { id: "hof-123abc", reason: "Stopped from AgentD Next" },
+    input: { id: "hof-123abc", reason: "Stopped from LibraOS Next" },
   });
 });
 

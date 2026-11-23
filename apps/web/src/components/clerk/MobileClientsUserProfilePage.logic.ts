@@ -24,7 +24,7 @@ export function mobileClientPlatformLabel(device: RelayClientDeviceRecord): stri
       : device.iosMajorVersion === null
         ? "iOS"
         : `iOS ${device.iosMajorVersion}`;
-  return `${platform}${device.appVersion ? ` · AgentD Next ${device.appVersion}` : ""}`;
+  return `${platform}${device.appVersion ? ` · LibraOS Next ${device.appVersion}` : ""}`;
 }
 
 /** Components pass `useMessages()` so the detail follows a language switch. */

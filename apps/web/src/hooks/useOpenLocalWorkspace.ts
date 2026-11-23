@@ -74,7 +74,7 @@ export function useOpenLocalWorkspace() {
           const error = squashAtomCommandFailure(result);
           throw error instanceof Error
             ? error
-            : new Error(m(msg("AgentD Next could not add the project.")));
+            : new Error(m(msg("LibraOS Next could not add the project.")));
         }
         return projectId;
       },

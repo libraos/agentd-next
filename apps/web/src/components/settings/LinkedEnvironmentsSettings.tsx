@@ -125,7 +125,7 @@ export function LinkedEnvironmentsSettings({
         <SettingsRow
           title={gt("No linked environments")}
           description={gt(
-            "Link another machine running AgentD Next, such as a VPS, so agents here can launch and drive threads there.",
+            "Link another machine running LibraOS Next, such as a VPS, so agents here can launch and drive threads there.",
           )}
         />
       ) : (
@@ -570,7 +570,7 @@ export function LinkEnvironmentDialog({
                   onChange={(event) => setPairingCode(event.target.value)}
                   placeholder={
                     machine === null
-                      ? gt("From Sharing & access there, or agentd-next pair")
+                      ? gt("From Sharing & access there, or libraos-next pair")
                       : gt("Paste the code")
                   }
                   disabled={busy}
@@ -659,7 +659,7 @@ export function useForgetPeerLink(environmentId: EnvironmentId, link: PeerLinkSu
   const forget = async () => {
     const confirmed = await (requestConfirmDialog(
       gt(
-        "Forget {label}? Agents here stop working there. Revoke \"AgentD Next · …\" in {label}''s Sharing & access to end the session there too.",
+        "Forget {label}? Agents here stop working there. Revoke \"LibraOS Next · …\" in {label}''s Sharing & access to end the session there too.",
         { label: link.label },
       ),
       { variant: "destructive" },

@@ -116,7 +116,7 @@ export const updateOutdatedHost = Effect.fn("clientRuntime.connection.updateOutd
       return yield* new OutdatedHostUpdateError({
         environmentId,
         ...translatableMessage(
-          msg("Update AgentD Next on {host} manually; it cannot update itself.", {
+          msg("Update LibraOS Next on {host} manually; it cannot update itself.", {
             host: descriptor.label,
           }),
         ),
@@ -241,7 +241,7 @@ export const updateOutdatedHost = Effect.fn("clientRuntime.connection.updateOutd
       return yield* new OutdatedHostUpdateError({
         environmentId,
         ...translatableMessage(
-          msg("{host} did not come back on a compatible AgentD Next version.", {
+          msg("{host} did not come back on a compatible LibraOS Next version.", {
             host: descriptor.label,
           }),
         ),

@@ -76,7 +76,7 @@ export function SidebarFolderDrop(props: { children: ReactNode }) {
         stackedThreadToast({
           type: "error",
           title: gt('Could not add "{name}"', { name: folder.name }),
-          description: response?.message ?? gt("AgentD Next could not read the folder's path."),
+          description: response?.message ?? gt("LibraOS Next could not read the folder's path."),
         }),
       );
     }

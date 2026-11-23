@@ -958,7 +958,7 @@ export function useThreadComposerState(input: {
     if (serverConfig.environment.capabilities.sideChats !== true) {
       return resolve(
         msg("Update this environment's {product} server to use side chats.", {
-          product: "AgentD Next",
+          product: "LibraOS Next",
         }),
       );
     }

@@ -1656,7 +1656,7 @@ function ScheduledTaskEditorForm({
       reportFailure(
         gt("Once is not available here"),
         gt(
-          "This environment runs an older AgentD Next. Update it to schedule a one-time task, or pick another schedule.",
+          "This environment runs an older LibraOS Next. Update it to schedule a one-time task, or pick another schedule.",
         ),
       );
       return;

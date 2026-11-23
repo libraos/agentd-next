@@ -70,7 +70,7 @@ const dialogState = Atom.make<{
 /** The question for agentd's replaceSubmission refusal, in the user's language. */
 export function replaceQuestion(gt: ReturnType<typeof useGT>): string {
   return gt(
-    "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
+    "LibraOS Core hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
   );
 }
 
@@ -237,7 +237,7 @@ function StartTaskDialog({
   const budgetHint =
     budgetReason ??
     (plan.dollarBudgets === false
-      ? gt("No dollar limit: AgentD on this machine has no model prices.")
+      ? gt("No dollar limit: LibraOS Core on this machine has no model prices.")
       : null);
   const acceptReason = validation.accept
     ? gt(
@@ -314,7 +314,7 @@ function StartTaskDialog({
         setStartError(
           outcome.replaceSubmission !== null
             ? replaceQuestion(gt)
-            : showFailure(outcome.error, gt("AgentD could not start the task.")),
+            : showFailure(outcome.error, gt("LibraOS Core could not start the task.")),
         );
         return;
       case "offered":
@@ -323,7 +323,7 @@ function StartTaskDialog({
         setOfferedId(outcome.task.id);
         setOfferedEarlier(outcome.task.earlier === true);
         setBlocking(outcome.task.blocking ?? null);
-        setStartError(outcome.task.note ?? gt("AgentD did not dispatch the task."));
+        setStartError(outcome.task.note ?? gt("LibraOS Core did not dispatch the task."));
         return;
       case "started":
         useRightPanelStore.getState().open(rightPanelHostRef(threadRef), "background-tasks");
@@ -510,7 +510,7 @@ function StartTaskDialog({
           ) : null}
           {!canStart && (
             <p className="text-muted-foreground text-sm">
-              <T>This connection cannot start AgentD tasks.</T>
+              <T>This connection cannot start LibraOS Core tasks.</T>
             </p>
           )}
           {startError !== null && (
@@ -527,7 +527,7 @@ function StartTaskDialog({
                   <p>
                     {cloud.enabled
                       ? gt(
-                          "AgentD saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
+                          "LibraOS Core saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
                           { taskId: offeredId },
                         )
                       : gt("Task {taskId} was offered but did not start.", { taskId: offeredId })}

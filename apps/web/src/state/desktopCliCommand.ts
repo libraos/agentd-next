@@ -15,7 +15,7 @@ class DesktopCliCommandUnavailableError extends Schema.TaggedError<DesktopCliCom
   {},
 ) {
   override get message(): string {
-    return m(msg("The agentd-next command is unavailable."));
+    return m(msg("The libraos-next command is unavailable."));
   }
 }
 
@@ -24,7 +24,7 @@ class DesktopCliCommandLoadError extends Schema.TaggedError<DesktopCliCommandLoa
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return m(msg("Failed to load the agentd-next command state."));
+    return m(msg("Failed to load the libraos-next command state."));
   }
 }
 

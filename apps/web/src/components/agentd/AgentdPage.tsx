@@ -106,10 +106,10 @@ export function AgentdPage() {
   };
 
   return (
-    <AppRouteModal label={gt("AgentD")}>
+    <AppRouteModal label={gt("LibraOS Core")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-7">
         <h1 className="text-lg font-semibold">
-          <T>AgentD</T>
+          <T>LibraOS Core</T>
         </h1>
         <div className="flex items-center gap-2">
           {canRead ? (
@@ -126,7 +126,7 @@ export function AgentdPage() {
           {selectedTask !== null ? (
             <AgentdSection id="agentd-task" title={<T>Background task</T>}>
               <Button size="sm" variant="outline" onClick={() => setSelectedTask(null)}>
-                <T>Back to AgentD</T>
+                <T>Back to LibraOS Core</T>
               </Button>
               <AgentdRead query={task}>
                 {(data) => (
@@ -156,20 +156,20 @@ export function AgentdPage() {
                   </p>
                 ) : !canRead ? (
                   <p className="text-sm text-muted-foreground">
-                    <T>AgentD status requires read access to this environment.</T>
+                    <T>LibraOS Core status requires read access to this environment.</T>
                   </p>
                 ) : notFound !== null ? (
                   <Alert variant="warning">
                     <AlertTitle>
-                      <T>AgentD not found</T>
+                      <T>LibraOS Core not found</T>
                     </AlertTitle>
                     <AlertDescription>
                       <p>{notFound.message}</p>
                       {notFound.bundled ? (
                         <p>
                           <T>
-                            AgentD Next carries its own agentd, and it could not be run. Reinstall
-                            AgentD Next to restore it.
+                            LibraOS Next carries its own LibraOS Core, and it could not be run.
+                            Reinstall LibraOS Next to restore it.
                           </T>
                         </p>
                       ) : (
@@ -182,7 +182,7 @@ export function AgentdPage() {
                               target="_blank"
                               rel="noreferrer"
                             >
-                              AgentD install guide
+                              LibraOS Core install guide
                             </a>
                             , then make sure the binary is on <code>PATH</code> on this environment.
                           </T>
