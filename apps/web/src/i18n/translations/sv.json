@@ -3567,6 +3567,9 @@
   "02625b0732accc36": "{plugins} ändrade det här meddelandet. Skicka det som det visas, redigera det först eller stäng för att behålla ditt utkast oskickat.",
   "36e4f4cdd218f92e": "Granska det ändrade meddelandet",
   "6b3e8bc1f3ded083": "Meddelande",
+  "d6ac23cbf781e583": "Platshållare",
+  "2769ade1e5eccf30": "Ny",
+  "e15513272858df94": "Redan i den här konversationen",
   "2e0904a66ca09471": "Ditt ursprungliga meddelande",
   "5b30ae788fdc4fd0": "Skickar…",
   "653405e4ed498d9f": "Skicka",
@@ -3631,6 +3634,7 @@
       "v": "v"
     }
   ],
+  "5771ed9dc77641e2": "Markerade värden visas här återställda. Agenten såg bara platshållare.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",
   "8e7bdb314813b183": "Running",

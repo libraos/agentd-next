@@ -6,6 +6,7 @@ import {
   type AgentdTaskSize,
   type EnvironmentId,
   type ProjectId,
+  type ScopedThreadRef,
 } from "@t3tools/contracts";
 import { useMessages } from "gt-react";
 
@@ -150,6 +151,18 @@ export function useAgentdPlugins(target: EnvironmentId | null, projectId?: Proje
         }),
     useMessages(),
   );
+}
+
+/** The thread's placeholders and the originals they stand for; null while none are known. */
+export function useThreadPlaceholders(thread: ScopedThreadRef | null | undefined) {
+  const environmentId = useAgentdEnvironment(thread?.environmentId ?? null);
+  const query = useEnvironmentQuery(
+    environmentId === null || !thread
+      ? null
+      : agentdEnvironment.placeholders({ environmentId, input: { threadId: thread.threadId } }),
+    useMessages(),
+  );
+  return query.data !== null && Object.keys(query.data).length > 0 ? query.data : null;
 }
 
 /** Each fails with a message the caller shows beside the plugin or in the review. */

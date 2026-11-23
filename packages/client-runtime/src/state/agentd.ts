@@ -79,6 +79,12 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdBeforeSendDiscard,
       scheduler,
     }),
+    // A thread's placeholders and their originals; it grows only when a review is confirmed.
+    placeholders: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:placeholders",
+      tag: WS_METHODS.agentdPlaceholders,
+      staleTimeMs: 30_000,
+    }),
     tasks: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:agentd:tasks",
       tag: WS_METHODS.agentdSubscribeTasks,
