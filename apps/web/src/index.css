@@ -2653,3 +2653,8 @@ code {
 .messages-timeline-scroll:focus-visible {
   outline: none;
 }
+
+/* agentd: a value shown in place of the placeholder a before-send hook sent instead. */
+.chat-markdown [data-agentd-restored] {
+  @apply rounded-sm bg-amber-500/15 px-0.5 underline decoration-amber-600/60 decoration-dotted underline-offset-2;
+}

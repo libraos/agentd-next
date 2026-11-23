@@ -7,9 +7,12 @@ import type {
 } from "@t3tools/contracts";
 import { T, useGT } from "gt-react";
 import { ShieldCheckIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 
-import { useAgentdPluginCommands, useAgentdPlugins } from "~/lib/agentdState";
+import { RegistryContext } from "@effect/atom-react";
+
+import { agentdEnvironment, useAgentdPluginCommands, useAgentdPlugins } from "~/lib/agentdState";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -79,6 +82,7 @@ function BeforeSendReviewDialog({
   );
   const setRequest = useBeforeSendReviewStore((store) => store.setRequest);
   const commands = useAgentdPluginCommands();
+  const registry = useContext(RegistryContext);
   const [held, setHeld] = useState<{
     readonly review: AgentdBeforeSendReview;
     readonly onSent: BeforeSendReviewRequest["onSent"];
@@ -120,6 +124,13 @@ function BeforeSendReviewDialog({
           const error = squashAtomCommandFailure(result);
           return error instanceof Error ? error.message : null;
         }
+        // The thread's map now has this message's placeholders, which its replies will use.
+        registry.refresh(
+          agentdEnvironment.placeholders({
+            environmentId,
+            input: { threadId: held.review.threadId },
+          }),
+        );
         held.onSent();
         setHeld(null);
         return undefined;
@@ -200,6 +211,28 @@ function ReviewDialog({
                 />
               </label>
             ))}
+            {review.placeholders.length === 0 ? null : (
+              <div className="flex flex-col gap-1 text-sm">
+                <T>Placeholders</T>
+                <ul className="flex flex-col gap-1">
+                  {review.placeholders.map((item) => (
+                    <li key={item.placeholder} className="flex items-center gap-2 wrap-anywhere">
+                      <code className="shrink-0">{item.placeholder}</code>
+                      <span className="min-w-0 flex-1">{item.value}</span>
+                      {item.new ? (
+                        <Badge variant="info" size="sm" className="shrink-0">
+                          <T>New</T>
+                        </Badge>
+                      ) : (
+                        <span className="shrink-0 text-muted-foreground text-xs">
+                          <T>Already in this conversation</T>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <details className="text-sm">
               <summary className="cursor-pointer text-muted-foreground">
                 <T>Your original message</T>

@@ -222,6 +222,8 @@ const CHAT_MARKDOWN_SANITIZE_SCHEMA = {
     blockquote: [...(defaultSchema.attributes?.blockquote ?? []), "dataAlert"],
     div: [...(defaultSchema.attributes?.div ?? []), ...CODEX_ARTIFACT_TEMPLATE_HAST_PROPERTIES],
     a: [...(defaultSchema.attributes?.a ?? []), "dataPullRequestAutolink"],
+    // agentd: a value restored from a before-send placeholder.
+    span: [...(defaultSchema.attributes?.span ?? []), "dataAgentdRestored"],
     img: [
       ...(defaultSchema.attributes?.img ?? []),
       "dataDarkSrc",

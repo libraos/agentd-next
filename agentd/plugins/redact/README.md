@@ -20,4 +20,6 @@ It creates a Python environment with CPU torch and transformers in the plugin's 
 - A value found anywhere in the message is replaced everywhere in it, in the text and every attachment; for a name, each part of three or more letters is replaced on its own too.
 - It covers the messages you send from the composer: the text and UTF-8 text files up to 1 MB. A message with an image or another file is stopped; remove the file or paste its text. What agents read from your files, tool output and workspace context is not covered.
 - One message can hold up to 100,000 characters; split longer ones.
-- The original text and the placeholder map are kept only in memory while the message is checked. Placeholders are not turned back into the original values.
+- In one conversation a value keeps its placeholder: a name sent again is `[PERSON_1]` again, even if the model does not find it the second time, and a new name gets the next number. The review shows which placeholders are new.
+- Replies show the original values in place of the placeholders, highlighted, and copying a reply gives the original values. The agent only ever sees placeholders, and files it writes keep them.
+- The plugin writes nothing to disk. AgentD Next keeps each conversation's placeholder map on the computer that runs it, readable by your user account only, and deletes it with the conversation.

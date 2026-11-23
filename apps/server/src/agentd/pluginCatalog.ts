@@ -1,7 +1,12 @@
-// @effect-diagnostics nodeBuiltinImport:off - paths for another OS.
+// @effect-diagnostics nodeBuiltinImport:off - paths for another OS, and a file name's hash.
+import * as NodeCrypto from "node:crypto";
 import * as NodePath from "node:path";
 
-import type { AgentdBeforeSendContent } from "@t3tools/contracts";
+import {
+  ThreadId,
+  type AgentdBeforeSendContent,
+  type AgentdPlaceholderMap,
+} from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -179,6 +184,8 @@ const HookOutput = Schema.Union([
       text: Schema.String,
       attachments: Schema.optionalKey(Schema.Array(HookAttachmentOut)),
     }),
+    /** The thread's map after this rewrite; a hook without map support leaves it out. */
+    placeholders: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
   }),
   Schema.Struct({ decision: Schema.Literal("block"), reason: Schema.String }),
 ]);
@@ -186,16 +193,69 @@ const decodeHookOutput = Schema.decodeUnknownOption(Schema.fromJsonString(HookOu
 
 export type HookDecision =
   | { readonly _tag: "Pass" }
-  | { readonly _tag: "Rewrite"; readonly content: AgentdBeforeSendContent }
+  | {
+      readonly _tag: "Rewrite";
+      readonly content: AgentdBeforeSendContent;
+      readonly placeholders: AgentdPlaceholderMap;
+    }
   | { readonly _tag: "Block"; readonly reason: string }
   | { readonly _tag: "Invalid" };
 
 /**
- * What a hook printed, against what it was given. A rewrite may replace the text and the text of
- * attachments it was shown; one naming any other attachment is invalid, as is anything that is not
- * exactly one decision. A rewrite to the same content is a pass.
+ * A placeholder starts and ends with a mark that is not a letter, digit or space, such as
+ * `[PERSON_1]`, so restoring it cannot touch ordinary words or a longer placeholder.
  */
-export function parseHookOutput(stdout: string, input: AgentdBeforeSendContent): HookDecision {
+const PLACEHOLDER = /^[^\p{L}\p{N}\s]\S{1,98}[^\p{L}\p{N}\s]$/u;
+const PLACEHOLDER_VALUE_MAX = 10_000;
+const PLACEHOLDERS_MAX = 10_000;
+
+/**
+ * The thread's map with a hook's returned one added: existing entries stay, a returned entry that
+ * gives an existing placeholder another value or is malformed makes the whole answer invalid.
+ */
+export function mergePlaceholders(
+  current: AgentdPlaceholderMap,
+  returned: AgentdPlaceholderMap | undefined,
+): AgentdPlaceholderMap | null {
+  if (returned === undefined) return current;
+  const merged: Record<string, string> = { ...current };
+  for (const [placeholder, value] of Object.entries(returned)) {
+    if (!PLACEHOLDER.test(placeholder) || value.length === 0) return null;
+    if (value.length > PLACEHOLDER_VALUE_MAX) return null;
+    const known = Object.hasOwn(current, placeholder) ? current[placeholder] : undefined;
+    if (known !== undefined && known !== value) return null;
+    merged[placeholder] = value;
+  }
+  return Object.keys(merged).length > PLACEHOLDERS_MAX ? null : merged;
+}
+
+/** The placeholders of `map` in `content`, in the order they first appear. */
+export function placeholdersIn(
+  content: AgentdBeforeSendContent,
+  map: AgentdPlaceholderMap,
+): ReadonlyArray<string> {
+  const seen: string[] = [];
+  for (const text of [content.text, ...content.attachments.map((attachment) => attachment.text)]) {
+    const found = Object.keys(map)
+      .map((placeholder) => [placeholder, text.indexOf(placeholder)] as const)
+      .filter(([placeholder, at]) => at >= 0 && !seen.includes(placeholder))
+      .toSorted((a, b) => a[1] - b[1]);
+    seen.push(...found.map(([placeholder]) => placeholder));
+  }
+  return seen;
+}
+
+/**
+ * What a hook printed, against what it was given. A rewrite may replace the text and the text of
+ * attachments it was shown, and add to the thread's placeholder map; one naming any other
+ * attachment or changing a known placeholder is invalid, as is anything that is not exactly one
+ * decision. A rewrite to the same content is a pass.
+ */
+export function parseHookOutput(
+  stdout: string,
+  input: AgentdBeforeSendContent,
+  map: AgentdPlaceholderMap = {},
+): HookDecision {
   const decoded = decodeHookOutput(stdout.trim());
   if (decoded._tag === "None") return { _tag: "Invalid" };
   const output = decoded.value;
@@ -219,7 +279,9 @@ export function parseHookOutput(stdout: string, input: AgentdBeforeSendContent):
       text: replaced.get(attachment.id) ?? attachment.text,
     })),
   };
-  return sameContent(content, input) ? { _tag: "Pass" } : { _tag: "Rewrite", content };
+  if (sameContent(content, input)) return { _tag: "Pass" };
+  const placeholders = mergePlaceholders(map, output.placeholders);
+  return placeholders === null ? { _tag: "Invalid" } : { _tag: "Rewrite", content, placeholders };
 }
 
 export const sameContent = (left: AgentdBeforeSendContent, right: AgentdBeforeSendContent) =>
@@ -231,19 +293,37 @@ export const sameContent = (left: AgentdBeforeSendContent, right: AgentdBeforeSe
       attachment.text === right.attachments[index]?.text,
   );
 
-/** What a hook reads on stdin; `unshownAttachments` go with the message but the hook cannot read them. */
+/** A thread's placeholder map on disk, one file per thread named by its id's hash. */
+export const PlaceholderFile = Schema.Struct({
+  version: Schema.Literal(1),
+  threadId: ThreadId,
+  placeholders: Schema.Record(Schema.String, Schema.String),
+});
+export type PlaceholderFile = typeof PlaceholderFile.Type;
+export const decodePlaceholderFile = Schema.decodeUnknownOption(
+  Schema.fromJsonString(PlaceholderFile),
+);
+export const placeholderFileName = (threadId: string) =>
+  `${NodeCrypto.createHash("sha256").update(threadId).digest("hex")}.json`;
+
+/**
+ * What a hook reads on stdin; `unshownAttachments` go with the message but the hook cannot read
+ * them, and `placeholders` is the thread's map so far.
+ */
 export const hookInput = (input: {
   readonly content: AgentdBeforeSendContent;
   readonly unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>;
   readonly projectId: string;
   readonly threadId: string;
   readonly source: string;
+  readonly placeholders?: AgentdPlaceholderMap | undefined;
 }) =>
   JSON.stringify({
     version: 1,
     event: "before-send",
     message: input.content,
     unshownAttachments: input.unshown,
+    placeholders: input.placeholders ?? {},
     context: { projectId: input.projectId, threadId: input.threadId, source: input.source },
   });
 

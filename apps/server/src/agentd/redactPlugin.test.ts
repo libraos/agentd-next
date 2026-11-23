@@ -24,17 +24,25 @@ function run(
   args: ReadonlyArray<string>,
   unshown: ReadonlyArray<{ id: string; name: string }> = [],
   message = content,
+  placeholders: Record<string, string> = {},
 ) {
   const data = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "redact-plugin-"));
   try {
     const result = NodeChildProcess.spawnSync("python3", [script, ...args], {
       cwd: PLUGIN,
-      input: hookInput({ content: message, unshown, projectId: "p", threadId: "t", source: "web" }),
+      input: hookInput({
+        content: message,
+        unshown,
+        projectId: "p",
+        threadId: "t",
+        source: "web",
+        placeholders,
+      }),
       env: { ...process.env, AGENTD_REDACT_DATA_DIR: data },
       encoding: "utf8",
     });
     expect(result.status).toBe(0);
-    return parseHookOutput(result.stdout, message);
+    return parseHookOutput(result.stdout, message, placeholders);
   } finally {
     NodeFS.rmSync(data, { recursive: true, force: true });
   }
@@ -56,6 +64,19 @@ describe("redaction plugin hook", () => {
     expect(decision._tag).toBe("Rewrite");
     const sent = JSON.stringify(decision._tag === "Rewrite" ? decision.content : null);
     for (const secret of [NAME, EMAIL, API_KEY]) expect(sent).not.toContain(secret);
+  });
+
+  it("keeps the thread's placeholders in a second send and numbers a new value after them", () => {
+    const first = run("tests/fake_hook.py", []);
+    expect(first._tag).toBe("Rewrite");
+    const map = first._tag === "Rewrite" ? first.placeholders : {};
+    expect(map["[PERSON_1]"]).toBe(NAME);
+    const next = { text: `${NAME} wrote from ${EMAIL} and other@example.org.`, attachments: [] };
+    const second = run("tests/fake_hook.py", [], [], next, map);
+    expect(second._tag === "Rewrite" && second.content.text).toBe(
+      "[PERSON_1] wrote from [EMAIL_1] and [EMAIL_2].",
+    );
+    expect(second._tag === "Rewrite" && second.placeholders["[EMAIL_2]"]).toBe("other@example.org");
   });
 
   it("passes a message with nothing to redact", () => {

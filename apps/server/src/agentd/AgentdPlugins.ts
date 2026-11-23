@@ -6,6 +6,7 @@ import {
   type AgentdBeforeSendContent,
   type AgentdBeforeSendReview,
   type AgentdBeforeSendReviewInput,
+  type AgentdPlaceholderMap,
   type AgentdPluginEnableInput,
   type AgentdPluginErrorReason,
   type AgentdPluginInput,
@@ -47,15 +48,19 @@ import {
   PluginCatalogCache,
   PluginInstallRecord,
   PluginSettings,
+  PlaceholderFile,
   type PluginCatalog,
   type PluginManifest,
   attachmentText,
+  decodePlaceholderFile,
   decodePluginCatalogCache,
   decodePluginInstallRecord,
   decodePluginManifest,
   hookInput,
   parseHookOutput,
   parsePluginCatalog,
+  placeholderFileName,
+  placeholdersIn,
   pluginEnabled,
   readPluginSettings,
   resolveHookCommand,
@@ -75,7 +80,8 @@ import {
 
 // Enabled before-send hooks run in id order, each on the previous one's output; any block, failure
 // or missing command stops the send. A reviewable rewrite is held until confirmed or closed.
-// Message text never goes to logs or spans: hook stdout and stderr are read and dropped.
+// Message text never goes to logs or spans: hook stdout and stderr are read and dropped. Nor does a
+// thread's placeholder map, kept in plugins/placeholders/ readable by this user alone.
 
 /**
  * The commands whose hooks the intake ran, so the dispatch backstop does not run them again.
@@ -128,6 +134,12 @@ export class AgentdPluginsService extends Context.Service<
       input: AgentdBeforeSendConfirmInput,
     ) => Effect.Effect<BeforeSendResend, AgentdBeforeSendError>;
     readonly discard: (reviewId: string) => Effect.Effect<void>;
+    /** The thread's placeholders and the originals they stand for; empty when it has none. */
+    readonly placeholders: (threadId: ThreadId) => Effect.Effect<AgentdPlaceholderMap>;
+    /** Deletes the thread's placeholder map, as when the thread is deleted. */
+    readonly forgetPlaceholders: (threadId: ThreadId) => Effect.Effect<void>;
+    /** Every thread with a placeholder map. */
+    readonly placeholderThreads: Effect.Effect<ReadonlyArray<ThreadId>>;
   }
 >()("t3/agentd/AgentdPlugins/AgentdPluginsService") {}
 
@@ -143,6 +155,7 @@ const blocked = (message: string) => new AgentdBeforeSendError({ reason: "blocke
 const encodeCache = Schema.encodeSync(Schema.fromJsonString(PluginCatalogCache));
 const encodeRecord = Schema.encodeSync(Schema.fromJsonString(PluginInstallRecord));
 const encodeSettings = Schema.encodeSync(Schema.fromJsonString(PluginSettings));
+const encodePlaceholderFile = Schema.encodeSync(Schema.fromJsonString(PlaceholderFile));
 const isPluginError = Schema.is(AgentdPluginError);
 
 interface Installed {
@@ -160,6 +173,8 @@ interface Hook {
 
 interface HeldReview {
   readonly review: AgentdBeforeSendReview;
+  /** The thread's map with this message's new placeholders; stored once the person confirms. */
+  readonly placeholders: AgentdPlaceholderMap;
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly resend: BeforeSendResend;
   readonly expiresAt: number;
@@ -182,6 +197,8 @@ const make = Effect.gen(function* () {
   const settingsFile = path.join(root, "settings.json");
   const lock = yield* Semaphore.make(1);
   const reviews = yield* Ref.make(new Map<string, HeldReview>());
+  const placeholderRoot = path.join(root, "placeholders");
+  const placeholderLock = yield* Semaphore.make(1);
 
   const iso = (millis: number) => DateTime.formatIso(DateTime.makeUnsafe(millis));
   const writeAtomic = (file: string, text: string) =>
@@ -529,11 +546,68 @@ const make = Effect.gen(function* () {
     return resolveAttachmentPath({ attachmentsDir: config.attachmentsDir, attachment });
   };
 
+  const placeholderFile = (threadId: string) =>
+    path.join(placeholderRoot, placeholderFileName(threadId));
+
+  const readPlaceholders = (threadId: ThreadId) =>
+    fs.readFileString(placeholderFile(threadId)).pipe(
+      Effect.map((text) => {
+        const file = Option.getOrNull(decodePlaceholderFile(text));
+        return file === null || file.threadId !== threadId ? {} : file.placeholders;
+      }),
+      Effect.orElseSucceed((): AgentdPlaceholderMap => ({})),
+    );
+
+  // Mode 600 from the first byte: the temporary file is created with it, then renamed over.
+  const writePlaceholders = Effect.fn("AgentdPlugins.writePlaceholders")(function* (
+    threadId: ThreadId,
+    placeholders: AgentdPlaceholderMap,
+  ) {
+    const file = placeholderFile(threadId);
+    const temporary = `${file}.${stagingSuffix()}.tmp`;
+    yield* fs.makeDirectory(placeholderRoot, { recursive: true, mode: 0o700 });
+    yield* fs.writeFileString(
+      temporary,
+      encodePlaceholderFile({ version: 1, threadId, placeholders }),
+      {
+        flag: "wx",
+        mode: 0o600,
+      },
+    );
+    yield* fs.chmod(temporary, 0o600);
+    yield* fs
+      .rename(temporary, file)
+      .pipe(Effect.tapError(() => fs.remove(temporary).pipe(Effect.ignore)));
+  });
+
+  const placeholders = (threadId: ThreadId) => readPlaceholders(threadId);
+
+  const forgetPlaceholders = (threadId: ThreadId) =>
+    fs
+      .remove(placeholderFile(threadId), { force: true })
+      .pipe(Effect.ignore, placeholderLock.withPermits(1));
+
+  const placeholderThreads = fs.readDirectory(placeholderRoot).pipe(
+    Effect.flatMap((names) =>
+      Effect.forEach(
+        names.filter((name) => name.endsWith(".json")),
+        (name) =>
+          fs.readFileString(path.join(placeholderRoot, name)).pipe(
+            Effect.map((text) => Option.getOrNull(decodePlaceholderFile(text))?.threadId ?? null),
+            Effect.orElseSucceed(() => null),
+          ),
+      ),
+    ),
+    Effect.map((ids) => ids.filter((id): id is ThreadId => id !== null)),
+    Effect.orElseSucceed((): ReadonlyArray<ThreadId> => []),
+  );
+
   const runHook = Effect.fn("AgentdPlugins.runHook")(function* (
     hook: Hook,
     request: BeforeSendRequest,
     content: AgentdBeforeSendContent,
     unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>,
+    map: AgentdPlaceholderMap,
   ) {
     const fix = "Install it again or turn it off on the AgentD page.";
     const command = yield* hookCommand(hook);
@@ -551,6 +625,7 @@ const make = Effect.gen(function* () {
           projectId: request.projectId,
           threadId: request.threadId,
           source: request.source,
+          placeholders: map,
         }),
         timeout: Duration.seconds(command.declared.timeoutSeconds ?? DEFAULT_HOOK_TIMEOUT_SECONDS),
         timeoutBehavior: "timedOutResult",
@@ -575,7 +650,7 @@ const make = Effect.gen(function* () {
         `${hook.name} failed (exit ${String(output.code)}), so the message was not sent.`,
       );
     }
-    const decision = parseHookOutput(output.stdout, content);
+    const decision = parseHookOutput(output.stdout, content, map);
     if (decision._tag === "Invalid") {
       return yield* blocked(`${hook.name} gave no usable answer, so the message was not sent.`);
     }
@@ -586,7 +661,9 @@ const make = Effect.gen(function* () {
           : `${hook.name} stopped this message.`,
       );
     }
-    return decision._tag === "Rewrite" ? decision.content : content;
+    return decision._tag === "Rewrite"
+      ? { content: decision.content, placeholders: decision.placeholders }
+      : { content, placeholders: map };
   });
 
   const hasBeforeSend = Effect.fn("AgentdPlugins.hasBeforeSend")(function* (projectId: ProjectId) {
@@ -614,12 +691,15 @@ const make = Effect.gen(function* () {
     const unshown = request.attachments
       .filter((attachment) => !original.attachments.some((shown) => shown.id === attachment.id))
       .map((attachment) => ({ id: attachment.id, name: attachment.name }));
+    const known = yield* readPlaceholders(request.threadId);
     let content = original;
+    let map = known;
     const changedBy: string[] = [];
     for (const hook of hooks) {
-      const next = yield* runHook(hook, request, content, unshown);
-      if (!sameContent(next, content)) changedBy.push(hook.name);
-      content = next;
+      const next = yield* runHook(hook, request, content, unshown, map);
+      if (!sameContent(next.content, content)) changedBy.push(hook.name);
+      content = next.content;
+      map = next.placeholders;
     }
     if (sameContent(content, original)) return;
     if (request.resend === undefined) {
@@ -637,6 +717,11 @@ const make = Effect.gen(function* () {
       plugins: changedBy,
       original,
       proposed: content,
+      placeholders: placeholdersIn(content, map).map((placeholder) => ({
+        placeholder,
+        value: map[placeholder] ?? "",
+        new: !Object.hasOwn(known, placeholder),
+      })),
     };
     const resend = request.resend;
     yield* Ref.update(reviews, (held) => {
@@ -651,6 +736,7 @@ const make = Effect.gen(function* () {
       }
       next.set(reviewId, {
         review,
+        placeholders: map,
         attachments: request.attachments,
         resend,
         expiresAt: now + REVIEW_TTL_MS,
@@ -708,6 +794,36 @@ const make = Effect.gen(function* () {
     return result;
   });
 
+  /**
+   * Adds the review's placeholders to the thread's map. Another message confirmed meanwhile may
+   * have numbered the same placeholder for someone else: then this one has to be checked again.
+   */
+  const storePlaceholders = Effect.fn("AgentdPlugins.storePlaceholders")(function* (
+    held: HeldReview,
+  ) {
+    const threadId = held.review.threadId;
+    const stored = yield* readPlaceholders(threadId);
+    const added = Object.entries(held.placeholders).filter(
+      ([placeholder]) => !Object.hasOwn(stored, placeholder),
+    );
+    if (
+      Object.entries(stored).some(
+        ([placeholder, value]) =>
+          Object.hasOwn(held.placeholders, placeholder) && held.placeholders[placeholder] !== value,
+      )
+    ) {
+      return yield* blocked(
+        "Another message in this conversation was confirmed while this one waited, and its placeholders changed. Send this message again.",
+      );
+    }
+    if (added.length === 0) return;
+    yield* writePlaceholders(threadId, { ...stored, ...Object.fromEntries(added) }).pipe(
+      Effect.mapError(() =>
+        blocked("The placeholders for this conversation could not be saved, so it was not sent."),
+      ),
+    );
+  }, placeholderLock.withPermits(1));
+
   const confirm = Effect.fn("AgentdPlugins.confirm")(function* (
     input: AgentdBeforeSendConfirmInput,
   ) {
@@ -721,6 +837,7 @@ const make = Effect.gen(function* () {
       next.delete(input.reviewId);
       return next;
     });
+    yield* storePlaceholders(held);
     const attachments = yield* applyAttachments(held, input.content.attachments);
     const text = input.content.text;
     const resend = held.resend;
@@ -759,6 +876,9 @@ const make = Effect.gen(function* () {
     review,
     confirm,
     discard,
+    placeholders,
+    forgetPlaceholders,
+    placeholderThreads,
   });
 });
 
