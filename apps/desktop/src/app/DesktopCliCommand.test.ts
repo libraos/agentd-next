@@ -101,7 +101,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
       const command = yield* commandIn({ home, env });
-      const link = path.join(home, ".local", "bin", "agentd-next");
+      const link = path.join(home, ".local", "bin", "libraos-next");
 
       expect(yield* command.state).toEqual({
         supported: true,
@@ -113,17 +113,22 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect((yield* command.state).installedPath).toBe(link);
       const installed = yield* command.install;
       expect(installed.installedPath).toBe(link);
-      expect(installed.launcherPath).toBe(path.join(home, ".agentd-desktop", "bin", "agentd-next"));
+      expect(installed.launcherPath).toBe(
+        path.join(home, ".agentd-desktop", "bin", "libraos-next"),
+      );
       expect(installed.pathSetup).toEqual({ file: "~/.zshrc", added: false });
       expect(yield* fs.readLink(link)).toBe(
-        path.join(home, ".agentd-desktop", "bin", "agentd-next"),
+        path.join(home, ".agentd-desktop", "bin", "libraos-next"),
       );
       expect((yield* command.install).installedPath).toBe(link);
-      // The `t3` alias is the same launcher under the old name.
+      // The `agentd-next` and `t3` aliases are the same launcher under the earlier names.
       const alias = path.join(home, ".local", "bin", "t3");
-      expect(yield* fs.readLink(alias)).toBe(
-        path.join(home, ".agentd-desktop", "bin", "agentd-next"),
-      );
+      const earlierAlias = path.join(home, ".local", "bin", "agentd-next");
+      for (const each of [alias, earlierAlias]) {
+        expect(yield* fs.readLink(each)).toBe(
+          path.join(home, ".agentd-desktop", "bin", "libraos-next"),
+        );
+      }
 
       // Add to PATH appends one line, once, and keeps a final line with no newline intact.
       const zshrc = path.join(home, ".zshrc");
@@ -142,7 +147,10 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect((yield* command.uninstall).installedPath).toBeNull();
       expect(yield* fs.exists(link)).toBe(false);
       expect(yield* fs.exists(alias)).toBe(false);
-      expect(yield* fs.exists(path.join(home, ".agentd-desktop", "bin", "agentd-next"))).toBe(true);
+      expect(yield* fs.exists(earlierAlias)).toBe(false);
+      expect(yield* fs.exists(path.join(home, ".agentd-desktop", "bin", "libraos-next"))).toBe(
+        true,
+      );
       // Removed stays removed: first launch never installs again.
       yield* command.installOnFirstLaunch;
       expect(yield* fs.exists(link)).toBe(false);
@@ -153,18 +161,18 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* later.install;
       yield* later.uninstall;
       yield* later.installOnFirstLaunch;
-      expect(yield* fs.exists(path.join(laterHome, ".local", "bin", "agentd-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(laterHome, ".local", "bin", "libraos-next"))).toBe(false);
 
       // An app that ran before left its settings or launcher. Its user may have removed t3 or
       // chosen another, so first launch leaves it to Settings, where Install still works.
-      for (const left of ["userdata/desktop-settings.json", "bin/agentd-next"]) {
+      for (const left of ["userdata/desktop-settings.json", "bin/libraos-next"]) {
         const upgradedHome = yield* fs.makeTempDirectoryScoped();
         const leftFile = path.join(upgradedHome, ".agentd-desktop", left);
         yield* fs.makeDirectory(path.dirname(leftFile), { recursive: true });
         yield* fs.writeFileString(leftFile, `#!/bin/sh\n# ${DesktopCliShim.MARKER}\n`);
         const upgraded = yield* commandIn({ home: upgradedHome, env });
         yield* upgraded.installOnFirstLaunch;
-        const upgradedLink = path.join(upgradedHome, ".local", "bin", "agentd-next");
+        const upgradedLink = path.join(upgradedHome, ".local", "bin", "libraos-next");
         expect(yield* fs.exists(upgradedLink)).toBe(false);
         expect((yield* upgraded.install).installedPath).toBe(upgradedLink);
       }
@@ -180,7 +188,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const legacyLink = path.join(home, ".local", "bin", "agentd-desktop");
       yield* fs.makeDirectory(path.dirname(legacyLauncher), { recursive: true });
       yield* fs.makeDirectory(path.dirname(legacyLink), { recursive: true });
-      yield* fs.writeFileString(legacyLauncher, `#!/bin/sh\n# ${DesktopCliShim.LEGACY_MARKER}\n`);
+      yield* fs.writeFileString(legacyLauncher, "#!/bin/sh\n# Written by AgentD Desktop: runs\n");
       yield* fs.symlink(legacyLauncher, legacyLink);
       const command = yield* commandIn({ home });
 
@@ -189,7 +197,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect(yield* fs.readLink(legacyLink)).toBe(legacyLauncher);
 
       yield* command.uninstall;
-      expect(yield* fs.exists(path.join(home, ".local", "bin", "agentd-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
       expect(Option.isNone(yield* fs.readLink(legacyLink).pipe(Effect.option))).toBe(true);
     }),
   );
@@ -201,17 +209,17 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
       const command = yield* commandIn({ home, env });
-      const theirs = path.join(home, ".local", "bin", "agentd-next");
+      const theirs = path.join(home, ".local", "bin", "libraos-next");
       yield* fs.makeDirectory(path.dirname(theirs), { recursive: true });
       yield* fs.writeFileString(theirs, "npm's t3\n");
       yield* fs.makeDirectory(path.join(home, "bin"), { recursive: true });
-      yield* fs.symlink(path.join(home, "gone"), path.join(home, "bin", "agentd-next"));
+      yield* fs.symlink(path.join(home, "gone"), path.join(home, "bin", "libraos-next"));
 
       const error = yield* Effect.flip(command.install);
-      expect(error.message).toContain("Another agentd-next command is already in");
+      expect(error.message).toContain("Another libraos-next command is already in");
       yield* command.uninstall;
       expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
-      expect(yield* fs.readLink(path.join(home, "bin", "agentd-next"))).toBe(
+      expect(yield* fs.readLink(path.join(home, "bin", "libraos-next"))).toBe(
         path.join(home, "gone"),
       );
 
@@ -219,16 +227,16 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       // t3 in ~/bin.
       for (const dangling of [false, true]) {
         const besideHome = yield* fs.makeTempDirectoryScoped();
-        const other = path.join(besideHome, ".local", "bin", "agentd-next");
+        const other = path.join(besideHome, ".local", "bin", "libraos-next");
         yield* fs.makeDirectory(path.dirname(other), { recursive: true });
         yield* dangling
           ? fs.symlink(path.join(besideHome, "gone"), other)
           : fs.writeFileString(other, "npm's t3\n");
         yield* (yield* commandIn({ home: besideHome })).installOnFirstLaunch;
-        expect(yield* fs.exists(path.join(besideHome, "bin", "agentd-next"))).toBe(false);
+        expect(yield* fs.exists(path.join(besideHome, "bin", "libraos-next"))).toBe(false);
       }
 
-      const launcher = path.join(home, ".agentd-desktop", "bin", "agentd-next");
+      const launcher = path.join(home, ".agentd-desktop", "bin", "libraos-next");
       yield* fs.writeFileString(launcher, "npm's t3\n");
       env.PATH = path.dirname(launcher);
       expect(yield* command.state).toMatchObject({ onPath: false, shadowedBy: launcher });
@@ -238,20 +246,73 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
     }),
   );
 
-  it.effect("leaves a t3 it did not create when installing and removing", () =>
+  it.effect.each(["t3", "agentd-next"])(
+    "leaves a %s it did not create when installing and removing",
+    (name) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const theirs = path.join(home, ".local", "bin", name);
+        const theirLink = path.join(home, "bin", name);
+        yield* fs.makeDirectory(path.dirname(theirs), { recursive: true });
+        yield* fs.makeDirectory(path.dirname(theirLink), { recursive: true });
+        yield* fs.writeFileString(theirs, "npm's t3\n");
+        yield* fs.symlink(theirs, theirLink);
+        const command = yield* commandIn({ home });
+
+        const installed = yield* command.install;
+        expect(installed.installedPath).toBe(path.join(home, ".local", "bin", "libraos-next"));
+        expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
+        yield* command.uninstall;
+        expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
+        expect(yield* fs.readLink(theirLink)).toBe(theirs);
+      }),
+  );
+
+  it.effect("keeps an earlier agentd-next command running this app and moves it on Install", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const theirs = path.join(home, ".local", "bin", "t3");
-      yield* fs.makeDirectory(path.dirname(theirs), { recursive: true });
-      yield* fs.writeFileString(theirs, "npm's t3\n");
+      const baseDir = path.join(home, ".agentd-desktop");
+      const earlierLauncher = path.join(baseDir, "bin", "agentd-next");
+      const earlierLink = path.join(home, ".local", "bin", "agentd-next");
+      const earlierT3 = path.join(home, ".local", "bin", "t3");
+      yield* fs.makeDirectory(path.dirname(earlierLauncher), { recursive: true });
+      yield* fs.makeDirectory(path.join(baseDir, "userdata"), { recursive: true });
+      yield* fs.makeDirectory(path.dirname(earlierLink), { recursive: true });
+      yield* fs.writeFileString(
+        earlierLauncher,
+        "#!/bin/sh\n# Written by AgentD Next: runs the desktop app's bundled agentd-next CLI.\n",
+      );
+      yield* fs.symlink(earlierLauncher, earlierLink);
+      yield* fs.symlink(earlierLauncher, earlierT3);
+      yield* fs.writeFileString(path.join(baseDir, "userdata", "desktop-settings.json"), "{}");
       const command = yield* commandIn({ home });
 
-      yield* command.install;
-      expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
+      // An app update adds no command behind the user's back; the earlier one keeps working.
+      yield* command.installOnFirstLaunch;
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
+      expect(yield* fs.readLink(earlierLink)).toBe(earlierLauncher);
+
+      const installed = yield* command.install;
+      const launcher = path.join(baseDir, "bin", "libraos-next");
+      expect(installed.installedPath).toBe(path.join(home, ".local", "bin", "libraos-next"));
+      expect(yield* fs.readFileString(earlierLauncher)).toContain(DesktopCliShim.MARKER);
+      // Every name runs the same launcher, with the same T3 home baked in.
+      for (const name of ["libraos-next", "agentd-next", "t3"]) {
+        const each = path.join(home, ".local", "bin", name);
+        expect(yield* fs.readLink(each)).toBe(launcher);
+        expect(yield* fs.realPath(each)).toBe(yield* fs.realPath(launcher));
+      }
+      expect(yield* fs.readFileString(launcher)).toContain(baseDir);
+
       yield* command.uninstall;
-      expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
+      for (const name of ["libraos-next", "agentd-next", "t3"]) {
+        const each = path.join(home, ".local", "bin", name);
+        expect(Option.isNone(yield* fs.readLink(each).pipe(Effect.option))).toBe(true);
+      }
     }),
   );
 
@@ -267,7 +328,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const after = yield* commandIn({ home, baseDir: path.join(home, "new-t3"), env });
       // A first launch leaves another home's command alone; only Install takes it over.
       yield* after.installOnFirstLaunch;
-      expect(yield* fs.readLink(link!)).toBe(path.join(home, "old-t3", "bin", "agentd-next"));
+      expect(yield* fs.readLink(link!)).toBe(path.join(home, "old-t3", "bin", "libraos-next"));
       // On PATH, it runs the other home's launcher. Settings offers Install (not Remove, and not
       // "another t3 runs first"), which updates that link in place.
       env.PATH = path.dirname(link!);
@@ -281,39 +342,39 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       // Behind another t3 the install fails, and the old link still works.
       const shadow = path.join(home, "shadow");
       yield* fs.makeDirectory(shadow);
-      yield* fs.writeFileString(path.join(shadow, "agentd-next"), "#!/bin/sh\n", {
+      yield* fs.writeFileString(path.join(shadow, "libraos-next"), "#!/bin/sh\n", {
         mode: 0o755,
       });
       env.PATH = shadow;
       yield* Effect.flip(after.install);
-      expect(yield* fs.readLink(link!)).toBe(path.join(home, "old-t3", "bin", "agentd-next"));
+      expect(yield* fs.readLink(link!)).toBe(path.join(home, "old-t3", "bin", "libraos-next"));
       // Install takes it over, also with its folder first on PATH.
       env.PATH = path.dirname(link!);
       expect((yield* after.install).installedPath).toBe(link);
-      expect(yield* fs.readLink(link!)).toBe(path.join(home, "new-t3", "bin", "agentd-next"));
+      expect(yield* fs.readLink(link!)).toBe(path.join(home, "new-t3", "bin", "libraos-next"));
       env.PATH = "";
       yield* after.uninstall;
-      expect(yield* fs.exists(path.join(home, ".local", "bin", "agentd-next"))).toBe(false);
-      expect(yield* fs.exists(path.join(home, "bin", "agentd-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(home, "bin", "libraos-next"))).toBe(false);
 
       // A folder already on PATH wins, even written with a trailing slash.
       env.PATH = `${path.join(home, "bin")}/`;
-      expect((yield* after.install).installedPath).toBe(path.join(home, "bin", "agentd-next"));
+      expect((yield* after.install).installedPath).toBe(path.join(home, "bin", "libraos-next"));
 
       // An old link of ours is updated where it is, not moved to a folder that may be off PATH.
-      yield* fs.writeFileString(path.join(home, "bin", "agentd-next.staging"), "mine");
-      yield* fs.remove(path.join(home, "bin", "agentd-next"));
+      yield* fs.writeFileString(path.join(home, "bin", "libraos-next.staging"), "mine");
+      yield* fs.remove(path.join(home, "bin", "libraos-next"));
       yield* fs.symlink(
-        path.join(home, "old-t3", "bin", "agentd-next"),
-        path.join(home, "bin", "agentd-next"),
+        path.join(home, "old-t3", "bin", "libraos-next"),
+        path.join(home, "bin", "libraos-next"),
       );
       env.PATH = "";
-      expect((yield* after.install).installedPath).toBe(path.join(home, "bin", "agentd-next"));
-      expect(yield* fs.readLink(path.join(home, "bin", "agentd-next"))).toBe(
-        path.join(home, "new-t3", "bin", "agentd-next"),
+      expect((yield* after.install).installedPath).toBe(path.join(home, "bin", "libraos-next"));
+      expect(yield* fs.readLink(path.join(home, "bin", "libraos-next"))).toBe(
+        path.join(home, "new-t3", "bin", "libraos-next"),
       );
-      expect(yield* fs.exists(path.join(home, ".local", "bin", "agentd-next"))).toBe(false);
-      expect(yield* fs.readFileString(path.join(home, "bin", "agentd-next.staging"))).toBe("mine");
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
+      expect(yield* fs.readFileString(path.join(home, "bin", "libraos-next.staging"))).toBe("mine");
     }),
   );
 
@@ -325,28 +386,28 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const home = yield* fs.makeTempDirectoryScoped();
       const shadow = path.join(home, "shadow");
       yield* fs.makeDirectory(shadow);
-      yield* fs.writeFileString(path.join(shadow, "agentd-next"), "#!/bin/sh\n", {
+      yield* fs.writeFileString(path.join(shadow, "libraos-next"), "#!/bin/sh\n", {
         mode: 0o755,
       });
       env.PATH = [shadow, `${path.join(home, ".local", "bin")}/`].join(":");
 
       const command = yield* commandIn({ home, env });
-      const theirs = path.join(shadow, "agentd-next");
+      const theirs = path.join(shadow, "libraos-next");
       expect((yield* command.state).shadowedBy).toBe(theirs);
       const error = yield* Effect.flip(command.install);
       expect(error.message).toContain(theirs);
       yield* command.installOnFirstLaunch;
-      expect(yield* fs.exists(path.join(home, ".local", "bin", "agentd-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
       expect(yield* fs.readFileString(theirs)).toBe("#!/bin/sh\n");
 
       // Its folder is already on PATH behind theirs; adding it again would change which t3 runs.
       yield* fs.makeDirectory(path.join(home, ".local", "bin"), { recursive: true });
       yield* fs.symlink(
-        path.join(home, ".agentd-desktop", "bin", "agentd-next"),
-        path.join(home, ".local", "bin", "agentd-next"),
+        path.join(home, ".agentd-desktop", "bin", "libraos-next"),
+        path.join(home, ".local", "bin", "libraos-next"),
       );
       const behind = yield* command.state;
-      expect(behind.installedPath).toBe(path.join(home, ".local", "bin", "agentd-next"));
+      expect(behind.installedPath).toBe(path.join(home, ".local", "bin", "libraos-next"));
       expect(behind.pathSetup).toBeUndefined();
       // Off PATH behind theirs, adding the folder would still put ours first.
       env.PATH = shadow;
@@ -354,16 +415,16 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* Effect.flip(command.addToPath);
       expect(yield* fs.exists(path.join(home, ".zshrc"))).toBe(false);
       env.PATH = [shadow, `${path.join(home, ".local", "bin")}/`].join(":");
-      yield* fs.remove(path.join(home, ".local", "bin", "agentd-next"));
+      yield* fs.remove(path.join(home, ".local", "bin", "libraos-next"));
 
       // A first-launch install that failed is not retried behind the user's back.
       yield* fs.remove(theirs);
       yield* command.installOnFirstLaunch;
-      expect(yield* fs.exists(path.join(home, ".local", "bin", "agentd-next"))).toBe(false);
+      expect(yield* fs.exists(path.join(home, ".local", "bin", "libraos-next"))).toBe(false);
       const installed = yield* command.install;
       expect(installed).toMatchObject({
         onPath: true,
-        installedPath: path.join(home, ".local", "bin", "agentd-next"),
+        installedPath: path.join(home, ".local", "bin", "libraos-next"),
       });
       expect(installed.shadowedBy).toBeUndefined();
     }),
@@ -380,27 +441,27 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
         const folder = path.join(home, "folder");
         const plain = path.join(home, "plain");
         const shadow = path.join(home, "shadow");
-        yield* fs.makeDirectory(path.join(folder, "agentd-next"), { recursive: true });
+        yield* fs.makeDirectory(path.join(folder, "libraos-next"), { recursive: true });
         yield* fs.makeDirectory(plain);
-        yield* fs.writeFileString(path.join(plain, "agentd-next"), "notes\n");
+        yield* fs.writeFileString(path.join(plain, "libraos-next"), "notes\n");
         // Root can execute mode 0o601; other users must honor the owner permissions.
-        yield* fs.chmod(path.join(plain, "agentd-next"), process.getuid?.() === 0 ? 0o600 : 0o601);
+        yield* fs.chmod(path.join(plain, "libraos-next"), process.getuid?.() === 0 ? 0o600 : 0o601);
         yield* fs.makeDirectory(shadow);
-        yield* fs.writeFileString(path.join(shadow, "agentd-next"), "#!/bin/sh\n", {
+        yield* fs.writeFileString(path.join(shadow, "libraos-next"), "#!/bin/sh\n", {
           mode: 0o755,
         });
         env.PATH = [folder, plain, shadow, path.join(home, ".local", "bin")].join(":");
 
         const command = yield* commandIn({ home, env });
-        expect((yield* command.state).shadowedBy).toBe(path.join(shadow, "agentd-next"));
+        expect((yield* command.state).shadowedBy).toBe(path.join(shadow, "libraos-next"));
 
         const error = yield* Effect.flip(command.install);
-        expect(error.message).toContain(path.join(shadow, "agentd-next"));
+        expect(error.message).toContain(path.join(shadow, "libraos-next"));
 
         yield* fs.remove(shadow, { recursive: true });
         expect(yield* command.install).toMatchObject({
           onPath: true,
-          installedPath: path.join(home, ".local", "bin", "agentd-next"),
+          installedPath: path.join(home, ".local", "bin", "libraos-next"),
         });
       }),
   );
@@ -411,7 +472,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const launcher = path.join(home, ".agentd-desktop", "bin", "agentd-next");
+      const launcher = path.join(home, ".agentd-desktop", "bin", "libraos-next");
       env.PATH = [path.dirname(launcher), path.join(home, ".local", "bin")].join(":");
 
       const command = yield* commandIn({ home, env });
@@ -420,7 +481,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect(yield* fs.exists(launcher)).toBe(true);
       expect(installed).toMatchObject({
         onPath: true,
-        installedPath: path.join(home, ".local", "bin", "agentd-next"),
+        installedPath: path.join(home, ".local", "bin", "libraos-next"),
       });
       expect(installed.shadowedBy).toBeUndefined();
       expect(yield* command.state).toEqual(installed);
@@ -454,14 +515,21 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
           baseDir: `${home}/.agentd-desktop`,
           platform: "win32",
         }),
-      ).replace(/[\\/]agentd-next\.cmd$/, "");
+      ).replace(/[\\/]libraos-next\.cmd$/, "");
       yield* command.install;
       expect(registry.path).toBe(`${userPath};${launcherDir}`);
-      const windowsAlias = `${launcherDir}${launcherDir.includes("\\") ? "\\" : "/"}t3.cmd`;
-      expect(yield* fs.readFileString(windowsAlias)).toContain(DesktopCliShim.MARKER);
+      const separator = launcherDir.includes("\\") ? "\\" : "/";
+      const windowsAliases = ["t3.cmd", "agentd-next.cmd"].map(
+        (name) => `${launcherDir}${separator}${name}`,
+      );
+      for (const windowsAlias of windowsAliases) {
+        expect(yield* fs.readFileString(windowsAlias)).toContain(DesktopCliShim.MARKER);
+      }
       yield* command.uninstall;
       expect(registry.path).toBe(userPath);
-      expect(yield* fs.exists(windowsAlias)).toBe(false);
+      for (const windowsAlias of windowsAliases) {
+        expect(yield* fs.exists(windowsAlias)).toBe(false);
+      }
 
       // A `;` in the folder would split it into two PATH entries, so nothing is written.
       const split = fakePowerShell(userPath);
@@ -502,12 +570,12 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* command.uninstall;
       expect(registry.path).toBe(userPath);
 
-      // A fresh install beside another agentd-next.cmd, even off PATH, leaves
+      // A fresh install beside another libraos-next.cmd, even off PATH, leaves
       // PATH alone.
       const besideHome = yield* fs.makeTempDirectoryScoped();
       yield* fs.makeDirectory(path.join(besideHome, ".local", "bin"), { recursive: true });
       yield* fs.writeFileString(
-        path.join(besideHome, ".local", "bin", "agentd-next.cmd"),
+        path.join(besideHome, ".local", "bin", "libraos-next.cmd"),
         "@echo off\r\n",
       );
       const beside = fakePowerShell("C:\\Tools");

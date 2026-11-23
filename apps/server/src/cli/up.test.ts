@@ -154,7 +154,7 @@ const answering = (text: string) =>
   });
 
 it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))(
-  "agentd-next up",
+  "libraos-next up",
   (it) => {
     afterEach(() => vi.restoreAllMocks());
 
@@ -189,7 +189,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       },
       {
         label: "the local network opens",
-        prints: ["Run `agentd-next pair --base-dir <baseDir>`."],
+        prints: ["Run `libraos-next pair --base-dir <baseDir>`."],
         installed: true,
         env: "T3CODE_LAN=false\n",
         args: ["--lan"],
@@ -208,7 +208,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       },
       {
         label: "a route turns off with no service to run",
-        prints: ["Run `agentd-next --base-dir <baseDir>` to use AgentD Next here."],
+        prints: ["Run `libraos-next --base-dir <baseDir>` to use AgentD Next here."],
         installed: false,
         env: "T3CODE_LAN=true\n",
         args: ["--no-lan"],
@@ -229,7 +229,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       {
         label: "a failed update keeps service.env matching the old service",
         // The old service still runs, so no foreground server is offered.
-        prints: ["Fix that, then run `agentd-next up --base-dir <baseDir>` again."],
+        prints: ["Fix that, then run `libraos-next up --base-dir <baseDir>` again."],
         installed: true,
         status: { current: false },
         installFails: true,
@@ -292,8 +292,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
         installed: true,
         reportStatus: true,
         prints: [
-          "Turn it off: `agentd-next up --base-dir <baseDir> --no-lan`.",
-          "Change access: `agentd-next up --base-dir <baseDir>`.",
+          "Turn it off: `libraos-next up --base-dir <baseDir> --no-lan`.",
+          "Change access: `libraos-next up --base-dir <baseDir>`.",
         ],
         env: "",
         args: [],
@@ -375,7 +375,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
                     : Effect.sync(() => {
                         installs++;
                         return {
-                          program: ["agentd-next"],
+                          program: ["libraos-next"],
                           baseDir,
                           unitPath: status.unitPath,
                           logPath: status.logPath,

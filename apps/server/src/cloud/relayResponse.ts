@@ -64,7 +64,7 @@ function recoveryHint(error: RelayProtectedError): string {
     case "RelayEnvironmentLinkLimitExceededError":
       return "Unlink an unused environment in the hosted relay, then restart AgentD Next on this machine.";
     case "RelayAuthInvalidError":
-      return "Run `agentd-next connect login` to check this machine's authorization. If the stored credential was revoked, sign out with `agentd-next connect logout`, then run `agentd-next connect` again. Restart AgentD Next after signing in.";
+      return "Run `libraos-next connect login` to check this machine's authorization. If the stored credential was revoked, sign out with `libraos-next connect logout`, then run `libraos-next connect` again. Restart AgentD Next after signing in.";
     case "RelayEnvironmentLinkProofInvalidError":
       if (error.reason === "environment_key_mismatch") {
         return "The hosted relay already has this environment linked with a different key. Unlink it in the hosted relay, then restart AgentD Next on this machine.";

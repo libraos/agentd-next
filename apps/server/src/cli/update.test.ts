@@ -95,7 +95,7 @@ it.effect("reads the newest version from the update feed file a mirror publishes
   }),
 );
 
-it.layer(NodeServices.layer)("agentd-next update under a managed policy", (it) => {
+it.layer(NodeServices.layer)("libraos-next update under a managed policy", (it) => {
   const runWithPolicy = (
     updates: ManagedUpdatesPolicy,
     input: { readonly channel?: "stable" | "nightly"; readonly requestedVersion?: string } = {},
@@ -183,7 +183,7 @@ it.layer(NodeServices.layer)("agentd-next update under a managed policy", (it) =
   );
 });
 
-it.layer(NodeServices.layer)("agentd-next update launcher", (it) => {
+it.layer(NodeServices.layer)("libraos-next update launcher", (it) => {
   it.effect("replaces a legacy symlink with a script that execs the new version", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -316,7 +316,7 @@ it.layer(NodeServices.layer)("agentd-next update launcher", (it) => {
     { name: "Windows launcher records", recorded: "C:\\t3.cmd\r\n" },
     // An interrupted append cut this record short.
     { name: "an unterminated launcher record", recorded: "/opt/t" },
-    // Another process's append is cut short after agentd-next update reads the records.
+    // Another process's append is cut short after libraos-next update reads the records.
     { name: "a record cut short after the read", recorded: "/opt/t3\n", cut: "/opt/t" },
   ])("keeps the runtime a repointed launcher off PATH points at with $name", ({ recorded, cut }) =>
     Effect.gen(function* () {
@@ -427,7 +427,7 @@ it.layer(NodeServices.layer)("agentd-next update launcher", (it) => {
   );
 
   it.effect.each(["recording", "repointing"] as const)(
-    "never leaves a repointed launcher unrecorded when agentd-next update dies while %s",
+    "never leaves a repointed launcher unrecorded when libraos-next update dies while %s",
     (step) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -442,11 +442,11 @@ it.layer(NodeServices.layer)("agentd-next update launcher", (it) => {
             ...fs,
             writeFileString: (path, data, options) =>
               step === "recording" && path === launchersFile
-                ? Effect.die("agentd-next update was killed")
+                ? Effect.die("libraos-next update was killed")
                 : fs.writeFileString(path, data, options),
             rename: (from, to) =>
               step === "repointing" && to === launcher
-                ? Effect.die("agentd-next update was killed")
+                ? Effect.die("libraos-next update was killed")
                 : fs.rename(from, to),
           }),
           Effect.exit,
@@ -551,7 +551,7 @@ const withoutTerminals = Effect.acquireRelease(
     }),
 );
 
-it.layer(NodeServices.layer)("agentd-next update with a background service", (it) => {
+it.layer(NodeServices.layer)("libraos-next update with a background service", (it) => {
   it.effect("names the version a service with a pending restart still runs", () =>
     Effect.gen(function* () {
       yield* withoutTerminals;
@@ -565,7 +565,7 @@ it.layer(NodeServices.layer)("agentd-next update with a background service", (it
       yield* fs.writeFileString(runtime.sentinelPath, `${version}\n`);
       const unitPath = path.join(baseDir, "agentd-desktop.service");
       const logPath = path.join(baseDir, "boot-service.log");
-      // An earlier `agentd-next update` pointed the service at this version without restarting it.
+      // An earlier `libraos-next update` pointed the service at this version without restarting it.
       const service = Layer.mock(BootService.BootService, {
         status: Effect.succeed<BootService.BootServiceStatus>({
           supported: true,
@@ -624,7 +624,7 @@ it.layer(NodeServices.layer)("agentd-next update with a background service", (it
 
       assert.include(
         output,
-        `Background service still running the version before ${version}. Run \`agentd-next service restart\` when you are ready to switch it to ${version}.`,
+        `Background service still running the version before ${version}. Run \`libraos-next service restart\` when you are ready to switch it to ${version}.`,
       );
     }).pipe(
       Effect.provideService(HostProcess.Platform, "linux"),
@@ -636,7 +636,7 @@ it.layer(NodeServices.layer)("agentd-next update with a background service", (it
   );
 });
 
-it.layer(NodeServices.layer)("agentd-next update checks the database before switching", (it) => {
+it.layer(NodeServices.layer)("libraos-next update checks the database before switching", (it) => {
   const preflightOutput = (stdout: string, code = 0) => ({
     stdout,
     stderr: code === 0 ? "" : "Unknown command: __service-preflight",
@@ -674,7 +674,7 @@ it.layer(NodeServices.layer)("agentd-next update checks the database before swit
       launcherProtocol: 3,
       preflight: preflightOutput("", 1),
       failure:
-        "t3@0.1.8 could not confirm it supports this database (its check exited with code 1), so agentd-next did not switch to it.",
+        "t3@0.1.8 could not confirm it supports this database (its check exited with code 1), so libraos-next did not switch to it.",
     },
     {
       // Newer builds keep accepting the current launcher protocol, which may drop 3.

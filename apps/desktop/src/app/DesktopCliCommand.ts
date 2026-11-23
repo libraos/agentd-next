@@ -17,7 +17,7 @@ import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import {
-  CLI_COMMAND_ALIAS,
+  CLI_COMMAND_ALIASES,
   CLI_COMMAND_NAME,
   LEGACY_CLI_COMMAND_NAME,
 } from "@t3tools/shared/desktopIdentity";
@@ -293,11 +293,15 @@ export const make = Effect.gen(function* () {
     })),
   );
 
-  const windowsAlias = path.join(binDirectory, `${CLI_COMMAND_ALIAS}.cmd`);
-  /** The alias is the same launcher under another name; a `t3` the app did not write stays. */
+  const aliasPath = (directory: string, name: string) =>
+    windows ? path.join(binDirectory, `${name}.cmd`) : path.join(directory, name);
+  /**
+   * An alias is the same launcher under an earlier name; an `agentd-next` or `t3` the app did not
+   * write stays. Our link to an earlier launcher is pointed at this one.
+   */
   const installAlias = Effect.fn("DesktopCliCommand.installAlias")(
-    function* (directory: string) {
-      const alias = windows ? windowsAlias : path.join(directory, CLI_COMMAND_ALIAS);
+    function* (directory: string, name: string) {
+      const alias = aliasPath(directory, name);
       if (windows) {
         const existing = yield* fs.readFileString(alias).pipe(Effect.option);
         if (Option.isSome(existing) && !DesktopCliShim.isOwnShim(existing.value)) return;
@@ -312,23 +316,37 @@ export const make = Effect.gen(function* () {
       }
       yield* fs.symlink(launcher, alias);
     },
-    Effect.catchCause((cause) =>
-      logWarning("could not install the t3 alias", { cause: Cause.pretty(cause) }),
-    ),
+    (effect, _directory, name) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          logWarning("could not install an alias", { name, cause: Cause.pretty(cause) }),
+        ),
+      ),
   );
   const removeAlias = Effect.fn("DesktopCliCommand.removeAlias")(
-    function* (directory: string) {
-      const alias = windows ? windowsAlias : path.join(directory, CLI_COMMAND_ALIAS);
+    function* (directory: string, name: string) {
+      const alias = aliasPath(directory, name);
       if (windows) {
         const existing = yield* fs.readFileString(alias).pipe(Effect.option);
         if (Option.isNone(existing) || !DesktopCliShim.isOwnShim(existing.value)) return;
       } else if (!(yield* isOurLink(alias))) return;
       yield* fs.remove(alias);
     },
-    Effect.catchCause((cause) =>
-      logWarning("could not remove the t3 alias", { cause: Cause.pretty(cause) }),
-    ),
+    (effect, _directory, name) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          logWarning("could not remove an alias", { name, cause: Cause.pretty(cause) }),
+        ),
+      ),
   );
+  const installAliases = (directory: string) =>
+    Effect.forEach(CLI_COMMAND_ALIASES, (name) => installAlias(directory, name), {
+      discard: true,
+    });
+  const removeAliases = (directory: string) =>
+    Effect.forEach(CLI_COMMAND_ALIASES, (name) => removeAlias(directory, name), {
+      discard: true,
+    });
 
   const ensureLauncher = DesktopCliShim.install.pipe(
     Effect.provideService(DesktopEnvironment.DesktopEnvironment, environment),
@@ -336,7 +354,7 @@ export const make = Effect.gen(function* () {
     Effect.flatMap(
       Option.match({
         onNone: () =>
-          Effect.fail(fail(`Could not set up the agentd-next launcher at ${launcher}.`)),
+          Effect.fail(fail(`Could not set up the libraos-next launcher at ${launcher}.`)),
         onSome: () => Effect.void,
       }),
     ),
@@ -344,7 +362,7 @@ export const make = Effect.gen(function* () {
 
   const install: DesktopCliCommand["Service"]["install"] = Effect.gen(function* () {
     if (!environment.isPackaged)
-      return yield* fail("The agentd-next command needs an installed app.");
+      return yield* fail("The libraos-next command needs an installed app.");
     yield* ensureLauncher;
     if (windows) {
       // PATH would split the folder at the `;`, leaving two wrong entries behind.
@@ -359,10 +377,10 @@ export const make = Effect.gen(function* () {
         yield* fs
           .writeFileString(ownedPathMarker, `${binDirectory}\n`)
           .pipe(
-            Effect.mapError(() => fail("Added agentd-next to your PATH but could not record it.")),
+            Effect.mapError(() => fail("Added libraos-next to your PATH but could not record it.")),
           );
       }
-      yield* installAlias(binDirectory);
+      yield* installAliases(binDirectory);
       return yield* state;
     }
     const candidates = userCandidates(environment.homeDirectory);
@@ -370,7 +388,7 @@ export const make = Effect.gen(function* () {
     if (replaced !== undefined) {
       const target = yield* fs.readLink(replaced).pipe(Effect.option);
       if (Option.getOrUndefined(target) === launcher) {
-        yield* installAlias(path.dirname(replaced));
+        yield* installAliases(path.dirname(replaced));
         return yield* state;
       }
     }
@@ -378,7 +396,7 @@ export const make = Effect.gen(function* () {
     // Our own link into another T3 home runs first too; it is the one this install updates.
     if (Option.isSome(shadowedBy) && shadowedBy.value !== replaced) {
       return yield* fail(
-        `Another agentd-next at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
+        `Another libraos-next at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
       );
     }
     // An old link of ours is updated where it is, so a t3 that works now keeps working. It is
@@ -419,11 +437,11 @@ export const make = Effect.gen(function* () {
       if (replaced !== undefined && replaced !== link) {
         yield* fs.remove(replaced).pipe(Effect.ignore);
       }
-      yield* installAlias(directory);
+      yield* installAliases(directory);
       return yield* state;
     }
     return yield* fail(
-      `Another agentd-next command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
+      `Another libraos-next command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
     );
   }).pipe(Effect.withSpan("desktop.cliCommand.install"));
 
@@ -437,7 +455,7 @@ export const make = Effect.gen(function* () {
         if (kept.length !== entries.length) yield* writeUserPath(kept.join(";"));
         yield* fs.remove(ownedPathMarker).pipe(Effect.ignore);
       }
-      yield* removeAlias(binDirectory);
+      yield* removeAliases(binDirectory);
       return yield* state;
     }
     for (const directory of knownLocations(environment.homeDirectory, environment.platform)) {
@@ -448,7 +466,7 @@ export const make = Effect.gen(function* () {
           yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
         }
       }
-      yield* removeAlias(directory);
+      yield* removeAliases(directory);
     }
     return yield* state;
   }).pipe(Effect.withSpan("desktop.cliCommand.uninstall"));
@@ -458,15 +476,15 @@ export const make = Effect.gen(function* () {
   const addToPath: DesktopCliCommand["Service"]["addToPath"] = Effect.gen(function* () {
     const installed = yield* installedAt;
     if (Option.isNone(installed) || !(yield* leadsHere(installed.value))) {
-      return yield* fail("Install the agentd-next command first.");
+      return yield* fail("Install the libraos-next command first.");
     }
     const setup = startupLine(installed.value);
     if (setup === undefined)
-      return yield* fail("AgentD Next cannot add agentd-next to this shell's PATH.");
+      return yield* fail("AgentD Next cannot add libraos-next to this shell's PATH.");
     const shadowedBy = yield* foreignFirstOnPath;
     if (Option.isSome(shadowedBy)) {
       return yield* fail(
-        `Another agentd-next at ${shadowedBy.value} runs first; AgentD Next leaves it in place.`,
+        `Another libraos-next at ${shadowedBy.value} runs first; AgentD Next leaves it in place.`,
       );
     }
     if (!(yield* folderOnPath(installed.value)) && !(yield* hasLine(setup))) {
@@ -476,7 +494,7 @@ export const make = Effect.gen(function* () {
             flag: "a",
           }),
         ),
-        Effect.mapError(() => fail(`Could not add agentd-next to ${setup.file}.`)),
+        Effect.mapError(() => fail(`Could not add libraos-next to ${setup.file}.`)),
       );
     }
     return yield* state;
@@ -488,14 +506,14 @@ export const make = Effect.gen(function* () {
       // Mark first so a failed or removed install is never retried behind the user's back.
       yield* fs.writeFileString(firstLaunchMarker, "");
       if (!freshInstall) {
-        return yield* logInfo("left the agentd-next command to Settings on an existing install");
+        return yield* logInfo("left the libraos-next command to Settings on an existing install");
       }
       // Another T3 home's app owns the existing link; only Install in Settings may take it over.
       const existing = Option.getOrUndefined(yield* installedAt);
       if (existing !== undefined) {
         const target = yield* fs.readLink(existing).pipe(Effect.option);
         if (Option.getOrUndefined(target) !== launcher) {
-          return yield* logInfo("left another AgentD Next app's agentd-next command in place", {
+          return yield* logInfo("left another AgentD Next app's libraos-next command in place", {
             existing,
           });
         }
@@ -510,14 +528,14 @@ export const make = Effect.gen(function* () {
           const present =
             (yield* exists(other)) || Option.isSome(yield* fs.readLink(other).pipe(Effect.option));
           if (present && (windows || !(yield* isOurLink(other)))) {
-            return yield* logInfo("left the agentd-next command to Settings beside another one", {
+            return yield* logInfo("left the libraos-next command to Settings beside another one", {
               other,
             });
           }
         }
       }
       const installed = yield* install;
-      yield* logInfo("installed the agentd-next command on first launch", {
+      yield* logInfo("installed the libraos-next command on first launch", {
         installedPath: installed.installedPath,
         onPath: installed.onPath,
       });
@@ -525,7 +543,7 @@ export const make = Effect.gen(function* () {
   ).pipe(
     // Our own messages are short and name only paths; anything else is logged as a category.
     Effect.catch((error) =>
-      logWarning("did not install the agentd-next command on first launch", {
+      logWarning("did not install the libraos-next command on first launch", {
         reason: error._tag === "DesktopCliCommandError" ? error.message : "state-write-failed",
       }),
     ),

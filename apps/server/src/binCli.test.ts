@@ -11,6 +11,7 @@ import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import * as SqlClient from "effect/sql/SqlClient";
 
+import packageJson from "../package.json" with { type: "json" };
 import { migrationManifest, runMigrations } from "./persistence/Migrations.ts";
 import {
   makePersistedServerRuntimeState,
@@ -92,31 +93,35 @@ it.live("keeps migration warnings out of JSON thread output", () =>
     });
 
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const child = yield* spawner.spawn(
-      ChildProcess.make(
-        process.execPath,
-        [
-          NodeURL.fileURLToPath(new URL("./bin.ts", import.meta.url)),
-          "thread",
-          "list",
-          "--project",
-          "project-1",
-          "--json",
-          "--base-dir",
-          root,
-        ],
-        { env: { T3CODE_HOME: root } },
-      ),
-    );
-    const { stdout, stderr, exitCode } = yield* Effect.all(
-      {
-        stdout: child.stdout.pipe(Stream.decodeText(), Stream.mkString),
-        stderr: child.stderr.pipe(Stream.decodeText(), Stream.mkString),
-        exitCode: child.exitCode,
-      },
-      { concurrency: "unbounded" },
-    );
-    assert.strictEqual(Number(exitCode), 0, stderr);
-    assert.deepStrictEqual(JSON.parse(stdout), []);
+    const threadList = (entry: string, args: ReadonlyArray<string>, env: Record<string, string>) =>
+      Effect.gen(function* () {
+        const child = yield* spawner.spawn(
+          ChildProcess.make(
+            process.execPath,
+            [entry, "thread", "list", "--project", "project-1", "--json", ...args],
+            { env },
+          ),
+        );
+        const { stdout, stderr, exitCode } = yield* Effect.all(
+          {
+            stdout: child.stdout.pipe(Stream.decodeText(), Stream.mkString),
+            stderr: child.stderr.pipe(Stream.decodeText(), Stream.mkString),
+            exitCode: child.exitCode,
+          },
+          { concurrency: "unbounded" },
+        );
+        assert.strictEqual(Number(exitCode), 0, stderr);
+        assert.deepStrictEqual(JSON.parse(stdout), []);
+      });
+    const binEntry = NodeURL.fileURLToPath(new URL("./bin.ts", import.meta.url));
+    yield* threadList(binEntry, ["--base-dir", root], { T3CODE_HOME: root });
+
+    // Every name of the command finds the same home, under the new variable name first.
+    const elsewhere = yield* fs.makeTempDirectoryScoped({ prefix: "t3-cli-elsewhere-" });
+    for (const name of Object.keys(packageJson.bin)) {
+      const link = `${root}/${name}`;
+      yield* fs.symlink(binEntry, link);
+      yield* threadList(link, [], { LIBRAOS_NEXT_HOME: root, T3CODE_HOME: elsewhere });
+    }
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
