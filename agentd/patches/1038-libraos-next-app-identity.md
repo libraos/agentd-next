@@ -34,3 +34,16 @@ Upstream files changed:
 - `README.md`, `docs/user/install.md`: file names, and the new app is installed beside the old one.
 
 Ours, not upstream's: `packages/shared/src/desktopIdentity.ts` (link scheme constants and `appLinkSchemes`), `apps/desktop/src/app/libraosUserDataMigration.ts` and its test, `apps/desktop/src/backend/agentdBinary.ts` (looks for `libraos-core` first, then `agentd`, and reads either one's version) and its test, and `agentd/scripts/build-desktop.sh` (file names, and downloads the `libraos-core-*` asset).
+
+Messages, logs and labels outside the `msg()` catalogs that name the app (product name only; identifiers, the old profile folder and the `agentd-desktop://` scheme are unchanged):
+
+- `apps/desktop/src/app/{DesktopAppActivation,DesktopAppActivationBroker,DesktopStartupRecovery}.ts`: activation errors and the copied failure report.
+- `apps/desktop/src/app/DesktopCliCommand.ts`, `DesktopCliShim.ts`: PATH messages, the shell-startup comment and the moved-app message (the shim marker stays for the CLI change).
+- `apps/desktop/src/ssh/{DesktopSshEnvironment,DesktopSshPasswordPrompts}.ts`: window-unavailable errors.
+- `apps/desktop/src/updates/{DesktopUpdates,DesktopUpdatePolicy}.ts`: managed-policy messages.
+- `apps/desktop/src/snapShot/{DesktopSnapShot,GnomeCaptureSetup,HyprlandSnapShot,KdeSnapShot,LinuxSnapShot,NiriCaptureShortcut,NiriSnapShot,PortalCaptureShortcut,SnapShotTransition}.ts`: capture setup and permission messages, the KDE helper's display name, the animation window title.
+- `apps/desktop/src/wsl/DesktopWslEnvironment.ts`, `src/electron/WindowsForeground.ts`: error messages.
+- `apps/desktop/src/backend/DesktopLocalEnvironmentAuth.ts`: the desktop session's label.
+- `apps/desktop/src/preview/BrowserSession.ts`, `src/app/DesktopLegacyLocalStorage.ts`: comments.
+- `apps/desktop/resources/dmg/dmg-background-{latest,nightly}.svg`: "Drag LibraOS Next into Applications."
+- Tests: `DesktopSnapShot`, `DesktopCliCommand`, `DesktopUpdates`.
