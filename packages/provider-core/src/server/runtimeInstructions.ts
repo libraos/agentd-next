@@ -1,3 +1,5 @@
+import { AUTO_CONTINUATION_STATUS_INSTRUCTIONS } from "@t3tools/shared/orchestrationV2AutoContinuation";
+
 import type { ProviderAdapterV2RuntimePolicy } from "./ProviderAdapter.ts";
 
 /** Session-invariant; harnesses with a native system-prompt append can carry it once per session. */
@@ -30,6 +32,7 @@ export function buildRuntimeInstructions(runtime: {
     runtime.runtimePolicy === undefined ? "" : buildWorkspaceInstructions(runtime.runtimePolicy);
   return [
     runtimeInfo,
+    AUTO_CONTINUATION_STATUS_INSTRUCTIONS,
     ...(runtime.pullRequestLinking === false ? [] : [PULL_REQUEST_LINKING_INSTRUCTIONS]),
     ...(workspace === "" ? [] : [workspace]),
   ].join("\n\n");

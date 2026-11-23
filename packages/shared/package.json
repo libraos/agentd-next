@@ -471,6 +471,10 @@
       "types": "./src/orchestrationV2PendingBackgroundWork.ts",
       "import": "./src/orchestrationV2PendingBackgroundWork.ts"
     },
+    "./orchestrationV2AutoContinuation": {
+      "types": "./src/orchestrationV2AutoContinuation.ts",
+      "import": "./src/orchestrationV2AutoContinuation.ts"
+    },
     "./orchestrationV2ManualContinuation": {
       "types": "./src/orchestrationV2ManualContinuation.ts",
       "import": "./src/orchestrationV2ManualContinuation.ts"

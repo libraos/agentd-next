@@ -17,6 +17,14 @@ describe("buildRuntimeInstructions", () => {
     assert.notInclude(instructions, "<pull_request_linking>");
   });
 
+  it("asks every harness for the completion status line automatic continuation reads", () => {
+    for (const pullRequestLinking of [true, false]) {
+      const instructions = buildRuntimeInstructions({ harness: "Codex", pullRequestLinking });
+      assert.include(instructions, '"Status: remaining: <what is left>"');
+      assert.include(instructions, '"Status: blocked: <reason>"');
+    }
+  });
+
   it("links PRs the agent creates, takes over, or pushes to, and no others", () => {
     const instructions = buildRuntimeInstructions({ harness: "Codex" });
 
