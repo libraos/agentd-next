@@ -369,8 +369,11 @@ class RealWeightsTest(unittest.TestCase):
         answer = json.loads(result.stdout)
         self.assertEqual(answer["decision"], "rewrite", answer.get("reason"))
         for secret in SECRETS:
-            self.assertNotIn(secret, json.dumps(answer))
+            self.assertNotIn(secret, json.dumps(answer["message"]))
         self.assertLess(elapsed, 60)
+        # A second send in the same conversation keeps the placeholder the first one gave.
+        again = json.loads(run_hook(PLUGIN / "hook.py", hook_input(DRAFT, placeholders=answer["placeholders"])).stdout)
+        self.assertEqual(again["message"]["text"], answer["message"]["text"])
 
 
 if __name__ == "__main__":
