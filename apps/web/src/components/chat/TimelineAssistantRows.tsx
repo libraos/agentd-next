@@ -44,6 +44,11 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { vcsEnvironment } from "../../state/vcs";
 import { taskDraftReply } from "../agentd/startTask.logic";
 import { TaskDraftCard } from "../agentd/TaskDraftCard";
+import {
+  RestoredPlaceholdersNote,
+  useRestoredMarkdown,
+  useRestoredText,
+} from "../agentd/RestoredPlaceholders";
 
 const NO_VCS_STATUS = Atom.make(AsyncResult.initial());
 
@@ -66,6 +71,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
           { ...row.projectedItem.item, text },
         )
       : null;
+  const restored = useRestoredMarkdown(ctx.threadRef, messageText);
 
   return (
     <>
@@ -99,9 +105,11 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
                 onUseArtifactTemplate={ctx.onUseArtifactTemplate}
                 onRunShellCommand={ctx.onRunShellCommand}
                 onImageExpand={ctx.onImageExpand}
+                {...restored.markdownProps}
               />
             )}
           </AssistantCitationSource>
+          {restored.restoring && taskDraft === null ? <RestoredPlaceholdersNote /> : null}
         </div>
         {ctx.onOpenTurnDiff ? (
           <AssistantChangedFilesSection
@@ -137,6 +145,7 @@ export function SentMessageTimelineRow({
   row: Extract<TimelineRow, { kind: "sent-message" }>;
 }) {
   const ctx = use(TimelineRowCtx);
+  const restored = useRestoredMarkdown(ctx.threadRef, row.text);
 
   return (
     <div className="min-w-0 px-1 py-0.5">
@@ -159,8 +168,10 @@ export function SentMessageTimelineRow({
           onUseArtifactTemplate={ctx.onUseArtifactTemplate}
           onRunShellCommand={ctx.onRunShellCommand}
           onImageExpand={ctx.onImageExpand}
+          {...restored.markdownProps}
         />
       </AssistantCitationSource>
+      {restored.restoring ? <RestoredPlaceholdersNote /> : null}
     </div>
   );
 }
@@ -362,17 +373,19 @@ function AssistantCopyButton({
   showCopyButton: boolean;
   streaming: boolean;
 }) {
+  const ctx = use(TimelineRowCtx);
   const assistantCopyState = resolveAssistantMessageCopyState({
     text: message.text ?? null,
     showCopyButton,
     streaming,
   });
+  const text = useRestoredText(ctx.threadRef, assistantCopyState.text ?? "");
 
   if (!assistantCopyState.visible) {
     return null;
   }
 
-  return <MessageCopyButton text={assistantCopyState.text ?? ""} variant="ghost" />;
+  return <MessageCopyButton text={text} variant="ghost" />;
 }
 
 export function ProposedPlanTimelineRow({
