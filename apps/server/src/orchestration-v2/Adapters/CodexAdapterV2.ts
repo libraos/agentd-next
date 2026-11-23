@@ -1558,7 +1558,7 @@ export const CODEX_THREAD_CONFIG = {
 
 // request_secret can wait an hour; keep Codex's MCP timeout above that.
 const CODEX_T3_MCP_TOOL_TIMEOUT_SEC = 65 * 60;
-// Holds T3 tools Codex must call directly, never from Code Mode. Calls arrive as
+// Holds AgentD tools Codex must call directly, never from Code Mode. Calls arrive as
 // `agentd-next-direct.<tool>`; t3McpToolPresentation.ts must keep resolving that form.
 const CODEX_T3_DIRECT_MCP_SERVER = APP_MCP_DIRECT_SERVER_NAME;
 const CODEX_DIRECT_ONLY_T3_TOOLS = ["thread_wait", "delegate_task"];

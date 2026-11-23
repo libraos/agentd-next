@@ -1,7 +1,7 @@
 import { msg } from "gt-i18n";
 
 /**
- * Whole sentences for each T3 MCP tool row, keyed by the tool's labels from
+ * Whole sentences for each AgentD tool row, keyed by the tool's labels from
  * `@t3tools/shared/t3McpToolPresentation`. Resolve with `{ status }`, and for
  * `changeRequest` also `{ changeRequest, number }`.
  */

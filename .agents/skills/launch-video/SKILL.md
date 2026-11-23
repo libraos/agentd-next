@@ -37,7 +37,7 @@ There are two ways to build one:
    - Agent turns: pass `claude: [turns]` to `prepareHome` and the real Claude provider runs
      `scripts/fake-claude.mjs` as its CLI, so the video shows Claude's logo, models, thinking
      and tool rows. Each turn is `{ match, steps }`: `think`, `text`, `bash` (+ `output`, `ms`),
-     `wait`, and `tool` (+ `input`), which calls that T3 MCP tool for real, e.g.
+     `wait`, and `tool` (+ `input`), which calls that AgentD tool for real, e.g.
      `delegate_task`. Match generated titles with a `{ match: "title", repeat: true }` turn.
      `<var:name>` is filled from the JSON file at `FAKE_CLAUDE_VARS`, for ids that change
      every run. `fake-claude.log` in the home records the protocol, for debugging.

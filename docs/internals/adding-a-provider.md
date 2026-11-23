@@ -43,7 +43,7 @@ capabilities, never the driver kind.
   silently share an account or billing.
 - **Status checks.** Background status and model refreshes must not open a session that can start
   MCP servers, run hooks, or launch a login. Keep heavier probes behind an explicit refresh.
-- **T3 MCP tools.** Inject the thread's MCP server so agents can use T3's tools, and make a turn
+- **AgentD tools.** Inject the thread's MCP server so agents can use AgentD tools, and make a turn
   survive when that server is unreachable.
 - **Updates.** Run an update only through the installer that provably owns the binary; otherwise
   leave it manual. See [`providerMaintenanceRunner.ts`](../../apps/server/src/provider/providerMaintenanceRunner.ts).

@@ -13,7 +13,7 @@ Every `T3 Code` in `apps/web/src`, `apps/desktop/src` and `packages/` became `Ag
   GitHub app, whose client id this build still carries. Turning that sign-in off belongs to the hosted-services work.
 - `packages/provider-acp-registry/src/server/adapter.ts`: a comment naming upstream's `T3 Code (Beta).exe` path.
 - `T3 Connect` and `T3 Chat` (upstream's hosted services, hidden by the product profile), comments using the
-  glossary terms "T3 home" and "T3's", and the agent-facing "T3 tools" (the tools are named `t3_*`).
+  glossary terms "T3 home" and "T3's", and the `t3_*` tool names. The tools agents get are called "AgentD tools" in every sentence (#171).
 - Test data that only looks like the name (thread titles, speech hints, `T3 Code Mobile`, which `apps/mobile` sends).
 
 ## Separate decisions, not made here
@@ -219,7 +219,7 @@ Only text changed. No paths, commands or processes.
 - `packages/provider-core/src/server/maintenanceResolver.test.ts`: assertions follow the renamed sentences.
 - `packages/provider-core/src/server/maintenanceResolver.ts`: product name in sentences (messages, errors, labels or comments).
 - `packages/provider-core/src/server/orchestrationInstructions.test.ts`: assertions follow the renamed sentences.
-- `packages/provider-core/src/server/orchestrationInstructions.ts`: agent-facing section headings name AgentD Desktop ("T3 tools", the `t3_*` tool names, kept).
+- `packages/provider-core/src/server/orchestrationInstructions.ts`: agent-facing section headings name AgentD Desktop ("AgentD tools"; the `t3_*` tool names are kept).
 - `packages/provider-core/src/server/runtimeInstructions.ts`: the agent is told it runs in AgentD Desktop.
 - `packages/provider-core/src/server/textGenerationPrompts.ts`: title prompts name AgentD Desktop threads.
 - `packages/provider-cursor/src/server/adapter.test.ts`: assertions follow the renamed sentences.

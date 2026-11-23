@@ -1939,7 +1939,7 @@ export const makeMuseAdapterV2 = Effect.fn("makeMuseAdapterV2")(function* (
           const config = mcpSession
             ? {
                 mcpServers: {
-                  // Muse's required default fails runs if T3 tools are unreachable; make them optional.
+                  // Muse's required default fails runs if AgentD tools are unreachable; make them optional.
                   "agentd-next": {
                     transport: "streamableHttp",
                     mode: "optional",
