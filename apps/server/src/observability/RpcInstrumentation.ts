@@ -295,6 +295,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.agentdPluginsInstall]: "agentd",
   [WS_METHODS.agentdPluginsRemove]: "agentd",
   [WS_METHODS.agentdPluginsSetEnabled]: "agentd",
+  [WS_METHODS.agentdPluginsSetup]: "agentd",
   [WS_METHODS.agentdBeforeSendReview]: "agentd",
   [WS_METHODS.agentdBeforeSendConfirm]: "agentd",
   [WS_METHODS.agentdBeforeSendDiscard]: "agentd",

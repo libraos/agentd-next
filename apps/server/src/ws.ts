@@ -3837,6 +3837,7 @@ export const layerWsRpc = (
         [WS_METHODS.agentdPluginsInstall]: (input) => agentdPlugins.install(input),
         [WS_METHODS.agentdPluginsRemove]: (input) => agentdPlugins.remove(input),
         [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
+        [WS_METHODS.agentdPluginsSetup]: (input) => agentdPlugins.setup(input),
         [WS_METHODS.agentdBeforeSendReview]: (input) => agentdPlugins.review(input),
         [WS_METHODS.agentdPlaceholders]: (input) => agentdPlugins.placeholders(input.threadId),
         [WS_METHODS.agentdBeforeSendDiscard]: (input) =>

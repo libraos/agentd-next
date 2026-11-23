@@ -20,13 +20,9 @@ On three synthetic Chinese legal texts (a judgment excerpt, a contract clause an
 
 ## Set up
 
-Needs Python 3.10 or newer and about 2 GB of disk. On the computer that runs AgentD Next:
+Needs Python 3.10 or newer and about 2 GB of disk. After installing it, choose **Set up** beside it in Settings → Plugins. The computer that runs AgentD Next creates a Python environment with CPU torch and transformers in the plugin's data folder (`plugins/data/redact` in AgentD Next's data folder), downloads the model and checks it; you can follow its progress there, from any client. It can be turned on once setup has finished. Choose **Set up again** to repair a damaged download. Removing the plugin offers to delete the data folder too.
 
-```
-python3 <plugin folder>/setup_env.py
-```
-
-It creates a Python environment with CPU torch and transformers in the plugin's data folder (`plugins/data/redact` in AgentD Next's data folder), downloads the model and checks it. Until it has run, every message is stopped with a reason that names the command. Run it again to repair a damaged download.
+Without the app, run `python3 <plugin folder>/setup_env.py` on that computer.
 
 ## What to know
 

@@ -77,6 +77,15 @@ const HookCommand = Schema.Struct({
 });
 export type HookCommand = typeof HookCommand.Type;
 
+/** Run once from Settings before the plugin can be turned on; it never sees a message. */
+const SetupCommand = Schema.Struct({
+  /** argv, resolved as a hook's is. */
+  command: Schema.Array(Schema.String.check(Schema.isMinLength(1))).check(Schema.isMinLength(1)),
+  /** One sentence: what it downloads and how much disk it needs. */
+  description: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(300)),
+});
+export type SetupCommand = typeof SetupCommand.Type;
+
 /** `agentd-plugin.json` at the top of a plugin's folder. */
 export const PluginManifest = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -84,6 +93,7 @@ export const PluginManifest = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
   hooks: Schema.Struct({ "before-send": Schema.optionalKey(HookCommand) }),
+  setup: Schema.optionalKey(SetupCommand),
 });
 export type PluginManifest = typeof PluginManifest.Type;
 export const decodePluginManifest = Schema.decodeUnknownOption(
@@ -105,6 +115,38 @@ export type PluginInstallRecord = typeof PluginInstallRecord.Type;
 export const decodePluginInstallRecord = Schema.decodeUnknownOption(
   Schema.fromJsonString(PluginInstallRecord),
 );
+
+/** `<stateDir>/plugins/setup/<id>.json`: how the last setup of an installed version ended. */
+export const PluginSetupRecord = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  id: Schema.String,
+  version: Schema.String,
+  commit: Schema.String,
+  status: Schema.Literals(["ready", "failed"]),
+  finishedAt: Schema.String,
+  reason: Schema.optionalKey(Schema.String),
+});
+export type PluginSetupRecord = typeof PluginSetupRecord.Type;
+export const decodePluginSetupRecord = Schema.decodeUnknownOption(
+  Schema.fromJsonString(PluginSetupRecord),
+);
+
+/** A record counts only for the install it was made for; a new version or commit sets up again. */
+export const setupReady = (
+  record: PluginSetupRecord | null,
+  install: { readonly version: string; readonly commit: string },
+) =>
+  record !== null &&
+  record.status === "ready" &&
+  record.version === install.version &&
+  record.commit === install.commit;
+
+/** The last non-empty line of `text`, at most 300 characters, or null. */
+export function lastLine(text: string): string | null {
+  const lines = text.split(/\r?\n|\r/).map((line) => line.trim());
+  const last = lines.findLast((line) => line.length > 0);
+  return last === undefined ? null : last.slice(0, 300);
+}
 
 /** Which plugins are on: for the environment, and per project where it differs. */
 export const PluginSettings = Schema.Struct({

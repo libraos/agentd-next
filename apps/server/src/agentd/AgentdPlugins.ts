@@ -10,6 +10,8 @@ import {
   type AgentdPluginEnableInput,
   type AgentdPluginErrorReason,
   type AgentdPluginInput,
+  type AgentdPluginRemoveInput,
+  type AgentdPluginSetup,
   type AgentdPlugins,
   type AgentdPluginsListInput,
   type ChatAttachment,
@@ -23,6 +25,7 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveCommandPath } from "@t3tools/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -33,6 +36,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 
 import { planAttachmentClaim, resolveAttachmentPath } from "../attachmentStore.ts";
@@ -48,6 +52,7 @@ import {
   PluginCatalogCache,
   PluginInstallRecord,
   PluginSettings,
+  PluginSetupRecord,
   PlaceholderFile,
   type PluginCatalog,
   type PluginManifest,
@@ -56,7 +61,9 @@ import {
   decodePluginCatalogCache,
   decodePluginInstallRecord,
   decodePluginManifest,
+  decodePluginSetupRecord,
   hookInput,
+  lastLine,
   parseHookOutput,
   parsePluginCatalog,
   placeholderFileName,
@@ -65,6 +72,7 @@ import {
   readPluginSettings,
   resolveHookCommand,
   sameContent,
+  setupReady,
   validPluginId,
   validPluginVersion,
   withPluginEnabled,
@@ -116,7 +124,13 @@ export class AgentdPluginsService extends Context.Service<
       input: AgentdPluginsListInput,
     ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
     readonly install: (input: AgentdPluginInput) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
-    readonly remove: (input: AgentdPluginInput) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    readonly remove: (
+      input: AgentdPluginRemoveInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** Starts the installed plugin's setup in the background; the listing shows how it goes. */
+    readonly setup: (input: AgentdPluginInput) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** Waits until no setup of `id` is running. */
+    readonly setupDone: (id: string) => Effect.Effect<void>;
     readonly setEnabled: (
       input: AgentdPluginEnableInput,
     ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
@@ -146,6 +160,10 @@ export class AgentdPluginsService extends Context.Service<
 const REVIEW_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_HOOK_TIMEOUT_SECONDS = 10;
 const HOOK_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+// A 2 GB download at about 5 Mbit/s takes 55 minutes; a slower line can run setup again, and it
+// keeps what it already downloaded.
+const SETUP_TIMEOUT_MINUTES = 60;
+const SETUP_MAX_OUTPUT_BYTES = 1024 * 1024;
 const PLUGIN_LAYOUT = { required: PLUGIN_MANIFEST_FILE, manifest: PLUGIN_INSTALL_RECORD };
 
 const fail = (reason: AgentdPluginErrorReason, message: string) =>
@@ -155,6 +173,7 @@ const blocked = (message: string) => new AgentdBeforeSendError({ reason: "blocke
 const encodeCache = Schema.encodeSync(Schema.fromJsonString(PluginCatalogCache));
 const encodeRecord = Schema.encodeSync(Schema.fromJsonString(PluginInstallRecord));
 const encodeSettings = Schema.encodeSync(Schema.fromJsonString(PluginSettings));
+const encodeSetup = Schema.encodeSync(Schema.fromJsonString(PluginSetupRecord));
 const encodePlaceholderFile = Schema.encodeSync(Schema.fromJsonString(PlaceholderFile));
 const isPluginError = Schema.is(AgentdPluginError);
 
@@ -169,6 +188,14 @@ interface Hook {
   readonly name: string;
   readonly folder: string;
   readonly manifest: PluginManifest | null;
+  /** Its manifest declares setup and the last one did not succeed for this install. */
+  readonly needsSetup: boolean;
+}
+
+interface RunningSetup {
+  /** The last line setup printed; written by its stdout callback. */
+  progress: string | null;
+  readonly done: Deferred.Deferred<void>;
 }
 
 interface HeldReview {
@@ -197,6 +224,10 @@ const make = Effect.gen(function* () {
   const settingsFile = path.join(root, "settings.json");
   const lock = yield* Semaphore.make(1);
   const reviews = yield* Ref.make(new Map<string, HeldReview>());
+  const setupRoot = path.join(root, "setup");
+  const dataRoot = path.join(root, "data");
+  const running = yield* Ref.make(new Map<string, RunningSetup>());
+  const scope = yield* Scope.Scope;
   const placeholderRoot = path.join(root, "placeholders");
   const placeholderLock = yield* Semaphore.make(1);
 
@@ -273,15 +304,61 @@ const make = Effect.gen(function* () {
     Effect.orElseSucceed(() => [] as Array<string>),
   );
 
+  const setupFile = (id: string) => path.join(setupRoot, `${id}.json`);
+  const readSetup = (id: string) =>
+    fs.readFileString(setupFile(id)).pipe(
+      Effect.map((text) => Option.getOrNull(decodePluginSetupRecord(text))),
+      Effect.orElseSucceed(() => null),
+    );
+
+  /** Whether `found` declares setup that has not succeeded; a manifest without setup never does. */
+  const needsSetup = Effect.fn("AgentdPlugins.needsSetup")(function* (found: Installed) {
+    if (found.manifest?.setup === undefined) return false;
+    return !setupReady(yield* readSetup(found.record.id), found.record);
+  });
+
+  const setupListing = Effect.fn("AgentdPlugins.setupListing")(function* (found: Installed) {
+    const declared = found.manifest?.setup;
+    if (declared === undefined) return undefined;
+    const now = (yield* Ref.get(running)).get(found.record.id);
+    if (now !== undefined) {
+      return {
+        description: declared.description,
+        status: "running",
+        ...(now.progress === null ? {} : { progress: now.progress }),
+      } satisfies AgentdPluginSetup;
+    }
+    const record = yield* readSetup(found.record.id);
+    const current =
+      record !== null &&
+      record.version === found.record.version &&
+      record.commit === found.record.commit;
+    if (!current) return { description: declared.description, status: "needed" } as const;
+    return {
+      description: declared.description,
+      status: record.status,
+      ...(record.reason === undefined ? {} : { reason: record.reason }),
+    } satisfies AgentdPluginSetup;
+  });
+
   /** The hook's command when it can be started, else null. */
   const hookCommand = Effect.fn("AgentdPlugins.hookCommand")(function* (hook: Hook) {
     const declared = hook.manifest?.hooks["before-send"];
     if (declared === undefined) return null;
-    const resolved = resolveHookCommand(host.platform, hook.folder, declared.command);
+    const found = yield* resolveCommand(hook.folder, declared.command);
+    return found === null ? null : { ...found, declared };
+  });
+
+  /** A hook's or setup's argv as a program to start, or null when it is not there. */
+  const resolveCommand = Effect.fn("AgentdPlugins.resolveCommand")(function* (
+    folder: string,
+    argv: ReadonlyArray<string>,
+  ) {
+    const resolved = resolveHookCommand(host.platform, folder, argv);
     if (resolved._tag === "Unsafe") return null;
     if (resolved._tag === "File") {
       const exists = yield* fs.exists(resolved.path).pipe(Effect.orElseSucceed(() => false));
-      return exists ? { command: resolved.path, args: resolved.args, declared } : null;
+      return exists ? { command: resolved.path, args: resolved.args } : null;
     }
     const found = yield* resolveCommandPath(resolved.name, { env: host.env }).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
@@ -289,7 +366,7 @@ const make = Effect.gen(function* () {
       Effect.provideService(HostProcess.Platform, host.platform),
       Effect.orElseSucceed(() => null),
     );
-    return found === null ? null : { command: found, args: resolved.args, declared };
+    return found === null ? null : { command: found, args: resolved.args };
   });
 
   /** The project's enabled before-send hooks, installed or not, in id order. */
@@ -310,6 +387,7 @@ const make = Effect.gen(function* () {
         name: found?.manifest?.name ?? id,
         folder: found?.folder ?? path.join(cacheRoot, id),
         manifest: found?.manifest ?? null,
+        needsSetup: found === null ? false : yield* needsSetup(found),
       });
     }
     return hooks;
@@ -332,17 +410,24 @@ const make = Effect.gen(function* () {
       const enabled = pluginEnabled(settings, id, projectId);
       const hooks =
         found?.manifest?.hooks["before-send"] === undefined ? [] : ["before-send" as const];
+      const setup = found === null ? undefined : yield* setupListing(found);
       const ready =
         found !== null &&
         hooks.length > 0 &&
-        (yield* hookCommand({ id, name: id, folder: found.folder, manifest: found.manifest })) !==
-          null;
+        (yield* hookCommand({
+          id,
+          name: id,
+          folder: found.folder,
+          manifest: found.manifest,
+          needsSetup: false,
+        })) !== null;
+      const setUp = setup === undefined || setup.status === "ready";
       const state =
         found === null
           ? "absent"
           : !enabled
             ? "off"
-            : ready || hooks.length === 0
+            : (ready || hooks.length === 0) && setUp
               ? "on"
               : "missing";
       if (enabled && ready) beforeSend = true;
@@ -360,6 +445,7 @@ const make = Effect.gen(function* () {
         enabled: settings.enabled[id] === true,
         ...(projectEnabled === undefined ? {} : { projectEnabled }),
         state,
+        ...(setup === undefined ? {} : { setup }),
       } as const);
     }
     return { source, plugins, beforeSend } satisfies AgentdPlugins;
@@ -408,7 +494,14 @@ const make = Effect.gen(function* () {
     }
   });
 
+  const notRunning = Effect.fn("AgentdPlugins.notRunning")(function* (id: string) {
+    if ((yield* Ref.get(running)).has(id)) {
+      return yield* fail("setup", `${id} is being set up. Wait for setup to finish.`);
+    }
+  });
+
   const install = Effect.fn("AgentdPlugins.install")(function* (input: AgentdPluginInput) {
+    yield* notRunning(input.id);
     const served = yield* catalog();
     const entry = served.catalog?.plugins.find((plugin) => plugin.id === input.id);
     if (entry === undefined) return yield* fail("unknown", `${input.id} is not in the catalogue.`);
@@ -466,8 +559,12 @@ const make = Effect.gen(function* () {
         if (target === null) return yield* fail("unsafe", `${file.target} has an unsafe path.`);
         yield* fs.makeDirectory(path.dirname(target), { recursive: true });
         yield* fs.writeFile(target, file.bytes);
-        // A hook that is a file of the plugin has to be executable; git's mode is not kept.
-        if (manifest.hooks["before-send"]?.command[0]?.replace(/^\.\//, "") === file.target) {
+        // A hook or setup that is a file of the plugin has to be executable; git's mode is not kept.
+        if (
+          [manifest.hooks["before-send"]?.command[0], manifest.setup?.command[0]].some(
+            (first) => first?.replace(/^\.\//, "") === file.target,
+          )
+        ) {
           yield* fs.chmod(target, 0o755);
         }
       }
@@ -488,10 +585,19 @@ const make = Effect.gen(function* () {
     return yield* listing(served.source, served.catalog);
   }, lock.withPermits(1));
 
-  const remove = Effect.fn("AgentdPlugins.remove")(function* (input: AgentdPluginInput) {
+  const remove = Effect.fn("AgentdPlugins.remove")(function* (input: AgentdPluginRemoveInput) {
     const found = yield* installed(input.id);
     if (found === null) return yield* fail("unknown", `${input.id} is not installed.`);
+    yield* notRunning(input.id);
     yield* removeInstall(found);
+    yield* fs.remove(setupFile(input.id), { force: true }).pipe(Effect.ignore);
+    if (input.deleteData === true) {
+      // validPluginId held in installed(): the id is one path segment under data/.
+      const data = path.join(dataRoot, input.id);
+      yield* fs
+        .remove(data, { recursive: true, force: true })
+        .pipe(Effect.mapError(filesystem(`remove ${data}`)));
+    }
     const settings = yield* readSettings;
     yield* writeAtomic(settingsFile, encodeSettings(withoutPlugin(settings, input.id))).pipe(
       Effect.mapError(filesystem("save the plugin settings")),
@@ -503,8 +609,15 @@ const make = Effect.gen(function* () {
   const setEnabled = Effect.fn("AgentdPlugins.setEnabled")(function* (
     input: AgentdPluginEnableInput,
   ) {
-    if (input.enabled !== null && (yield* installed(input.id)) === null) {
+    const found = input.enabled === null ? null : yield* installed(input.id);
+    if (input.enabled !== null && found === null) {
       return yield* fail("unknown", `${input.id} is not installed.`);
+    }
+    if (input.enabled === true && found !== null && (yield* needsSetup(found))) {
+      return yield* fail(
+        "setup",
+        `${found.manifest?.name ?? input.id} needs setup before it can be turned on.`,
+      );
     }
     if (input.enabled === null && input.projectId === undefined) {
       return yield* fail("invalid", "Only a project's setting can be cleared.");
@@ -610,6 +723,11 @@ const make = Effect.gen(function* () {
     map: AgentdPlaceholderMap,
   ) {
     const fix = "Install it again or turn it off on the AgentD page.";
+    if (hook.needsSetup) {
+      return yield* blocked(
+        `${hook.name} is turned on but not set up, so the message was not sent. Set it up in Settings, Plugins.`,
+      );
+    }
     const command = yield* hookCommand(hook);
     if (command === null) {
       return yield* blocked(`${hook.name} is turned on but its hook cannot be found. ${fix}`);
@@ -665,6 +783,116 @@ const make = Effect.gen(function* () {
       ? { content: decision.content, placeholders: decision.placeholders }
       : { content, placeholders: map };
   });
+
+  const finishSetup = Effect.fn("AgentdPlugins.finishSetup")(function* (
+    found: Installed,
+    reason: string | null,
+  ) {
+    const record: PluginSetupRecord = {
+      schemaVersion: 1,
+      id: found.record.id,
+      version: found.record.version,
+      commit: found.record.commit,
+      status: reason === null ? "ready" : "failed",
+      finishedAt: iso(yield* Clock.currentTimeMillis),
+      ...(reason === null ? {} : { reason }),
+    };
+    yield* writeAtomic(setupFile(found.record.id), encodeSetup(record)).pipe(Effect.ignore);
+  });
+
+  /** Runs setup to its end and records how it ended; output is kept only as the last line. */
+  const runSetup = Effect.fn("AgentdPlugins.runSetup")(function* (
+    found: Installed,
+    entry: RunningSetup,
+  ) {
+    const id = found.record.id;
+    const declared = found.manifest!.setup!;
+    const name = found.manifest?.name ?? id;
+    const command = yield* resolveCommand(found.folder, declared.command);
+    if (command === null) {
+      return yield* finishSetup(found, `${name}'s setup command cannot be found.`);
+    }
+    let pending = "";
+    const decoder = new TextDecoder();
+    const progress = (chunk: Uint8Array) => {
+      pending = (pending + decoder.decode(chunk, { stream: true })).slice(-4096);
+      const line = lastLine(pending);
+      if (line === null) return;
+      entry.progress = line;
+    };
+    // Like a hook: in the plugin's folder with the server's environment, but nothing on stdin.
+    const output = yield* runner
+      .run({
+        command: command.command,
+        args: command.args,
+        cwd: found.folder,
+        // Empty and closed at once, so a setup that reads stdin ends instead of waiting.
+        stdin: "",
+        timeout: Duration.minutes(SETUP_TIMEOUT_MINUTES),
+        timeoutBehavior: "timedOutResult",
+        maxOutputBytes: SETUP_MAX_OUTPUT_BYTES,
+        outputMode: "truncate",
+        onStdoutChunk: progress,
+      })
+      .pipe(Effect.result);
+    if (output._tag === "Failure") {
+      return yield* finishSetup(
+        found,
+        output.failure._tag === "ProcessSpawnError"
+          ? `${name}'s setup could not be started.`
+          : `${name}'s setup failed.`,
+      );
+    }
+    const result = output.success;
+    if (result.timedOut) {
+      return yield* finishSetup(
+        found,
+        `${name}'s setup did not finish within ${String(SETUP_TIMEOUT_MINUTES)} minutes. Set it up again to continue.`,
+      );
+    }
+    if (result.code !== 0) {
+      const said = lastLine(result.stderr) ?? lastLine(result.stdout);
+      return yield* finishSetup(
+        found,
+        `${name}'s setup failed (exit ${String(result.code)})${said === null ? "." : `: ${said}`}`,
+      );
+    }
+    yield* finishSetup(found, null);
+  });
+
+  const setup = Effect.fn("AgentdPlugins.setup")(function* (input: AgentdPluginInput) {
+    const found = yield* installed(input.id);
+    if (found === null) return yield* fail("unknown", `${input.id} is not installed.`);
+    if (found.manifest?.setup === undefined) {
+      return yield* fail("invalid", `${input.id} has no setup step.`);
+    }
+    yield* notRunning(input.id);
+    const entry: RunningSetup = { progress: null, done: yield* Deferred.make<void>() };
+    const done = entry.done;
+    yield* Ref.update(running, (all) => new Map(all).set(input.id, entry));
+    yield* fs.remove(setupFile(input.id), { force: true }).pipe(Effect.ignore);
+    // Outlives the request: a closed tab or a dropped phone connection does not stop a download.
+    yield* runSetup(found, entry).pipe(
+      Effect.ensuring(
+        Ref.update(running, (all) => {
+          const next = new Map(all);
+          next.delete(input.id);
+          return next;
+        }).pipe(Effect.andThen(Deferred.succeed(done, undefined))),
+      ),
+      Effect.forkIn(scope),
+    );
+    const served = yield* catalog();
+    return yield* listing(served.source, served.catalog);
+  }, lock.withPermits(1));
+
+  const setupDone = (id: string) =>
+    Ref.get(running).pipe(
+      Effect.flatMap((all) => {
+        const now = all.get(id);
+        return now === undefined ? Effect.void : Deferred.await(now.done);
+      }),
+    );
 
   const hasBeforeSend = Effect.fn("AgentdPlugins.hasBeforeSend")(function* (projectId: ProjectId) {
     return (yield* enabledHooks(projectId)).length > 0;
@@ -870,6 +1098,8 @@ const make = Effect.gen(function* () {
     list,
     install,
     remove,
+    setup,
+    setupDone,
     setEnabled,
     hasBeforeSend,
     checkBeforeSend,

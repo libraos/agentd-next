@@ -5,5 +5,9 @@
   "version": "1.0.0",
   "hooks": {
     "before-send": { "command": ["python3", "hook.py"], "timeoutSeconds": 60 }
+  },
+  "setup": {
+    "command": ["python3", "setup_env.py"],
+    "description": "Downloads a Python environment with CPU torch and transformers and the veil-detect model, about 2 GB of disk; it needs Python 3.10 or newer."
   }
 }
