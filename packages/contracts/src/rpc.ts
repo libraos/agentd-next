@@ -457,6 +457,8 @@ import {
   AgentdBeforeSendError,
   AgentdBeforeSendReview,
   AgentdBeforeSendReviewInput,
+  AgentdPlaceholderMap,
+  AgentdPlaceholdersInput,
   AgentdPluginEnableInput,
   AgentdPluginError,
   AgentdPluginInput,
@@ -825,6 +827,7 @@ export const WS_METHODS = {
   agentdBeforeSendReview: "agentd.beforeSendReview",
   agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
   agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
+  agentdPlaceholders: "agentd.placeholders",
 
   libraosGatewayStatus: "libraosGateway.status",
   libraosGatewayConnect: "libraosGateway.connect",
@@ -2742,6 +2745,12 @@ const WsAgentdBeforeSendDiscardRpc = Rpc.make(WS_METHODS.agentdBeforeSendDiscard
   error: EnvironmentAuthorizationError,
 });
 
+const WsAgentdPlaceholdersRpc = Rpc.make(WS_METHODS.agentdPlaceholders, {
+  payload: AgentdPlaceholdersInput,
+  success: AgentdPlaceholderMap,
+  error: EnvironmentAuthorizationError,
+});
+
 const LibraosGatewayRpcError = Schema.Union([LibraosGatewayError, EnvironmentAuthorizationError]);
 
 const WsLibraosGatewayStatusRpc = Rpc.make(WS_METHODS.libraosGatewayStatus, {
@@ -3069,6 +3078,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdBeforeSendReviewRpc,
   WsAgentdBeforeSendConfirmRpc,
   WsAgentdBeforeSendDiscardRpc,
+  WsAgentdPlaceholdersRpc,
   WsAgentdSubscribeSetupRpc,
   WsLibraosGatewayStatusRpc,
   WsLibraosGatewayConnectRpc,

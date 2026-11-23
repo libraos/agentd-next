@@ -3579,6 +3579,9 @@
   "02625b0732accc36": "{plugins} hat diese Nachricht geändert. Sende sie wie gezeigt, bearbeite sie vorher oder schließe, um deinen Entwurf ungesendet zu behalten.",
   "36e4f4cdd218f92e": "Geänderte Nachricht prüfen",
   "6b3e8bc1f3ded083": "Nachricht",
+  "d6ac23cbf781e583": "Platzhalter",
+  "2769ade1e5eccf30": "Neu",
+  "e15513272858df94": "Schon in dieser Unterhaltung",
   "2e0904a66ca09471": "Deine ursprüngliche Nachricht",
   "5b30ae788fdc4fd0": "Wird gesendet…",
   "653405e4ed498d9f": "Senden",
@@ -3643,6 +3646,7 @@
       "v": "v"
     }
   ],
+  "5771ed9dc77641e2": "Hervorgehobene Werte werden hier wiederhergestellt angezeigt. Der Agent hat nur Platzhalter gesehen.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",
   "8e7bdb314813b183": "Running",

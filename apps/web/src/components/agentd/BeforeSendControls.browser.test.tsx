@@ -25,6 +25,10 @@ const REVIEW: AgentdBeforeSendReview = {
   plugins: ["Redactor"],
   original: { text: "my password is hunter2", attachments: [] },
   proposed: { text: "my password is [redacted]", attachments: [] },
+  placeholders: [
+    { placeholder: "[PERSON_2]", value: "Jonas Brekke", new: true },
+    { placeholder: "[PERSON_1]", value: "Maren Holloway", new: false },
+  ],
 };
 
 const state = vi.hoisted(() => ({
@@ -117,6 +121,11 @@ it("closing the review sends nothing and discards the held message", async () =>
   });
   const dialog = page.getByRole("dialog", { name: "Review the changed message" });
   await expect.element(dialog).toBeVisible();
+  const items = dialog.getByRole("listitem");
+  await expect.element(items.nth(0)).toHaveTextContent("[PERSON_2]Jonas BrekkeNew");
+  await expect
+    .element(items.nth(1))
+    .toHaveTextContent("[PERSON_1]Maren HollowayAlready in this conversation");
   await dialog.getByRole("button", { name: "Close" }).first().click();
   await expect.element(dialog).not.toBeInTheDocument();
   expect(state.discard).toHaveBeenCalledWith({

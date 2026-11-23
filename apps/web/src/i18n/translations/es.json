@@ -3578,6 +3578,9 @@
   "02625b0732accc36": "{plugins} cambió este mensaje. Envíalo como se muestra, edítalo antes o cierra para conservar tu borrador sin enviar.",
   "36e4f4cdd218f92e": "Revisa el mensaje modificado",
   "6b3e8bc1f3ded083": "Mensaje",
+  "d6ac23cbf781e583": "Marcadores",
+  "2769ade1e5eccf30": "Nuevo",
+  "e15513272858df94": "Ya en esta conversación",
   "2e0904a66ca09471": "Tu mensaje original",
   "5b30ae788fdc4fd0": "Enviando…",
   "653405e4ed498d9f": "Enviar",
@@ -3642,6 +3645,7 @@
       "v": "v"
     }
   ],
+  "5771ed9dc77641e2": "Los valores resaltados se muestran aquí restaurados. El agente solo vio marcadores.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",
   "8e7bdb314813b183": "Running",

@@ -3578,6 +3578,9 @@
   "02625b0732accc36": "{plugins} alterou esta mensagem. Envie como mostrado, edite antes ou feche para manter seu rascunho sem enviar.",
   "36e4f4cdd218f92e": "Revise a mensagem alterada",
   "6b3e8bc1f3ded083": "Mensagem",
+  "d6ac23cbf781e583": "Marcadores",
+  "2769ade1e5eccf30": "Novo",
+  "e15513272858df94": "Já nesta conversa",
   "2e0904a66ca09471": "Sua mensagem original",
   "5b30ae788fdc4fd0": "Enviando…",
   "653405e4ed498d9f": "Enviar",
@@ -3642,6 +3645,7 @@
       "v": "v"
     }
   ],
+  "5771ed9dc77641e2": "Os valores destacados aparecem aqui restaurados. O agente viu apenas marcadores.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",
   "8e7bdb314813b183": "Running",

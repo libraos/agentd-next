@@ -118,6 +118,24 @@ export const AgentdBeforeSendContent = Schema.Struct({
 });
 export type AgentdBeforeSendContent = typeof AgentdBeforeSendContent.Type;
 
+/**
+ * A thread's placeholders, each to the original value it stands for. Kept by the server, given to
+ * before-send hooks and to clients, which show replies with the originals; providers never see it.
+ */
+export const AgentdPlaceholderMap = Schema.Record(Schema.String, Schema.String);
+export type AgentdPlaceholderMap = typeof AgentdPlaceholderMap.Type;
+
+export const AgentdPlaceholdersInput = Schema.Struct({ threadId: ThreadId });
+export type AgentdPlaceholdersInput = typeof AgentdPlaceholdersInput.Type;
+
+/** A placeholder in a proposed message; new: not yet in the thread's map. */
+export const AgentdBeforeSendPlaceholder = Schema.Struct({
+  placeholder: Schema.String,
+  value: Schema.String,
+  new: Schema.Boolean,
+});
+export type AgentdBeforeSendPlaceholder = typeof AgentdBeforeSendPlaceholder.Type;
+
 /** A send a before-send hook rewrote, held by the server until the person confirms or closes it. */
 export const AgentdBeforeSendReview = Schema.Struct({
   reviewId: Schema.String,
@@ -127,6 +145,8 @@ export const AgentdBeforeSendReview = Schema.Struct({
   plugins: Schema.Array(Schema.String),
   original: AgentdBeforeSendContent,
   proposed: AgentdBeforeSendContent,
+  /** The placeholders the proposed message uses, in the order they first appear. */
+  placeholders: Schema.Array(AgentdBeforeSendPlaceholder),
 });
 export type AgentdBeforeSendReview = typeof AgentdBeforeSendReview.Type;
 

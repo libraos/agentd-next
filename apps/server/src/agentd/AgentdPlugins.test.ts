@@ -393,6 +393,7 @@ it.live(
           attachments: [{ id: attachmentId, name: "notes.txt", text: "token=abc" }],
         },
         proposed: { text: "[redacted]" },
+        placeholders: [],
       });
 
       const resend = yield* h.service.confirm({
@@ -409,6 +410,8 @@ it.live(
       });
       expect(yield* h.fs.readFileString(file)).toBe("token=***");
       expect(yield* h.service.review({ threadId: THREAD, messageId: MESSAGE })).toBeNull();
+      // A hook that returns no map leaves the thread without one.
+      expect(yield* h.service.placeholders(THREAD)).toEqual({});
       expect(
         (yield* h.service
           .confirm({ reviewId: review!.reviewId, content: review!.proposed })
@@ -550,5 +553,118 @@ it.effect("a plugin turned on before it declared setup stops sends until it is s
     expect((yield* h.send()).message).toBe(
       "Plugin setup is turned on but not set up, so the message was not sent. Set it up in Settings, Plugins.",
     );
+  }).pipe(Effect.provide(dependencies)),
+);
+
+const scriptedRunner = (answer: (stdin: Record<string, unknown>) => object, seen: unknown[]) =>
+  Layer.succeed(ProcessRunner.ProcessRunner, {
+    run: (input) => {
+      const stdin = JSON.parse(input.stdin ?? "{}") as Record<string, unknown>;
+      seen.push(stdin);
+      return Effect.succeed({
+        stdout: JSON.stringify(answer(stdin)),
+        stderr: "",
+        code: ChildProcessSpawner.ExitCode(0),
+        timedOut: false,
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutInvalidUtf8: false,
+        stderrInvalidUtf8: false,
+      });
+    },
+  });
+
+// Replaces each known name with its placeholder, numbering new ones after the map's, as redact does.
+const NAMES = ["Maren Holloway", "Jonas Brekke"];
+const namingHook = (stdin: Record<string, unknown>) => {
+  const known = { ...(stdin.placeholders as Record<string, string>) };
+  let text = (stdin.message as { text: string }).text;
+  for (const name of NAMES) {
+    if (!text.includes(name)) continue;
+    const placeholder =
+      Object.keys(known).find((key) => known[key] === name) ??
+      `[PERSON_${Object.keys(known).length + 1}]`;
+    known[placeholder] = name;
+    text = text.replaceAll(name, placeholder);
+  }
+  return { decision: "rewrite", message: { text }, placeholders: known };
+};
+
+it.live(
+  "a thread keeps one placeholder per person across sends, stored mode 600 until it is forgotten",
+  () =>
+    Effect.gen(function* () {
+      const seen: Array<Record<string, unknown>> = [];
+      const h = yield* harness(scriptedRunner(namingHook, seen));
+      yield* h.enable("rewrite");
+      const sendAndConfirm = Effect.fn("test.sendAndConfirm")(function* (
+        text: string,
+        messageId: string,
+      ) {
+        const id = MessageId.make(messageId);
+        yield* h.send({ text, messageId: id, resend: { kind: "dispatch", command: dispatch } });
+        const review = (yield* h.service.review({ threadId: THREAD, messageId: id }))!;
+        const resend = yield* h.service.confirm({
+          reviewId: review.reviewId,
+          content: review.proposed,
+        });
+        return { review, resend };
+      });
+
+      const first = yield* sendAndConfirm("Lease for Maren Holloway.", "m-1");
+      expect(seen[0]!.placeholders).toEqual({});
+      expect(first.review.placeholders).toEqual([
+        { placeholder: "[PERSON_1]", value: "Maren Holloway", new: true },
+      ]);
+
+      const second = yield* sendAndConfirm("Jonas Brekke owes Maren Holloway.", "m-2");
+      expect(seen[1]!.placeholders).toEqual({ "[PERSON_1]": "Maren Holloway" });
+      expect(second.review.proposed.text).toBe("[PERSON_2] owes [PERSON_1].");
+      expect(second.review.placeholders).toEqual([
+        { placeholder: "[PERSON_2]", value: "Jonas Brekke", new: true },
+        { placeholder: "[PERSON_1]", value: "Maren Holloway", new: false },
+      ]);
+      // What goes on to the provider carries placeholders only.
+      const sent = JSON.stringify(second.resend);
+      for (const name of NAMES) expect(sent).not.toContain(name);
+
+      expect(yield* h.service.placeholders(THREAD)).toEqual({
+        "[PERSON_1]": "Maren Holloway",
+        "[PERSON_2]": "Jonas Brekke",
+      });
+      expect(yield* h.service.placeholderThreads).toEqual([THREAD]);
+      const folder = h.path.join(h.config.stateDir, "plugins", "placeholders");
+      const [file] = yield* h.fs.readDirectory(folder);
+      expect((yield* h.fs.stat(h.path.join(folder, file!))).mode & 0o777).toBe(0o600);
+      const settings = yield* h.fs.readFileString(
+        h.path.join(h.config.stateDir, "plugins", "settings.json"),
+      );
+      expect(settings).not.toContain("Maren");
+
+      yield* h.service.forgetPlaceholders(THREAD);
+      expect(yield* h.service.placeholders(THREAD)).toEqual({});
+      expect(yield* h.fs.readDirectory(folder)).toEqual([]);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.live("a review numbered before another confirm took its placeholder must be sent again", () =>
+  Effect.gen(function* () {
+    const h = yield* harness(scriptedRunner(namingHook, []));
+    yield* h.enable("rewrite");
+    const held = [];
+    for (const [text, id] of [
+      ["Maren Holloway", "m-1"],
+      ["Jonas Brekke", "m-2"],
+    ] as const) {
+      const messageId = MessageId.make(id);
+      yield* h.send({ text, messageId, resend: { kind: "dispatch", command: dispatch } });
+      held.push((yield* h.service.review({ threadId: THREAD, messageId }))!);
+    }
+    yield* h.service.confirm({ reviewId: held[0]!.reviewId, content: held[0]!.proposed });
+    const error = yield* h.service
+      .confirm({ reviewId: held[1]!.reviewId, content: held[1]!.proposed })
+      .pipe(Effect.flip);
+    expect(error.message).toContain("Send this message again");
+    expect(yield* h.service.placeholders(THREAD)).toEqual({ "[PERSON_1]": "Maren Holloway" });
   }).pipe(Effect.provide(dependencies)),
 );
