@@ -54,8 +54,14 @@ catalog-named row then runs that route. Claude Code leaves out the few ids
 it would run as another model, such as `best`, `default` or a name ending in
 `[1m]`; Codex still lists them.
 
+Connecting also adds **Pi · LibraOS Gateway**, which needs nothing else installed:
+AgentD Next ships Pi and uses it when no `pi` is on your `PATH` (your own
+install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
+If no default model is chosen yet and neither Claude Code, Codex nor opencode
+is installed, it becomes the default.
+
 **Custom endpoint** connects any OpenAI- or Anthropic-compatible gateway: enter its
-**Endpoint URL**, pick the **Format** (OpenAI adds Codex and opencode agents,
+**Endpoint URL**, pick the **Format** (OpenAI adds Codex, opencode and Pi agents,
 Anthropic adds Claude Code and opencode agents), add its **Key** (an
 Anthropic-format gateway needs one; an OpenAI-format one only if it asks),
 and press **Add gateway**; if its model list can't be read, list the **Model ids**

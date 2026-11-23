@@ -9,12 +9,15 @@ import {
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 import { FetchHttpClient, HttpClient } from "effect/http";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
+import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { askModels } from "./gatewayKeyModels.ts";
 import {
@@ -23,10 +26,18 @@ import {
   nextGatewayAccentColor,
   customGatewayKeySecret,
   customGatewayModels,
+  customPiTarget,
   newCustomGatewayId,
   trimGatewayUrl,
   withCustomGateway,
 } from "./gatewaySetup.ts";
+import {
+  choosePiFirstRunDefault,
+  clearPiDefault,
+  piGatewayAgentDir,
+  removePiGatewayAgentDir,
+  writePiGatewayAgentDir,
+} from "./piGatewayAgent.ts";
 
 export class CustomGateway extends Context.Service<
   CustomGateway,
@@ -80,7 +91,7 @@ function readGatewayUrl(raw: string): string | null {
   }
 }
 
-const ALL_AGENTS = ["claude", "codex", "opencode"] as const;
+const ALL_AGENTS = ["claude", "codex", "opencode", "pi"] as const;
 
 const agentsOf = (instances: Record<string, unknown>, id: string) => {
   const ids = customGatewayInstanceIds(id);
@@ -98,7 +109,17 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const settings = yield* ServerSettingsService;
   const http = yield* HttpClient.HttpClient;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const { stateDir } = yield* ServerConfig.ServerConfig;
   const lock = yield* Semaphore.make(1);
+  const withFiles = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+  const piDirOf = (id: string) =>
+    piGatewayAgentDir(path, stateDir, customGatewayInstanceIds(id).pi);
 
   const storageFailure = (what: string) => (cause: unknown) =>
     Effect.logWarning(`Custom gateway: failed to ${what}`, { cause }).pipe(
@@ -116,6 +137,25 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
         Effect.map(Option.getOrNull),
         Effect.catch(storageFailure("read the gateway's key")),
       );
+
+  const writePi = (
+    gateway: CustomGatewaySetting,
+    hasKey: boolean,
+    models: ReadonlyArray<LibraosGatewayModel>,
+  ) =>
+    withFiles(
+      writePiGatewayAgentDir(piDirOf(gateway.id), customPiTarget(gateway, hasKey), models),
+    ).pipe(Effect.catch(storageFailure("write the Pi agent's model list")));
+
+  /** Before the agents get `models`, so the Pi agent's next start already reads them. */
+  const syncPi = Effect.fn("CustomGateway.syncPi")(function* (
+    gateway: CustomGatewaySetting,
+    models: ReadonlyArray<LibraosGatewayModel>,
+  ) {
+    const current = yield* readSettings;
+    if (current.providerInstances[customGatewayInstanceIds(gateway.id).pi] === undefined) return;
+    yield* writePi(gateway, (yield* readKey(gateway.id)) !== null, models);
+  });
 
   const ask = (gateway: CustomGatewaySetting, key: string | null) =>
     askModels({ base: baseOf(gateway.url), name: gateway.name, key }).pipe(
@@ -202,9 +242,14 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
               .pipe(Effect.catch(storageFailure("store the gateway's key")));
           }
           const ids = customGatewayInstanceIds(id);
-          const instances = customGatewayInstances({ ...gateway, key, models }).filter(
-            ({ instanceId }) => agents.some((agent) => ids[agent] === instanceId),
-          );
+          const withPi = agents.includes("pi");
+          if (withPi) yield* writePi(gateway, key !== null, models);
+          const instances = customGatewayInstances({
+            ...gateway,
+            key,
+            models,
+            piAgentDir: piDirOf(id),
+          }).filter(({ instanceId }) => agents.some((agent) => ids[agent] === instanceId));
           yield* settings
             .updateProviderInstances((current) => {
               const accentColor = nextGatewayAccentColor(current);
@@ -222,6 +267,13 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           yield* settings
             .updateSettings({ customGateways: [...existing, gateway] })
             .pipe(Effect.catch(storageFailure("save the gateway")));
+          if (withPi) {
+            yield* withFiles(choosePiFirstRunDefault(settings, ids.pi)).pipe(
+              Effect.catch((cause) =>
+                Effect.logWarning("Custom gateway: could not make Pi the default agent", { cause }),
+              ),
+            );
+          }
           return {
             kind: "added",
             gateway: {
@@ -275,6 +327,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           const models = known.filter((model) => !hidden.includes(model.id));
           if (models.length === 0) return yield* fail("Keep at least one model on.");
           const updated = { ...gateway, hiddenModels: hidden };
+          yield* syncPi(gateway, models);
           yield* settings
             .updateProviderInstances((instances) => withCustomGateway(instances, gateway, models))
             .pipe(Effect.catch(storageFailure("update the gateway's agents")));
@@ -308,6 +361,12 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           yield* secrets
             .remove(customGatewayKeySecret(id))
             .pipe(Effect.catch(storageFailure("remove the gateway's key")));
+          yield* withFiles(removePiGatewayAgentDir(piDirOf(id))).pipe(
+            Effect.catch(storageFailure("remove the Pi agent's directory")),
+          );
+          yield* clearPiDefault(settings, customGatewayInstanceIds(id).pi).pipe(
+            Effect.catch(storageFailure("clear the default agent")),
+          );
           const stored = (yield* readSettings).customGateways;
           yield* settings
             .updateSettings({ customGateways: stored.filter((entry) => entry.id !== id) })
@@ -329,6 +388,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           const offered = answer.models.filter((model) => !hidden.includes(model.id));
           // Every listed model turned off would leave agents with nothing: offer the list again.
           const models = offered.length > 0 ? offered : answer.models;
+          yield* syncPi(gateway, models);
           yield* settings
             .updateProviderInstances((current) => withCustomGateway(current, gateway, models))
             .pipe(Effect.catch(storageFailure("update the gateway's agents")));

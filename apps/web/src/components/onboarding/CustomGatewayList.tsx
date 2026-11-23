@@ -1,6 +1,6 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import type { CustomGatewaySummary, EnvironmentId } from "@t3tools/contracts";
+import type { CustomGatewayAgent, CustomGatewaySummary, EnvironmentId } from "@t3tools/contracts";
 import { T, useGT, useMessages } from "gt-react";
 import { useId, useState, type FormEvent } from "react";
 
@@ -10,6 +10,13 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
 /** The environment's custom gateways, each with its models, Rename and Remove. Nothing while there are none. */
+const AGENT_LABELS: Record<CustomGatewayAgent, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  opencode: "opencode",
+  pi: "Pi",
+};
+
 export function CustomGatewayList({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const gt = useGT();
   const { data } = useCustomGateways(environmentId);
@@ -102,9 +109,7 @@ function GatewayRow({
   );
 
   const format = gateway.format === "openai" ? "OpenAI" : "Anthropic";
-  const agents = gateway.agents
-    .map((agent) => (agent === "claude" ? "Claude Code" : agent === "codex" ? "Codex" : "opencode"))
-    .join(", ");
+  const agents = gateway.agents.map((agent) => AGENT_LABELS[agent]).join(", ");
 
   return (
     <li className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">

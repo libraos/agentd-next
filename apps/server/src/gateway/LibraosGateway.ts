@@ -27,10 +27,18 @@ import {
   GATEWAY_INSTANCE_IDS,
   GATEWAY_KEY_SECRET,
   gatewayProviderInstances,
+  LIBRAOS_PI_TARGET,
   opencodeOwnGatewayKey,
   readGatewayKey,
   withGatewayModels,
 } from "./gatewaySetup.ts";
+import {
+  choosePiFirstRunDefault,
+  clearPiDefault,
+  piGatewayAgentDir,
+  removePiGatewayAgentDir,
+  writePiGatewayAgentDir,
+} from "./piGatewayAgent.ts";
 
 export class LibraosGateway extends Context.Service<
   LibraosGateway,
@@ -82,6 +90,12 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
   const refusal = yield* Ref.make<string | null>(null);
   // agentd reads the key from this file, which only it and the app read.
   const keyFile = path.join(stateDir, "agentd", GATEWAY_KEY_SECRET);
+  const piDir = piGatewayAgentDir(path, stateDir, GATEWAY_INSTANCE_IDS.pi);
+  const withFiles = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
 
   const storageFailure = (what: string) => (cause: unknown) =>
     Effect.logWarning(`LibraOS Gateway: failed to ${what}`, { cause }).pipe(
@@ -214,11 +228,20 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
             .set(GATEWAY_KEY_SECRET, textEncoder.encode(key))
             .pipe(Effect.catch(storageFailure("store the LibraOS Gateway key")));
           yield* writeKeyFile(key);
-          for (const { instanceId, instance } of gatewayProviderInstances(key, list)) {
+          // Before the instance, so its first probe already reads the Gateway's models.
+          yield* withFiles(writePiGatewayAgentDir(piDir, LIBRAOS_PI_TARGET, list)).pipe(
+            Effect.catch(storageFailure("write the Pi agent's model list")),
+          );
+          for (const { instanceId, instance } of gatewayProviderInstances(key, list, piDir)) {
             yield* settings
               .updateProviderInstance({ operation: "upsert", instanceId, instance })
               .pipe(Effect.catch(storageFailure("add the LibraOS Gateway agents")));
           }
+          yield* withFiles(choosePiFirstRunDefault(settings, GATEWAY_INSTANCE_IDS.pi)).pipe(
+            Effect.catch((cause) =>
+              Effect.logWarning("LibraOS Gateway: could not make Pi the default agent", { cause }),
+            ),
+          );
           yield* Ref.set(models, list);
           yield* Ref.set(refusal, null);
           yield* Ref.set(agentdSetup, yield* runAgentdInit);
@@ -242,6 +265,12 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
         yield* fs
           .remove(keyFile, { force: true })
           .pipe(Effect.catch(storageFailure("remove agentd's key file")));
+        yield* withFiles(removePiGatewayAgentDir(piDir)).pipe(
+          Effect.catch(storageFailure("remove the Pi agent's directory")),
+        );
+        yield* clearPiDefault(settings, GATEWAY_INSTANCE_IDS.pi).pipe(
+          Effect.catch(storageFailure("clear the default agent")),
+        );
         yield* secrets
           .remove(GATEWAY_KEY_SECRET)
           .pipe(Effect.catch(storageFailure("remove the LibraOS Gateway key")));
@@ -272,6 +301,9 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
           );
     const update = (current: typeof snapshot.providerInstances) =>
       withGatewayModels(current, list, opencodeList);
+    if (list !== null && snapshot.providerInstances[GATEWAY_INSTANCE_IDS.pi] !== undefined) {
+      yield* withFiles(writePiGatewayAgentDir(piDir, LIBRAOS_PI_TARGET, list));
+    }
     if (update(snapshot.providerInstances) === snapshot.providerInstances) return;
     yield* settings.updateProviderInstances(update);
   });

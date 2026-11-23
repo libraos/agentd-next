@@ -26,6 +26,7 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
+import { piCommandLine } from "./binary.ts";
 import { buildPiRpcLaunch, resolvePiLaunchArgs } from "./mcpInjection.ts";
 import {
   makePiRpcConnection,
@@ -157,12 +158,8 @@ const makePiDiscoveryConnection = Effect.fnUntraced(function* (
     disableTools: textGenerationLaunch,
     shortLived: true,
   });
-  const connection = yield* makePiRpcConnection({
-    command: piSettings.binaryPath || "pi",
-    args: launch.args,
-    cwd,
-    env: launch.env,
-  });
+  const line = piCommandLine(piSettings.binaryPath, launch.args, launch.env);
+  const connection = yield* makePiRpcConnection({ ...line, cwd });
   yield* Stream.fromQueue(connection.events).pipe(
     Stream.runDrain,
     Effect.ignore,
@@ -338,13 +335,14 @@ export const runPiVersionCommand = Effect.fn("PiProviderStatus.runPiVersionComma
   cwd?: string,
 ) {
   const command = piSettings.binaryPath || "pi";
-  const spawnCommand = yield* resolveSpawnCommand(command, ["--version"], {
-    env: environment,
+  const line = piCommandLine(command, ["--version"], environment);
+  const spawnCommand = yield* resolveSpawnCommand(line.command, line.args, {
+    env: line.env,
   });
   return yield* spawnAndCollect(
     command,
     ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-      env: environment,
+      env: line.env,
       shell: spawnCommand.shell,
       ...(cwd === undefined ? {} : { cwd }),
     }),
@@ -370,16 +368,17 @@ const describeUnavailablePiModel = Effect.fn("PiProviderStatus.describeUnavailab
       return unavailable;
     }
     const command = piSettings.binaryPath || "pi";
-    const output = yield* resolveSpawnCommand(
+    const line = piCommandLine(
       command,
       ["auth", "check", "--provider", model.provider, "--json", "--no-refresh"],
-      { env: environment },
-    ).pipe(
+      environment,
+    );
+    const output = yield* resolveSpawnCommand(line.command, line.args, { env: line.env }).pipe(
       Effect.flatMap((spawnCommand) =>
         spawnAndCollect(
           command,
           ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-            env: environment,
+            env: line.env,
             shell: spawnCommand.shell,
           }),
         ),

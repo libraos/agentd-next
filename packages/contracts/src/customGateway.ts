@@ -11,7 +11,7 @@ export type CustomGatewayFormat = typeof CustomGatewayFormat.Type;
 const GATEWAY_ID_PATTERN = /^[a-z0-9]{1,16}$/;
 export const CustomGatewayId = Schema.String.check(Schema.isPattern(GATEWAY_ID_PATTERN));
 
-const INSTANCE_ID_PATTERN = /^gw-([a-z0-9]{1,16})-(?:claude|codex|opencode)$/;
+const INSTANCE_ID_PATTERN = /^gw-([a-z0-9]{1,16})-(?:claude|codex|opencode|pi)$/;
 
 /** The gateway id of one of a custom gateway's provider instances, else null. */
 export const customGatewayIdOfInstance = (instanceId: string): string | null =>
@@ -21,14 +21,14 @@ export const customGatewayIdOfInstance = (instanceId: string): string | null =>
 export const isGatewayInstanceId = (instanceId: string): boolean =>
   isLibraosGatewayInstanceId(instanceId) || customGatewayIdOfInstance(instanceId) !== null;
 
-export const CustomGatewayAgent = Schema.Literals(["claude", "codex", "opencode"]);
+export const CustomGatewayAgent = Schema.Literals(["claude", "codex", "opencode", "pi"]);
 export type CustomGatewayAgent = typeof CustomGatewayAgent.Type;
 
-/** The agents that speak a format: opencode speaks both. */
+/** The agents that speak a format: opencode speaks both, Pi only OpenAI's here. */
 export const customGatewayAgentsOf = (
   format: CustomGatewayFormat,
 ): ReadonlyArray<CustomGatewayAgent> =>
-  format === "anthropic" ? ["claude", "opencode"] : ["codex", "opencode"];
+  format === "anthropic" ? ["claude", "opencode"] : ["codex", "opencode", "pi"];
 
 /** What agentd's `[dispatch] TOOL_base_url` takes for a gateway: Claude Code an origin, the others `/v1`. */
 export function customGatewayWorkerUrl(agent: CustomGatewayAgent, url: string): string {

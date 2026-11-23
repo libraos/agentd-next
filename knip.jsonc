@@ -79,6 +79,8 @@
         "@napi-rs/keyring",
         "ffi-rs",
         "transcribe-cpp",
+        // Pi ships with the app and runs as a child process, never imported.
+        "@earendil-works/pi-coding-agent",
       ],
     },
     "apps/desktop": {
@@ -166,6 +168,11 @@
     "packages/*": {
       // These workspace packages are private to this monorepo.
       "includeEntryExports": true,
+    },
+    "packages/provider-pi": {
+      "includeEntryExports": true,
+      // The shipped Pi is found on disk and spawned, never imported.
+      "ignoreDependencies": ["@earendil-works/pi-coding-agent"],
     },
     "packages/effect-acp": {
       "includeEntryExports": true,
