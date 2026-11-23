@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 PLUGIN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PLUGIN))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import documents  # noqa: E402
 import fake_hook  # noqa: E402
 import redact  # noqa: E402
 
@@ -21,6 +22,7 @@ NAME = "Maren Holloway"
 EMAIL = "maren.holloway@example.org"
 API_KEY = "sk-ant-api03-Zq7XvB2mN9pL4kR8tY1wE6uI3oA5sD0f"
 SECRETS = (NAME, "Holloway", EMAIL, API_KEY)
+ID_NUMBER = "110105194912310021"
 
 
 def hook_input(text, attachments=(), unshown=(), placeholders=None):
@@ -208,6 +210,95 @@ class DecideTest(unittest.TestCase):
     def test_unreadable_input_blocks(self):
         for raw in ("not json", b"\xff\xfe", json.dumps({"message": {"text": 3}})):
             self.assertBlocks(redact.decide(raw, ready_folder(self), load=fake_hook.fake_load), "could not read")
+
+
+def write_file(test, name, data):
+    folder = Path(enter(test, tempfile.TemporaryDirectory()))
+    (folder / name).write_bytes(data)
+    return str(folder / name)
+
+
+def unshown_file(test, name, data, mime="application/octet-stream", id_="file-1"):
+    return {"id": id_, "name": name, "mimeType": mime, "sizeBytes": len(data), "path": write_file(test, name, data)}
+
+
+CONTRACT = documents.docx(
+    [f"Lease between Acme and {NAME}.", f"Tenant ID number: {ID_NUMBER}", "Rent is due monthly."],
+    comment=f"Check {EMAIL} before signing",
+    deleted="Old clause naming Ingrid Vale",
+    header="Confidential draft",
+)
+
+
+class FileTest(unittest.TestCase):
+    def decide(self, text, unshown, placeholders=None):
+        return redact.decide(
+            hook_input(text, unshown=unshown, placeholders=placeholders), ready_folder(self), load=fake_hook.fake_load
+        )
+
+    def test_a_word_document_goes_as_redacted_text_named_after_it(self):
+        file = unshown_file(self, "lease.docx", CONTRACT)
+        answer = self.decide(f"Summarise the lease for {NAME}.", [file])
+        self.assertEqual(answer["decision"], "rewrite", answer.get("reason"))
+        [replaced] = answer["message"]["attachments"]
+        self.assertEqual((replaced["id"], replaced["name"]), ("file-1", "lease.docx.txt"))
+        out = json.dumps(answer["message"])
+        for secret in (NAME, "Holloway", ID_NUMBER):
+            self.assertNotIn(secret, out)
+        # The name in the message and in the file is one placeholder, and the map holds both values.
+        self.assertIn("[PERSON_1]", answer["message"]["text"])
+        self.assertIn("Lease between Acme and [PERSON_1].", replaced["text"])
+        self.assertIn("Tenant ID number: [ID_1]", replaced["text"])
+        self.assertEqual(answer["placeholders"]["[PERSON_1]"], NAME)
+        self.assertEqual(answer["placeholders"]["[ID_1]"], ID_NUMBER)
+        # Headers are read; comments and deleted tracked text are not sent at all.
+        self.assertIn("Confidential draft", replaced["text"])
+        self.assertNotIn(EMAIL, out)
+        self.assertNotIn("Ingrid Vale", out)
+
+    def test_a_file_uses_the_threads_known_placeholders(self):
+        file = unshown_file(self, "lease.docx", CONTRACT)
+        answer = self.decide("See the file.", [file], placeholders={"[PERSON_4]": NAME, "[ID_2]": ID_NUMBER})
+        [replaced] = answer["message"]["attachments"]
+        self.assertIn("Acme and [PERSON_4].", replaced["text"])
+        self.assertIn("ID number: [ID_2]", replaced["text"])
+
+    def test_a_file_with_nothing_to_redact_is_still_replaced_by_its_text(self):
+        file = unshown_file(self, "memo.docx", documents.docx(["Rent is due monthly."]))
+        answer = self.decide("See the memo.", [file])
+        self.assertEqual(answer["decision"], "rewrite")
+        self.assertEqual(answer["message"]["attachments"], [{"id": "file-1", "name": "memo.docx.txt", "text": "Rent is due monthly."}])
+
+    def test_a_damaged_word_document_blocks_and_names_it(self):
+        answer = self.decide("See it.", [unshown_file(self, "broken.docx", b"PK\x03\x04 not a zip")])
+        self.assertEqual(answer["decision"], "block")
+        self.assertIn("broken.docx could not be opened as a Word document", answer["reason"])
+
+    def test_a_word_document_with_an_entity_declaration_blocks(self):
+        bomb = documents.docx(["&a;"], doctype='<!DOCTYPE d [<!ENTITY a "aaaa">]>')
+        self.assertEqual(self.decide("x", [unshown_file(self, "bomb.docx", bomb)])["decision"], "block")
+
+    def test_an_image_or_a_file_without_a_path_blocks_as_before(self):
+        image = unshown_file(self, "scan.png", b"\x89PNG", mime="image/png")
+        no_path = {"id": "file-2", "name": "lease.docx"}
+        for unshown in ([image], [no_path]):
+            answer = self.decide("See it.", unshown)
+            self.assertEqual(answer["decision"], "block")
+            self.assertIn("Remove it", answer["reason"])
+
+    def test_file_text_counts_toward_the_length_limit(self):
+        big = documents.docx(["word " * (redact.MAX_TOTAL_CHARS // 5 + 10)])
+        answer = redact.decide(
+            hook_input("x", unshown=[unshown_file(self, "big.docx", big)]),
+            ready_folder(self),
+            load=lambda _folder: self.fail("the model should not load"),
+        )
+        self.assertBlocks(answer, "Split it")
+
+    def assertBlocks(self, answer, *phrases):
+        self.assertEqual(answer["decision"], "block")
+        for phrase in phrases:
+            self.assertIn(phrase, answer["reason"])
 
 
 class RulesTest(unittest.TestCase):
@@ -465,6 +556,56 @@ class ProcessTest(unittest.TestCase):
 REAL_DATA = redact.data_dir()
 
 
+def venv_has_pypdf():
+    python = redact.venv_python(REAL_DATA)
+    return python.is_file() and subprocess.run([str(python), "-c", "import pypdf"], capture_output=True).returncode == 0
+
+
+@unittest.skipUnless(
+    venv_has_pypdf(),
+    f"no pypdf in {REAL_DATA}: run `python3 agentd/plugins/redact/setup_env.py` "
+    "(set AGENTD_REDACT_DATA_DIR to put it elsewhere), then run these tests again",
+)
+class PdfTest(unittest.TestCase):
+    """The hook with a fake detector, run by the venv's python, where pypdf is."""
+
+    def run_fake_hook(self, stdin):
+        result = subprocess.run(
+            [str(redact.venv_python(REAL_DATA)), str(PLUGIN / "tests" / "fake_hook.py")],
+            input=stdin.encode(),
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        self.assertEqual(result.stderr, b"")
+        return json.loads(result.stdout)
+
+    def test_a_text_pdf_goes_as_redacted_text(self):
+        data = documents.pdf([f"Client: {NAME}", f"ID number {ID_NUMBER}"])
+        file = unshown_file(self, "intake.pdf", data, mime="application/pdf")
+        answer = self.run_fake_hook(hook_input(f"Open a file for {NAME}.", unshown=[file]))
+        self.assertEqual(answer["decision"], "rewrite", answer.get("reason"))
+        [replaced] = answer["message"]["attachments"]
+        self.assertEqual(replaced["name"], "intake.pdf.txt")
+        self.assertEqual(replaced["text"], "Client: [PERSON_1]\nID number [ID_1]")
+        self.assertIn("[PERSON_1]", answer["message"]["text"])
+        for secret in (NAME, "Holloway", ID_NUMBER):
+            self.assertNotIn(secret, json.dumps(answer["message"]))
+
+    def test_a_scanned_pdf_blocks_saying_it_has_no_text_layer(self):
+        file = unshown_file(self, "scan.pdf", documents.pdf([]), mime="application/pdf")
+        answer = self.run_fake_hook(hook_input("See the scan.", unshown=[file]))
+        self.assertEqual(answer["decision"], "block")
+        self.assertIn("scan.pdf has no text layer", answer["reason"])
+
+    def test_a_damaged_pdf_blocks(self):
+        file = unshown_file(self, "bad.pdf", b"%PDF-1.4 nothing here", mime="application/pdf")
+        answer = self.run_fake_hook(hook_input("See it.", unshown=[file]))
+        self.assertEqual(answer["decision"], "block")
+        self.assertIn("bad.pdf", answer["reason"])
+
+
+
 @unittest.skipUnless(
     redact.venv_python(REAL_DATA).is_file() and (redact.model_dir(REAL_DATA) / "model.safetensors").is_file(),
     f"no veil-detect weights in {REAL_DATA}: run `python3 agentd/plugins/redact/setup_env.py` "
@@ -483,6 +624,17 @@ class RealWeightsTest(unittest.TestCase):
         # A second send in the same conversation keeps the placeholder the first one gave.
         again = json.loads(run_hook(PLUGIN / "hook.py", hook_input(DRAFT, placeholders=answer["placeholders"])).stdout)
         self.assertEqual(again["message"]["text"], answer["message"]["text"])
+
+    def test_real_model_redacts_a_word_document_with_the_messages_placeholders(self):
+        file = unshown_file(self, "lease.docx", CONTRACT)
+        answer = json.loads(run_hook(PLUGIN / "hook.py", hook_input(f"Summarise the lease for {NAME}.", unshown=[file])).stdout)
+        self.assertEqual(answer["decision"], "rewrite", answer.get("reason"))
+        [replaced] = answer["message"]["attachments"]
+        for secret in (NAME, ID_NUMBER):
+            self.assertNotIn(secret, json.dumps(answer["message"]))
+        person = next(key for key, value in answer["placeholders"].items() if value == NAME)
+        self.assertIn(person, answer["message"]["text"])
+        self.assertIn(person, replaced["text"])
 
 
 if __name__ == "__main__":

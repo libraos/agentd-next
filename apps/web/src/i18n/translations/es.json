@@ -3577,6 +3577,7 @@
   "65af218e3466e202": "{names} revisa cada mensaje antes de enviarlo.",
   "57dbcc229103c3f4": "El mensaje no se envió.",
   "02625b0732accc36": "{plugins} cambió este mensaje. Envíalo como se muestra, edítalo antes o cierra para conservar tu borrador sin enviar.",
+  "24a845d831ae1a1e": "El texto leído de {name}, enviado en su lugar. El archivo no se envía; su diseño, comentarios, cambios con seguimiento e imágenes se pierden.",
   "36e4f4cdd218f92e": "Revisa el mensaje modificado",
   "6b3e8bc1f3ded083": "Mensaje",
   "d6ac23cbf781e583": "Marcadores",

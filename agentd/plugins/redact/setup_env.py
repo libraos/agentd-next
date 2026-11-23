@@ -1,4 +1,4 @@
-"""Sets up local redaction: a venv with pinned CPU torch and transformers, and the veil-detect weights.
+"""Sets up local redaction: a venv with pinned CPU torch, transformers and pypdf, and the veil-detect weights.
 
 AgentD Next runs it from Settings, Plugins, in the plugin's folder; by hand, with Python 3.10 or
 newer on the computer that runs AgentD Next:  python3 setup_env.py
@@ -19,6 +19,12 @@ import redact  # noqa: E402
 TORCH = "torch==2.14.1"
 TORCH_INDEX = "https://download.pytorch.org/whl/cpu"
 TRANSFORMERS = "transformers==5.12.1"
+# Reads text from PDFs. Pure-Python wheels, installed only when they match these sha256 hashes;
+# typing_extensions is pypdf's one dependency (before Python 3.11).
+EXTRACTION = [
+    "pypdf==7.1.1 --hash=sha256:04c5680d4b4cfa04ab505b09393fc949860c34a4dad6565284d11a2f5c3ce8b1",
+    "typing_extensions==4.16.0 --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+]
 
 
 STEPS = 4
@@ -47,11 +53,15 @@ def make_venv(data):
     return python
 
 
-def install_packages(python):
+def install_packages(python, data):
     pip = [str(python), "-m", "pip", "install", "--disable-pip-version-check", "--no-input", "-q"]
+    requirements = data / "extraction-requirements.txt"
+    requirements.write_text("\n".join(EXTRACTION) + "\n", encoding="utf-8")
+    hashed = ["--require-hashes", "--only-binary", ":all:", "--no-deps", "-r", str(requirements)]
     for label, args in (
         (f"installing {TORCH} (CPU), the largest download", [TORCH, "--index-url", TORCH_INDEX]),
         (f"installing {TRANSFORMERS}", [TRANSFORMERS]),
+        ("installing the PDF reader", hashed),
     ):
         step(2, label)
         # pip's own lines go to stderr, so stdout stays one progress line per step.
@@ -97,13 +107,13 @@ def main():
     data = redact.data_dir()
     print(f"Local redaction data folder: {data}", flush=True)
     python = make_venv(data)
-    install_packages(python)
+    install_packages(python, data)
     download_weights(redact.model_dir(data))
     step(4, "checking the model and the environment")
     redact.verify_weights(redact.model_dir(data))
-    check = subprocess.run([str(python), "-c", "import torch, transformers"], check=False)
+    check = subprocess.run([str(python), "-c", "import torch, transformers, pypdf"], check=False)
     if check.returncode != 0:
-        fail("torch or transformers does not import in the new environment; run this again.")
+        fail("torch, transformers or pypdf does not import in the new environment; run this again.")
     print("Local redaction is ready. Turn it on in Settings, Plugins.", flush=True)
 
 

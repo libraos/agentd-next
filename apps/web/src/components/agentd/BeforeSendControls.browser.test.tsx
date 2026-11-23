@@ -24,7 +24,11 @@ const REVIEW: AgentdBeforeSendReview = {
   messageId: MESSAGE,
   plugins: ["Redactor"],
   original: { text: "my password is hunter2", attachments: [] },
-  proposed: { text: "my password is [redacted]", attachments: [] },
+  proposed: {
+    text: "my password is [redacted]",
+    attachments: [{ id: "file-1", name: "lease.docx.txt", text: "Tenant [PERSON_1]" }],
+  },
+  replacedFiles: [{ id: "file-1", name: "lease.docx" }],
   placeholders: [
     { placeholder: "[PERSON_2]", value: "Jonas Brekke", new: true },
     { placeholder: "[PERSON_1]", value: "Maren Holloway", new: false },
@@ -150,11 +154,18 @@ it("sends the content as the person edited it, then clears the draft", async () 
   await expect.element(message).toHaveValue("my password is [redacted]");
   await userEvent.clear(message);
   await userEvent.type(message, "my password is secret");
+  // A Word file the hook replaced is shown as the redacted text sent in its place.
+  const file = dialog.getByRole("textbox", { name: /lease\.docx\.txt/ });
+  await expect.element(file).toHaveValue("Tenant [PERSON_1]");
+  await expect.element(dialog.getByText(/The text read from lease\.docx/)).toBeVisible();
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect.element(dialog).not.toBeInTheDocument();
   expect(state.confirm).toHaveBeenCalledWith({
     environmentId: ENVIRONMENT,
-    input: { reviewId: "review-1", content: { text: "my password is secret", attachments: [] } },
+    input: {
+      reviewId: "review-1",
+      content: { text: "my password is secret", attachments: REVIEW.proposed.attachments },
+    },
   });
   expect(onSent).toHaveBeenCalledOnce();
   expect(state.discard).not.toHaveBeenCalled();

@@ -13,6 +13,8 @@ import time
 import unicodedata
 from pathlib import Path
 
+import extract
+
 MODEL_REPO = "libraos/veil-detect"
 MODEL_REVISION = "v1.0.0"
 # sha256 of each file at MODEL_REVISION; setup checks downloads against these and the hook
@@ -487,20 +489,61 @@ def _read_message(raw):
     return text, attachments, unshown, known
 
 
+def _unsupported_block(unshown):
+    names = ", ".join(str(item.get("name", "attachment")) for item in unshown[:3] if isinstance(item, dict))
+    return _block(
+        "Local redaction checks text, UTF-8 text files up to 1 MB, Word documents (.docx) and PDFs "
+        f"with a text layer, so {names or 'an attachment'} cannot be checked and the message was "
+        "not sent. Remove it, or paste its text, then send again."
+    )
+
+
+def _files_to_read(unshown):
+    """(item, kind) for each unshown attachment the host gave a path for and that has text."""
+    files = []
+    for item in unshown:
+        if not isinstance(item, dict):
+            return None
+        name, path = item.get("name"), item.get("path")
+        kind = extract.kind_of(name, item.get("mimeType", "")) if isinstance(name, str) else None
+        if kind is None or not isinstance(path, str) or not isinstance(item.get("id"), str):
+            return None
+        files.append((item, kind))
+    return files
+
+
 def decide(raw, folder, load=load_detector, clock=time.monotonic):
     """The hook's answer for one stdin payload: pass, rewrite or block. Never raises."""
     started = clock()
+    deadline = started + DETECT_DEADLINE_SECONDS
     try:
         text, attachments, unshown, known = _read_message(raw)
     except Exception:
         return _block("Local redaction could not read this message, so it was not sent. Update AgentD Next and the plugin, then send again.")
-    if unshown:
-        names = ", ".join(str(item.get("name", "attachment")) for item in unshown[:3] if isinstance(item, dict))
+    files = _files_to_read(unshown)
+    if files is None:
+        return _unsupported_block(unshown)
+    try:
+        # Each Word document or PDF goes on as the text read from it; the file itself never does.
+        extracted = [
+            (item, extract.extract(item["path"], kind, item["name"], deadline)) for item, kind in files
+        ]
+    except extract.Unreadable as unreadable:
         return _block(
-            f"Local redaction only checks text and UTF-8 text files up to 1 MB, so {names or 'an attachment'} "
-            "cannot be checked and the message was not sent. Remove it, or paste its text, then send again."
+            f"Local redaction cannot check this message: {unreadable}. It was not sent. Remove the "
+            "file, or paste its text, then send again."
         )
-    total = len(text) + sum(len(attachment["text"]) for attachment in attachments)
+    except TimeoutError:
+        return _block(
+            "Local redaction could not finish reading the attached files in time, so the message "
+            "was not sent. Send fewer or smaller files."
+        )
+    except Exception as error:
+        return _block(
+            f"Local redaction could not read an attached file ({type(error).__name__}), so the "
+            "message was not sent. Remove it, or paste its text, then send again."
+        )
+    total = len(text) + sum(len(a["text"]) for a in attachments) + sum(len(t) for _, t in extracted)
     if total > MAX_TOTAL_CHARS:
         return _block(
             f"Local redaction can check up to {MAX_TOTAL_CHARS:,} characters in one message within "
@@ -509,15 +552,17 @@ def decide(raw, folder, load=load_detector, clock=time.monotonic):
     try:
         verify_weights(folder)
         detect = load(folder)
-        deadline = started + DETECT_DEADLINE_SECONDS
         placeholders = Placeholders(known)
-        new_text, *redacted = redact_all(
-            [text] + [attachment["text"] for attachment in attachments], detect, deadline, placeholders
-        )
+        sources = [text] + [a["text"] for a in attachments] + [t for _, t in extracted]
+        new_text, *redacted = redact_all(sources, detect, deadline, placeholders)
         changed = [
             {"id": attachment["id"], "text": out}
             for attachment, out in zip(attachments, redacted)
             if out != attachment["text"]
+        ]
+        replaced = [
+            {"id": item["id"], "name": f"{item['name']}.txt", "text": out}
+            for (item, _), out in zip(extracted, redacted[len(attachments) :])
         ]
     except Blocked as blocked:
         return _block(str(blocked))
@@ -532,11 +577,11 @@ def decide(raw, folder, load=load_detector, clock=time.monotonic):
             f"Local redaction failed ({type(error).__name__}), so the message was not sent. Send it "
             f"again; if it keeps failing, {setup_hint()}, or turn the plugin off on the AgentD page."
         )
-    if new_text == text and not changed:
+    if new_text == text and not changed and not replaced:
         return {"decision": "pass"}
     message = {"text": new_text}
-    if changed:
-        message["attachments"] = changed
+    if changed or replaced:
+        message["attachments"] = changed + replaced
     return {"decision": "rewrite", "message": message, "placeholders": placeholders.mapping()}
 
 

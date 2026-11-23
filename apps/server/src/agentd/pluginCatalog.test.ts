@@ -7,6 +7,7 @@ import {
   placeholdersIn,
   pluginEnabled,
   readPluginSettings,
+  replacementName,
   resolveHookCommand,
   withoutPlugin,
   withPluginEnabled,
@@ -47,6 +48,43 @@ describe("parseHookOutput", () => {
     ["", { _tag: "Invalid" }],
   ])("%s", (stdout, expected) => {
     expect(parseHookOutput(stdout, INPUT)).toEqual(expected);
+  });
+});
+
+describe("a file a hook replaces with text", () => {
+  const FILES = [{ id: "f", name: "lease.docx" }];
+  const replace = (attachment: object) =>
+    JSON.stringify({ decision: "rewrite", message: { text: "hello", attachments: [attachment] } });
+
+  it.each([
+    [{ id: "f", text: "body", name: "lease.docx.txt" }, "lease.docx.txt"],
+    [{ id: "f", text: "body" }, "lease.docx.txt"],
+    [{ id: "f", text: "body", name: "../../etc/passwd" }, "passwd.txt"],
+    [{ id: "f", text: "body", name: "notes.TXT" }, "notes.txt"],
+  ])("comes after the shown attachments as text named %j", (attachment, name) => {
+    expect(parseHookOutput(replace(attachment), INPUT, {}, FILES)).toEqual({
+      _tag: "Rewrite",
+      content: {
+        text: "hello",
+        attachments: [...INPUT.attachments, { id: "f", name, text: "body" }],
+      },
+      placeholders: {},
+    });
+  });
+
+  it("is invalid with no text, or when the hook was not offered the file", () => {
+    expect(parseHookOutput(replace({ id: "f", text: "" }), INPUT, {}, FILES)).toEqual({
+      _tag: "Invalid",
+    });
+    expect(parseHookOutput(replace({ id: "f", text: "body" }), INPUT, {}, [])).toEqual({
+      _tag: "Invalid",
+    });
+  });
+
+  it("is named after the original when the hook's name is not a file name", () => {
+    expect(replacementName("  ", "scan.pdf")).toBe("scan.pdf.txt");
+    expect(replacementName("..", "scan.pdf")).toBe("scan.pdf.txt");
+    expect(replacementName(`${"x".repeat(300)}.txt`, "a.pdf")).toHaveLength(255);
   });
 });
 

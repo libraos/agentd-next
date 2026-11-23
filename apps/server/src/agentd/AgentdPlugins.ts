@@ -14,6 +14,7 @@ import {
   type AgentdPluginSetup,
   type AgentdPlugins,
   type AgentdPluginsListInput,
+  ChatAttachmentId,
   type ChatAttachment,
   type CommandId,
   type MessageId,
@@ -39,7 +40,12 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 
-import { planAttachmentClaim, resolveAttachmentPath } from "../attachmentStore.ts";
+import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";
+import {
+  createPendingAttachmentId,
+  planAttachmentClaim,
+  resolveAttachmentPath,
+} from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import type { ThreadLaunchInput } from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -55,6 +61,7 @@ import {
   PluginSetupRecord,
   PlaceholderFile,
   type PluginCatalog,
+  type HookUnshownAttachment,
   type PluginManifest,
   attachmentText,
   decodePlaceholderFile,
@@ -719,7 +726,7 @@ const make = Effect.gen(function* () {
     hook: Hook,
     request: BeforeSendRequest,
     content: AgentdBeforeSendContent,
-    unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>,
+    files: ReadonlyArray<HookUnshownAttachment>,
     map: AgentdPlaceholderMap,
   ) {
     const fix = "Install it again or turn it off on the AgentD page.";
@@ -732,6 +739,11 @@ const make = Effect.gen(function* () {
     if (command === null) {
       return yield* blocked(`${hook.name} is turned on but its hook cannot be found. ${fix}`);
     }
+    // A hook that does not read files sees only their names, as before files could be replaced.
+    const readsFiles = command.declared.attachmentFiles === true;
+    const unshown = files
+      .filter((file) => !content.attachments.some((shown) => shown.id === file.id))
+      .map((file) => (readsFiles ? file : { id: file.id, name: file.name }));
     const output = yield* runner
       .run({
         command: command.command,
@@ -768,7 +780,7 @@ const make = Effect.gen(function* () {
         `${hook.name} failed (exit ${String(output.code)}), so the message was not sent.`,
       );
     }
-    const decision = parseHookOutput(output.stdout, content, map);
+    const decision = parseHookOutput(output.stdout, content, map, readsFiles ? unshown : []);
     if (decision._tag === "Invalid") {
       return yield* blocked(`${hook.name} gave no usable answer, so the message was not sent.`);
     }
@@ -918,7 +930,16 @@ const make = Effect.gen(function* () {
     };
     const unshown = request.attachments
       .filter((attachment) => !original.attachments.some((shown) => shown.id === attachment.id))
-      .map((attachment) => ({ id: attachment.id, name: attachment.name }));
+      .map((attachment): HookUnshownAttachment => {
+        const file = attachmentFile(request.threadId, attachment);
+        return {
+          id: attachment.id,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          ...(file === null ? {} : { path: file }),
+        };
+      });
     const known = yield* readPlaceholders(request.threadId);
     let content = original;
     let map = known;
@@ -950,6 +971,9 @@ const make = Effect.gen(function* () {
         value: map[placeholder] ?? "",
         new: !Object.hasOwn(known, placeholder),
       })),
+      replacedFiles: unshown
+        .filter((file) => content.attachments.some((attachment) => attachment.id === file.id))
+        .map((file) => ({ id: file.id, name: file.name })),
     };
     const resend = request.resend;
     yield* Ref.update(reviews, (held) => {
@@ -989,15 +1013,68 @@ const make = Effect.gen(function* () {
     return null;
   });
 
-  /** Writes the confirmed text over a held upload; only uploads not yet sent can change. */
+  /**
+   * A replaced file's text as a new pending upload, which the send claims as any other; the file
+   * itself, and text extracted from it beside it, are deleted when they were a pending upload.
+   */
+  const replaceFile = Effect.fn("AgentdPlugins.replaceFile")(function* (
+    held: HeldReview,
+    attachment: ChatAttachment,
+    name: string,
+    text: string,
+  ) {
+    const bytes = new TextEncoder().encode(text);
+    const id = createPendingAttachmentId(".txt");
+    const target = resolveAttachmentRelativePath({
+      attachmentsDir: config.attachmentsDir,
+      relativePath: `${id}.txt`,
+    });
+    if (target === null || bytes.byteLength === 0) {
+      return yield* blocked(
+        `The text of ${attachment.name} is empty, so the message was not sent.`,
+      );
+    }
+    yield* fs
+      .writeFile(target, bytes, { flag: "wx" })
+      .pipe(Effect.mapError(() => blocked(`The text of ${attachment.name} could not be saved.`)));
+    const claim = planAttachmentClaim({
+      attachmentsDir: config.attachmentsDir,
+      threadId: held.review.threadId,
+      attachmentId: attachment.id,
+    });
+    if (claim.ok) {
+      yield* fs.remove(claim.currentPath, { force: true }).pipe(Effect.ignore);
+      yield* fs.remove(`${claim.currentPath}.txt`, { force: true }).pipe(Effect.ignore);
+    }
+    return {
+      type: "file",
+      id: ChatAttachmentId.make(id),
+      name,
+      mimeType: "text/plain",
+      sizeBytes: bytes.byteLength,
+    } satisfies ChatAttachment;
+  });
+
+  /**
+   * Writes the confirmed text over a held upload, and puts a replaced file's text in its place;
+   * only uploads not yet sent can change. A replaced file never goes on, confirmed or not.
+   */
   const applyAttachments = Effect.fn("AgentdPlugins.applyAttachments")(function* (
     held: HeldReview,
     confirmed: ReadonlyArray<AgentdBeforeSendAttachment>,
   ) {
     const byId = new Map(confirmed.map((attachment) => [attachment.id, attachment.text]));
     const shown = new Map(held.review.original.attachments.map((a) => [a.id, a.text]));
+    const replaced = new Set(held.review.replacedFiles.map((file) => file.id));
     const result: ChatAttachment[] = [];
     for (const attachment of held.attachments) {
+      if (replaced.has(attachment.id)) {
+        const proposed = held.review.proposed.attachments.find((a) => a.id === attachment.id);
+        if (proposed === undefined) return yield* blocked("This review is damaged. Send again.");
+        const text = byId.get(attachment.id) ?? proposed.text;
+        result.push(yield* replaceFile(held, attachment, proposed.name, text));
+        continue;
+      }
       const text = byId.get(attachment.id);
       if (text === undefined || text === shown.get(attachment.id) || attachment.type !== "file") {
         result.push(attachment);
