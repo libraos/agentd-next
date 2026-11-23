@@ -41,6 +41,38 @@ export const removePiGatewayAgentDir = Effect.fn("PiGatewayAgent.remove")(functi
   yield* fs.remove(dir, { recursive: true, force: true });
 });
 
+/**
+ * Whether a gateway has or had a Pi agent: removing the instance leaves its directory, which only
+ * removing the gateway deletes, so a Pi agent the user removed is not given back.
+ */
+export const hadPiGatewayAgent = Effect.fn("PiGatewayAgent.had")(function* (
+  instancePresent: boolean,
+  dir: string,
+) {
+  if (instancePresent) return true;
+  const fs = yield* FileSystem.FileSystem;
+  return yield* fs.exists(dir).pipe(Effect.orElseSucceed(() => true));
+});
+
+/**
+ * Runs the backfill that gives gateways connected before they had a Pi agent theirs, once per
+ * state directory; it returns false to be tried again at the next start. Once only, so a custom
+ * gateway added later without Pi stays without it.
+ */
+export const backfillPiOnce = Effect.fn("PiGatewayAgent.backfillOnce")(function* <E, R>(
+  stateDir: string,
+  gateways: "libraos" | "custom",
+  backfill: Effect.Effect<boolean, E, R>,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const marker = path.join(stateDir, "pi-gateway", `.backfilled-${gateways}`);
+  if (yield* fs.exists(marker)) return;
+  if (!(yield* backfill)) return;
+  yield* fs.makeDirectory(path.dirname(marker), { recursive: true, mode: 0o700 });
+  yield* fs.writeFileString(marker, "");
+});
+
 /** The agents whose presence leaves the first-run default alone. */
 const OTHER_AGENTS = ["claude", "codex", "opencode"] as const;
 

@@ -32,8 +32,10 @@ import {
   withCustomGateway,
 } from "./gatewaySetup.ts";
 import {
+  backfillPiOnce,
   choosePiFirstRunDefault,
   clearPiDefault,
+  hadPiGatewayAgent,
   piGatewayAgentDir,
   removePiGatewayAgentDir,
   writePiGatewayAgentDir,
@@ -66,6 +68,8 @@ export class CustomGateway extends Context.Service<
     readonly refreshModels: (id: string) => Effect.Effect<CustomGatewayList, CustomGatewayError>;
     /** Where to send requests and with which key; for the server only, never a client. */
     readonly connection: (id: string) => Effect.Effect<CustomGatewayConnection, CustomGatewayError>;
+    /** Gives OpenAI-format gateways added before they had a Pi agent that agent, once; runs at start. */
+    readonly backfillPi: Effect.Effect<void>;
   }
 >()("t3/gateway/CustomGateway") {}
 
@@ -403,7 +407,63 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
     },
   );
 
+  const backfillPi: CustomGateway["Service"]["backfillPi"] = lock
+    .withPermits(1)(
+      withFiles(
+        backfillPiOnce(
+          stateDir,
+          "custom",
+          Effect.gen(function* () {
+            const current = yield* readSettings;
+            for (const gateway of current.customGateways) {
+              if (gateway.format !== "openai") continue;
+              const ids = customGatewayInstanceIds(gateway.id);
+              const present = current.providerInstances[ids.pi] !== undefined;
+              if (yield* hadPiGatewayAgent(present, piDirOf(gateway.id))) continue;
+              const models = customGatewayModels(current.providerInstances, gateway.id);
+              if (models === null || models.length === 0) continue;
+              const key = yield* readKey(gateway.id);
+              yield* writePi(gateway, key !== null, models);
+              const accentColor =
+                current.providerInstances[ids.codex]?.accentColor ??
+                current.providerInstances[ids.opencode]?.accentColor;
+              for (const { instanceId, instance } of customGatewayInstances({
+                ...gateway,
+                key,
+                models,
+                piAgentDir: piDirOf(gateway.id),
+              })) {
+                if (instanceId !== ids.pi) continue;
+                yield* settings.updateProviderInstance({
+                  operation: "upsert",
+                  instanceId,
+                  instance: accentColor === undefined ? instance : { ...instance, accentColor },
+                });
+              }
+              yield* choosePiFirstRunDefault(settings, ids.pi);
+            }
+            return true;
+          }),
+        ),
+      ),
+    )
+    .pipe(
+      Effect.catch((cause) =>
+        Effect.logWarning("Custom gateway: could not add the Pi agents", { cause }),
+      ),
+      Effect.withSpan("CustomGateway.backfillPi"),
+    );
+
+  yield* settings.ready.pipe(
+    Effect.andThen(backfillPi),
+    Effect.catch((cause) =>
+      Effect.logWarning("Custom gateway: startup backfill failed", { cause }),
+    ),
+    Effect.forkScoped,
+  );
+
   return CustomGateway.of({
+    backfillPi,
     list,
     add,
     rename,
