@@ -94,7 +94,7 @@ outside agent that needs a secret starts a thread and lets that agent ask.
 
 A full-access [peer link](../../apps/server/src/peer/PeerClientPairing.ts) may
 mint a one-time pairing for a client of the environment that holds it. Its
-agents already run as this machine's user and could run `agentd-next auth pairing create`,
+agents already run as this machine's user and could run `libraos-next auth pairing create`,
 so this adds no authority; a narrower link would gain some, so it is refused
 here, on the linked side, whatever the linking side sent. The pairing carries
 the client's scopes on the linking environment intersected with a normal

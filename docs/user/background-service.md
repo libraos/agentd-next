@@ -5,42 +5,42 @@ do not need to keep a terminal open.
 
 ## Manage the service
 
-Install the `agentd-next` command first, with its `t3` alias
-([Install LibraOS Next](./install.md#the-agentd-next-command)), then run these commands on the
+Install the `libraos-next` command first
+([Install LibraOS Next](./install.md#the-libraos-next-command)), then run these commands on the
 machine that will host LibraOS Next. Installing the service downloads a server runtime, so it needs
 a release mirror: set `T3CODE_RELEASE_BASE_URL` to one, or use the managed policy's
 `updates.feedUrl`. Without one, the install stops at finding a release source for this build.
 
-| Task                                  | Command                |
-| ------------------------------------- | ---------------------- |
-| Set up access from your other devices | `t3 up`                |
-| See how your other devices reach it   | `t3 status`            |
-| Install and start                     | `t3 service install`   |
-| Inspect status and log location       | `t3 service status`    |
-| Move to a newer release               | `t3 update`            |
-| Restart                               | `t3 service restart`   |
-| Stop and remove from startup          | `t3 service uninstall` |
+| Task                                  | Command                          |
+| ------------------------------------- | -------------------------------- |
+| Set up access from your other devices | `libraos-next up`                |
+| See how your other devices reach it   | `libraos-next status`            |
+| Install and start                     | `libraos-next service install`   |
+| Inspect status and log location       | `libraos-next service status`    |
+| Move to a newer release               | `libraos-next update`            |
+| Restart                               | `libraos-next service restart`   |
+| Stop and remove from startup          | `libraos-next service uninstall` |
 
 Uninstalling the service leaves your projects, threads, and settings intact.
-Running `t3 service install` again repairs a service that `t3 service status`
+Running `libraos-next service install` again repairs a service that `libraos-next service status`
 reports as broken.
 
-`t3 update` downloads the newest release on your channel and switches `t3`
-and the service to it. Restarting interrupts running agent turns, terminals,
+`libraos-next update` downloads the newest release on your channel and switches the
+command and the service to it. Restarting interrupts running agent turns, terminals,
 and remote clients, so it asks first; answer no and the service keeps running
-the old version until you run `t3 service restart`. Pass `--yes` from a
+the old version until you run `libraos-next service restart`. Pass `--yes` from a
 script. A server you started by hand is left running; stop and start it again
 to pick up the new version. Wait for any remote update already in progress
 before updating; to match a remote client's version, follow
 [Updating LibraOS Next](./updating.md).
 
-Pass an exact version (`t3 update 0.0.42`) to pin one, `--channel nightly` to
+Pass an exact version (`libraos-next update 0.0.42`) to pin one, `--channel nightly` to
 switch trains, or `--allow-downgrade` to move backwards. `preview` is a
 maintainers' test train: its builds can be broken and are never offered as
-updates, so the installer and `t3 update` ask for confirmation before
+updates, so the installer and `libraos-next update` ask for confirmation before
 installing one.
 
-`t3 uninstall` removes the background service, the `t3` launcher, and the
+`libraos-next uninstall` removes the background service, the launcher, and the
 downloaded versions after showing you the list and asking once. Your projects,
 threads, and settings under `~/.t3/userdata` are kept, along with `service.env`
 under the LibraOS Next home directory. Pass `--yes` from a script.
@@ -48,15 +48,15 @@ under the LibraOS Next home directory. Pass `--yes` from a script.
 ## Local network access
 
 A new service answers only on this machine. Other devices reach it directly
-once you choose the local network in `t3 up` (or run
-`t3 up --lan`, which sets `T3CODE_LAN=true` in `service.env`). It then listens on
+once you choose the local network in `libraos-next up` (or run
+`libraos-next up --lan`, which sets `T3CODE_LAN=true` in `service.env`). It then listens on
 your local network and Tailscale addresses, so the desktop and mobile apps on
 the same network can connect to it. It still does
 not answer on public addresses. Anyone on the same network can reach the port,
 so a pairing code is all that keeps them out.
 
 A service installed before `T3CODE_LAN` existed keeps listening on the local
-network. `t3 status` says so, and `t3 up --no-lan` turns it off. Any
+network. `libraos-next status` says so, and `libraos-next up --no-lan` turns it off. Any
 `T3CODE_HOST` value replaces this setting.
 
 ## Configure the service environment
@@ -75,9 +75,9 @@ literal: shell commands and variable expansion are not evaluated. Entries
 override the inherited service environment, except for `PATH`, `T3CODE_HOME`,
 `T3_BOOT_SERVICE_UNIT`, and `T3_SERVICE_LAUNCHER_CONTEXT` (including case variants).
 
-Run `t3 service restart` after changing the file. Changes apply when the service
+Run `libraos-next service restart` after changing the file. Changes apply when the service
 starts again; switching the server version alone keeps the current values.
-For a service installed before env-file support, run `t3 service install` once
+For a service installed before env-file support, run `libraos-next service install` once
 with an up-to-date CLI.
 A missing file is ignored; other read failures stop service startup.
 If the file contains credentials, restrict access to that file with `chmod 600`
@@ -109,19 +109,19 @@ server, because only an administrator can reserve memory for it. Run, as your
 normal user:
 
 ```sh
-t3 service protect
+libraos-next service protect
 ```
 
 It shows the system settings it will change, asks before applying them, and
 then asks for your sudo password. If the machine runs Tailscale or SSH, it
 also offers to protect them, so you can still reach the machine. Memory
 protection takes effect at once. The server's protection from the kernel's
-out-of-memory killer takes effect after `t3 service restart`. `t3 service status` reports whether
-the protection is in place, and `t3 service protect --undo` removes it.
+out-of-memory killer takes effect after `libraos-next service restart`. `libraos-next service status` reports whether
+the protection is in place, and `libraos-next service protect --undo` removes it.
 
 ## Troubleshooting
 
-Start with `t3 service status` on the host. It prints the log path and, on Linux,
+Start with `libraos-next service status` on the host. It prints the log path and, on Linux,
 checks whether the installed service is running, enabled, and allowed to survive
 logout.
 
@@ -139,7 +139,7 @@ ssh -t your-server 'sudo loginctl enable-linger "$(id -un)"'
 ```
 
 Then retry service setup as your normal user. Run only the `loginctl` command
-with sudo; running LibraOS Next as root creates a separate installation. Without administrator access, run `t3 serve` in a terminal and keep
+with sudo; running LibraOS Next as root creates a separate installation. Without administrator access, run `libraos-next serve` in a terminal and keep
 that session open.
 
 | Status problem                          | Next step                                                                                                                      |
@@ -147,7 +147,7 @@ that session open.
 | `linger-unavailable`                    | Run `loginctl show-user "$(id -un)" --property=Linger` and check that systemd-logind is available.                             |
 | `user-manager-unavailable`              | Run `systemctl --user status` in a login session for the service user; check your distribution's systemd user-session support. |
 | `service-disabled` or `service-stopped` | Read the log and, on Linux, `systemctl --user status t3code.service`, then use the repair command printed by LibraOS Next.     |
-| `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `t3 service restart`.                            |
+| `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `libraos-next service restart`.                  |
 
 On macOS, check **System Settings → General → Login Items** if the service no
 longer starts at login. If agent work cannot access Desktop, Documents, or
@@ -170,7 +170,7 @@ space, then stops, repairs the database, and starts again. It is offline while
 the repair runs, and running agents stop. If the repair fails, Settings shows
 why.
 
-In other cases, such as a server you started by hand, run `t3 doctor` on the
+In other cases, such as a server you started by hand, run `libraos-next doctor` on the
 machine that hosts the environment. It reports the database size and the
 space it can reclaim, then asks which repairs to run;
 pass `--fix` to run the recommended ones without a prompt (for scripts), or
@@ -185,14 +185,14 @@ directory.
 
 The repair's time grows with the size of the whole database, not only the
 space it reclaims, and can exceed an hour on a large database or a slow disk;
-`t3 doctor` shows each step as it runs. It rebuilds the database through a
+`libraos-next doctor` shows each step as it runs. It rebuilds the database through a
 temporary copy, so it needs free space of about twice the data still in use
 (the database size minus the reclaimable space): once in the system temporary
 directory (on Linux and macOS, `TMPDIR`, or `/var/tmp` when it is not set) and
 once next to the database for its write-ahead log.
 
 If you upgraded from a version before 0.1.0, its database (`state.sqlite`) is
-still kept next to the current one so you can roll back. `t3 doctor` offers to
+still kept next to the current one so you can roll back. `libraos-next doctor` offers to
 delete it, but never selects that repair for you and `--fix` skips it: once it
 is gone, a version before 0.1.0 starts with no threads or settings. It does
 not offer to delete it while any project or thread you have not deleted is

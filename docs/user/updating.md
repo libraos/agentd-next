@@ -29,8 +29,8 @@ With a mirror set, the desktop app checks it and installs updates itself.
 
 ## Update a server
 
-A server you run with `agentd-next` from the desktop app updates with the app. The
-`agentd-next update` command and the **Update server** action for remote servers
+A server you run with `libraos-next` from the desktop app updates with the app. The
+`libraos-next update` command and the **Update server** action for remote servers
 need a release mirror: set `T3CODE_RELEASE_BASE_URL` on the server's machine to a
 mirror laid out like a GitHub release's downloads, or use the managed policy's
 `updates.feedUrl`. Without one they report "Updates are not configured for this

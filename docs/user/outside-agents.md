@@ -57,7 +57,7 @@ The page names the agent and where its access goes:
 
 Only approve a sign-in you just started. On the environment's own page, enter a
 code from **Use LibraOS Next in another app (MCP)**, **Settings → Sharing & access**,
-or `t3 auth pairing create` on the host. A browser already signed in to the
+or `libraos-next auth pairing create` on the host. A browser already signed in to the
 environment with permission to manage access can approve without a code.
 
 A code from **Use LibraOS Next in another app (MCP)** already carries the level you
@@ -128,14 +128,14 @@ Agents without OAuth support cannot connect.
 
 ## Scripts on the host
 
-On the machine that runs the environment, `t3 thread` uses the same tools
+On the machine that runs the environment, `libraos-next thread` uses the same tools
 without a sign-in:
 
 ```sh
-id=$(t3 thread start . "Find why the tests are slow")
-t3 thread send "$id" "Now fix it" --wait
-t3 thread show "$id"
-t3 thread list
+id=$(libraos-next thread start . "Find why the tests are slow")
+libraos-next thread send "$id" "Now fix it" --wait
+libraos-next thread show "$id"
+libraos-next thread list
 ```
 
 `.` means the project that contains the current folder, or a git worktree of

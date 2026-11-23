@@ -5,17 +5,17 @@ machine. That machine must stay running and reachable while you work.
 
 Upstream's hosted relay (T3 Connect) and its accounts are not part of LibraOS Next; connect over a LAN, a private network such as Tailscale, or SSH.
 
-## Set up with `t3 up`
+## Set up with `libraos-next up`
 
-`t3 up` sets up access from your other devices and the
+`libraos-next up` sets up access from your other devices and the
 [background service](./background-service.md), which needs a release mirror. It asks nothing when you name a
 choice: `--lan` or `--no-lan`. Choices you do not name keep their settings, and `--yes` takes
 the defaults. Without a terminal:
 
 - A needed restart runs without asking, and stops running agent turns.
-- With nothing set up and no choice named, `t3 up` stops and names the flags.
+- With nothing set up and no choice named, `libraos-next up` stops and names the flags.
 
-`t3 status --json` prints the settings. `t3 up --help` lists every flag with
+`libraos-next status --json` prints the settings. `libraos-next up --help` lists every flag with
 examples.
 
 ## Pair over a LAN or private network
@@ -26,20 +26,20 @@ On a desktop host, open **Settings → Sharing & access**, enable **Network acce
 then create a pairing link using an address the other device can reach. Changing
 network access restarts the desktop app. You can turn it off in the same place.
 
-For a command-line host, choose the local network in `t3 up`, or run:
+For a command-line host, choose the local network in `libraos-next up`, or run:
 
 ```bash
-t3 up --lan
+libraos-next up --lan
 ```
 
-For a server in a terminal, run `t3 serve --lan`. Either way, LibraOS Next then
+For a server in a terminal, run `libraos-next serve --lan`. Either way, LibraOS Next then
 accepts connections from your local network and tailnet, so a pairing code is
 all that keeps other devices on them out.
 
 If a server is already running, generate a fresh link without restarting it:
 
 ```bash
-t3 pair
+libraos-next pair
 ```
 
 Scan the QR code on your phone or paste the pairing URL into **Add environment**
@@ -81,7 +81,7 @@ machine's current LAN and Tailscale addresses and adds them as routes. When the
 machine's LAN address changes, for example after it joins another Wi-Fi network,
 the learned route follows it. The machine must allow network access for its LAN
 address to be learned: **Network access** in the desktop app, or the
-[local network](./background-service.md#local-network-access) choice in `t3 up`.
+[local network](./background-service.md#local-network-access) choice in `libraos-next up`.
 You can reorder a learned route, but not remove it; it
 goes away with the route it was learned through, or when the machine stops
 reporting that address.
@@ -138,13 +138,13 @@ add the HTTPS route.
 To start a command-line server with Tailscale HTTPS:
 
 ```bash
-t3 serve --tailscale-serve
+libraos-next serve --tailscale-serve
 ```
 
 For an already-running server:
 
 ```bash
-t3 pair --tailscale
+libraos-next pair --tailscale
 ```
 
 The pairing link uses an address such as `https://machine.tailnet.ts.net/`.
@@ -156,7 +156,7 @@ tailscale serve --https=443 --set-path=/ off
 ```
 
 If that port is already in use, choose another with
-`--tailscale-serve-port`. See `t3 pair --help` for other pairing options.
+`--tailscale-serve-port`. See `libraos-next pair --help` for other pairing options.
 
 ### Hosted web app
 
@@ -204,8 +204,8 @@ running is left alone.
 
 Each desktop app keeps one session on the host for its SSH connection and reuses
 it when it reconnects. Revoke sessions you no longer use in **Settings →
-Sharing & access** on the host, or on a headless host with `t3 auth session list` and
-`t3 auth session revoke <id>`. A desktop that can still sign in over SSH pairs
+Sharing & access** on the host, or on a headless host with `libraos-next auth session list` and
+`libraos-next auth session revoke <id>`. A desktop that can still sign in over SSH pairs
 again on its next connect.
 
 For Antigravity's Google callback on a remote host, see
@@ -305,12 +305,12 @@ the server says so at startup, and browser tabs and HTML previews show the
 command to run on the host:
 
 ```sh
-sudo t3 browser setup
+sudo libraos-next browser setup
 ```
 
 The server shows the exact line for how you started it, and keeps your `PATH`
-when you started it with `npx` and Node is installed only for your user. Where `t3` is not on your `PATH`, such as with only the
-desktop app installed, it names the full path of the app's own `t3` instead. It allows Chrome's sandbox with an AppArmor profile and installs
+when you started it with `npx` and Node is installed only for your user. Where `libraos-next` is not on your `PATH`, such as with only the
+desktop app installed, it names the full path of the app's own `libraos-next` instead. It allows Chrome's sandbox with an AppArmor profile and installs
 any missing libraries and system fonts with apt; pages that load without text
 can mean the host has no fonts. It is safe to run again, and each run reloads
 the AppArmor profile: run it again if the browser reports a blocked sandbox on a
@@ -319,14 +319,14 @@ without being loaded. Without `sudo`, it only reports what it would change.
 
 The browser runs in Chrome's sandbox by default. Chrome cannot start that sandbox
 as root. If your LibraOS Next server runs as root, run it as a nonroot user to keep
-sandboxing enabled. `t3 browser setup` does not fix this root restriction.
+sandboxing enabled. `libraos-next browser setup` does not fix this root restriction.
 
 If you need to run as root, or cannot enable the sandbox on your host, set
 `T3CODE_SERVER_BROWSER_SANDBOX=0` in the **LibraOS Next server's environment** and restart
 the server. This disables Chrome's sandbox. For a manual launch:
 
 ```sh
-T3CODE_SERVER_BROWSER_SANDBOX=0 t3 serve
+T3CODE_SERVER_BROWSER_SANDBOX=0 libraos-next serve
 ```
 
 For a systemd service, add `Environment=T3CODE_SERVER_BROWSER_SANDBOX=0` under
@@ -363,7 +363,7 @@ app has an address for that machine and is connected to it with a session that
 manages access there, it makes the pairing code itself; otherwise paste one
 from that machine's **Settings → Sharing & access**. An address you type always
 needs a pasted code. From a terminal, use
-`t3 environment link <address> --pairing-code <code> --access <mode>`.
+`libraos-next environment link <address> --pairing-code <code> --access <mode>`.
 
 To link many machines at once, choose **Link several…** (it appears once this
 app has two other machines saved). Tick the machines, pick one access level for
@@ -374,8 +374,8 @@ reports its own result, and the ones that failed stay ticked so you can try
 only those again. Machines already linked are left as they are.
 
 For machines no app is connected to, put one `<address> <pairing-code>` per
-line in a file (make each code with `t3 pair` on that machine) and run
-`t3 environment link --from <file> --access <mode>`, or `--from -` to read
+line in a file (make each code with `libraos-next pair` on that machine) and run
+`libraos-next environment link --from <file> --access <mode>`, or `--from -` to read
 standard input. It prints a result per line, leaves machines already linked as
 they are, and exits non-zero if any line failed, so the same file can be run
 again with fresh codes for the failures.
@@ -488,7 +488,7 @@ any other thread on web and desktop, and a shorter read-only list on mobile.
 On the host, **Settings → Sharing & access** lets authorized administrators create
 pairing links and revoke client sessions. Revoking an unused link prevents new
 pairings; revoke a device's session to remove its existing access. Command-line
-management is available through `t3 auth --help`.
+management is available through `libraos-next auth --help`.
 
 When the app connects to more than one environment, choose one at the top of the
 page. A desktop app with **Local environment** off can manage a background
@@ -500,11 +500,11 @@ expires.
 To choose a token's permissions, pass `--scope` once for each scope you want:
 
 ```sh
-t3 pair --scope orchestration:read --scope relay:read
+libraos-next pair --scope orchestration:read --scope relay:read
 ```
 
 The selected scopes replace the default permissions. The same option works with
-`t3 auth pairing create` and `t3 auth session issue`; each command's
+`libraos-next auth pairing create` and `libraos-next auth session issue`; each command's
 `--help` lists the available scopes. Without `--scope`, pairing tokens and issued
 bearer sessions get the standard client permissions, including managing access.
 A terminal or a full-access agent on the host can reach those as well, so a

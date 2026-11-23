@@ -26,7 +26,7 @@ Download from the official releases page and check the installer against `SHA256
 
 Do not override a malware warning or a block enforced by your organization.
 
-The app finds agents on your login shell's `PATH` and in the folders their installers use, such as `~/.local/bin`, `~/.claude/local` and `/opt/homebrew/bin`. Its command line tool is `agentd-next`; the first run offers to put it on `PATH`.
+The app finds agents on your login shell's `PATH` and in the folders their installers use, such as `~/.local/bin`, `~/.claude/local` and `/opt/homebrew/bin`. Its command line tool is `libraos-next`; the first run offers to put it on `PATH`.
 
 ## Bring your own key (BYOK)
 

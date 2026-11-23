@@ -17,11 +17,20 @@ agentd, the component it reads tasks, approvals and workers from, is LibraOS Cor
   copies its app data on first start, leaving the old copy.
 - `docs/user/prompt-links.md`: links use `libraos-next://`; `agentd-desktop://` links still open the
   app.
+- `docs/user/*.md`, `README.md`, `docs/internals/environment-auth.md`: the command is `libraos-next`
+  where they said `agentd-next` or `t3` (dec-03bf28162a; the command itself is
+  `1038-cli-libraos-next.md`). `install.md` says once that `agentd-next` and `t3` still work, and its
+  anchor `#the-agentd-next-command` is `#the-libraos-next-command`, with the links to it updated.
 
 ## Not changed
 
 - The attribution: LibraOS Next is a fork of T3 Code, MIT (`agentd/UPSTREAM.md`, `README.md`).
 - Repository URLs (`libraos/agentd`, `libraos/agentd-next`), which are renamed only after these
   changes merge.
-- The `agentd-next` command and its `t3` alias, the `agentd/` directory, `AGENTD_RELEASE`, release
-  version strings such as `0.1.10-agentd.6`, environment variables, paths and anchors.
+- What the code keeps: the npm package `t3` (`npx t3`), the MCP server names, the `t3` launcher of a
+  service install, `t3.json`, and the ids `com.t3tools.t3code` (macOS policy profile, service
+  plist). The docs give no desktop app id, so `com.libraos.next` appears nowhere.
+- `docs/user/t3-connect-troubleshooting.md`, upstream's page for T3 Connect, which is not part of
+  LibraOS Next and is linked from nowhere.
+- The `agentd/` directory, `AGENTD_RELEASE`, release version strings such as `0.1.10-agentd.6`,
+  environment variables and paths.

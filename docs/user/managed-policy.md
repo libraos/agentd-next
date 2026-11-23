@@ -8,14 +8,14 @@ the desktop app, a browser, or the mobile app.
 ## Roll out a policy
 
 1. Write the policy as JSON, starting from the [example](#write-a-policy).
-2. Run `t3 policy check policy.json`. It prints what the policy will do, or what is wrong with it.
+2. Run `libraos-next policy check policy.json`. It prints what the policy will do, or what is wrong with it.
 3. Deploy the policy to each machine with your device management tool, in
    [one of the supported places](#where-the-policy-goes).
 4. Restart LibraOS Next on the machine. The server reads the policy only when it starts.
-5. Run `t3 policy show` on the machine to
+5. Run `libraos-next policy show` on the machine to
    [check what the server loaded](#check-what-the-server-loaded).
 
-The desktop app includes the `agentd-next` command, with `t3` as an alias; see [The `agentd-next` command](./install.md#the-agentd-next-command).
+The desktop app includes the `libraos-next` command; see [The `libraos-next` command](./install.md#the-libraos-next-command).
 
 ## Write a policy
 
@@ -63,12 +63,12 @@ administrators.
 `organization`, `supportUrl`, `settings`, `limits`); JSON objects become dictionaries and lists
 become arrays. To make the payload from a policy file you checked, run
 `plutil -convert xml1 -o com.t3tools.t3code.plist policy.json` and upload the result, or run
-`t3 policy templates <directory> --policy policy.json` to write a complete
+`libraos-next policy templates <directory> --policy policy.json` to write a complete
 `macos/t3code.mobileconfig`. Install it as
 a device profile, since LibraOS Next ignores user profiles, and deploy only one profile for this domain.
 A profile cannot hold `null`, so use a policy file if a setting's value must be `null`.
 
-**Windows Group Policy.** Run `t3 policy templates <directory>` and copy
+**Windows Group Policy.** Run `libraos-next policy templates <directory>` and copy
 `windows/t3code.admx` and `windows/en-US/t3code.adml` into your `PolicyDefinitions` folder or
 central store, or import them into Intune. The policies appear under Computer Configuration >
 Administrative Templates > LibraOS Next. Set **Organization** whenever you set any other LibraOS Next policy.
@@ -94,7 +94,7 @@ Set-ItemProperty -Path HKLM:\SOFTWARE\Policies\T3Tools\T3Code -Name Policy -Valu
 
 ## Check what the server loaded
 
-Run `t3 policy show` as the user who runs LibraOS Next. It prints the installed policy and its
+Run `libraos-next policy show` as the user who runs LibraOS Next. It prints the installed policy and its
 fingerprint, then says whether the running server loaded that policy or an older one. The server
 reads the policy only when it starts, so "Restart LibraOS Next to apply the installed policy" means it
 still enforces the old one. In Settings, users see that your organization manages the environment,
@@ -103,7 +103,7 @@ and each locked control shows **Managed by**.
 ## Change or remove a policy
 
 After you deploy, change, or remove a policy, restart the LibraOS Next server on the machine: quit and
-reopen the desktop app, or run `t3 service restart` for the
+reopen the desktop app, or run `libraos-next service restart` for the
 [background service](./background-service.md). Reconnecting a phone or browser does not reload the
 policy.
 
@@ -119,7 +119,7 @@ policy it cannot read or parse, a setting it does not know, a value of the wrong
 version does not support, or a machine with both a native policy and a file. The error names where
 the policy came from and what is wrong.
 
-`t3 policy check` catches the same problems in a JSON file. For a profile or registry value, check
+`libraos-next policy check` catches the same problems in a JSON file. For a profile or registry value, check
 the JSON before you convert it. For the Group Policy template, check a complete policy file that
 holds the same settings, then paste its `settings` and `limits.providers.instances` objects into the
 two JSON policies. A policy written for a newer version can use keys an older one
@@ -128,7 +128,7 @@ cannot enforce, so upgrade LibraOS Next before you deploy a policy that uses the
 ## Settings
 
 Each key under `settings` is a setting's path in the server's `settings.json`, such as
-`storageCleanup.logsAfterDays`. Run `agentd-next policy settings` to list every path a policy can manage,
+`storageCleanup.logsAfterDays`. Run `libraos-next policy settings` to list every path a policy can manage,
 with its default.
 
 - `"locked": false` sets a default. It applies wherever the user has not chosen a value of their
@@ -230,13 +230,13 @@ Without `remote`, the server listens only on a loopback address, creates no pair
 signs out devices that paired earlier. It does not start with a host other than a loopback
 address or `localhost`. A [background service](./background-service.md) installed before
 `T3CODE_LAN` existed keeps private-network access, so without `remote` it refuses to start.
-Run `t3 up --no-lan` when its `service.env` sets no `T3CODE_HOST`, or set
-`T3CODE_HOST=127.0.0.1` in `service.env`, then run `t3 service restart`. The desktop app starts
+Run `libraos-next up --no-lan` when its `service.env` sets no `T3CODE_HOST`, or set
+`T3CODE_HOST=127.0.0.1` in `service.env`, then run `libraos-next service restart`. The desktop app starts
 with network access and Tailscale Serve off, whatever the user chose. The `"connect"` key is for
 upstream's hosted relay, which is not part of LibraOS Next.
 
 When it starts, the server also turns off each Tailscale Serve route, HTTPS or TCP, that forwards
-to it, such as one `t3 pair --tailscale` set up, and leaves other routes alone. It does not start
+to it, such as one `libraos-next pair --tailscale` set up, and leaves other routes alone. It does not start
 while such a route stays on, or while Tailscale's answer cannot be read; the error names the
 command that turns the route off. A route whose target is a name, such as `localhost` or another
 machine on the same port, also stops it, since a name can resolve to this server; change the route
@@ -267,7 +267,7 @@ so restart LibraOS Next after that.
 `claudeAgent` (Claude), `cursor` (Cursor), `grok` (Grok), `opencode` (OpenCode), `antigravity`
 (Antigravity), `fx` (fx), `kiro` (Kiro), `pi` (Pi), `muse` (Muse Code), and `acpRegistry` (ACP
 Registry).
-`t3 policy check` rejects an ID this version does not know. Threads on other providers stay,
+`libraos-next policy check` rejects an ID this version does not know. Threads on other providers stay,
 marked unavailable, and users can still turn those providers off.
 
 `providers.instances` sets fields on every instance of a provider, such as an environment variable
@@ -283,7 +283,7 @@ starts the binary you set.
 
 - `mode`: `auto` keeps the normal update flow. `off` stops LibraOS Next from checking for updates, for
   machines that get LibraOS Next through device management.
-- `feedUrl`: LibraOS Next updates from your own mirror instead of GitHub: the desktop app, `t3 update`,
+- `feedUrl`: LibraOS Next updates from your own mirror instead of GitHub: the desktop app, `libraos-next update`,
   and updates started from another device. Publish only the versions you have approved, laid out
   as on a GitHub release. The release's update files (`latest.yml`, `latest-mac.yml`,
   `latest-linux.yml`, `latest-linux-arm64.yml`, and their `nightly` versions if you allow nightly)

@@ -73,11 +73,11 @@ use a provider instance's environment variables for those
 device with its LibraOS Core server. Joining needs maintenance access to the
 environment.
 
-## The `agentd-next` command
+## The `libraos-next` command
 
-In the desktop app, when the `agentd-next` command is installed but its folder is
+In the desktop app, when the `libraos-next` command is installed but its folder is
 not on your `PATH`, the page offers **Add to PATH**, which adds one line to your
-shell's startup file ([Install](./install.md#the-agentd-next-command)).
+shell's startup file ([Install](./install.md#the-libraos-next-command)).
 
 ## Projects
 

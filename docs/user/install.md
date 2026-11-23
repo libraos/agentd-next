@@ -69,27 +69,27 @@ To install the `.deb`:
 sudo apt install ./LibraOS-Next-<version>-amd64.deb
 ```
 
-### The `agentd-next` command
+### The `libraos-next` command
 
-The desktop app includes the `agentd-next` command-line tool
-(`agentd-next.cmd` on Windows), with `t3` installed beside it as an alias for
-scripts written for upstream. A new install sets it up on first launch; after an
-update, or any time, choose **Install** next to the command in
-**Settings → About**. On macOS and Linux it adds a link in `~/.local/bin` (or
+The desktop app includes the `libraos-next` command-line tool
+(`libraos-next.cmd` on Windows). The earlier names `agentd-next` and `t3` are
+installed beside it and still work, so scripts that use them need no change. A
+new install sets it up on first launch; after an update, or any time, choose
+**Install** next to the command in **Settings → About**. On macOS and Linux it adds a link in `~/.local/bin` (or
 `~/bin`); on Windows it adds the app's command folder to your `PATH`. Open a new
 terminal afterwards. If the folder is not on your `PATH`, **Add to PATH** on the
 Welcome page or in **Settings → About** adds one line to your shell's startup
 file. **Remove** takes it off, and the app does not add it again.
 
-| Task                                  | Command                                                                                   |
-| ------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Start the server and open the web app | `agentd-next`                                                                             |
-| Start the server without a browser    | `agentd-next serve`                                                                       |
-| Allow access from your other devices  | `agentd-next serve --lan` ([details](./remote-access.md))                                 |
-| Keep it running in the background     | `agentd-next service install`, with a release mirror ([details](./background-service.md)) |
-| Reclaim database space                | `agentd-next doctor` ([details](./background-service.md#reclaim-database-space))          |
+| Task                                  | Command                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Start the server and open the web app | `libraos-next`                                                                             |
+| Start the server without a browser    | `libraos-next serve`                                                                       |
+| Allow access from your other devices  | `libraos-next serve --lan` ([details](./remote-access.md))                                 |
+| Keep it running in the background     | `libraos-next service install`, with a release mirror ([details](./background-service.md)) |
+| Reclaim database space                | `libraos-next doctor` ([details](./background-service.md#reclaim-database-space))          |
 
-Run `agentd-next --help` for the full reference. If it reports an already running
+Run `libraos-next --help` for the full reference. If it reports an already running
 server, run the `pair` command it names and open the pairing URL to connect to that
 server. Stop it before starting a replacement, or use a different `--base-dir` for
 an independent server.
@@ -110,18 +110,18 @@ take longer.
 With the desktop app already running on the same machine:
 
 ```bash
-agentd-next app
+libraos-next app
 ```
 
 This opens a new thread for the current directory, adding the project if needed.
-Pass a path, such as `agentd-next app ../my-project`, to open another directory. It
+Pass a path, such as `libraos-next app ../my-project`, to open another directory. It
 requires the desktop app, so a standalone server or an SSH session is not enough. If
 the command cannot reach the app, start or update the desktop app and try again.
 
 ### Drop a folder on the sidebar
 
 Drag one or more folders from Finder, Explorer, or your file manager onto the
-sidebar. Each one opens as a project on this computer, the same as `agentd-next app`.
+sidebar. Each one opens as a project on this computer, the same as `libraos-next app`.
 Files dropped on a thread still attach to that thread. Browsers do not share
 folder paths, so in the web app use **Add project** instead.
 
@@ -196,7 +196,7 @@ allow more time in the LibraOS Next server's environment. For example, give Code
 Claude readiness checks 60 seconds:
 
 ```bash
-T3CODE_CODEX_PROBE_TIMEOUT_MS=60000 T3CODE_CLAUDE_PROBE_TIMEOUT_MS=60000 agentd-next serve
+T3CODE_CODEX_PROBE_TIMEOUT_MS=60000 T3CODE_CLAUDE_PROBE_TIMEOUT_MS=60000 libraos-next serve
 ```
 
 For a remote environment, set these on the machine running the LibraOS Next server.
