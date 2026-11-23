@@ -6,6 +6,7 @@ plugin's venv; it loads inside extract_pdf(). Nothing read here is written anywh
 
 import re
 import time
+import warnings
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -121,8 +122,9 @@ def extract_pdf(file, name, deadline, clock=time.monotonic):
         from pypdf.errors import PdfReadError
     except ImportError:
         raise Unreadable(f"{name} is a PDF, and the PDF reader is not installed") from None
-    # pypdf warns through logging with bits of the file; nothing may reach stderr.
+    # pypdf warns through logging and warnings with bits of the file; nothing may reach stderr.
     logging.getLogger("pypdf").setLevel(logging.CRITICAL + 1)
+    warnings.simplefilter("ignore")
     try:
         reader = PdfReader(str(file))
         if reader.is_encrypted and not reader.decrypt(""):
