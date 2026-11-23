@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 MODEL_REPO = "libraos/veil-detect"
@@ -335,19 +336,34 @@ class Placeholders:
         return self._by_value[key]
 
 
+_CLOSERS = dict(zip(")）]】}」』》〉”’", "(（[【{「『《〈“‘"))
+_OPENERS = {opener: closer for closer, opener in _CLOSERS.items()}
+
+
+def _strippable(char, value):
+    """Whitespace or punctuation at a span's edge, but not a bracket the span also closes or opens."""
+    if char.isspace():
+        return True
+    if not unicodedata.category(char).startswith("P"):
+        return False
+    pair = _CLOSERS.get(char) or _OPENERS.get(char)
+    return pair is None or pair not in value
+
+
 def _trimmed(text, span):
+    # veil-detect tags a full-width bracket or comma after a number as part of it; keep it in the text.
     start, end = span["start"], span["end"]
-    # Keep surrounding whitespace out of the placeholder.
-    while start < end and text[start].isspace():
+    while start < end and _strippable(text[start], text[start:end]):
         start += 1
-    while end > start and text[end - 1].isspace():
+    while end > start and _strippable(text[end - 1], text[start:end]):
         end -= 1
     return {"start": start, "end": end, "label": span["label"]} if start < end else None
 
 
 def find_spans(text, detect, deadline):
     # Rules first: where a rule and the model find the same span, the rule's more exact label names it.
-    spans = merge_spans(rule_spans(text) + refine_spans(text, detect(text, deadline)))
+    found = rule_spans(text) + refine_spans(text, detect(text, deadline))
+    spans = merge_spans([span for span in (_trimmed(text, s) for s in found) if span])
     return [span for span in (_trimmed(text, s) for s in spans) if span]
 
 

@@ -354,6 +354,19 @@ class SpanTest(unittest.TestCase):
     def test_cjk_spans_do_not_widen_across_the_line(self):
         self.assertEqual(redact_all(["客户张三已签约"], tagging("张三")), ["客户[PERSON_1]已签约"])
 
+    def test_punctuation_the_model_tags_at_a_span_edge_stays_in_the_text(self):
+        # veil-detect v1.0.0 tags "13812345678）" and "11101201810123456）".
+        cases = [
+            ("联系人（电话13812345678）稍后", tagging("13812345678）", label="contact"), "联系人（电话[PHONE_1]）稍后"),
+            ("律师（执业证号11101201810123456）代理", tagging("11101201810123456）", label="id"), "律师（执业证号[LAWYER_LICENCE_1]）代理"),
+            ("签约方：张三，", tagging("张三，"), "签约方：[PERSON_1]，"),
+            ("Acme (HK) signed", tagging("Acme (HK)", label="organization"), "[ORGANIZATION_1] signed"),
+            ("Maren!", tagging("!"), "Maren!"),
+        ]
+        for text, detect, expected in cases:
+            with self.subTest(text=text):
+                self.assertEqual(redact_all([text], detect), [expected])
+
 
 def run_hook(script, stdin, *args, env=None):
     return subprocess.run(
