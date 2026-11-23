@@ -16,7 +16,6 @@ import {
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { usePrimaryEnvironmentId } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
-import ChatMarkdown from "../ChatMarkdown";
 import { Button } from "../ui/button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import {
@@ -27,6 +26,7 @@ import {
   DialogPopup,
   DialogTitle,
 } from "../ui/dialog";
+import { AgreementMarkdown } from "./AgreementMarkdown";
 import { offerAccountLink } from "./agentdVisibility.logic";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
 import { PermissionModeChoice } from "./WorkerPermissionMode";
@@ -312,12 +312,7 @@ function AgentdSetupDialog({
                           className="max-h-72 overflow-y-auto rounded-lg border border-border p-3"
                         >
                           {eula.data?.text ? (
-                            <ChatMarkdown
-                              text={eula.data.text}
-                              cwd={undefined}
-                              headingLevelOffset={2}
-                              className="text-xs"
-                            />
+                            <AgreementMarkdown text={eula.data.text} />
                           ) : (
                             <p className="text-xs">{gt("Loading…")}</p>
                           )}
