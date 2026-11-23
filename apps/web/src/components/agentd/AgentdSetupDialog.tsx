@@ -117,19 +117,30 @@ function AgentdSetupDialog({
   const run = setup.data;
   const ours = run !== null && run.attempt === attempt ? run : null;
   // A run another client started is shown too; an old finished one only if it failed.
+  const setUpNow = status.data?.setUp === true;
+  // A failure older than this dialog is moot once agentd says it is set up, as after init in a terminal.
   const shown: AgentdSetupState | null =
-    ours ?? (run !== null && (run.phase === "running" || run.phase === "failed") ? run : null);
+    ours ??
+    (run !== null && (run.phase === "running" || (run.phase === "failed" && !setUpNow))
+      ? run
+      : null);
   const running = attempt === "starting" || shown?.phase === "running";
   const finished = ours?.phase === "succeeded" || ours?.phase === "failed";
   const succeeded = ours?.phase === "succeeded";
   const refreshStatus = status.refresh;
   // After setup, or when asked for alone, the dialog offers linking the LibraOS account.
-  const linkStep = linkOnly || succeeded;
+  const alreadySetUp = attempt === null && setUpNow && shown === null;
+  const linkStep = linkOnly || succeeded || alreadySetUp;
   const account = useAgentdCloudAccount(linkStep ? environmentId : null);
   const offerLink = account.error !== null ? false : offerAccountLink(account.data);
   // The person linked in this dialog: it stays to show the result until they close it.
   const [linkedHere, setLinkedHere] = useState(false);
   const refreshAccount = account.refresh;
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- agentd may have been set up in a terminal since its status was read
+  useEffect(() => {
+    refreshStatus();
+  }, [refreshStatus]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- re-reads agentd's status and account once the server's init run ends
   useEffect(() => {
@@ -155,7 +166,11 @@ function AgentdSetupDialog({
         <DialogPopup className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {succeeded ? <T>AgentD is set up</T> : <T>Link your LibraOS account</T>}
+              {succeeded || alreadySetUp ? (
+                <T>AgentD is set up</T>
+              ) : (
+                <T>Link your LibraOS account</T>
+              )}
             </DialogTitle>
           </DialogHeader>
           <DialogPanel>
