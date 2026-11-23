@@ -2,11 +2,11 @@
 
 ## Choose a shell
 
-Set `T3CODE_TERMINAL_SHELL` in the environment that launches the AgentD Next server
+Set `T3CODE_TERMINAL_SHELL` in the environment that launches the LibraOS Next server
 to choose the executable used for new terminals. Use an executable name or its
 full path, without surrounding quotes or command-line arguments. An unset or
 blank value keeps the platform default. If the executable cannot be started,
-AgentD Next tries its usual fallback shells.
+LibraOS Next tries its usual fallback shells.
 
 On Windows, to use Git Bash from a standard Git for Windows installation, run
 this in PowerShell:
@@ -15,13 +15,13 @@ this in PowerShell:
 [Environment]::SetEnvironmentVariable('T3CODE_TERMINAL_SHELL', 'C:\Program Files\Git\bin\bash.exe', 'User')
 ```
 
-Fully quit AgentD Next, then reopen it from the Start menu and create a new terminal.
+Fully quit LibraOS Next, then reopen it from the Start menu and create a new terminal.
 If the app still inherits the old environment, sign out of Windows and sign in
 again. Git Bash starts as an interactive login shell. Use `bin\bash.exe`, not
 `git-bash.exe`, which launches a separate terminal window.
 
 To restore the default, remove the variable with the same command using `$null`
-as its second argument, then restart AgentD Next.
+as its second argument, then restart LibraOS Next.
 
 This setting belongs to the machine hosting the server, including when you
 connect from another device. It does not change provider-run commands or the
@@ -30,10 +30,10 @@ shell used by automatic project setup and settle scripts.
 ## Terminal history
 
 Each terminal keeps up to 5,000 lines and 8 MiB of scrollback on its environment
-server. AgentD Next removes the oldest output when either limit is reached. A long
+server. LibraOS Next removes the oldest output when either limit is reached. A long
 line can be shortened at the start. New terminal output is not truncated.
 
-These limits apply when you reconnect and when AgentD Next restores saved terminal
+These limits apply when you reconnect and when LibraOS Next restores saved terminal
 history. A client can show less scrollback than the server keeps.
 
 On web and desktop, use Shift+PageUp and Shift+PageDown to read scrollback
@@ -51,12 +51,12 @@ Select Text shows the visible output, where you can copy text or tap a link.
 
 ## fish
 
-AgentD Next starts fish with `no-query-term`, avoiding startup waits for terminal
+LibraOS Next starts fish with `no-query-term`, avoiding startup waits for terminal
 replies. This disables optional fish features that depend on those replies.
-AgentD Next's exported `fish_features` also hides any universal flags you set with
+LibraOS Next's exported `fish_features` also hides any universal flags you set with
 `set -U fish_features`.
 
 To preserve those flags or enable queries with `query-term`, include them in
-`fish_features` in the environment that launches AgentD Next. A shell export applies
-when you launch AgentD Next from that shell; it does not configure a desktop app
+`fish_features` in the environment that launches LibraOS Next. A shell export applies
+when you launch LibraOS Next from that shell; it does not configure a desktop app
 launched from the Dock or Finder. Enabling queries can restore the startup wait.

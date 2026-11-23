@@ -1,6 +1,6 @@
 # Product usage data
 
-By default, AgentD Next sends no product usage events, crash reports or connection
+By default, LibraOS Next sends no product usage events, crash reports or connection
 traces to its makers or to upstream. With no configuration, the server sends nothing to
 PostHog and fetches nothing from upstream's servers.
 
@@ -36,7 +36,7 @@ Windows, set it as a user environment variable.
 ## Hosted relay and mobile diagnostics
 
 Upstream's hosted relay, its relay connection traces, mobile crash reports and agent
-activity for mobile notifications are not part of AgentD Next: the releases have no
+activity for mobile notifications are not part of LibraOS Next: the releases have no
 relay configured, so none of these are sent.
 
 ## Export diagnostics to your own receiver
