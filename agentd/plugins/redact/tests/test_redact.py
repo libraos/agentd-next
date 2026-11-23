@@ -191,6 +191,97 @@ class RulesTest(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(redact.rule_spans(text), [])
 
+    # Per label: (text, value it must mask) and texts where nothing of that label may be found.
+    # Every number is invented; the IBANs are the published example ones.
+    LEGAL_RULES = {
+        "case_number": (
+            [
+                ("本院受理原告诉被告一案，案号（2024）京0105民初12345号。", "（2024）京0105民初12345号"),
+                ("见(2023)最高法民申1234号裁定", "(2023)最高法民申1234号"),
+                ("〔2015〕沪02民终567号之一判决", "〔2015〕沪02民终567号之一"),
+                ("（2022）粤03执恢88号", "（2022）粤03执恢88号"),
+            ],
+            ["2024年京沪高铁12345号列车", "（2024）年度报告第3号", "第12345号文件"],
+        ),
+        "bank_account": (
+            [
+                ("账号：6222 0212 3456 7890 128", "6222 0212 3456 7890 128"),
+                ("开户银行：中国银行，账号 110908765432101", "110908765432101"),
+                ("Account No. 0123456789012", "0123456789012"),
+                ("请汇至6280139980014397，谢谢", "6280139980014397"),
+                ("卡号 6259611194799445885", "6259611194799445885"),
+                ("card 6221 6702 4921 4941 on file", "6221 6702 4921 4941"),
+            ],
+            # The same numbers with one digit changed fail Luhn; short or keyword-free numbers stay.
+            ["请汇至6280139980014398，谢谢", "6259611194799445886", "card 6221 6702 4921 4942", "账号尾号1234", "订单号20241122000012345678"],
+        ),
+        "iban": (
+            [
+                ("IBAN: DE89 3704 0044 0532 0130 00", "DE89 3704 0044 0532 0130 00"),
+                ("pay GB82WEST12345698765432 today", "GB82WEST12345698765432"),
+                ("IBAN FR1420041010050500013M02606", "FR1420041010050500013M02606"),
+                ("NL91ABNA0417164300", "NL91ABNA0417164300"),
+            ],
+            ["IBAN: DE89 3704 0044 0532 0130 01", "GB82WEST12345698765433", "NL92ABNA0417164300", "AB12 CDEF GHIJ"],
+        ),
+        "amount": (
+            [
+                ("支付货款人民币500,000.00元", "人民币500,000.00元"),
+                ("赔偿50万元", "50万元"),
+                ("人民币伍拾万元整", "人民币伍拾万元整"),
+                ("合计壹佰贰拾叁元肆角伍分", "壹佰贰拾叁元肆角伍分"),
+                ("price ￥1,234.5 each", "￥1,234.5"),
+                ("USD 2,000,000 in escrow", "USD 2,000,000"),
+                ("a fee of $1,200", "$1,200"),
+                ("违约金3000元", "3000元"),
+            ],
+            ["echo $1 and $HOME", "万元户", "共计3份", "第2.5节", "版本 2.14.1"],
+        ),
+        "plate": (
+            [
+                ("车牌号京A12345的车辆", "京A12345"),
+                ("新能源车沪AD12345", "沪AD12345"),
+                ("粤B·12345", "粤B·12345"),
+                ("鲁B12345挂", "鲁B12345"),
+            ],
+            ["京ABCDEF", "苏E2024", "京A1234", "京I12345"],
+        ),
+        "lawyer_licence": (
+            [
+                ("律师执业证号11101200510123456", "11101200510123456"),
+                ("执业证号：13101200910447012。", "13101200910447012"),
+            ],
+            ["11101185010123456", "1110120051012345", "111012005101234567", "07101200510123456"],
+        ),
+        "property_certificate": (
+            [
+                ("京（2020）朝阳区不动产权第0012345号", "京（2020）朝阳区不动产权第0012345号"),
+                ("苏(2021)南京市不动产证明第0098765号", "苏(2021)南京市不动产证明第0098765号"),
+                ("房产证号：京房权证朝字第123456号", "京房权证朝字第123456号"),
+                ("沪房地产权证浦字第2019012345号", "沪房地产权证浦字第2019012345号"),
+                ("原证号沪房地浦字（2008）第045678号", "沪房地浦字（2008）第045678号"),
+            ],
+            ["不动产权登记第3号", "房权证明", "京（2020）朝阳区不动产", "京房管字第1234号通知"],
+        ),
+    }
+
+    def test_legal_rules_positive_and_negative_examples(self):
+        for label, (positives, negatives) in self.LEGAL_RULES.items():
+            for text, value in positives:
+                with self.subTest(label=label, text=text):
+                    found = [(s["label"], text[s["start"] : s["end"]]) for s in redact.merge_spans(redact.rule_spans(text))]
+                    self.assertIn((label, value), found)
+            for text in negatives:
+                with self.subTest(label=label, negative=text):
+                    self.assertEqual([s for s in redact.rule_spans(text) if s["label"] == label], [])
+
+    def test_an_id_number_passing_luhn_stays_an_id(self):
+        # 18 digits shaped like a resident ID that also pass Luhn: the ID rule names it.
+        text = "身份证 440101199003071236"
+        self.assertTrue(redact._luhn("440101199003071236"))
+        spans = redact.merge_spans(redact.rule_spans(text))
+        self.assertEqual([(s["label"], text[s["start"] : s["end"]]) for s in spans], [("id", "440101199003071236")])
+
     def test_overlapping_spans_merge_into_one_placeholder(self):
         text = f"mail {EMAIL} please"
 
@@ -200,6 +291,11 @@ class RulesTest(unittest.TestCase):
 
         out = redact.redact_text(text, detect, float("inf"), redact.Placeholders())
         self.assertEqual(out, "mail [EMAIL_1] please")
+
+    def test_a_rule_names_a_span_the_model_finds_exactly(self):
+        text = "案号（2024）京0105民初12345号，车辆京A12345"
+        detect = tagging("（2024）京0105民初12345号", "京A12345", label="id")
+        self.assertEqual(redact_all([text], detect), ["案号[CASE_NUMBER_1]，车辆[PLATE_1]"])
 
 
 def tagging(*fragments, label="person"):
