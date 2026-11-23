@@ -306,7 +306,7 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           />
           <SidebarUtilityItem
             icon={<ActivityIcon />}
-            label={gt("AgentD")}
+            label={gt("LibraOS Core")}
             onClick={() => {
               closeMobileSidebar();
               void navigate({ to: "/agentd" });

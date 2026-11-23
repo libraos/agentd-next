@@ -144,7 +144,7 @@ describe("buildComposerPromptHistoryEntries", () => {
     });
   });
 
-  it("skips messages sent by automations, agents, and AgentD Next", () => {
+  it("skips messages sent by automations, agents, and LibraOS Next", () => {
     const typed = buildComposerPromptHistoryEntries([
       { id: "m1", role: "user", text: "typed" },
       { id: "m2", role: "user", text: "scheduled", scheduledTaskId: ScheduledTaskId.make("task") },

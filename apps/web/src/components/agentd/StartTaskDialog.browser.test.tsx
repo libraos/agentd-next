@@ -455,14 +455,14 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
     replaceSubmission?: string;
   }) => AsyncResult.failure(Cause.fail(new AgentdCommandError({ notSetUp: false, ...fields })));
   const unfinished =
-    "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
+    "LibraOS Core hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
   // The dialog asks in the user's language, whatever text agentd's refusal carries.
   const said = "server question";
   state.start
     .mockResolvedValueOnce(refused({ message: said, replaceSubmission: earlier }))
     .mockResolvedValueOnce(refused({ message: said, replaceSubmission: earlier }))
     .mockResolvedValueOnce(
-      refused({ message: "AgentD may have created this cloud task.", outcomeUnknown: true }),
+      refused({ message: "LibraOS Core may have created this cloud task.", outcomeUnknown: true }),
     )
     .mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
   await using _screen = await renderDialog();
@@ -497,7 +497,7 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
   // Until agentd records a task, nothing here subscribes to the task list.
   expect(state.tasks).not.toHaveBeenCalled();
   answer(AsyncResult.success({ id: "hof-aabbcc", started: false, note: "Recorded." }));
-  await expect.element(page.getByText(/AgentD saved task hof-aabbcc/)).toBeVisible();
+  await expect.element(page.getByText(/LibraOS Core saved task hof-aabbcc/)).toBeVisible();
   // While the dialog shows it, its task list subscription drives the cloud sync fallback.
   expect(state.tasks).toHaveBeenCalledWith(thread.environmentId);
   // The sync finds the job under way: the dialog no longer says it didn't start.
@@ -510,7 +510,9 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
       ),
     )
     .toBeVisible();
-  await expect.element(page.getByText(/AgentD saved task hof-aabbcc/)).not.toBeInTheDocument();
+  await expect
+    .element(page.getByText(/LibraOS Core saved task hof-aabbcc/))
+    .not.toBeInTheDocument();
   await expect
     .element(page.getByRole("button", { name: /Start|Check and retry/ }))
     .not.toBeInTheDocument();
@@ -636,7 +638,7 @@ it("budgets in minutes only while agentd has no model prices, and flags typed do
   await expect
     .element(page.getByRole("alert"))
     .toHaveTextContent(
-      "AgentD on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
+      "LibraOS Core on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
     );
   await userEvent.clear(budget);
   await start.click();
@@ -662,7 +664,9 @@ it("suggests an editable check for a hand-filled task", async () => {
   const check = page.getByLabelText("Check command");
   await expect.element(check).toHaveValue("go test ./...");
   await expect
-    .element(page.getByText("Budget up to $5.00 (agentd has no estimate for similar tasks yet)."))
+    .element(
+      page.getByText("Budget up to $5.00 (LibraOS Core has no estimate for similar tasks yet)."),
+    )
     .toBeVisible();
   await userEvent.fill(check, "go test ./internal/...");
   await expect.element(check).toHaveValue("go test ./internal/...");
@@ -724,7 +728,7 @@ it("caps a cloud budget by the balance and says the estimate comes from local ru
 });
 
 it.each([
-  ["no worker", { worker: null }, "Choose a worker. The default is set in agentd."],
+  ["no worker", { worker: null }, "Choose a worker. The default is set in LibraOS Core."],
   ["no credit", { balanceUsd: 0 }, "There is not enough LibraOS credit for Cloud Workers."],
   [
     "no LibraOS sign-in",
@@ -934,7 +938,7 @@ it("names a separately hosted Job API before asking for its key", async () => {
   await using _screen = await renderDialog();
   await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
   await expect
-    .element(page.getByText(/AgentD sends it to https:\/\/jobs\.example\.com to check it/))
+    .element(page.getByText(/LibraOS Core sends it to https:\/\/jobs\.example\.com to check it/))
     .toBeVisible();
   await expect.element(page.getByText(/A LibraOS Console key won’t work there/)).toBeVisible();
   await expect
@@ -986,7 +990,7 @@ it("offers no Keep the current key once a replacement key is on its way", async 
   expect(cancel).not.toHaveBeenCalled();
 });
 
-it("keeps the Console link and asks for agentd upgrade when agentd has no cloud setup", async () => {
+it("keeps the Console link and asks for libraos-core upgrade when agentd has no cloud setup", async () => {
   setup("feature/export");
   state.cloud = cloudReady({ balanceUsd: null, problem: "setup", canConfigure: false });
   await using _screen = await renderDialog();
@@ -994,7 +998,7 @@ it("keeps the Console link and asks for agentd upgrade when agentd has no cloud 
   await expect
     .element(page.getByRole("link", { name: "Open Cloud Workers setup in LibraOS Console" }))
     .toBeVisible();
-  await expect.element(page.getByText(/agentd upgrade$/)).toBeVisible();
+  await expect.element(page.getByText(/libraos-core upgrade$/)).toBeVisible();
   await expect.element(page.getByLabelText("Cloud Workers account key")).not.toBeInTheDocument();
 });
 
@@ -1006,7 +1010,7 @@ it("lists Your subscription as disabled while agentd can't run subscription jobs
   await page.getByRole("combobox", { name: "Model access" }).click();
   await expect
     .element(
-      page.getByRole("option", { name: "Your subscription (needs AgentD v0.1.14 or later)" }),
+      page.getByRole("option", { name: "Your subscription (needs LibraOS Core v0.1.14 or later)" }),
     )
     .toHaveAttribute("aria-disabled", "true");
 });
@@ -1033,7 +1037,9 @@ it("starts a cloud task on the Claude plan agentd has set up, never choosing it 
   await page.getByRole("option", { name: "Your subscription" }).click();
   await expect
     .element(
-      page.getByText("Using the Claude token AgentD has set up. It runs out about Nov 1, 2027."),
+      page.getByText(
+        "Using the Claude token LibraOS Core has set up. It runs out about Nov 1, 2027.",
+      ),
     )
     .toBeVisible();
   // The optional file stays folded while agentd has a token, and nothing optional takes focus.
@@ -1048,7 +1054,7 @@ it("starts a cloud task on the Claude plan agentd has set up, never choosing it 
 
   await page.getByRole("combobox", { name: "Plan" }).click();
   await expect
-    .element(page.getByRole("option", { name: "ChatGPT (Codex): needs a newer AgentD" }))
+    .element(page.getByRole("option", { name: "ChatGPT (Codex): needs a newer LibraOS Core" }))
     .toHaveAttribute("aria-disabled", "true");
   await userEvent.keyboard("{Escape}");
 
@@ -1182,7 +1188,7 @@ it.each([
   {
     unanswered: "agentd",
     reason:
-      "Couldn’t reach AgentD to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
+      "Couldn’t reach LibraOS Core to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
   },
   {
     unanswered: "git",
@@ -1309,7 +1315,7 @@ it("follows a cloud task the draft card saved but agentd didn't confirm until it
   await expect.element(card.getByText("Recorded.")).not.toBeInTheDocument();
 });
 
-it("offers Retry on the AgentD page when agentd didn't answer the cloud probe", async () => {
+it("offers Retry on the LibraOS Core page when agentd didn't answer the cloud probe", async () => {
   setup("feature/export", false);
   state.cloud = { ...cloudReady(), unreachable: true };
   await using _screen = await render(<AgentdPageCloud environmentId={thread.environmentId} />);
@@ -1460,7 +1466,9 @@ it("checks each BYOK key file's provider and privacy, and remembers the paths th
     await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/draft.key");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect.element(page.getByText("Earlier.")).toBeVisible();
-    await expect.element(page.getByText(/AgentD saved task hof-777eee/)).not.toBeInTheDocument();
+    await expect
+      .element(page.getByText(/LibraOS Core saved task hof-777eee/))
+      .not.toBeInTheDocument();
     state.rows = [{ id: "hof-777eee", cloudState: "running" }];
     for (const listener of state.rowListeners) listener();
     await expect

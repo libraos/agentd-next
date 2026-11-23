@@ -124,7 +124,7 @@ describe("collectServerUpdateTargets", () => {
         entry.label,
         entry.reason,
       ]),
-    ).toEqual([["off", "Example Corp manages AgentD Next updates."]]);
+    ).toEqual([["off", "Example Corp manages LibraOS Next updates."]]);
     expect(
       collectServerUpdateTargets(
         machines.map((entry) => ({
@@ -257,7 +257,7 @@ describe("collectChannelSwitchTargets", () => {
       ["old-desktop", "needs a newer desktop app"],
       [
         "no-nightly",
-        "Example Corp manages AgentD Next updates. Only stable releases can be installed.",
+        "Example Corp manages LibraOS Next updates. Only stable releases can be installed.",
       ],
     ]);
   });
@@ -407,7 +407,7 @@ describe("runUpdateEverything", () => {
 });
 
 describe("describeUpdateEverything", () => {
-  it("gives each machine one row with its AgentD Next and provider updates", () => {
+  it("gives each machine one row with its LibraOS Next and provider updates", () => {
     const id = EnvironmentId.make;
     const { rows } = describeUpdateEverything({
       localVersion: "1.1.0",

@@ -172,7 +172,7 @@ export function LocalPreviewScreen(props: {
                     variant="plain"
                     title={
                       outdated
-                        ? gt("Update AgentD Next on {environment}", {
+                        ? gt("Update LibraOS Next on {environment}", {
                             environment: environmentLabel,
                           })
                         : disconnected
@@ -182,7 +182,7 @@ export function LocalPreviewScreen(props: {
                     detail={
                       outdated
                         ? gt(
-                            "{environment} runs a version of AgentD Next that can't open its localhost pages on this device. Update it there, then try again.",
+                            "{environment} runs a version of LibraOS Next that can't open its localhost pages on this device. Update it there, then try again.",
                             { environment: environmentLabel },
                           )
                         : disconnected

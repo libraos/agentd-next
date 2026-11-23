@@ -46,7 +46,7 @@ export function HostedEmptyState() {
               ) : cloudEnabled ? (
                 <T>Your agents run on your computer.</T>
               ) : (
-                <T>Your agents run on your computer. Start AgentD Next there first.</T>
+                <T>Your agents run on your computer. Start LibraOS Next there first.</T>
               )}
             </EmptyDescription>
           </EmptyHeader>

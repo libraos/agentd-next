@@ -63,7 +63,7 @@ export function CliCommandSettingsRow() {
   const description = state.shadowedBy
     ? resolve(
         msg(
-          "Another agentd-next at {path} runs first in a new terminal. Remove it to use AgentD Next's.",
+          "Another agentd-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
           {
             path: state.shadowedBy,
           },
@@ -72,7 +72,7 @@ export function CliCommandSettingsRow() {
     : !installed
       ? resolve(
           msg(
-            "Run AgentD Next's CLI as `agentd-next` from any terminal. Also installs `t3` as an alias.",
+            "Run LibraOS Next's CLI as `agentd-next` from any terminal. Also installs `t3` as an alias.",
           ),
         )
       : state.onPath

@@ -69,7 +69,7 @@ const ensureRelayClientAvailable = Effect.fn("linkEnvironment.ensureRelayClientA
     if (status.status === "unsupported") {
       return yield* new CloudEnvironmentLinkError({
         message: m(
-          msg("AgentD Next cannot install the relay client automatically on {platform}-{arch}.", {
+          msg("LibraOS Next cannot install the relay client automatically on {platform}-{arch}.", {
             platform: status.platform,
             arch: status.arch,
           }),
@@ -111,7 +111,7 @@ const ensureRelayClientAvailable = Effect.fn("linkEnvironment.ensureRelayClientA
           installedStatus.status === "unsupported"
             ? m(
                 msg(
-                  "AgentD Next cannot install the relay client automatically on {platform}-{arch}.",
+                  "LibraOS Next cannot install the relay client automatically on {platform}-{arch}.",
                   {
                     platform: installedStatus.platform,
                     arch: installedStatus.arch,

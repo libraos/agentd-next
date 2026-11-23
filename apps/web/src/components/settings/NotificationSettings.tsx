@@ -28,7 +28,7 @@ export function NotificationSettings() {
       description={
         permissionMessage ??
         gt(
-          "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while AgentD Next is open.",
+          "System alerts when a thread finishes, fails, or needs input or approval. Applies to this device while LibraOS Next is open.",
         )
       }
       control={

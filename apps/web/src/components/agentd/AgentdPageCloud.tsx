@@ -19,7 +19,7 @@ export function AgentdPageCloud({ environmentId }: { readonly environmentId: Env
     return (
       <div className="flex items-center gap-2 text-sm">
         <p role="status" className="text-muted-foreground">
-          <T>Couldn’t reach AgentD.</T>
+          <T>Couldn’t reach LibraOS Core.</T>
         </p>
         <Button type="button" size="xs" variant="outline" onClick={account.refresh}>
           <T>Retry</T>
@@ -29,7 +29,7 @@ export function AgentdPageCloud({ environmentId }: { readonly environmentId: Env
   if (!setup.supported)
     return (
       <p className="text-sm text-muted-foreground">
-        <T>This version of AgentD has no Cloud Workers.</T>
+        <T>This version of LibraOS Core has no Cloud Workers.</T>
       </p>
     );
   const configured = setup.problem !== "setup";

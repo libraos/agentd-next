@@ -92,21 +92,21 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
         {failure?._tag === "AgentdNotFoundError" && failure.bundled ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              AgentD Next carries its own agentd, and it could not be run. Reinstall AgentD Next to
-              restore it.
+              LibraOS Next carries its own LibraOS Core, and it could not be run. Reinstall LibraOS
+              Next to restore it.
             </T>
           </p>
         ) : failure?._tag === "AgentdNotFoundError" ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              Agentd was not found in this environment. Follow the{" "}
+              LibraOS Core was not found in this environment. Follow the{" "}
               <a
                 className="text-foreground underline"
                 href="https://github.com/libraos/agentd#installation"
                 target="_blank"
                 rel="noreferrer"
               >
-                agentd installation guide
+                LibraOS Core installation guide
               </a>{" "}
               and make sure the binary is on the server&apos;s path.
             </T>
@@ -114,14 +114,14 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
         ) : failure?._tag === "AgentdCommandError" && failure.notSetUp ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              Agentd is installed but not set up. Run <code>agentd init</code> on the server to set
-              it up.
+              LibraOS Core is installed but not set up. Run <code>libraos-core init</code> on the
+              server to set it up.
             </T>
           </p>
         ) : error ? (
           <p className="wrap-anywhere text-destructive" role="alert">
             <T>
-              Couldn&apos;t load agentd tasks: <Var>{error}</Var>
+              Couldn&apos;t load LibraOS Core tasks: <Var>{error}</Var>
             </T>
           </p>
         ) : data === null ? (
@@ -138,14 +138,14 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
                   </p>
                 ) : null}
                 <p>
-                  <T>Agentd tasks are unavailable in this environment.</T>
+                  <T>LibraOS Core tasks are unavailable in this environment.</T>
                 </p>
               </>
             )}
           </div>
         ) : data.length === 0 ? (
           <p className="text-muted-foreground" role="status">
-            {sessionTasks.length === 0 ? <T>No background tasks</T> : <T>No agentd tasks.</T>}
+            {sessionTasks.length === 0 ? <T>No background tasks</T> : <T>No LibraOS Core tasks.</T>}
           </p>
         ) : null}
       </div>

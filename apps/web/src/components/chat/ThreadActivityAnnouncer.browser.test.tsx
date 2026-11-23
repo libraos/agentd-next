@@ -129,9 +129,9 @@ describe("ThreadActivityAnnouncer", () => {
 
     expect(heard).toEqual([
       ["Working", ""],
-      ["Working", "AgentD Next: Checking the repo"],
-      ["Needs approval", "AgentD Next: Checking the repo"],
-      ["Needs approval", "AgentD Next: Checking the repo"],
+      ["Working", "LibraOS Next: Checking the repo"],
+      ["Needs approval", "LibraOS Next: Checking the repo"],
+      ["Needs approval", "LibraOS Next: Checking the repo"],
       ["Needs approval", "Running rg"],
     ]);
   });
@@ -153,7 +153,7 @@ describe("ThreadActivityAnnouncer", () => {
 
     await expect
       .element(detail)
-      .toHaveTextContent("AgentD Next: Checking the repo. Needs approval");
+      .toHaveTextContent("LibraOS Next: Checking the repo. Needs approval");
     await expect.element(status).toHaveTextContent("Working");
   });
 });

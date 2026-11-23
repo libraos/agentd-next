@@ -62,7 +62,7 @@ export function AgentdInstallStatus({
           <span className="break-all text-muted-foreground">
             {install.action === "kept-newer" || install.action === "kept-unknown" ? (
               <T>
-                <Var>{install.path}</Var> (your own agentd, kept)
+                <Var>{install.path}</Var> (your own LibraOS Core, kept)
               </T>
             ) : (
               install.path
@@ -78,7 +78,7 @@ export function AgentdInstallStatus({
             </T>
           </AlertTitle>
           <AlertDescription>
-            <T>To run agentd in a terminal, add this line to your shell profile:</T>
+            <T>To run libraos-core in a terminal, add this line to your shell profile:</T>
             <code className="block whitespace-pre-wrap break-words rounded-md bg-muted px-2 py-1 text-xs">
               {pathLine}
             </code>
@@ -147,13 +147,13 @@ function ServicesNotice({
         <p key={name} className="break-words">
           {name === "watchdog" ? (
             <T>
-              AgentD’s watchdog service runs <Var>{program}</Var>, which is missing or belongs to
-              the old AgentD Desktop.
+              LibraOS Core’s watchdog service runs <Var>{program}</Var>, which is missing or belongs
+              to the old AgentD Desktop.
             </T>
           ) : (
             <T>
-              AgentD’s dashboard service runs <Var>{program}</Var>, which is missing or belongs to
-              the old AgentD Desktop.
+              LibraOS Core’s dashboard service runs <Var>{program}</Var>, which is missing or
+              belongs to the old AgentD Desktop.
             </T>
           )}
         </p>
@@ -162,16 +162,16 @@ function ServicesNotice({
         <p>
           {allowed ? (
             <T>
-              AgentD’s watchdog service runs this app’s AgentD, but systemd hasn’t turned on its
-              timer, so AgentD doesn’t follow your tasks while this app is closed. Repair turns it
-              on.
+              LibraOS Core’s watchdog service runs this app’s LibraOS Core, but systemd hasn’t
+              turned on its timer, so LibraOS Core doesn’t follow your tasks while this app is
+              closed. Repair turns it on.
             </T>
           ) : (
             <T>
-              AgentD’s watchdog service runs this app’s AgentD, but systemd hasn’t turned on its
-              timer, so AgentD doesn’t follow your tasks while this app is closed. On that machine,
-              run agentd install, then systemctl --user daemon-reload and systemctl --user enable
-              --now agentd-watchdog.timer in a terminal.
+              LibraOS Core’s watchdog service runs this app’s LibraOS Core, but systemd hasn’t
+              turned on its timer, so LibraOS Core doesn’t follow your tasks while this app is
+              closed. On that machine, run libraos-core install, then systemctl --user daemon-reload
+              and systemctl --user enable --now agentd-watchdog.timer in a terminal.
             </T>
           )}
         </p>
@@ -179,39 +179,39 @@ function ServicesNotice({
       {problem.unread !== undefined && problem.unread.length > 0 ? (
         <p>
           <T>
-            AgentD couldn’t read how one of its background services is registered, and agentd
-            install would rewrite it too, so Repair isn’t offered. Try again later, or run agentd
-            install in a terminal with the AgentD you use.
+            LibraOS Core couldn’t read how one of its background services is registered, and
+            libraos-core install would rewrite it too, so Repair isn’t offered. Try again later, or
+            run libraos-core install in a terminal with the LibraOS Core you use.
           </T>
         </p>
       ) : null}
       {problem.overridden !== undefined && problem.overridden.length > 0 ? (
         <p>
           <T>
-            A systemd drop-in sets the program this service runs, and agentd install doesn’t change
-            drop-ins, so Repair isn’t offered for it. Remove the ExecStart lines from the drop-in in
-            ~/.config/systemd/user and run systemctl --user daemon-reload. Then, in a terminal with
-            the AgentD you use, run agentd install for the watchdog or agentd dash install for the
-            dashboard.
+            A systemd drop-in sets the program this service runs, and libraos-core install doesn’t
+            change drop-ins, so Repair isn’t offered for it. Remove the ExecStart lines from the
+            drop-in in ~/.config/systemd/user and run systemctl --user daemon-reload. Then, in a
+            terminal with the LibraOS Core you use, run libraos-core install for the watchdog or
+            libraos-core dash install for the dashboard.
           </T>
         </p>
       ) : null}
       {problem.kept !== undefined && problem.kept.length > 0 ? (
         <p>
           <T>
-            One of AgentD’s background services runs an AgentD that is missing or belongs to the old
-            AgentD Desktop, and another runs your own AgentD. This app left both alone: run agentd
-            install with the AgentD you use. It rewrites both services with the AGENTD_ROOT and
-            AGENTD_DB set where you run it; if the dashboard uses its own, run agentd dash install
-            with those afterwards.
+            One of LibraOS Core’s background services runs a LibraOS Core that is missing or belongs
+            to the old AgentD Desktop, and another runs your own LibraOS Core. This app left both
+            alone: run libraos-core install with the LibraOS Core you use. It rewrites both services
+            with the AGENTD_ROOT and AGENTD_DB set where you run it; if the dashboard uses its own,
+            run libraos-core dash install with those afterwards.
           </T>
         </p>
       ) : agentd === null ? (
         <p>
           <T>
-            AgentD’s background services run an AgentD that is missing or belongs to the old AgentD
-            Desktop. This app’s AgentD is gone once the app closes, so they were left alone: install
-            agentd for the terminal, then run agentd install.
+            LibraOS Core’s background services run a LibraOS Core that is missing or belongs to the
+            old AgentD Desktop. This app’s LibraOS Core is gone once the app closes, so they were
+            left alone: install libraos-core for the terminal, then run libraos-core install.
           </T>
         </p>
       ) : null}
@@ -219,8 +219,9 @@ function ServicesNotice({
         <>
           <p>
             <T>
-              AgentD’s background services aren’t running this app’s AgentD yet: AgentD won’t start
-              them while older AgentD services are on. Run this, then agentd install, in a terminal.
+              LibraOS Core’s background services aren’t running this app’s LibraOS Core yet: LibraOS
+              Core won’t start them while older LibraOS Core services are on. Run this, then
+              libraos-core install, in a terminal.
             </T>
           </p>
           <code className="block whitespace-pre-wrap break-words rounded-md bg-muted px-2 py-1 text-xs text-foreground">
@@ -232,10 +233,10 @@ function ServicesNotice({
           {failure.message ??
             (problem.services.length === 0 && problem.watchdogOff === true
               ? gt(
-                  "Turning on AgentD’s watchdog timer failed. Try Repair again, or run systemctl --user enable --now agentd-watchdog.timer in a terminal.",
+                  "Turning on LibraOS Core’s watchdog timer failed. Try Repair again, or run systemctl --user enable --now agentd-watchdog.timer in a terminal.",
                 )
               : gt(
-                  "AgentD’s background services run an AgentD that is missing or belongs to the old AgentD Desktop, and moving them to this app’s AgentD failed. Run agentd install in a terminal.",
+                  "LibraOS Core’s background services run a LibraOS Core that is missing or belongs to the old AgentD Desktop, and moving them to this app’s LibraOS Core failed. Run libraos-core install in a terminal.",
                 ))}
         </p>
       ) : null}
@@ -253,27 +254,27 @@ function ServicesNotice({
         <AlertDialogPopup>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              <T>Repair AgentD’s background services?</T>
+              <T>Repair LibraOS Core’s background services?</T>
             </AlertDialogTitle>
             <AlertDialogDescription>
               {both ? (
                 <T>
-                  This runs agentd install from this app’s AgentD (<Var>{agentd}</Var>), and on
-                  Linux agentd dash install too. It re-registers both the dashboard and the watchdog
-                  with this app’s AgentD and the root this app uses; an AGENTD_ROOT or AGENTD_DB
-                  they set now isn’t kept.
+                  This runs libraos-core install from this app’s LibraOS Core (<Var>{agentd}</Var>),
+                  and on Linux libraos-core dash install too. It re-registers both the dashboard and
+                  the watchdog with this app’s LibraOS Core and the root this app uses; an
+                  AGENTD_ROOT or AGENTD_DB they set now isn’t kept.
                 </T>
               ) : problem.moves[0] === "dash" ? (
                 <T>
-                  This runs agentd dash install from this app’s AgentD (<Var>{agentd}</Var>). It
-                  re-registers the dashboard with this app’s AgentD and the root this app uses; an
-                  AGENTD_ROOT or AGENTD_DB it sets now isn’t kept.
+                  This runs libraos-core dash install from this app’s LibraOS Core (
+                  <Var>{agentd}</Var>). It re-registers the dashboard with this app’s LibraOS Core
+                  and the root this app uses; an AGENTD_ROOT or AGENTD_DB it sets now isn’t kept.
                 </T>
               ) : (
                 <T>
-                  This runs agentd install from this app’s AgentD (<Var>{agentd}</Var>). It
-                  re-registers the watchdog with this app’s AgentD and the root this app uses; an
-                  AGENTD_ROOT or AGENTD_DB it sets now isn’t kept.
+                  This runs libraos-core install from this app’s LibraOS Core (<Var>{agentd}</Var>).
+                  It re-registers the watchdog with this app’s LibraOS Core and the root this app
+                  uses; an AGENTD_ROOT or AGENTD_DB it sets now isn’t kept.
                 </T>
               )}
             </AlertDialogDescription>

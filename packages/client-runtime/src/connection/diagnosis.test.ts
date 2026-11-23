@@ -54,9 +54,9 @@ const results = (state: SupervisorConnectionState, via?: "relay" | "direct") =>
   diagnose(state, via)?.hops.map((hop) => `${hop.hop}:${hop.result}`);
 
 describe("presentConnectionDiagnosis", () => {
-  it("tells a working tunnel apart from AgentD Next not answering", () => {
+  it("tells a working tunnel apart from LibraOS Next not answering", () => {
     expect(diagnose(backoff(unavailable("origin_unreachable")))?.headline).toBe(
-      "Tunnel works, but AgentD Next on Mac mini did not answer",
+      "Tunnel works, but LibraOS Next on Mac mini did not answer",
     );
     expect(results(backoff(unavailable("origin_unreachable")), "direct")).toEqual([
       "device:ok",
@@ -166,7 +166,7 @@ describe("presentConnectionDiagnosis", () => {
     );
   });
 
-  it("tells a host that refused this device's login to sign in again, not to start AgentD Next", () => {
+  it("tells a host that refused this device's login to sign in again, not to start LibraOS Next", () => {
     const failure = mapRemoteEnvironmentError(
       new EnvironmentAuthInvalidError({
         code: "auth_invalid",
@@ -175,7 +175,7 @@ describe("presentConnectionDiagnosis", () => {
       }),
     );
     const steps = diagnose(backoff(failure), "direct")?.steps.join(" ");
-    expect(steps).not.toContain("Make sure AgentD Next is running");
+    expect(steps).not.toContain("Make sure LibraOS Next is running");
     expect(steps).toMatch(/pair|sign in/i);
   });
 

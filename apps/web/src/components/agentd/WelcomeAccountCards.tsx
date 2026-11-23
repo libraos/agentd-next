@@ -84,11 +84,11 @@ export function WelcomeAccountCards({
                   variant="link"
                   onClick={() => openAgentdSetupDialog(environmentId)}
                 >
-                  <T>Cloud Workers: set up AgentD to use them</T>
+                  <T>Cloud Workers: set up LibraOS Core to use them</T>
                 </Button>
               ) : (
                 <p className="text-muted-foreground">
-                  <T>Cloud Workers: set up AgentD to use them</T>
+                  <T>Cloud Workers: set up LibraOS Core to use them</T>
                 </p>
               )}
             </div>

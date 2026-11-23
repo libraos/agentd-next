@@ -175,7 +175,7 @@ export function relayOfflineReasonMessage(
     case "tunnel_released":
       return resolve(
         msg(
-          "Offline for a while, so its hosted relay tunnel was removed. Start AgentD Next on that computer and update it to the latest version to reconnect.",
+          "Offline for a while, so its hosted relay tunnel was removed. Start LibraOS Next on that computer and update it to the latest version to reconnect.",
         ),
       );
     case undefined:

@@ -648,13 +648,13 @@ function ManagedCodexSetup({
                 ? gt("Using your installed Codex · v{version}.", {
                     version: installation.installedVersion,
                   })
-                : gt("Managed by AgentD Next · v{version}.", {
+                : gt("Managed by LibraOS Next · v{version}.", {
                     version: installation.installedVersion,
                   })
               : installation?.source === "local"
                 ? gt("Using your installed Codex.")
-                : gt("Managed by AgentD Next.")
-            : (installation?.message ?? gt("AgentD Next downloads and manages Codex for you."));
+                : gt("Managed by LibraOS Next.")
+            : (installation?.message ?? gt("LibraOS Next downloads and manages Codex for you."));
   const accountDescription = finishingSignIn ? (
     gt("Finishing sign-in...")
   ) : installActive ? (
@@ -735,7 +735,7 @@ function ManagedCodexSetup({
       <div className="flex w-full flex-col gap-3 text-xs leading-relaxed text-muted-foreground">
         <p>
           <T>
-            If sign-in doesn't return to AgentD Next, paste the URL from the final localhost page.
+            If sign-in doesn't return to LibraOS Next, paste the URL from the final localhost page.
           </T>
         </p>
         <form
@@ -795,7 +795,7 @@ function ManagedCodexSetup({
               <T>Other ways to connect</T>
             </summary>
             <Button className="mt-2" size="sm" variant="outline" render={<a href={handoffUrl} />}>
-              <T>Use AgentD Next for automatic return</T>
+              <T>Use LibraOS Next for automatic return</T>
             </Button>
           </details>
         ) : null}
@@ -1146,7 +1146,7 @@ export function CodexManagedRuntimeFields({
     <>
       <SettingsRow
         title={gt("Binary path")}
-        description={gt("Selected by AgentD Next.")}
+        description={gt("Selected by LibraOS Next.")}
         control={
           <div className="w-full sm:w-80">
             <Input

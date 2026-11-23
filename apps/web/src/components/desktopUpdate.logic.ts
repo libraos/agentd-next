@@ -88,20 +88,20 @@ export function getArm64IntelBuildWarningDescription(
   if (action === "download") {
     return resolve(
       msg(
-        "This Mac has Apple Silicon, but AgentD Next is still running the Intel build under Rosetta. Download the available update to switch to the native Apple Silicon build.",
+        "This Mac has Apple Silicon, but LibraOS Next is still running the Intel build under Rosetta. Download the available update to switch to the native Apple Silicon build.",
       ),
     );
   }
   if (action === "install") {
     return resolve(
       msg(
-        "This Mac has Apple Silicon, but AgentD Next is still running the Intel build under Rosetta. Restart to install the downloaded Apple Silicon build.",
+        "This Mac has Apple Silicon, but LibraOS Next is still running the Intel build under Rosetta. Restart to install the downloaded Apple Silicon build.",
       ),
     );
   }
   return resolve(
     msg(
-      "This Mac has Apple Silicon, but AgentD Next is still running the Intel build under Rosetta. The next app update will replace it with the native Apple Silicon build.",
+      "This Mac has Apple Silicon, but LibraOS Next is still running the Intel build under Rosetta. The next app update will replace it with the native Apple Silicon build.",
     ),
   );
 }
@@ -193,13 +193,13 @@ export function getDesktopUpdateInstallConfirmationMessage(
   return version
     ? resolve(
         msg(
-          "Install update {version} and restart AgentD Next?\n\nAny running tasks will be interrupted. Make sure you're ready before continuing.",
+          "Install update {version} and restart LibraOS Next?\n\nAny running tasks will be interrupted. Make sure you're ready before continuing.",
           { version },
         ),
       )
     : resolve(
         msg(
-          "Install update and restart AgentD Next?\n\nAny running tasks will be interrupted. Make sure you're ready before continuing.",
+          "Install update and restart LibraOS Next?\n\nAny running tasks will be interrupted. Make sure you're ready before continuing.",
         ),
       );
 }

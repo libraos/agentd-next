@@ -282,12 +282,12 @@ function FullDiskAccessStep({
       <DialogHeader>
         <DialogTitle>
           <T>
-            Let AgentD Next read <Var>{source.name}</Var>&rsquo;s cookies
+            Let LibraOS Next read <Var>{source.name}</Var>&rsquo;s cookies
           </T>
         </DialogTitle>
         <DialogDescription>
           <T>
-            To import cookies from <Var>{source.name}</Var>, AgentD Next needs Full Disk Access.
+            To import cookies from <Var>{source.name}</Var>, LibraOS Next needs Full Disk Access.
             Turn it on in System Settings, then come back to finish the import. You can revoke it
             again once the import is done.
           </T>
@@ -323,10 +323,10 @@ function FullDiskAccessStep({
           <p className="mt-3 text-xs text-muted-foreground">
             {stillRequired
               ? gt(
-                  "Access is still required. Quit and reopen AgentD Next if you just allowed it, then retry the import.",
+                  "Access is still required. Quit and reopen LibraOS Next if you just allowed it, then retry the import.",
                 )
               : gt(
-                  "If access doesn't update after you allow it, quit and reopen AgentD Next, then retry the import.",
+                  "If access doesn't update after you allow it, quit and reopen LibraOS Next, then retry the import.",
                 )}
           </p>
         ) : null}

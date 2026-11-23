@@ -107,7 +107,7 @@ function EmptyMobileClients() {
         </EmptyTitle>
         <EmptyDescription>
           <T>
-            Install AgentD Next on your phone and sign in to the hosted relay to get push
+            Install LibraOS Next on your phone and sign in to the hosted relay to get push
             notifications and Live Activities.
           </T>
         </EmptyDescription>

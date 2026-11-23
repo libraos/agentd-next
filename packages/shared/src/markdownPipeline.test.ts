@@ -944,7 +944,7 @@ it("links complete absolute paths in prose and skips shortened ones", () => {
     ),
   ).toEqual([]);
   expect(
-    links("Config lives in /Users/me/Library/Application Support/AgentD Next/settings.json now."),
+    links("Config lives in /Users/me/Library/Application Support/LibraOS Next/settings.json now."),
   ).toEqual([]);
   expect(links(`/chat/settings and https://example.com${path}`)).toEqual([
     `https://example.com${path}`,

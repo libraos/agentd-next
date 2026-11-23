@@ -59,7 +59,7 @@ export function ListSearchToolbar(props: {
   }, [searching, closeSearch, navigation, isTabActive, section]);
   return (
     <AppBar
-      title="AgentD Next"
+      title="LibraOS Next"
       titleContent={
         <WorkspaceConnectionTitle
           grow

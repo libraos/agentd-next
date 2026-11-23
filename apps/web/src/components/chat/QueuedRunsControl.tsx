@@ -516,7 +516,7 @@ function QueuedMessage(props: {
     <>
       {attribution === "t3code" ? (
         <p className="me-1 text-2xs text-muted-foreground/70">
-          <T>Sent by AgentD Next</T>
+          <T>Sent by LibraOS Next</T>
         </p>
       ) : null}
       {presentation?.guestName === undefined ? null : (

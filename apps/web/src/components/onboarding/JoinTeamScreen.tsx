@@ -41,9 +41,9 @@ export function JoinTeamScreen() {
           ? gt("Use an HTTPS invitation link. HTTP is only allowed for a server on this computer.")
           : invitation.reason === "invalid-ticket"
             ? gt(
-                "This link must contain one valid AgentD device ticket. Ask your team for a new link.",
+                "This link must contain one valid LibraOS Core device ticket. Ask your team for a new link.",
               )
-            : gt("Paste a complete AgentD team invitation link."),
+            : gt("Paste a complete LibraOS Core team invitation link."),
       );
       field.focus();
       return;

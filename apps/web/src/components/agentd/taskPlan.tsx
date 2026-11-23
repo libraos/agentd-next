@@ -141,7 +141,7 @@ export function useTaskPlan({
     }
   };
   const noPricesReason = gt(
-    "AgentD on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
+    "LibraOS Core on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
   );
   const problemKind = taskStartProblem({
     cloud: cloud.enabled,
@@ -163,7 +163,7 @@ export function useTaskPlan({
             "Couldn’t read this checkout’s origin for Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
           )
         : gt(
-            "Couldn’t reach AgentD to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
+            "Couldn’t reach LibraOS Core to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
           );
     switch (problemKind) {
       case "no-directory":
@@ -177,7 +177,7 @@ export function useTaskPlan({
           ? gt("Set up your ChatGPT plan, or choose another model access.")
           : gt("Set up your Claude plan, or choose another model access.");
       case "worker":
-        return gt("Choose a worker. The default is set in agentd.");
+        return gt("Choose a worker. The default is set in LibraOS Core.");
       case "not-repo":
       case "detached":
         return branchReason(problemKind);
@@ -242,10 +242,12 @@ export function useTaskPlan({
   const estimateLine =
     capText === null
       ? dollarBudgets === false
-        ? gt("No dollar limit: AgentD on this machine has no model prices.")
+        ? gt("No dollar limit: LibraOS Core on this machine has no model prices.")
         : gt("No dollar limit: the budget names only minutes.")
       : estimate === null
-        ? gt("Budget up to {cap} (agentd has no estimate for similar tasks yet).", { cap: capText })
+        ? gt("Budget up to {cap} (LibraOS Core has no estimate for similar tasks yet).", {
+            cap: capText,
+          })
         : gt("Budget up to {cap} (similar tasks cost {low}–{high}).", {
             cap: capText,
             low: money(estimate.low),
@@ -276,7 +278,7 @@ export function useTaskPlan({
     if (cwd === null)
       return { kind: "refused", reason: gt("This session has no project working directory.") };
     if (cloud.waiting)
-      return { kind: "refused", reason: gt("Couldn’t reach AgentD to check Cloud Workers.") };
+      return { kind: "refused", reason: gt("Couldn’t reach LibraOS Core to check Cloud Workers.") };
     if (!cloud.enabled) {
       const current = await refreshBranch({ environmentId, input: { cwd } });
       if (current._tag === "Failure") {
@@ -306,7 +308,7 @@ export function useTaskPlan({
           worker,
           ...(trustClaudeFolder ? { trustClaudeFolder } : {}),
         };
-    if (!input) return { kind: "refused", reason: gt("AgentD could not start the task.") };
+    if (!input) return { kind: "refused", reason: gt("LibraOS Core could not start the task.") };
     const result = await startTask({ environmentId, input });
     if (result._tag === "Failure") {
       const failure = squashAtomCommandFailure(result);

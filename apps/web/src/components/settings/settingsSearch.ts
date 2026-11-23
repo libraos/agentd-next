@@ -1106,7 +1106,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "workers",
     title: msg("Workers"),
     to: "/settings/workers",
-    searchTerms: [msg("agentd suggest workers run tasks on cloud workers default budget")],
+    searchTerms: [
+      msg("libraos core agentd suggest workers run tasks on cloud workers default budget"),
+    ],
   },
   {
     id: "scheduled-tasks",
@@ -1212,7 +1214,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "pull-request-links-open-in-app",
-    title: msg("Open pull requests in AgentD Next"),
+    title: msg("Open pull requests in LibraOS Next"),
     to: "/settings/diffs",
     productFeature: "pullRequests",
     searchTerms: [

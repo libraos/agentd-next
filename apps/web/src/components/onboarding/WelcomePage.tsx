@@ -355,7 +355,7 @@ function TelemetryNotice({ environmentId }: { readonly environmentId: Environmen
     <p className="mt-9 text-center text-2xs leading-relaxed text-muted-foreground/70">
       {telemetryOff === undefined ? (
         <T>
-          AgentD Next sends no usage data unless an analytics endpoint is configured. See{" "}
+          LibraOS Next sends no usage data unless an analytics endpoint is configured. See{" "}
           <a
             className="underline decoration-current/40 underline-offset-2 hover:text-muted-foreground"
             href={PRIVACY_POLICY_URL}

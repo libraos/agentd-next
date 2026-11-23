@@ -14,7 +14,7 @@ export function AgentdReadError({ error }: { error: string }) {
   return (
     <Alert variant="error">
       <AlertTitle>
-        <T>Couldn't read AgentD</T>
+        <T>Couldn't read LibraOS Core</T>
       </AlertTitle>
       <AlertDescription>{error}</AlertDescription>
     </Alert>
@@ -88,17 +88,17 @@ export function AgentdStatusDetails({
       {!status.setUp ? (
         <Alert variant="warning">
           <AlertTitle>
-            <T>AgentD is not set up</T>
+            <T>LibraOS Core is not set up</T>
           </AlertTitle>
           <AlertDescription>
             <p>
               <T>
-                Run <code>agentd init</code> on this environment.
+                Run <code>libraos-core init</code> on this environment.
               </T>
             </p>
             {onSetUp ? (
               <Button className="mt-2" size="sm" variant="outline" onClick={onSetUp}>
-                <T>Set up AgentD</T>
+                <T>Set up LibraOS Core</T>
               </Button>
             ) : null}
           </AlertDescription>
@@ -226,10 +226,10 @@ export function AgentdNeedsYou({
                       {/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(item.id) ? (
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                           <code className="break-all">
-                            agentd approval answer {item.id} --approve
+                            libraos-core approval answer {item.id} --approve
                           </code>
                           <code className="break-all">
-                            agentd approval answer {item.id} --reject
+                            libraos-core approval answer {item.id} --reject
                           </code>
                         </div>
                       ) : null}

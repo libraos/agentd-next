@@ -279,10 +279,10 @@ describe("nextTurnDetailAnnouncement", () => {
 
   it.each<{ level: ScreenReaderAnnouncements; spoken: ReadonlyArray<string> }>([
     { level: "status", spoken: [] },
-    { level: "messages", spoken: ["AgentD Next: first", "AgentD Next: second"] },
+    { level: "messages", spoken: ["LibraOS Next: first", "LibraOS Next: second"] },
     {
       level: "everything",
-      spoken: ["Running git", "AgentD Next: first", "Reading a.ts", "AgentD Next: second"],
+      spoken: ["Running git", "LibraOS Next: first", "Reading a.ts", "LibraOS Next: second"],
     },
   ])("says each message and step once at the $level level", ({ level, spoken }) => {
     expect(speak(level, turn)).toEqual(spoken);
@@ -295,7 +295,7 @@ describe("nextTurnDetailAnnouncement", () => {
         frame("Running git", [said("first")]),
         frame("Reading a.ts", [said("first"), said("second", true, true)]),
       ]),
-    ).toEqual(["AgentD Next: second", "Reading a.ts"]);
+    ).toEqual(["LibraOS Next: second", "Reading a.ts"]);
   });
 
   it("stays silent about history loaded above the messages it knows", () => {
@@ -318,7 +318,7 @@ describe("nextTurnDetailAnnouncement", () => {
         frame(null),
         frame(null, [first, { ...said("empty", true, true), text: "<!-- note -->" }]),
       ]),
-    ).toEqual(["AgentD Next: Tests pass in web. See the docs"]);
+    ).toEqual(["LibraOS Next: Tests pass in web. See the docs"]);
   });
 
   it("cuts a long message without splitting an emoji", () => {
