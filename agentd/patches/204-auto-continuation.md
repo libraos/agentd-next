@@ -5,9 +5,11 @@ The agent ends its final message with a status line ("Status: done", "Status: re
 the same thread, recorded on the run as `autoContinuationOfRunId`. No line means no continuation.
 Defaults: on, at most 3 per message the user sends (`continueWhileWorkRemains`,
 `maxAutomaticContinuations` in server settings, overridable per project). No settings UI yet.
-A continuation goes through the before-send hooks like any send that is not the system's own (its
-text quotes the agent's "remaining" words); a block or an unreviewable rewrite stops the chain with
-the hook's reason as the run's "Not continued automatically" note.
+A continuation goes through the before-send hooks like any send that is not a person's. Its text is
+fixed and does not quote the agent's "remaining" words (they are in the agent's context already, and
+model output can carry names from files the agent read), so a redaction hook has nothing to rewrite;
+a block or an unreviewable rewrite stops the chain with the hook's reason as the run's "Not continued
+automatically" note.
 
 New files: `apps/server/src/orchestration-v2/AutoContinuationReactor.ts` (+ test),
 `packages/shared/src/orchestrationV2AutoContinuation.ts` (+ test).

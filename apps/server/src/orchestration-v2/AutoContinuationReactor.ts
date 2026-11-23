@@ -15,7 +15,7 @@ import * as Stream from "effect/Stream";
 
 import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import {
-  autoContinuationPrompt,
+  AUTO_CONTINUATION_PROMPT,
   autoContinuationStopMessage,
   decideAutoContinuation,
 } from "@t3tools/shared/orchestrationV2AutoContinuation";
@@ -174,7 +174,7 @@ const make = Effect.gen(function* () {
         return;
       }
       const { commandId, messageId } = autoContinuationIds(run.id);
-      const text = autoContinuationPrompt(decision.remaining);
+      const text = AUTO_CONTINUATION_PROMPT;
       const command = {
         type: "message.dispatch",
         commandId,
@@ -195,10 +195,10 @@ const make = Effect.gen(function* () {
         creationSource: "server",
         autoContinuationOfRunId: run.id,
       } as const;
-      // The before-send hooks see a continuation like any other send: its text carries the
-      // agent's "remaining" words, model output that can quote files or tool results, so it is
-      // not the system's own message the gate lets through. A block or a rewrite (which cannot
-      // be reviewed here) stops the chain with the hook's reason; nothing retries it.
+      // The before-send hooks see a continuation like any other send that is not a person's. Its
+      // text is fixed (AUTO_CONTINUATION_PROMPT), so a redaction hook finds nothing to rewrite;
+      // a hook that blocks, or still rewrites (which cannot be reviewed here), stops the chain
+      // with the hook's reason, and nothing retries it.
       const gate = yield* BeforeSendGate.checkDispatch(command, beforeSendReads).pipe(
         Effect.provide(beforeSendContext),
         Effect.result,

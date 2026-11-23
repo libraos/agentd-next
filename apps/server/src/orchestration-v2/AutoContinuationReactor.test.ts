@@ -19,6 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { AgentdBeforeSendError } from "@t3tools/contracts";
+import { AUTO_CONTINUATION_PROMPT } from "@t3tools/shared/orchestrationV2AutoContinuation";
 
 import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
@@ -264,7 +265,8 @@ it.effect("continues once when the agent's final message says work remains", () 
     assert.equal(continuation.providerInstanceId, source.providerInstanceId);
     assert.equal((yield* records).thread.runtimeMode, "approval-required");
     const prompt = messages.find((message) => message.runId === continuation.id);
-    assert.include(prompt?.text ?? "", "run chapter 1 end to end");
+    // Fixed text: the agent's own remaining words stay in its context and are not sent again.
+    assert.equal(prompt?.text, AUTO_CONTINUATION_PROMPT);
     assert.equal(prompt?.notification?.summary, "Continuing automatically (1 of 3)");
   }).pipe(Effect.provide(layerWith())),
 );
@@ -453,7 +455,7 @@ it.effect("asks the before-send hooks about a continuation like any other send",
     yield* handle(yield* endLatestRun([{ type: "tool" }, { type: "assistant", text: REMAINING }]));
     assert.equal((yield* records).runs.length, 2);
     assert.equal(seen.length, 1);
-    assert.include(seen[0]!.text, "run chapter 1 end to end");
+    assert.equal(seen[0]!.text, AUTO_CONTINUATION_PROMPT);
     assert.equal(seen[0]!.source, "server");
     // A rewrite here has no one to review it, so it is not offered as one.
     assert.isUndefined(seen[0]!.resend);
@@ -462,6 +464,41 @@ it.effect("asks the before-send hooks about a continuation like any other send",
       layerWith({}, (request) =>
         Effect.sync(() => {
           seen.push(request);
+        }),
+      ),
+    ),
+  );
+});
+
+it.effect("continues when the remaining work names a person a redaction hook would rewrite", () => {
+  // A lawyer's agent reads case files, so its remaining words name real people. The continuation
+  // does not quote them, so a hook that rewrites any text with a name has nothing to rewrite.
+  const seen: Array<string> = [];
+  return Effect.gen(function* () {
+    yield* setup;
+    const named = "Read the lease.\n\nStatus: remaining: check clause 5 of Jane Roe's lease";
+    yield* handle(yield* endLatestRun([{ type: "tool" }, { type: "assistant", text: named }]));
+    const { runs, messages } = yield* records;
+    assert.equal(runs.length, 2);
+    assert.deepEqual(seen, [AUTO_CONTINUATION_PROMPT]);
+    const continuation = runs.find((run) => run.autoContinuationOfRunId !== undefined)!;
+    const prompt = messages.find((message) => message.runId === continuation.id);
+    assert.equal(prompt?.text, AUTO_CONTINUATION_PROMPT);
+    assert.deepEqual(yield* notices, []);
+  }).pipe(
+    Effect.provide(
+      layerWith({}, (request) =>
+        Effect.suspend(() => {
+          seen.push(request.text);
+          return request.text.includes("Jane Roe")
+            ? Effect.fail(
+                new AgentdBeforeSendError({
+                  reason: "blocked",
+                  message:
+                    "redact would change this message, and a change needs review in the app, so it was not sent.",
+                }),
+              )
+            : Effect.void;
         }),
       ),
     ),

@@ -90,10 +90,14 @@ export function decideAutoContinuation(input: AutoContinuationInput): AutoContin
   return { type: "continue", remaining, continuation: input.continuationsSoFar + 1 };
 }
 
-export function autoContinuationPrompt(remaining: string): string {
-  const left = remaining.length === 0 ? "" : `\n\nWhat remains, in your words: ${remaining}`;
-  return `Continue toward the user's original request without waiting for them. Do the remaining work you can do yourself, within the permissions you already have.${left}`;
-}
+/**
+ * The continuation's message is fixed text: the agent's own "remaining" words are already in its
+ * context, and quoting them would send model output (which can carry names from files the agent
+ * read) through the before-send hooks, where a redaction rewrite cannot be reviewed and stops the
+ * chain. Fixed text carries nothing to redact.
+ */
+export const AUTO_CONTINUATION_PROMPT =
+  "Continue toward the user's original request without waiting for them. Do the remaining work your last message named that you can do yourself, within the permissions you already have.";
 
 const STOP_EXPLANATIONS: Record<AutoContinuationStopReason, string> = {
   blocked: "The agent says it is blocked.",
