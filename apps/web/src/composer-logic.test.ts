@@ -25,9 +25,13 @@ import {
   isPathSuggestionCurrent,
   replaceTextRange,
 } from "./composer-logic";
-import { slashCommandItemsForPromptPosition } from "./components/chat/composerSlashCommandSearch";
+import {
+  searchSlashCommandItems,
+  slashCommandItemsForPromptPosition,
+} from "./components/chat/composerSlashCommandSearch";
 import { carryDisplacedCustomAnswerIntoPrompt } from "./pendingUserInput";
 import { formatTerminalContextReference } from "./lib/terminalContext";
+import { handToWorkerSlashItem } from "./components/agentd/handToWorkerSlash";
 
 const terminalReference = formatTerminalContextReference({
   id: "ctx-1",
@@ -604,6 +608,25 @@ describe("side chat slash commands", () => {
     }));
     expect(slashCommandItemsForPromptPosition(items, false).map((item) => item.id)).toEqual([
       "slash:model",
+    ]);
+  });
+});
+
+describe("hand to a worker slash command", () => {
+  it("is found by /hand like any other built-in command", () => {
+    const items = [
+      ...(["model", "side"] as const).map((command) => ({
+        id: `slash:${command}`,
+        type: "slash-command" as const,
+        command,
+        label: `/${command}`,
+        description: "",
+      })),
+      handToWorkerSlashItem("Start a background task, or draft one from this chat as a task card"),
+    ];
+    expect(items.at(-1)?.label).toBe("/hand-to-worker");
+    expect(searchSlashCommandItems(items, "/hand").map((item) => item.id)).toEqual([
+      "slash:hand-to-worker",
     ]);
   });
 });

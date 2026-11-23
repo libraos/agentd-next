@@ -834,6 +834,23 @@ export function summarizeT3ToolCalls(
           );
       break;
     }
+    case "media": {
+      const count = selected.length;
+      label = done
+        ? resolve(
+            msg(
+              "{count, plural, one {Used gateway media tools {count} time} other {Used gateway media tools {count} times}}",
+              { count },
+            ),
+          )
+        : resolve(
+            msg(
+              "{count, plural, one {Tried to use gateway media tools {count} time} other {Tried to use gateway media tools {count} times}}",
+              { count },
+            ),
+          );
+      break;
+    }
     case "send-to-user": {
       const count = selected.length;
       label = done

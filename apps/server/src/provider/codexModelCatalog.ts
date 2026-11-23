@@ -5,7 +5,7 @@ import { codexModelFamily } from "@t3tools/shared/model";
 import { compareSemverVersions, parseSemver } from "@t3tools/shared/semver";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { TrimmedNonEmptyString } from "@t3tools/contracts";
+import { LIBRAOS_GATEWAY_ORIGIN, TrimmedNonEmptyString } from "@t3tools/contracts";
 
 const CODEX_MATCHING: ModelCatalog.CatalogMatching = { family: codexModelFamily };
 
@@ -42,8 +42,12 @@ function codexUpdateRequiredModels(
 export function applyCodexModelCatalog(
   draft: ServerProviderDraft,
   catalog: ModelCatalog.ProviderCatalog | undefined,
+  options?: { readonly onlyCustomModels?: boolean | undefined },
 ): ServerProviderDraft {
-  const updateRequiredModels = codexUpdateRequiredModels(catalog, draft);
+  // The Gateway key, not the CLI version, decides which models a Gateway agent lacks.
+  const keyDecides =
+    options?.onlyCustomModels === true || draft.auth.endpoint === LIBRAOS_GATEWAY_ORIGIN;
+  const updateRequiredModels = keyDecides ? [] : codexUpdateRequiredModels(catalog, draft);
   return {
     ...ModelCatalog.applyModelCatalog(draft, catalog, CODEX_MATCHING),
     ...(updateRequiredModels.length > 0 ? { updateRequiredModels } : {}),

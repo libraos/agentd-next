@@ -82,6 +82,7 @@ import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { AsyncResult, Atom } from "effect/reactivity";
+import { resolveAssetUrl } from "@t3tools/client-runtime/state/assets";
 import React, {
   Suspense,
   type ComponentProps,
@@ -202,6 +203,8 @@ import { textDirection } from "~/textDirection";
 import { useOpenLink } from "../browser/useOpenLink";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
 import { isPreviewAvailableFor } from "../browser/previewRuntime";
+import { downloadAssetFile } from "~/assets/assetFileDownload";
+import { CodeSurfacesContext } from "./chat/codeSurfacesContext";
 import {
   isBrowserPreviewFile,
   openFileInPreview,
@@ -605,6 +608,7 @@ function useChatMarkdownState({
   const canUseShellActions =
     canOperateHost &&
     canUseMarkdownFileShellActions(environmentId, remoteOpen.state.mode, remoteOpen.isResolved);
+  const codeSurfaces = use(CodeSurfacesContext);
   const openMarkdownMedia = (
     source: string,
     resolvedFilePath?: string,
@@ -998,6 +1002,30 @@ function useChatMarkdownState({
             ? () => openMarkdownMedia(mediaPath, fileLinkMeta.filePath)
             : undefined
         }
+        onDownload={
+          threadRef && !isAppBundle
+            ? async () => {
+                const httpBaseUrl = readPreparedConnection(threadRef.environmentId)?.httpBaseUrl;
+                if (!httpBaseUrl) throw new Error(gt("The environment is not connected."));
+                const { absolutePath } = await resolveHostPath();
+                const result = await createAssetUrl({
+                  environmentId: threadRef.environmentId,
+                  input: {
+                    resource: {
+                      _tag: "media-file",
+                      threadId: threadRef.threadId,
+                      path: absolutePath,
+                      disposition: "attachment",
+                    },
+                  },
+                });
+                if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+                const url = resolveAssetUrl(httpBaseUrl, result.value.relativeUrl);
+                if (url === null || !(await downloadAssetFile(url, absolutePath)))
+                  throw new Error(gt("The file could not be loaded. Try again."));
+              }
+            : undefined
+        }
         openInEditorMenuLabel={canOpenApp ? gt("Open app") : preferredEditorMenuLabel}
         onReveal={
           canUseShellActions && revealInFileManagerLabel !== undefined
@@ -1007,6 +1035,7 @@ function useChatMarkdownState({
         revealLabel={revealInFileManagerLabel}
         onOpenInBrowser={
           threadRef &&
+          codeSurfaces &&
           canOperatePreview &&
           isPreviewAvailableFor(threadRef.environmentId) &&
           isBrowserPreviewFile(fileLinkMeta.filePath)
@@ -1243,7 +1272,12 @@ const CHAT_MARKDOWN_COMPONENTS = {
       // An autolink's text is its own URL, which is no label.
       const label = written && parseThreadLinkHref(written) === null ? written : null;
       return environmentId ? (
-        <MarkdownThreadLink environmentId={environmentId} link={threadLink} label={label} />
+        <MarkdownThreadLink
+          environmentId={environmentId}
+          threadRef={threadRef}
+          link={threadLink}
+          label={label}
+        />
       ) : (
         <span>{label ?? gt("Thread")}</span>
       );

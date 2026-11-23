@@ -10,6 +10,7 @@ import * as Option from "effect/Option";
 import * as DesktopBackendPool from "../backend/DesktopBackendPool.ts";
 import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
+import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
@@ -37,6 +38,8 @@ export interface UpdatesHarnessOptions {
   readonly env?: Record<string, string | undefined>;
   readonly platform?: NodeJS.Platform;
   readonly packageType?: string | undefined;
+  /** Further files the updater may read, by absolute path. */
+  readonly files?: Readonly<Record<string, string>>;
   readonly installRecord?: string | undefined;
   readonly policy?: DesktopUpdatePolicy.UpdatePolicy;
   readonly appVersion?: string;
@@ -255,6 +258,8 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
         ? (installRecords.get(path) ?? previousInstallRecord)
         : undefined;
       if (installRecord !== undefined) return Effect.succeed(installRecord);
+      const file = options.files?.[path];
+      if (file !== undefined) return Effect.succeed(file);
       return path === "/missing/resources/package-type" && options.packageType !== undefined
         ? Effect.succeed(options.packageType)
         : Effect.fail(
@@ -290,8 +295,23 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
       }),
   });
 
+  const openedUrls: unknown[] = [];
+  const layerShell = Layer.succeed(ElectronShell.ElectronShell, {
+    openExternal: Effect.fn("test.openExternal")(function* (url) {
+      openedUrls.push(url);
+      return true;
+    }),
+    openSystemSettings: Effect.fn("test.openSystemSettings")(function* () {
+      return yield* Effect.die("unexpected system settings");
+    }),
+    copyText: Effect.fn("test.copyText")(function* () {
+      return yield* Effect.die("unexpected copy");
+    }),
+  });
+
   const layer = DesktopUpdates.layer.pipe(
     Layer.provide(layerFileSystem),
+    Layer.provide(layerShell),
     Layer.provide(DesktopUpdatePolicy.layerTest(options.policy)),
     Layer.provideMerge(layerUpdater),
     Layer.provideMerge(layerWindow),
@@ -322,6 +342,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     installRecords,
     previousInstallRecord: () => previousInstallRecord,
     downloadCount: () => downloadCount,
+    openedUrls: () => openedUrls,
     feedUrls: (): ElectronUpdater.ElectronUpdaterFeedUrl[] => feedUrls,
     fullChangelog: () => fullChangelog,
     /** Whether each feed check could offer an older release, and the flag now. */

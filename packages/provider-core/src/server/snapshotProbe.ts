@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
-import { readCustomModelEntries } from "@t3tools/shared/model";
+import { familyCatalogSlug, readCustomModelEntries } from "@t3tools/shared/model";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { createProviderVersionAdvisory } from "./maintenanceResolver.ts";
 import { collectUint8StreamText } from "./collectStreamText.ts";
@@ -206,8 +206,12 @@ export function providerModelsFromSettings(
   builtInModels: ReadonlyArray<ServerProviderModel>,
   customModels: ReadonlyArray<CustomModelSetting>,
   customModelCapabilities: ModelCapabilities | null,
+  options?: { readonly onlyCustomModels?: boolean | undefined },
 ): ReadonlyArray<ServerProviderModel> {
   const entries = readCustomModelEntries(customModels);
+  if (options?.onlyCustomModels === true) {
+    return onlyCustomProviderModels(builtInModels, entries, customModelCapabilities);
+  }
   if (entries.length === 0) return builtInModels;
 
   const nameOverrides = new Map(
@@ -236,6 +240,59 @@ export function providerModelsFromSettings(
   }
 
   return [...resolvedBuiltInModels, ...customEntries];
+}
+
+// The endpoint's own list wins: a catalog entry it serves keeps its name and options, one it does
+// not serve is dropped, and a model the catalog lacks is added as a custom model, under the family
+// its entry names, with the options of the catalog model its family-prefixed id names.
+function onlyCustomProviderModels(
+  builtInModels: ReadonlyArray<ServerProviderModel>,
+  entries: ReturnType<typeof readCustomModelEntries>,
+  customModelCapabilities: ModelCapabilities | null,
+): ReadonlyArray<ServerProviderModel> {
+  const served = new Set(entries.map((entry) => entry.slug));
+  const kept = builtInModels.filter((model) => served.has(model.slug));
+  const seen = new Set(kept.map((model) => model.slug));
+  const added: ServerProviderModel[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.slug)) continue;
+    seen.add(entry.slug);
+    added.push({
+      slug: entry.slug,
+      name: entry.name,
+      ...(entry.subProvider ? { subProvider: entry.subProvider } : {}),
+      isCustom: true,
+      capabilities:
+        entry.capabilities ??
+        builtInModels.find((model) => model.slug === familyCatalogSlug(entry))?.capabilities ??
+        customModelCapabilities,
+    });
+  }
+  return [...kept, ...added];
+}
+
+/**
+ * The models a custom endpoint serves for the key the agent sends it (none when it sends none), or
+ * undefined for an endpoint that serves every model.
+ */
+export type EndpointKeyModels = (input: {
+  readonly endpoint: string;
+  readonly key: string | undefined;
+  /** The list that stands while the endpoint has not answered for this key yet. */
+  readonly known?: ReadonlyArray<CustomModelSetting>;
+}) => Effect.Effect<ReadonlyArray<CustomModelSetting> | undefined>;
+
+export const NO_SERVED_MODELS_MESSAGE =
+  "No models: the key this agent uses allows none of its models, is missing or refused, or could not be checked yet. Check the key and connection, then refresh.";
+
+/** A provider limited to its endpoint's models says why its list is empty. */
+export function withNoServedModelsNotice(
+  draft: ServerProviderDraft,
+  onlyCustomModels: boolean | undefined,
+): ServerProviderDraft {
+  if (onlyCustomModels !== true || !draft.enabled || draft.models.length > 0) return draft;
+  if (draft.status === "error") return draft;
+  return { ...draft, status: "warning", message: NO_SERVED_MODELS_MESSAGE };
 }
 
 export function buildSelectOptionDescriptor(input: {

@@ -67,6 +67,18 @@ describe("applyCodexModelCatalog", () => {
     }
   });
 
+  it("names no update for a Gateway agent: its key decides which models it lacks", () => {
+    const own = {
+      ...draft("1.1.9"),
+      auth: { status: "authenticated" as const, endpoint: "https://api.libraos.com" },
+    };
+    assert.isUndefined(applyCodexModelCatalog(own, catalog).updateRequiredModels);
+    assert.isUndefined(
+      applyCodexModelCatalog(draft("1.1.9"), catalog, { onlyCustomModels: true })
+        .updateRequiredModels,
+    );
+  });
+
   it("classifies qualified Codex families without changing their wire ids", () => {
     const classified = applyCodexModelCatalog(
       draft("1.2.0", [

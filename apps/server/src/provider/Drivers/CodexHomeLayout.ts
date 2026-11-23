@@ -460,9 +460,13 @@ export const materializeCodexShadowHome = Effect.fn("materializeCodexShadowHome"
   });
 });
 
-export function codexContinuationIdentity(layout: CodexHomeLayout) {
+/** A launch-arg `model_provider` (a gateway) is its own group: its threads never resume on the login. */
+export function codexContinuationIdentity(layout: CodexHomeLayout, modelProvider?: string) {
   return {
     driverKind: ProviderDriverKind.make("codex"),
-    continuationKey: layout.continuationKey,
+    continuationKey:
+      modelProvider === undefined
+        ? layout.continuationKey
+        : `${layout.continuationKey}:provider:${modelProvider}`,
   };
 }

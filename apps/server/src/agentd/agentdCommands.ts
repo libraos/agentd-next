@@ -1,6 +1,13 @@
 import * as Schema from "effect/Schema";
 
-import { handoffRecord, reserveRecord, submissionMarker } from "./agentdCloudSubmissions.ts";
+import {
+  handoffRecord,
+  attemptRecord,
+  offerState,
+  releaseRecord,
+  reserveRecord,
+  submissionMarker,
+} from "./agentdCloudSubmissions.ts";
 import type {
   AgentdCloudTaskInput,
   AgentdConnectAgentInput,
@@ -36,6 +43,22 @@ function text(name: string, value: string): string {
 }
 
 const CLOUD_SESSION = "agentd-new";
+
+const AGE_RECIPIENT = /^age1[02-9ac-hj-np-z]{58}$/;
+
+function backupRecipient(value: string): string {
+  if (!AGE_RECIPIENT.test(value)) {
+    throw new AgentdArgumentError({ message: "not an age public key (age1...)" });
+  }
+  return value;
+}
+
+function absolute(value: string): string {
+  if (!/^(\/|[A-Za-z]:[\\/]|\\\\)/.test(value) || value.includes("\0")) {
+    throw new AgentdArgumentError({ message: "not an absolute path" });
+  }
+  return value;
+}
 
 /** An agentd server's address: http(s) with a host, normalized so agentd cannot read it as a flag. */
 function agentdServerUrl(value: string): string {
@@ -100,6 +123,22 @@ export const agentdArgs = {
   version: () => ["version"],
   doctor: () => ["doctor", "--json"],
   defaultWorker: () => ["config", "get", "dispatch.default_tool"],
+  configHelp: () => ["config", "--help"],
+  workerModel: (tool: AgentdWorkerTool) => ["config", "get", `dispatch.${tool}_model`],
+  /** `url` "" clears the gateway and its key file. */
+  setWorkerGateway: (tool: AgentdWorkerTool, url: string, keyFile: string | null) => [
+    "config",
+    "set",
+    `dispatch.${tool}_base_url`,
+    url === "" ? "" : agentdServerUrl(url),
+    ...(keyFile === null ? [] : ["--key-file", text("key file", keyFile)]),
+  ],
+  setWorkerModel: (tool: AgentdWorkerTool, model: string) => [
+    "config",
+    "set",
+    `dispatch.${tool}_model`,
+    model === "" ? "" : text("model", model),
+  ],
   budgetPrices: () => ["config", "get", "budget.prices"],
   list: () => ["handoff", "list", "--json"],
   show: (id: string) => ["handoff", "show", handoffId(id), "--json"],
@@ -131,12 +170,14 @@ export const agentdArgs = {
     input.cwd,
     "--no-start",
   ],
-  dispatch: (id: string, worker: AgentdWorkerTool) => [
+  // force starts past an open task holding the directory or issue, after the person chose to.
+  dispatch: (id: string, worker: AgentdWorkerTool, force = false) => [
     "handoff",
     "dispatch",
     handoffId(id),
     "--tool",
     worker,
+    ...(force ? ["--force"] : []),
   ],
   connectAgent: (input: AgentdConnectAgentInput) => [
     "connect",
@@ -149,6 +190,16 @@ export const agentdArgs = {
     agentdServerUrl(server),
     "--ticket-file",
     "-",
+  ],
+  // The public key only: the private key never leaves the device that asked.
+  backupCreate: (output: string, recipient: string) => [
+    "backup",
+    "create",
+    "-o",
+    absolute(output),
+    "--recipient",
+    backupRecipient(recipient),
+    "--json",
   ],
   cloudHelp: () => ["handoff", "offer", "--help"],
   cloudBalance: () => ["cloud", "balance", "--json"],
@@ -191,19 +242,35 @@ export const agentdArgs = {
     "--cwd",
     text("working directory", cwd),
   ],
+  cloudSync: () => ["cloud", "sync"],
   submissionPins: (session: string) => ["pin", "list", "--session", session, "--json"],
-  reserveSubmission: (session: string, id: string, after: string | null, fingerprint: string) => [
-    "pin",
-    "add",
-    reserveRecord(id, after, fingerprint),
-    "--session",
-    session,
-    "--json",
-  ],
+  reserveSubmission: (
+    session: string,
+    id: string,
+    after: string | null,
+    fingerprint: string,
+    nonce: string,
+  ) => ["pin", "add", reserveRecord(id, after, fingerprint, nonce), "--session", session, "--json"],
   rememberSubmission: (session: string, id: string, handoff: string) => [
     "pin",
     "add",
     handoffRecord(id, handoff),
+    "--session",
+    session,
+    "--json",
+  ],
+  attemptSubmission: (session: string, id: string, fingerprint: string, nonce: string) => [
+    "pin",
+    "add",
+    attemptRecord(id, fingerprint, nonce),
+    "--session",
+    session,
+    "--json",
+  ],
+  releaseSubmission: (session: string, id: string, nonce: string) => [
+    "pin",
+    "add",
+    releaseRecord(id, nonce),
     "--session",
     session,
     "--json",
@@ -215,14 +282,19 @@ export const agentdArgs = {
     "handoff",
     "--json",
   ],
-  cloudOffer: (input: AgentdCloudTaskInput, project: string, submission: string) => [
+  cloudOffer: (
+    input: AgentdCloudTaskInput,
+    project: string,
+    submission: string,
+    fingerprint: string,
+  ) => [
     "handoff",
     "offer",
     "--cloud",
     "--idem",
     submission,
     "--state",
-    submissionMarker(submission),
+    offerState(submission, fingerprint),
     "--to",
     "any",
     "--session",

@@ -17,6 +17,7 @@ import { Switch } from "../ui/switch";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings/settingsLayout";
 import { AgentdStatusLines, useAgentdState, useCloudWorkersLinked } from "./AgentdIndicator";
 import { openAgentdSetupDialog, useCanSetUpAgentd } from "./AgentdSetupDialog";
+import { WorkerGatewaySettings } from "./WorkerGatewaySettings";
 import { parseDefaultBudget } from "./agentdVisibility.logic";
 import { budgetDollars } from "./startTask.logic";
 
@@ -116,6 +117,29 @@ export function WorkersSettings() {
           key={budget}
           budget={budget}
           dollarBudgets={status?.dollarBudgets ?? null}
+        />
+      </SettingsSection>
+      {status?.setUp === true && environmentId !== null ? (
+        <WorkerGatewaySettings environmentId={environmentId} />
+      ) : null}
+      <SettingsSection id="workers-cloud" title={gt("Cloud Workers")}>
+        <SettingsRow
+          id="workers-cloud-setup"
+          title={gt("LibraOS account")}
+          description={
+            linked === true ? (
+              <T>Your LibraOS account is linked. Its credit and key are on the AgentD page.</T>
+            ) : (
+              <T>
+                Run tasks on LibraOS machines instead of this one. Set them up on the AgentD page.
+              </T>
+            )
+          }
+          control={
+            <Button size="xs" variant="outline" render={<Link to="/agentd" hash="agentd-cloud" />}>
+              {linked === true ? <T>Manage Cloud Workers</T> : <T>Set up Cloud Workers</T>}
+            </Button>
+          }
         />
       </SettingsSection>
     </SettingsPageContainer>

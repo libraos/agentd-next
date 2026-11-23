@@ -123,6 +123,11 @@ export function agentdTaskRow(row: AgentdHandoffListJsonRow): AgentdTaskRow {
   };
 }
 
+function optionalReport(note: string | null | undefined): { report?: string } {
+  const report = nonEmpty(note);
+  return report === null ? {} : { report };
+}
+
 function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
   if (nonEmpty(show.cloud_state) !== null) return "cloud";
   return nonEmpty(show.lease_device) === null ? "local" : "team";
@@ -162,6 +167,7 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
       cloudJobNote(cloudState, [show.cloud?.result, show.cloud?.note]) ??
       nonEmpty(show.worker_note) ??
       nonEmpty(show.close_reason),
+    ...optionalReport(show.report_note),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
     started: nonEmpty(show.created),

@@ -21,6 +21,10 @@ import { settingsSecretLiteral } from "@t3tools/contracts";
 
 import { OpenCodeSettings } from "../settings.ts";
 import type { ProviderCompatibilityLookup } from "@t3tools/provider-core/server/compatibility";
+import {
+  NO_SERVED_MODELS_MESSAGE,
+  type EndpointKeyModels,
+} from "@t3tools/provider-core/server/snapshotProbe";
 import * as OpenCodeRuntime from "./OpenCodeRuntime.ts";
 import * as OpenCodeServerOwner from "./OpenCodeServerOwner.ts";
 import {
@@ -37,6 +41,7 @@ import {
   OPENCODE_2_RESPONSES,
   replayOpenCodeServer,
 } from "./probeResponses.fixture.ts";
+import { DEFAULT_VARIANT_CHOICE_ID } from "@t3tools/shared/model";
 const decodeOpenCodeSettings = Schema.decodeSync(OpenCodeSettings);
 
 const DEFAULT_VERSION_STDOUT = "opencode 1.14.19\n";
@@ -509,6 +514,7 @@ const checkProvider = Effect.fn("checkProvider")(function* (
     OpenCodeRuntime.OpenCodeRuntimeError
   > = Effect.succeed([]),
   compatibility?: ProviderCompatibilityLookup,
+  endpointKeyModels?: EndpointKeyModels,
 ) {
   return yield* Effect.scoped(
     Effect.gen(function* () {
@@ -529,6 +535,7 @@ const checkProvider = Effect.fn("checkProvider")(function* (
         openCode2Models,
         environment,
         compatibility,
+        endpointKeyModels,
       ).pipe(Effect.provideService(OpenCodeServerOwner.OpenCodeServerOwner, serverOwner));
     }),
   );
@@ -625,6 +632,9 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
       NodeAssert.equal(empty.status, "warning");
       NodeAssert.equal(empty.auth.status, "unknown");
       NodeAssert.deepEqual(empty.models, []);
+      // A key that allows no models lists none for good, so the warning does not promise more.
+      NodeAssert.ok(!empty.message?.includes("yet"));
+      NodeAssert.match(empty.message ?? "", /key or account allows a model/);
 
       upstream.models = {
         "gpt-5.4": { id: "gpt-5.4", name: "GPT-5.4", variants: {} },
@@ -637,6 +647,100 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
         ["openai/gpt-5.4"],
       );
     }),
+  );
+
+  it.effect(
+    "lists only the models the Gateway allows for the key OpenCode's own config sends",
+    () =>
+      Effect.gen(function* () {
+        const model = (id: string) => ({ id, name: id, variants: {} });
+        const inventory = (connected: ReadonlyArray<string>) => ({
+          providerList: {
+            connected,
+            all: [
+              {
+                id: "libraos",
+                name: "LibraOS Gateway",
+                key: "lk_opencode_key_123",
+                options: { baseURL: "https://api.libraos.com/v1" },
+                models: {
+                  "anthropic/claude-opus-5-5": model("anthropic/claude-opus-5-5"),
+                  "openai/gpt-6-astra": model("openai/gpt-6-astra"),
+                },
+              },
+              {
+                id: "openai",
+                name: "OpenAI",
+                options: {},
+                models: { "gpt-5.4": model("gpt-5.4") },
+              },
+            ],
+            default: {},
+          },
+          agents: [],
+          skills: [],
+        });
+        runtimeMock.state.inventory = inventory(["libraos", "openai"]);
+        const asked: Array<{ readonly endpoint: string; readonly key: string | undefined }> = [];
+        const status = yield* checkProvider(
+          makeOpenCodeSettings(),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          (input) =>
+            Effect.sync(() => asked.push(input)).pipe(
+              Effect.as(
+                input.endpoint === "https://api.libraos.com"
+                  ? [{ slug: "openai/gpt-6-astra" }]
+                  : undefined,
+              ),
+            ),
+        );
+        NodeAssert.deepEqual(status.models.map((entry) => entry.slug).toSorted(), [
+          "libraos/openai/gpt-6-astra",
+          "openai/gpt-5.4",
+        ]);
+        NodeAssert.deepEqual(asked, [
+          { endpoint: "https://api.libraos.com", key: "lk_opencode_key_123" },
+        ]);
+        // A mixed account is not the Gateway's alone, so its list is not marked as the Gateway's;
+        // the Gateway's sub-provider is, so clients and the registry treat its list as final.
+        NodeAssert.equal(status.auth.endpoint, undefined);
+        NodeAssert.deepEqual(status.auth.endpointProviders, ["libraos"]);
+
+        // A saved custom slug on the Gateway provider needs the key too; others are the user's.
+        const withCustom = yield* checkProvider(
+          makeOpenCodeSettings({ customModels: ["libraos/openai/gpt-5.5", "openai/gpt-x"] }),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          () => Effect.succeed([{ slug: "openai/gpt-6-astra" }]),
+        );
+        NodeAssert.deepEqual(withCustom.models.map((entry) => entry.slug).toSorted(), [
+          "libraos/openai/gpt-6-astra",
+          "openai/gpt-5.4",
+          "openai/gpt-x",
+        ]);
+
+        // Only the Gateway is connected and the key lost its last model: the empty list is final.
+        runtimeMock.state.inventory = inventory(["libraos"]);
+        const revoked = yield* checkProvider(
+          makeOpenCodeSettings({ customModels: ["libraos/openai/gpt-6-astra"] }),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          () => Effect.succeed([]),
+        );
+        NodeAssert.deepEqual(revoked.models, []);
+        NodeAssert.equal(revoked.auth.endpoint, "https://api.libraos.com");
+        NodeAssert.equal(revoked.message, NO_SERVED_MODELS_MESSAGE);
+      }),
   );
 
   it.effect("emits OpenCode variant defaults so trait picker can resolve a visible selection", () =>
@@ -696,6 +800,68 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
         "build",
       );
     }),
+  );
+
+  it.effect.each(["1.x", "2.x"] as const)(
+    "offers a Default reasoning choice for a %s custom model with no inferable default",
+    (generation) =>
+      Effect.gen(function* () {
+        const variants = ["low", "medium", "high"];
+        runtimeMock.state.versionStdout =
+          generation === "2.x" ? "opencode v2.0.18\n" : DEFAULT_VERSION_STDOUT;
+        runtimeMock.state.inventory = {
+          providerList: {
+            connected: ["acme"],
+            all: [
+              {
+                id: "acme",
+                name: "Acme",
+                models: {
+                  "acme-chat": {
+                    id: "acme-chat",
+                    name: "Acme Chat",
+                    variants: Object.fromEntries(variants.map((id) => [id, {}])),
+                  },
+                },
+              },
+            ],
+            default: {},
+          },
+          agents: [],
+        };
+
+        const snapshot = yield* checkProvider(
+          makeOpenCodeSettings(),
+          process.cwd(),
+          undefined,
+          undefined,
+          Effect.succeed([
+            {
+              providerID: "acme",
+              id: "acme-chat",
+              name: "Acme Chat",
+              variants: variants.map((id) => ({ id })),
+            },
+          ]),
+        );
+        const variant = snapshot.models
+          .find((model) => model.slug === "acme/acme-chat")
+          ?.capabilities?.optionDescriptors?.find((descriptor) => descriptor.id === "variant");
+
+        NodeAssert.ok(variant?.type === "select");
+        NodeAssert.deepEqual(
+          variant.options.find((option) => option.id === DEFAULT_VARIANT_CHOICE_ID),
+          { id: DEFAULT_VARIANT_CHOICE_ID, label: "Default" },
+          "OpenCode cannot infer a default variant, so the picker needs a choice that sends none",
+        );
+        NodeAssert.equal(variant.currentValue, DEFAULT_VARIANT_CHOICE_ID);
+        NodeAssert.deepEqual(
+          variant.options
+            .map((option) => option.id)
+            .filter((id) => id !== DEFAULT_VARIANT_CHOICE_ID),
+          variants,
+        );
+      }),
   );
 
   it.effect("keeps Agent without inventing Reasoning for models with no variants", () =>
@@ -924,6 +1090,13 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
         ["opencode", "flash-free", "flash", "2026-09-10", "active"],
         ["opencode", "big-pickle", undefined, "2025-10-17", "active"],
         ["openrouter", "opus-4-5", "claude-opus", "2025-11-24", "active"],
+        ["opencode", "gemini-4-argon", "gemini", "2026-10-13", "active", [2, 10]],
+        ["opencode", "gemini-4-carbon", "gemini", "2026-11-10", "active", [2, 10]],
+        ["opencode", "gemini-4-hydrogen", "gemini", "2026-11-12", "active", [1.5, 7.5]],
+        ["opencode", "muse-wonder-1.0", "muse", "2026-10-12", "active", [4, 20]],
+        ["opencode", "muse-ember-1.0", "muse", "2026-11-09", "active", [0.1, 0.5]],
+        ["opencode", "llama-3.1-8b", "llama", "2026-07-23", "active", [0.05, 0.08]],
+        ["opencode", "llama-3.3-70b", "llama", "2026-12-06", "active", [0.6, 0.8]],
       ] as const;
       const legacySlugs = (
         models: ReadonlyArray<{ readonly slug: string; readonly isLegacy?: boolean | undefined }>,
@@ -932,7 +1105,9 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
           .filter((model) => model.isLegacy)
           .map((model) => model.slug)
           .toSorted();
-      const expected = ["opencode/opus-4-5", "opencode/opus-preview"];
+      // One OpenCode `family` can hold several model sizes: Carbon replaces Argon at its price,
+      // while Hydrogen, Wonder, Ember and the 8b and 70b Llamas are other sizes.
+      const expected = ["opencode/gemini-4-argon", "opencode/opus-4-5", "opencode/opus-preview"];
 
       runtimeMock.state.inventory = {
         providerList: {
@@ -943,9 +1118,17 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
             models: Object.fromEntries(
               releases
                 .filter(([provider]) => provider === providerID)
-                .map(([, id, family, releaseDate, status]) => [
+                .map(([, id, family, releaseDate, status, cost]) => [
                   id,
-                  { id, name: id, family, release_date: releaseDate, status, variants: {} },
+                  {
+                    id,
+                    name: id,
+                    family,
+                    release_date: releaseDate,
+                    status,
+                    variants: {},
+                    ...(cost ? { cost: { input: cost[0], output: cost[1] } } : {}),
+                  },
                 ]),
             ),
           })),
@@ -965,7 +1148,7 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
         undefined,
         undefined,
         Effect.succeed(
-          releases.map(([providerID, id, family, releaseDate, status]) => ({
+          releases.map(([providerID, id, family, releaseDate, status, cost]) => ({
             providerID,
             id,
             name: id,
@@ -973,6 +1156,7 @@ it.layer(layerTest)("checkOpenCodeProviderStatus", (it) => {
             family,
             released: Date.parse(releaseDate),
             deprecated: status === "deprecated",
+            ...(cost ? { price: `${cost[0]}/${cost[1]}` } : {}),
           })),
         ),
       );

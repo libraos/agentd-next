@@ -761,7 +761,7 @@ it("keeps other agents behind More agents, even when one of them is ready", asyn
   await expect.element(screen.getByText("Pi", { exact: true })).toBeVisible();
 });
 
-it("shows only compatible endpoints and keeps the Gateway shortcut selected", async () => {
+it("lists every endpoint, asks which agents use a gateway, and keeps the Gateway shortcut selected", async () => {
   using _now = setup();
   await using screen = await mountWelcome();
   const firstHeading = screen.getByRole("heading", { name: "Connect an agent you already use" });
@@ -770,45 +770,32 @@ it("shows only compatible endpoints and keeps the Gateway shortcut selected", as
 
   await screen.getByRole("link", { name: "Use an API key or gateway" }).click();
   await expect.element(endpointHeading).toBeVisible();
-  await expect.element(options).not.toBeInTheDocument();
-  for (const [agent, expected] of [
-    [
-      "Claude Code",
-      ["LibraOS Gateway", "Anthropic API key", "AWS Bedrock", "Ollama", "Custom endpoint"],
-    ],
-    ["Codex", ["LibraOS Gateway", "OpenAI API key", "AWS Bedrock", "Ollama", "Custom endpoint"]],
-    [
-      "opencode",
-      [
-        "LibraOS Gateway",
-        "Anthropic API key",
-        "OpenAI API key",
-        "AWS Bedrock",
-        "Ollama",
-        "Custom endpoint",
-      ],
-    ],
-  ] as const) {
-    await screen.getByRole("radio", { name: agent, exact: true }).click();
-    await expect
-      .element(options.getByRole("button").first())
-      .toHaveAccessibleName("LibraOS Gateway");
-    expect(options.getByRole("button").elements()).toHaveLength(expected.length);
-    for (const name of expected) {
-      const option = options.getByRole("button", { name, exact: true });
-      if (name === "LibraOS Gateway") {
-        await expect.element(option).toBeEnabled();
-        await expect.element(option).not.toHaveAccessibleDescription(/Not available yet/);
-      } else {
-        await expect.element(option).toBeDisabled();
-        await expect.element(option).toHaveAccessibleDescription(/Not available yet/);
-      }
-    }
+  await expect.element(options.getByRole("button").first()).toHaveAccessibleName("LibraOS Gateway");
+  expect(options.getByRole("button").elements()).toHaveLength(6);
+  for (const name of ["LibraOS Gateway", "Custom endpoint"]) {
+    await expect.element(options.getByRole("button", { name, exact: true })).toBeEnabled();
+  }
+  for (const name of ["Anthropic API key", "OpenAI API key", "AWS Bedrock", "Ollama"]) {
+    const option = options.getByRole("button", { name, exact: true });
+    await expect.element(option).toBeDisabled();
+    await expect.element(option).toHaveAccessibleDescription(/Not available yet/);
   }
   await expect
     .element(options.getByRole("button", { name: "LibraOS Gateway" }))
     .toHaveAttribute("aria-pressed", "false");
   await expect.element(options.getByText("Requires a LibraOS account.")).toBeVisible();
+  await options.getByRole("button", { name: "Custom endpoint" }).click();
+  await expect
+    .element(options.getByRole("button", { name: "Custom endpoint" }))
+    .toHaveAttribute("aria-pressed", "true");
+  await expect.element(screen.getByLabelText("Key (optional)")).toHaveAttribute("type", "password");
+  const agents = screen.getByRole("group", { name: "Which agents should use this gateway?" });
+  await expect.element(agents.getByRole("checkbox", { name: "Codex" })).toBeChecked();
+  await expect.element(agents.getByRole("checkbox", { name: "opencode" })).toBeChecked();
+  await expect.element(agents.getByRole("checkbox", { name: "Claude Code" })).toBeDisabled();
+  await screen.getByRole("radio", { name: "Anthropic" }).click();
+  await expect.element(agents.getByRole("checkbox", { name: "Claude Code" })).toBeChecked();
+  await expect.element(agents.getByRole("checkbox", { name: "Codex" })).toBeDisabled();
   await screen.getByRole("link", { name: "Back" }).click();
   await expect.element(firstHeading).toBeVisible();
 
@@ -817,7 +804,6 @@ it("shows only compatible endpoints and keeps the Gateway shortcut selected", as
   await expect
     .element(screen.getByText("LibraOS Gateway selected. Requires a LibraOS account."))
     .toBeVisible();
-  await screen.getByRole("radio", { name: "Codex", exact: true }).click();
   await expect
     .element(options.getByRole("button", { name: "LibraOS Gateway" }))
     .toHaveAttribute("aria-pressed", "true");

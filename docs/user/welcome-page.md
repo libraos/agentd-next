@@ -44,8 +44,29 @@ agent later in **Settings → Providers**.
 
 **Use an API key or gateway** lets you choose **LibraOS Gateway** and the agent to
 use it with, then paste a **LibraOS API key** and press **Connect**. The key stays
-on that environment; **Disconnect** removes it. Other gateways show **Not available
-yet** on that screen; use a provider instance's environment variables for those
+on that environment; **Disconnect** removes it. Codex on the Gateway lists every
+model the key allows, and Claude Code all but a few named below, other families
+too: a Gemini model under Claude Code shows with `gemini` beside its name. An agent's own models show twice,
+by catalog name and by full Gateway id (`openai/gpt-5.5`), with the same options,
+except that a full Claude id has no 1M context choice; both run that model,
+unless the key also lists the bare id (`gpt-5.5`) as a route of its own: the
+catalog-named row then runs that route. Claude Code leaves out the few ids
+it would run as another model, such as `best`, `default` or a name ending in
+`[1m]`; Codex still lists them.
+
+Connecting also adds **Pi · LibraOS Gateway**, which needs nothing else installed:
+AgentD Next ships Pi and uses it when no `pi` is on your `PATH` (your own
+install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
+If no default model is chosen yet and neither Claude Code, Codex nor opencode
+is installed, it becomes the default.
+
+**Custom endpoint** connects any OpenAI- or Anthropic-compatible gateway: enter its
+**Endpoint URL**, pick the **Format** (OpenAI adds Codex, opencode and Pi agents,
+Anthropic adds Claude Code and opencode agents), add its **Key** (an
+Anthropic-format gateway needs one; an OpenAI-format one only if it asks),
+and press **Add gateway**; if its model list can't be read, list the **Model ids**
+yourself. Other options on that screen show **Not available yet**;
+use a provider instance's environment variables for those
 ([Providers](./install.md#providers)).
 
 **Join a team** takes a **Team invitation link** from your team and enrolls this

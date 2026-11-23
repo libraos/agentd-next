@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 
 import { cloudJobNote } from "./agentdCloud.ts";
-import { CLOUD_REASONS, cloudReason } from "./cloudFailure.ts";
+import { AgentdCommandError } from "@t3tools/contracts";
+
+import { CLOUD_REASONS, cloudReason, openKeyFile, startErrorFor } from "./cloudFailure.ts";
 
 describe("cloudJobNote", () => {
   it.each([
@@ -58,7 +60,73 @@ describe("cloudReason", () => {
       "cloud.claude_token_file must hold the token from claude setup-token (it starts sk-ant-oat) alone, on one line",
       CLOUD_REASONS.subscriptionTokenFormat,
     ],
+    [
+      "--anthropic-key-file /Users/me/my keys/anthropic.key can be read or written by others (mode 644)",
+      "/Users/me/my keys/anthropic.key can be read by other users. Run chmod 600 '/Users/me/my keys/anthropic.key', then try again.",
+    ],
+    [
+      "cloud.openai_key_file /srv/openai.key belongs to another user (uid 501)",
+      "/srv/openai.key belongs to another user. Copy it to a file of your own, run chmod 600 on that copy, then choose it.",
+    ],
+    [
+      "cloud.openai_key_file /home/me/it's;rm.key can be read or written by others (mode 644)",
+      "/home/me/it's;rm.key can be read by other users. Run chmod 600 '/home/me/it'\\''s;rm.key', then try again.",
+    ],
+    ["the key file can be read or written by others", CLOUD_REASONS.privateFile],
   ] as const)("%s", (message, reason) => {
     expect(cloudReason(message)).toBe(reason);
+  });
+});
+
+describe("openKeyFile", () => {
+  it("names only a file others can read, which the app may make private", () => {
+    expect(
+      openKeyFile(
+        "--openai-key-file /home/me/openai.key can be read or written by others (mode 664)",
+      ),
+    ).toBe("/home/me/openai.key");
+    expect(
+      openKeyFile("cloud.openai_key_file /srv/openai.key belongs to another user (uid 501)"),
+    ).toBe(null);
+    expect(openKeyFile("check exited 1")).toBe(null);
+  });
+});
+
+describe("startErrorFor", () => {
+  it("names whose key a file holds only to a connection that may read host files", () => {
+    const wrong = new AgentdCommandError({
+      message: "The file in the OpenAI key field holds an Anthropic key.",
+      notSetUp: false,
+      wrongKeyFile: "openai",
+    });
+    expect(startErrorFor(wrong, true, [])).toBe(wrong);
+    const hidden = startErrorFor(wrong, false, []);
+    expect(hidden).toMatchObject({ message: CLOUD_REASONS.keyFile });
+    expect(hidden).not.toHaveProperty("wrongKeyFile");
+    const other = new AgentdCommandError({ message: "x", notSetUp: false });
+    expect(startErrorFor(other, false, [])).toBe(other);
+  });
+
+  it("names a shared credential file to a connection without host reads only if it entered it", () => {
+    const opened =
+      "--claude-token-file /srv/personal/claude-token can be read or written by others";
+    const shared = new AgentdCommandError({
+      message: cloudReason(opened)!,
+      notSetUp: false,
+      privateFile: openKeyFile(opened)!,
+    });
+    expect(startErrorFor(shared, true, [])).toBe(shared);
+    // The host's configured token file, which this connection never named.
+    const hidden = startErrorFor(shared, false, []);
+    expect(hidden.message).toBe(CLOUD_REASONS.privateFile);
+    expect(hidden).not.toHaveProperty("privateFile");
+    expect(startErrorFor(shared, false, ["/srv/personal/claude-token"])).toBe(shared);
+    const owned = new AgentdCommandError({
+      message: cloudReason("cloud.claude_token_file /srv/t belongs to another user (uid 501)")!,
+      notSetUp: false,
+    });
+    expect(owned.message).toContain("/srv/t");
+    expect(startErrorFor(owned, false, []).message).toBe(CLOUD_REASONS.privateFile);
+    expect(startErrorFor(owned, false, ["/srv/t"])).toBe(owned);
   });
 });

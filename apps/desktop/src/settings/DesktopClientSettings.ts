@@ -1,4 +1,8 @@
-import { ClientSettingsSchema, type ClientSettings } from "@t3tools/contracts";
+import {
+  ClientSettingsSchema,
+  type ClientSettings,
+  withStoredCloudKeyFiles,
+} from "@t3tools/contracts";
 import { fromLenientJson } from "@t3tools/shared/schemaJson";
 import { resolveSymlinkTarget } from "@t3tools/shared/symlink";
 import * as Context from "effect/Context";
@@ -9,6 +13,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as Ref from "effect/Ref";
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
@@ -192,23 +197,24 @@ export const make = Effect.gen(function* () {
   const path = yield* Path.Path;
   const random = yield* SecureRandom.SecureRandom;
 
+  const get = readClientSettings(fileSystem, environment.clientSettingsPath);
+  // Each window writes its whole settings: one write at a time, over what the last one stored.
+  const writes = yield* Semaphore.make(1);
+
   return DesktopClientSettings.of({
-    get: readClientSettings(fileSystem, environment.clientSettingsPath).pipe(
-      Effect.withSpan("desktop.clientSettings.get"),
-    ),
+    get: get.pipe(Effect.withSpan("desktop.clientSettings.get")),
     set: Effect.fn("desktop.clientSettings.set")(function (settings) {
-      return random.uuidV4().pipe(
-        Effect.map((uuid) => uuid.replace(/-/g, "")),
-        Effect.flatMap((suffix) =>
-          writeClientSettings({
-            fileSystem,
-            path,
-            settingsPath: environment.clientSettingsPath,
-            settings,
-            suffix,
-          }),
-        ),
-      );
+      return Effect.gen(function* () {
+        const stored = yield* get.pipe(Effect.orElseSucceed(Option.none));
+        const suffix = (yield* random.uuidV4()).replace(/-/g, "");
+        yield* writeClientSettings({
+          fileSystem,
+          path,
+          settingsPath: environment.clientSettingsPath,
+          settings: withStoredCloudKeyFiles(Option.getOrNull(stored), settings),
+          suffix,
+        });
+      }).pipe(writes.withPermits(1));
     }),
   });
 });

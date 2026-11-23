@@ -12,6 +12,20 @@ export const resolveCodexLaunchArgs = (
 
 const codexLaunchArgv = (launchArgs?: string): ReadonlyArray<string> => tokenizeCliArgs(launchArgs);
 
+/** The `model_provider` the launch args route Codex to, if they set one. */
+export const codexLaunchModelProvider = (launchArgs?: string): string | undefined => {
+  const args = codexLaunchArgv(launchArgs);
+  let provider: string | undefined;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index] ?? "";
+    const inline = /^(?:-c|--config)=(.*)$/su.exec(arg)?.[1];
+    const value = inline ?? (arg === "-c" || arg === "--config" ? args[++index] : undefined);
+    const match = value === undefined ? null : /^model_provider\s*=\s*"?([^"]*)"?\s*$/u.exec(value);
+    if (match) provider = match[1];
+  }
+  return provider || undefined;
+};
+
 // T3 unsubscribes only when it unloads a thread; Codex's own unload delay would stack on that.
 export const codexAppServerArgs = (launchArgs?: string) => [
   "app-server",

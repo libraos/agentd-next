@@ -26,6 +26,8 @@ import { HttpClientRequest, HttpClientResponse, HttpServerResponse } from "effec
 import { vi } from "vite-plus/test";
 
 import * as AssetSigner from "./AssetSigner.ts";
+import { agentdBackupsDir } from "../agentd/agentdBackup.ts";
+import * as WorkspacePreviewRevisions from "./WorkspacePreviewRevisions.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { makeFakeWslHost } from "../testUtils/fakeWsl.ts";
@@ -125,6 +127,7 @@ const layerTest = Layer.mergeAll(
   AssetSigner.layer.pipe(
     Layer.provideMerge(ServerSecretStore.layer.pipe(Layer.provide(layerConfig))),
   ),
+  WorkspacePreviewRevisions.layer,
 ).pipe(Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)));
 
 describe("AssetAccess", () => {
@@ -236,6 +239,43 @@ describe("AssetAccess", () => {
 
       yield* fs.remove(imagePath);
       expect(yield* resolveAsset(token, suffix.slice(separator + 1))).toBeNull();
+    }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
+  it.effect("serves the newest agentd backup as a download, and nothing else from its folder", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const { stateDir } = yield* ServerConfig.ServerConfig;
+      const dir = agentdBackupsDir(yield* Path.Path, stateDir);
+      yield* fs.makeDirectory(dir, { recursive: true });
+      const fileName = "agentd-backup-20261121T101500Z-0a1b2c3d.age";
+      yield* fs.writeFileString(`${dir}/${fileName}`, "age-encryption.org/v1\n");
+      yield* fs.writeFileString(`${dir}/notes.txt`, "not a backup");
+      const open = (relativeUrl: string) => {
+        const suffix = relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+        const separator = suffix.indexOf("/");
+        return resolveAsset(suffix.slice(0, separator), suffix.slice(separator + 1));
+      };
+      const result = yield* issueAssetUrl({ resource: { _tag: "agentd-backup", fileName } });
+      const asset = yield* open(result.relativeUrl);
+      expect(asset).toMatchObject({ kind: "file", download: true, fileName });
+      if (asset?.kind !== "file") return;
+      const response = yield* assetFileResponse(asset);
+      expect(response.headers["content-type"]).toBe("application/octet-stream");
+
+      // A signed claim naming another file, by a name the contract would refuse, opens nothing.
+      const signer = yield* AssetSigner.AssetSigner;
+      for (const name of ["notes.txt", "../statev2.sqlite", fileName.replace(".age", ".txt")]) {
+        const payload = Buffer.from(
+          JSON.stringify({ version: 1, kind: "agentd-backup", fileName: name, expiresAt: 4e12 }),
+        ).toString("base64url");
+        const token = `${payload}.${yield* signer.sign(payload)}`;
+        expect(yield* resolveAsset(token, encodeURIComponent(name))).toBeNull();
+      }
+
+      // Replaced by a newer backup: the old link no longer opens.
+      yield* fs.remove(`${dir}/${fileName}`);
+      expect(yield* open(result.relativeUrl)).toBeNull();
     }).pipe(Effect.scoped, Effect.provide(layerTest)),
   );
 
@@ -1275,6 +1315,94 @@ describe("AssetAccess", () => {
           expect(yield* resolveAsset(suffix.slice(0, suffix.indexOf("/")), siblingName)).toBeNull();
         }
       }
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("moves an HTML preview's revision only for the page and the files it requested", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-asset-revision-" });
+      const pages = path.join(root, "pages");
+      yield* fileSystem.makeDirectory(pages);
+      const write = (name: string, text: string) =>
+        fileSystem.writeFileString(path.join(pages, name), text);
+      yield* write("a.html", '<link rel="stylesheet" href="a.css"><script src="late.js"></script>');
+      yield* write("a.css", "body { color: red; }");
+      yield* write("b.html", "<h1>b</h1>");
+      const mint = (name: string) =>
+        issueAssetUrl({
+          resource: {
+            _tag: "workspace-file",
+            threadId: ThreadId.make("thread-1"),
+            path: path.join(pages, name),
+          },
+          workspaceRoot: root,
+        });
+      const load = Effect.fn(function* (name: string, requests: ReadonlyArray<string>) {
+        const { relativeUrl } = yield* mint(name);
+        const suffix = relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
+        for (const request of requests) {
+          yield* resolveAsset(suffix.slice(0, suffix.indexOf("/")), request);
+        }
+      });
+      const revisions = Effect.fn(function* () {
+        return [(yield* mint("a.html")).fileRevision, (yield* mint("b.html")).fileRevision];
+      });
+
+      // Two tabs each load a page; a.html also asks for a script that does not exist yet.
+      const opened = yield* revisions();
+      expect(opened[0]).toBeDefined();
+      expect(opened[1]).not.toBe(opened[0]);
+      yield* load("a.html", ["a.html", "a.css", "late.js"]);
+      yield* load("b.html", ["b.html"]);
+      expect(yield* revisions()).toEqual(opened);
+
+      // Files no page asked for leave both previews alone.
+      yield* write("unrelated.css", "p {}");
+      yield* fileSystem.writeFileString(path.join(root, "notes.md"), "notes");
+      expect(yield* revisions()).toEqual(opened);
+
+      // An edit to one page leaves the page beside it alone.
+      yield* write("b.html", "<h1>B</h1>");
+      const afterPageEdit = yield* revisions();
+      expect(afterPageEdit[0]).toBe(opened[0]);
+      expect(afterPageEdit[1]).not.toBe(opened[1]);
+
+      // A same-size edit to a requested stylesheet reloads only the page that uses it.
+      yield* write("a.css", "body { color: blue }");
+      const afterStyleEdit = yield* revisions();
+      expect(afterStyleEdit[0]).not.toBe(afterPageEdit[0]);
+      expect(afterStyleEdit[1]).toBe(afterPageEdit[1]);
+
+      // So does a requested file that appears, and one that goes away.
+      yield* write("late.js", "document.title = 'late';");
+      const afterCreate = yield* revisions();
+      expect(afterCreate[0]).not.toBe(afterStyleEdit[0]);
+      yield* fileSystem.remove(path.join(pages, "a.css"));
+      const afterRemove = yield* revisions();
+      expect(afterRemove[0]).not.toBe(afterCreate[0]);
+      expect(afterRemove[1]).toBe(afterPageEdit[1]);
+
+      // Overlapping mints after one edit agree, so the edit reloads the page once.
+      yield* write("late.js", "document.title = 'later';");
+      const overlapping = yield* Effect.all(
+        Array.from({ length: 8 }, () => mint("a.html")),
+        { concurrency: "unbounded" },
+      );
+      expect(new Set(overlapping.map((minted) => minted.fileRevision)).size).toBe(1);
+      expect(overlapping[0]?.fileRevision).not.toBe(afterRemove[0]);
+
+      // A page that loads more files than are tracked falls back to the client's own reloads.
+      yield* load(
+        "b.html",
+        Array.from(
+          { length: WorkspacePreviewRevisions.MAX_TRACKED_FILES_PER_DOCUMENT },
+          (_, index) => `chunk-${index}.js`,
+        ),
+      );
+      expect((yield* mint("b.html")).fileRevision).toBeUndefined();
+      expect((yield* mint("a.html")).fileRevision).toBe(overlapping[0]?.fileRevision);
     }).pipe(Effect.provide(layerTest)),
   );
 

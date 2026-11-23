@@ -41,8 +41,44 @@ export function createAgentdEnvironmentAtoms<R, E>(
     tag: WS_METHODS.agentdInbox,
     staleTimeMs: 5_000,
   });
+  const plugins = createEnvironmentRpcQueryAtomFamily(runtime, {
+    label: "environment-data:agentd:plugins",
+    tag: WS_METHODS.agentdPluginsList,
+    staleTimeMs: 30_000,
+  });
   return {
     status,
+    plugins,
+    pluginsInstall: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-install",
+      tag: WS_METHODS.agentdPluginsInstall,
+      scheduler,
+    }),
+    pluginsRemove: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-remove",
+      tag: WS_METHODS.agentdPluginsRemove,
+      scheduler,
+    }),
+    pluginsSetEnabled: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-set-enabled",
+      tag: WS_METHODS.agentdPluginsSetEnabled,
+      scheduler,
+    }),
+    beforeSendReview: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-review",
+      tag: WS_METHODS.agentdBeforeSendReview,
+      scheduler,
+    }),
+    beforeSendConfirm: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-confirm",
+      tag: WS_METHODS.agentdBeforeSendConfirm,
+      scheduler,
+    }),
+    beforeSendDiscard: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:before-send-discard",
+      tag: WS_METHODS.agentdBeforeSendDiscard,
+      scheduler,
+    }),
     tasks: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:agentd:tasks",
       tag: WS_METHODS.agentdSubscribeTasks,
@@ -66,6 +102,11 @@ export function createAgentdEnvironmentAtoms<R, E>(
     startTask: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:start-task",
       tag: WS_METHODS.agentdStartTask,
+      scheduler,
+    }),
+    retryStart: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:retry-start",
+      tag: WS_METHODS.agentdRetryStart,
       scheduler,
     }),
     stopTask: createEnvironmentRpcCommand(runtime, {
@@ -102,10 +143,32 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdCloudSetup,
       staleTimeMs: 0,
     }),
+    // The Usage page's LibraOS account: read when it opens, at most once a minute.
+    cloudBalance: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:cloud-balance",
+      tag: WS_METHODS.agentdCloudSetup,
+      staleTimeMs: 60_000,
+    }),
     // The caller refreshes its own cloud setup reads: they are keyed by a working directory.
     cloudConfigure: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:cloud-configure",
       tag: WS_METHODS.agentdCloudConfigure,
+      scheduler,
+    }),
+    cloudKeyFile: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:cloud-key-file",
+      tag: WS_METHODS.agentdCloudKeyFile,
+      idleTtlMs: 0,
+      staleTimeMs: 0,
+    }),
+    cloudKeyFileFix: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:cloud-key-file-fix",
+      tag: WS_METHODS.agentdCloudKeyFileFix,
+      scheduler,
+    }),
+    repairServices: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:repair-services",
+      tag: WS_METHODS.agentdRepairServices,
       scheduler,
     }),
     cloudReview: createEnvironmentRpcQueryAtomFamily(runtime, {
@@ -140,6 +203,16 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdTeamNodeForeground,
       scheduler,
     }),
+    workerGateway: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:worker-gateway",
+      tag: WS_METHODS.agentdWorkerGateway,
+      staleTimeMs: 30_000,
+    }),
+    setWorkerGateway: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:set-worker-gateway",
+      tag: WS_METHODS.agentdSetWorkerGateway,
+      scheduler,
+    }),
     eula: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:agentd:eula",
       tag: WS_METHODS.agentdEula,
@@ -153,6 +226,12 @@ export function createAgentdEnvironmentAtoms<R, E>(
     setupStart: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:setup-start",
       tag: WS_METHODS.agentdSetupStart,
+      scheduler,
+    }),
+    // A backup of this computer's agentd memory, encrypted to the asking device's public key.
+    backupCreate: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:backup-create",
+      tag: WS_METHODS.agentdBackupCreate,
       scheduler,
     }),
   };

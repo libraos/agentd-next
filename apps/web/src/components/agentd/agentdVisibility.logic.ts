@@ -50,8 +50,8 @@ export function workerOfferSignal(input: {
 
 /**
  * Whether a Code thread offers "Hand this to a worker", and where the worker would run. A local
- * worker needs a named branch other than main; there the offer names Cloud Workers if the account
- * is linked, else it does not show.
+ * worker needs a named branch (on main agentd gives it a new branch in its own worktree); on a
+ * detached head the offer names Cloud Workers if the account is linked, else it does not show.
  */
 export function workerOffer(input: {
   readonly suggestWorkers: boolean;
@@ -63,13 +63,12 @@ export function workerOffer(input: {
   readonly branch: ReturnType<typeof taskBranchProblem> | null | undefined;
   readonly workerRunning: boolean;
   readonly cloudLinked: boolean;
-}): AgentdRunTasksOn | null {
+}): AgentdRunTasksOn | "local-or-cloud" | null {
   if (!input.suggestWorkers || input.dismissedInThread || !input.signal) return null;
   if (!input.codeThread || !input.agentdSetUp || input.workerRunning) return null;
   if (input.branch === undefined || input.branch === "not-repo") return null;
-  if (input.branch === "protected" || input.branch === "detached") {
-    return input.cloudLinked ? "cloud" : null;
-  }
+  if (input.branch === "detached") return input.cloudLinked ? "cloud" : null;
+  if (input.branch === "protected" && input.cloudLinked) return "local-or-cloud";
   return "local";
 }
 

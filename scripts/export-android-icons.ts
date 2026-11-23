@@ -21,14 +21,16 @@ const COMPOSER_CANVAS_PT = 1024;
 const SVG_DENSITY = 300;
 const OUTPUT_DIRECTORY = "apps/mobile/assets";
 const PRODUCTION_BACKGROUND_COLOR = "#000000";
+// The desktop icon's plate: the mark's blue arcs vanish on the blueprint.
+const DEVELOPMENT_BACKGROUND_COLOR = "#132040";
 
 export class AndroidIconRenderError extends Schema.TaggedError<AndroidIconRenderError>()(
   "AndroidIconRenderError",
   { layer: Schema.String, cause: Schema.Defect() },
 ) {}
 
-const wordmarkTransform = (size: number) => {
-  const scale = (size * WORDMARK_FRACTION) / MARK.height;
+const wordmarkTransform = (size: number, fraction = WORDMARK_FRACTION) => {
+  const scale = (size * fraction) / MARK.height;
   const tx = (size - MARK.width * scale) / 2 - MARK.x * scale;
   const ty = (size - MARK.height * scale) / 2 - MARK.y * scale;
   return `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(4)})`;
@@ -97,19 +99,20 @@ const renderForeground = Effect.fn("androidIcons.renderForeground")(function* (
   );
 });
 
-const renderDevelopmentBackground = Effect.fn("androidIcons.renderDevelopmentBackground")(
-  function* (repositoryRoot: string, size: number) {
-    const annotations = yield* readLayerSource(repositoryRoot, "dev", "annotations.svg");
-    const paper = yield* readLayerSource(repositoryRoot, "dev", "background.svg");
-    const background = yield* rasterize("dev-background", fullBleed(paper), size);
-    const overlay = yield* rasterize(
-      "dev-annotations",
-      canvasSvg(size, `<g transform="${wordmarkTransform(size)}">${svgBody(annotations)}</g>`),
-      size,
-    );
-    return yield* composite("dev-background", background, [{ input: overlay }]);
-  },
-);
+// The status bar and themed icons keep only the shape, so the mark is drawn in one colour.
+const renderMonochrome = Effect.fn("androidIcons.renderMonochrome")(function* (
+  repositoryRoot: string,
+  size: number,
+  fraction: number,
+) {
+  const mark = yield* readLayerSource(repositoryRoot, "prod", "text.svg");
+  const white = svgBody(mark).replace(/(stroke|fill)="#[0-9a-fA-F]{6}"/g, '$1="#ffffff"');
+  return yield* rasterize(
+    "monochrome",
+    canvasSvg(size, `<g transform="${wordmarkTransform(size, fraction)}">${white}</g>`),
+    size,
+  );
+});
 
 const renderNightlyBackground = Effect.fn("androidIcons.renderNightlyBackground")(function* (
   repositoryRoot: string,
@@ -164,7 +167,7 @@ const renderBackground = Effect.fn("androidIcons.renderBackground")(function* (
 ) {
   switch (variant) {
     case "dev":
-      return yield* renderDevelopmentBackground(repositoryRoot, size);
+      return yield* solidCanvas("dev-background", size, DEVELOPMENT_BACKGROUND_COLOR);
     case "nightly":
       return yield* renderNightlyBackground(repositoryRoot, size);
     case "prod":
@@ -188,13 +191,11 @@ const exportAndroidIcons = Effect.gen(function* () {
   const outputs = [
     ["android-icon-foreground.png", yield* renderForeground(repositoryRoot, ADAPTIVE_CANVAS)],
     [
-      "android-icon-background-dev.png",
-      yield* renderDevelopmentBackground(repositoryRoot, ADAPTIVE_CANVAS),
-    ],
-    [
       "android-icon-background-nightly.png",
       yield* renderNightlyBackground(repositoryRoot, ADAPTIVE_CANVAS),
     ],
+    ["android-icon-mark.png", yield* renderMonochrome(repositoryRoot, ADAPTIVE_CANVAS, 0.48)],
+    ["android-notification-icon.png", yield* renderMonochrome(repositoryRoot, 96, 0.8)],
     ["android-splash-icon-dev.png", yield* renderSplashIcon(repositoryRoot, "dev")],
     ["android-splash-icon-nightly.png", yield* renderSplashIcon(repositoryRoot, "nightly")],
     ["android-splash-icon-prod.png", yield* renderSplashIcon(repositoryRoot, "prod")],

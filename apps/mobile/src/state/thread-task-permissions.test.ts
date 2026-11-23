@@ -247,6 +247,8 @@ import { Alert } from "react-native";
 import { useThreadComposerState } from "./use-thread-composer-state";
 import { useSelectedThreadRequests } from "./use-selected-thread-requests";
 import { questionAttachmentDraftKey } from "./question-attachments";
+import { startQuestionImagePreparation } from "./question-attachment-preparation";
+import { abortComposerDraftOperations } from "./composerDraftOperations";
 
 const NO_SIDE_CHATS = { startSideChat: async () => false };
 
@@ -267,7 +269,9 @@ beforeEach(() => {
   state.thread.latestRun = null;
   state.projection = null;
   state.serverConfig = {
-    providers: [{ instanceId: "codex", driver: "codex", enabled: true }],
+    providers: [
+      { instanceId: "codex", driver: "codex", enabled: true, auth: { status: "authenticated" } },
+    ],
     environment: { capabilities: {} },
   } as unknown as ServerConfig;
   state.pendingRequests = {
@@ -534,7 +538,9 @@ describe("mobile task permissions", () => {
     vi.clearAllMocks();
     state.serverConfig = {
       ...state.serverConfig,
-      providers: [{ instanceId: "codex", driver: "codex", enabled: false }],
+      providers: [
+        { instanceId: "codex", driver: "codex", enabled: false, auth: { status: "authenticated" } },
+      ],
     } as unknown as ServerConfig;
     state.draft = { ...state.draft, attachments: [] };
     expect(await useThreadComposerState({ startSideChat }).onSendMessage()).toBeNull();
@@ -644,6 +650,19 @@ it.each(["cancelled", "expired"] as const)(
   (status) => {
     const environmentId = EnvironmentId.make("secondary");
     const threadId = ThreadId.make("thread");
+    const unanswered = RuntimeRequestId.make("input");
+    const answered = RuntimeRequestId.make("input-other");
+    const questionKey = questionAttachmentDraftKey(environmentId, threadId, unanswered, "language");
+    const preparing = startQuestionImagePreparation(questionKey);
+    const preparingAnswered = startQuestionImagePreparation(
+      questionAttachmentDraftKey(environmentId, threadId, answered, "language"),
+    );
+    using _preparations = {
+      [Symbol.dispose]: () => {
+        preparing.finish();
+        preparingAnswered.finish();
+      },
+    };
     const notes = {
       id: "notes",
       type: "file",
@@ -652,7 +671,7 @@ it.each(["cancelled", "expired"] as const)(
       sizeBytes: 5,
     } as unknown as DraftComposerImageAttachment;
     state.questionDrafts = {
-      [questionAttachmentDraftKey(environmentId, threadId, "input", "language")]: {
+      [questionKey]: {
         text: "",
         attachments: [notes],
       },
@@ -660,12 +679,19 @@ it.each(["cancelled", "expired"] as const)(
     makeThreadRequestsResolvedAnnouncer(
       environmentId,
       threadId,
-    )([{ id: RuntimeRequestId.make("input"), status }]);
+    )([
+      { id: unanswered, status },
+      { id: answered, status: "resolved" },
+    ]);
     expect(state.appendAttachments).toHaveBeenCalledWith(
       "secondary:thread",
       [notes],
       expect.objectContaining({ appendReference: true }),
     );
+    expect(preparing.destination()).toBe("secondary:thread");
+    expect(preparingAnswered.destination()).toBeNull();
+    abortComposerDraftOperations("secondary:thread");
+    expect(preparing.destination()).toBeNull();
   },
 );
 

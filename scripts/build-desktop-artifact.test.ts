@@ -22,7 +22,6 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import {
   buildDesktopBundles,
-  resolveDesktopUpdateChannel,
   copyDesktopBuildArtifacts,
   DesktopBuildManifestRestoreError,
   BundleNotSelfContainedError,
@@ -138,6 +137,21 @@ function mockProcess(exitCode: number, stdout = "") {
 
 const WINDOWS_PAYLOAD_FIXTURE_VERSION = "1.2.3";
 
+// The shipped Pi's CLI as the bundle self-check runs it; `source` stands in for the real script.
+const writeShippedPiStub = Effect.fn("test.writeShippedPiStub")(function* (
+  sourceDir: string,
+  source = "console.log('1.6.0');\n",
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const cli = path.join(
+    sourceDir,
+    "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+  );
+  yield* fs.makeDirectory(path.dirname(cli), { recursive: true });
+  yield* fs.writeFileString(cli, source);
+});
+
 const makeWindowsPayloadFixture = Effect.fn("test.makeWindowsPayloadFixture")(function* (input: {
   readonly copyUnpackedNatives: boolean;
   readonly serverEntrySource?: string;
@@ -156,6 +170,7 @@ const makeWindowsPayloadFixture = Effect.fn("test.makeWindowsPayloadFixture")(fu
   yield* fs.makeDirectory(path.dirname(serverEntryPath), { recursive: true });
   yield* fs.makeDirectory(path.dirname(nativePath), { recursive: true });
   yield* fs.writeFileString(serverEntryPath, input.serverEntrySource ?? "console.log('server');\n");
+  yield* writeShippedPiStub(sourceDir);
   yield* fs.writeFileString(nativePath, "MZ native-binary");
 
   const generatedAsarPath = path.join(tempDir, WINDOWS_SERVER_ASAR_RESOURCE);
@@ -224,6 +239,7 @@ const makeWindowsPayloadFixture = Effect.fn("test.makeWindowsPayloadFixture")(fu
 const makePackagedAppFixture = Effect.fn("test.makePackagedAppFixture")(function* (input: {
   readonly serverEntrySource?: string;
   readonly resourcesPath?: string;
+  readonly piCliSource?: string;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -232,6 +248,7 @@ const makePackagedAppFixture = Effect.fn("test.makePackagedAppFixture")(function
   const serverEntryPath = path.join(sourceDir, "apps/server/dist/bin.mjs");
   yield* fs.makeDirectory(path.dirname(serverEntryPath), { recursive: true });
   yield* fs.writeFileString(serverEntryPath, input.serverEntrySource ?? "console.log('server');\n");
+  yield* writeShippedPiStub(sourceDir, input.piCliSource);
 
   const stageDistDir = path.join(tempDir, "dist");
   const resourcesDir = path.join(
@@ -507,7 +524,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
-  it.effect("omits update feeds for pull request preview and AgentD builds", () =>
+  it.effect("omits update feeds for pull request preview builds", () =>
     Effect.gen(function* () {
       const preview = yield* createBuildConfig(
         "mac",
@@ -538,21 +555,8 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         undefined,
       );
 
-      const agentd = yield* createBuildConfig(
-        "linux",
-        "AppImage",
-        "0.1.10-agentd.1",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
-
       assert.isNull(preview.publish);
       assert.isNull(previewChannel.publish);
-      assert.isNull(agentd.publish);
-      assert.equal(resolveDesktopUpdateChannel("0.1.10-agentd.1"), "latest");
-      assert.isUndefined(agentd.appImage);
       assert.deepStrictEqual(release.publish, [
         {
           provider: "github",
@@ -561,6 +565,20 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
           releaseType: "release",
         },
       ]);
+      assert.equal(
+        (release.extraMetadata as Record<string, unknown>).agentdUpdateInstall,
+        "release-page",
+      );
+      const signedRelease = yield* createBuildConfig(
+        "mac",
+        "dmg",
+        "0.0.33",
+        true,
+        false,
+        undefined,
+        undefined,
+      );
+      assert.notProperty(signedRelease.extraMetadata, "agentdUpdateInstall");
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
@@ -1521,6 +1539,22 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       Effect.gen(function* () {
         const fixture = yield* makePackagedAppFixture({});
         yield* validateMacPackagedPayload({ stageDistDir: fixture.stageDistDir });
+      }),
+    ),
+  );
+
+  it.effect("rejects an app whose shipped Pi does not start", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const fixture = yield* makePackagedAppFixture({
+          resourcesPath: "linux-unpacked/resources",
+          piCliSource: 'import "pi-deliberately-missing-dependency";\n',
+        });
+        const error = yield* validateLinuxPackagedPayload({
+          stageDistDir: fixture.stageDistDir,
+        }).pipe(Effect.flip);
+        assert.instanceOf(error, BundleNotSelfContainedError);
+        assert.include(error.output, "pi-deliberately-missing-dependency");
       }),
     ),
   );

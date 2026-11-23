@@ -67,8 +67,9 @@ two of those tests failed on base for that reason.
 
 ## Desktop auto-update
 
-`scripts/build-desktop-artifact.ts` (read only) writes a publish feed only when
-`T3CODE_DESKTOP_UPDATE_REPOSITORY` is set; without it the desktop build has no feed.
+`scripts/build-desktop-artifact.ts` writes a publish feed only when
+`T3CODE_DESKTOP_UPDATE_REPOSITORY` is set. `agentd/scripts/build-desktop.sh` sets it to our own
+releases, `libraos/agentd-next` (patch 144), never upstream's.
 
 ## Remote hosts
 

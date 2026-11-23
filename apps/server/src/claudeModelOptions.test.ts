@@ -5,6 +5,8 @@ import { ProviderInstanceId, type ModelSelection } from "@t3tools/contracts";
 import { compileClaudeModelSelection } from "./claudeModelOptions.ts";
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
+  getClaudeCatalogModelCapabilities,
+  resolveClaudeCatalogContextWindowTokens,
   scopeClaudeModelCatalog,
 } from "./provider/ClaudeModelCatalog.ts";
 
@@ -105,6 +107,50 @@ describe("compileClaudeModelSelection", () => {
     ).toMatchObject({ effort: "high", promptEffort: "ultrathink" });
   });
 
+  it("compiles a Gateway's family-prefixed catalog id with that catalog model's options", () => {
+    const catalog = scopeClaudeModelCatalog(BUNDLED_CLAUDE_MODEL_CATALOG, [
+      { slug: "anthropic/claude-opus-5-5", subProvider: "anthropic" },
+    ]);
+    const options = [
+      { id: "effort", value: "high" },
+      { id: "thinking", value: false },
+    ];
+    const {
+      apiModelId,
+      queryIdentity: _full,
+      ...compiled
+    } = compileClaudeModelSelection(selection("anthropic/claude-opus-5-5", options), catalog);
+    expect(apiModelId).toBe("anthropic/claude-opus-5-5");
+    const {
+      apiModelId: _bare,
+      queryIdentity: _own,
+      ...own
+    } = compileClaudeModelSelection(selection("claude-opus-5-5", options), catalog);
+    expect(compiled).toEqual(own);
+    expect(compiled.settings).not.toHaveProperty("alwaysThinkingEnabled");
+  });
+
+  it("runs a Gateway full id with its catalog model's effort mapping and context window", () => {
+    const catalog = scopeClaudeModelCatalog(BUNDLED_CLAUDE_MODEL_CATALOG, [
+      { slug: "anthropic/claude-sonnet-4-6", subProvider: "anthropic" },
+    ]);
+    const full = selection("anthropic/claude-sonnet-4-6", [
+      { id: "effort", value: "max" },
+      { id: "contextWindow", value: "1m" },
+    ]);
+    // Claude Sonnet 4.6 runs Max as high, and 1M only by an id suffix Claude Code would rewrite.
+    expect(compileClaudeModelSelection(full, catalog)).toMatchObject({
+      apiModelId: "anthropic/claude-sonnet-4-6",
+      effort: "high",
+    });
+    expect(
+      getClaudeCatalogModelCapabilities(catalog, full.model).optionDescriptors?.map(
+        (descriptor) => descriptor.id,
+      ),
+    ).not.toContain("contextWindow");
+    expect(resolveClaudeCatalogContextWindowTokens(catalog, full)).toBe(200_000);
+  });
+
   it("ignores thinking for catalog models without a thinking option", () => {
     expect(
       compileClaudeModelSelection(selection("claude-opus-5-5", [{ id: "thinking", value: false }]))
@@ -112,7 +158,7 @@ describe("compileClaudeModelSelection", () => {
     ).not.toHaveProperty("alwaysThinkingEnabled");
   });
 
-  it.each(["gateway-route", "gateway-route[1m]"])(
+  it.each(["gateway-route", "gateway-route[1m]", "gemini/gemini-2.5-pro", "Qwen/Qwen3.5-Plus"])(
     "keeps explicit effort and thinking for %s outside the local catalog",
     (model) => {
       for (const thinking of [true, false]) {

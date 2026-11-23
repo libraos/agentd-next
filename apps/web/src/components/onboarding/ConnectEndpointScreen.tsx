@@ -5,11 +5,17 @@ import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { CheckIcon, ServerIcon, Settings2Icon } from "lucide-react";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 
-import { useLibraosGateway, useLibraosGatewayCommands } from "../../lib/libraosGatewayState";
+import {
+  useGatewayEnvironment,
+  useLibraosGateway,
+  useLibraosGatewayCommands,
+} from "../../lib/libraosGatewayState";
 import { AnthropicIcon, OllamaIcon, OpenAI } from "../Icons";
 import { T3Wordmark } from "../T3Wordmark";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { CustomGatewayForm } from "./CustomGatewayForm";
+import { CustomGatewayList } from "./CustomGatewayList";
 
 const agents = ["Claude Code", "Codex", "opencode"] as const;
 type Agent = (typeof agents)[number];
@@ -35,104 +41,103 @@ const endpoints: ReadonlyArray<{
 
 export function ConnectEndpointScreen({
   gatewayChosen = false,
+  customChosen = false,
   environmentId,
   back,
 }: {
   readonly gatewayChosen?: boolean;
+  /** Opens the Custom endpoint form at once: "Add gateway" in Settings. */
+  readonly customChosen?: boolean;
   /** Where the Gateway is set up; the primary environment when omitted. */
   readonly environmentId?: EnvironmentId | null | undefined;
   readonly back: ReactNode;
 }) {
-  const [agent, setAgent] = useState<Agent | null>(null);
   const [gatewayOpen, setGatewayOpen] = useState(gatewayChosen);
+  const [customOpen, setCustomOpen] = useState(customChosen);
+  const gatewayEnvironment = useGatewayEnvironment(environmentId);
   const gt = useGT();
   const m = useMessages();
   const id = useId();
-  const customEndpointDetail =
-    agent === "Claude Code"
-      ? gt("Requires Anthropic Messages or a compatible Bedrock or Vertex endpoint.")
-      : agent === "Codex"
-        ? gt("Requires the OpenAI Responses API.")
-        : gt("Supports Chat Completions, Responses, or Messages, depending on the provider.");
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5">
       <h1 className="text-center text-3xl font-semibold tracking-tight text-foreground">
         <T>Use an API key or gateway</T>
       </h1>
-      {gatewayChosen && agent === null ? (
-        <p className="text-center text-sm text-muted-foreground">
-          <T>LibraOS Gateway selected.</T> <T>Requires a LibraOS account.</T>
-        </p>
-      ) : null}
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-foreground">
-          <T>Choose an agent</T>
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {agents.map((name) => (
-            <label
-              key={name}
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm has-checked:border-primary/60"
-            >
-              <input
-                type="radio"
-                name={id}
-                value={name}
-                checked={agent === name}
-                onChange={() => setAgent(name)}
-                className="accent-primary"
-              />
-              {name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {agent !== null ? (
-        <ul aria-label={gt("Endpoint options")} className="space-y-2">
-          {endpoints.map((endpoint) => {
-            if (!endpoint.agents.includes(agent)) return null;
-            const isGateway = endpoint.id === "gateway";
-            const selected = isGateway && gatewayOpen;
-            const labelId = `${id}-${endpoint.id}`;
-            const descriptionId = `${labelId}-description`;
-            const detail = isGateway
-              ? gt("Requires a LibraOS account.")
-              : endpoint.id === "custom"
-                ? customEndpointDetail
-                : null;
+      <p className="text-center text-sm text-muted-foreground">
+        {gatewayChosen ? (
+          <>
+            <T>LibraOS Gateway selected.</T> <T>Requires a LibraOS account.</T>
+          </>
+        ) : (
+          <T>Pick where your agents get their models from.</T>
+        )}
+      </p>
+      <ul aria-label={gt("Endpoint options")} className="space-y-2">
+        {endpoints.map((endpoint) => {
+          const isGateway = endpoint.id === "gateway";
+          const isCustom = endpoint.id === "custom";
+          const available = isGateway || isCustom;
+          const selected = isGateway ? gatewayOpen : isCustom && customOpen;
+          const labelId = `${id}-${endpoint.id}`;
+          const descriptionId = `${labelId}-description`;
+          const detail = isGateway
+            ? gt("Requires a LibraOS account.")
+            : isCustom
+              ? gt("A gateway in OpenAI or Anthropic format.")
+              : null;
 
-            return (
-              <li key={endpoint.id}>
-                <button
-                  type="button"
-                  disabled={!isGateway}
-                  aria-labelledby={labelId}
-                  aria-describedby={descriptionId}
-                  aria-pressed={isGateway ? selected : undefined}
-                  onClick={isGateway ? () => setGatewayOpen((open) => !open) : undefined}
-                  className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left not-disabled:hover:bg-accent/50 disabled:cursor-not-allowed aria-pressed:border-primary/60"
-                >
-                  <endpoint.Icon className="size-5 shrink-0" aria-hidden />
-                  <span className="min-w-0 flex-1 space-y-0.5">
-                    <span id={labelId} className="block text-sm font-medium text-foreground">
-                      {m(endpoint.label)}
-                    </span>
-                    <span id={descriptionId} className="block text-xs text-muted-foreground">
-                      {detail === null ? null : <span className="block">{detail}</span>}
-                      {isGateway ? null : <T>Not available yet</T>}
-                    </span>
+          return (
+            <li key={endpoint.id}>
+              <button
+                type="button"
+                disabled={!available}
+                aria-labelledby={labelId}
+                aria-describedby={descriptionId}
+                aria-pressed={available ? selected : undefined}
+                onClick={
+                  isGateway
+                    ? () => setGatewayOpen((open) => !open)
+                    : isCustom
+                      ? () => setCustomOpen((open) => !open)
+                      : undefined
+                }
+                className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left not-disabled:hover:bg-accent/50 disabled:cursor-not-allowed aria-pressed:border-primary/60"
+              >
+                <endpoint.Icon className="size-5 shrink-0" aria-hidden />
+                <span className="min-w-0 flex-1 space-y-0.5">
+                  <span id={labelId} className="block text-sm font-medium text-foreground">
+                    {m(endpoint.label)}
                   </span>
-                  {selected ? (
-                    <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+                  <span id={descriptionId} className="block text-xs text-muted-foreground">
+                    {detail === null ? null : <span className="block">{detail}</span>}
+                    <span className="block">
+                      {gt("For {agents}", { agents: endpoint.agents.join(", ") })}
+                    </span>
+                    {available ? null : <T>Not available yet</T>}
+                  </span>
+                </span>
+                {selected ? (
+                  <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
       {gatewayOpen ? <GatewayConnectPanel environmentId={environmentId} /> : null}
+      {customOpen ? (
+        gatewayEnvironment === null ? (
+          <p className="text-center text-sm text-muted-foreground">
+            <T>Connect to an environment first.</T>
+          </p>
+        ) : (
+          <CustomGatewayForm environmentId={gatewayEnvironment} />
+        )
+      ) : null}
+      {gatewayEnvironment === null ? null : (
+        <CustomGatewayList environmentId={gatewayEnvironment} />
+      )}
       <div className="text-center text-sm underline underline-offset-4">{back}</div>
     </div>
   );
@@ -211,6 +216,14 @@ function GatewayConnectPanel({
         <p className="font-medium text-foreground">
           <T>LibraOS Gateway connected.</T>
         </p>
+        {status.refusal ? (
+          <p role="alert" className="text-destructive-foreground">
+            <T>
+              LibraOS Gateway refused this key, so its agents list no models:{" "}
+              <Var>{status.refusal}</Var>
+            </T>
+          </p>
+        ) : null}
         {shown.length > 0 ? (
           <p className="text-muted-foreground">
             <T>
@@ -220,10 +233,17 @@ function GatewayConnectPanel({
           </p>
         ) : null}
         <p className="text-muted-foreground">
-          <T>
-            In a chat, choose the agent marked LibraOS Gateway in the model picker. agentd workers
-            use the Gateway too, so tasks accept dollar budgets.
-          </T>
+          {status.refusal ? (
+            <T>
+              Allow the key again in Console and refresh providers, or disconnect and connect
+              another key.
+            </T>
+          ) : (
+            <T>
+              In a chat, choose the agent marked LibraOS Gateway in the model picker. agentd workers
+              use the Gateway too, so tasks accept dollar budgets.
+            </T>
+          )}
         </p>
         {status.agentd === null ? null : (
           <div className="space-y-1">

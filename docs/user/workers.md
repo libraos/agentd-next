@@ -10,8 +10,9 @@ Open **Hand to a worker** from the slash menu (type `/` in the composer), from t
 command palette, or from the suggestion above the composer when a turn runs long. Fill in the
 goal, acceptance criteria, check command and budget, then choose **Start**.
 
-For a worker on your machine, the working directory must be a Git repository on a branch other
-than `main` or `master`.
+For a worker on your machine, the working directory must be a Git repository on a named branch.
+From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
+checkout alone.
 
 ## Get a task card from the conversation
 

@@ -640,6 +640,31 @@ it.layer(layerTest)("CodexDriver", (it) => {
     }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, noSpawn)),
   );
 
+  it.effect("keeps a gateway's Codex apart from the login on the same home", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const codexHome = NodePath.join(
+        yield* fs.makeTempDirectoryScoped({ prefix: "t3-codex-driver-" }),
+        "shared",
+      );
+      const keys: Array<string> = [];
+      for (const [index, launchArgs] of [
+        "",
+        '-c model_provider="gw_abc" -c model_providers.gw_abc.name="GW"',
+      ].entries()) {
+        const instance = yield* CodexDriver.create({
+          instanceId: ProviderInstanceId.make(`home-${index}`),
+          displayName: "shared",
+          enabled: false,
+          environment: [{ name: "CODEX_HOME", value: codexHome, sensitive: false }],
+          config: { ...CodexDriver.defaultConfig(), launchArgs },
+        });
+        keys.push(instance.continuationIdentity.continuationKey);
+      }
+      expect(keys).toEqual([`codex:home:${codexHome}`, `codex:home:${codexHome}:provider:gw_abc`]);
+    }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, noSpawn)),
+  );
+
   it.effect.skipIf(windowsHost)(
     "shares state from the environment CODEX_HOME in a shadow home",
     () =>

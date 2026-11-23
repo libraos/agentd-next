@@ -1,14 +1,16 @@
 import "~/index.css";
 
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   AgentdCommandError,
+  type AgentdCloudKeyFileCheck,
   type AgentdCloudPlanState,
   type AgentdCloudSetup,
   type AgentdStartTaskResult,
   type AgentdTaskDefaults,
   type AgentdTaskOther,
   DEFAULT_CLIENT_SETTINGS,
+  EnvironmentAuthorizationError,
   EnvironmentId,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   ThreadId,
@@ -19,12 +21,14 @@ import { AsyncResult } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
+import { DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { __setClientSettingsForTests } from "~/hooks/useSettings";
 import { hostRightPanel, selectActiveRightPanel, useRightPanelStore } from "~/rightPanelStore";
 import { AppAtomRegistryProvider } from "~/rpc/atomRegistry";
 import { makeThreadFixture } from "~/test-fixtures";
 import { render, stubGlobal } from "../../../test/render";
 import { ToastProvider } from "../ui/toast";
+import { AgentdPageCloud } from "./AgentdPageCloud";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
 import { openStartTaskDialog, StartTaskDialogHost } from "./StartTaskDialog";
 import { EMPTY_TASK_FIELDS } from "./startTask.logic";
@@ -44,26 +48,72 @@ const state = vi.hoisted(() => ({
   dollarBudgets: null as boolean | null,
   primary: null as EnvironmentId | null,
   os: "unknown" as ExecutionEnvironmentPlatformOs,
+  cloudError: null as Error | null,
+  keyFiles: {} as Record<string, AgentdCloudKeyFileCheck>,
+  // Paths this connection may not check: it lacks filesystem read.
+  keyFilesDenied: new Set<string>(),
+  fixKeyFile: vi.fn(),
+  tasks: vi.fn(),
+  // The synced task list, as its subscription last answered.
+  rows: [] as Array<{ id: string; cloudState: string | null }>,
+  rowListeners: new Set<() => void>(),
+  // The thread is a draft not yet on the server.
+  draft: false,
 }));
 
 vi.mock("~/lib/agentdState", async () => {
   const { Atom } = await import("effect/reactivity");
+  const { useReducer, useSyncExternalStore } = await import("react");
   const allowed = Atom.make(true);
   return {
     agentdEnvironment: {
       startTask: { permissionAtom: () => allowed },
       cloudConfigure: { permissionAtom: () => allowed, label: "cloud-configure" },
+      cloudKeyFileFix: { permissionAtom: () => allowed },
     },
     useAgentdStatus: () => ({
       data: { defaultWorker: state.worker, dollarBudgets: state.dollarBudgets },
     }),
     useAgentdTaskDefaults: () => ({ data: state.defaults }),
     useAgentdCloudSetup: (cwd: string | null) => ({
-      data: cwd ? state.cloud : null,
+      data: cwd && state.cloudError === null ? state.cloud : null,
+      error: state.cloudError,
+      refresh: state.cloudRefresh,
+    }),
+    useAgentdCloudKeyFile: (path: string | null) => {
+      // A refresh reads the file's state again, as the real query does.
+      const [, refresh] = useReducer((n: number) => n + 1, 0);
+      const denied = path !== null && state.keyFilesDenied.has(path);
+      return {
+        data: path === null || denied ? null : (state.keyFiles[path] ?? null),
+        error: denied ? "This connection requires filesystem:read." : null,
+        failure: denied
+          ? new EnvironmentAuthorizationError({
+              message: "This connection requires filesystem:read.",
+              requiredScope: "filesystem:read",
+            })
+          : null,
+        refresh,
+      };
+    },
+    useAgentdCommands: () => ({ cloudKeyFileFix: state.fixKeyFile }),
+    useAgentdCloudAccount: () => ({
+      data: state.cloud,
       error: null,
       refresh: state.cloudRefresh,
     }),
     useAgentdTaskOthers: () => ({ data: state.others, isPending: false, isSuccess: true }),
+    useAgentdTasks: (environmentId: EnvironmentId) => {
+      state.tasks(environmentId);
+      const data = useSyncExternalStore(
+        (listener) => {
+          state.rowListeners.add(listener);
+          return () => state.rowListeners.delete(listener);
+        },
+        () => state.rows,
+      );
+      return { data };
+    },
   };
 });
 vi.mock("~/lib/libraosGatewayState", () => ({
@@ -77,8 +127,8 @@ vi.mock("~/state/environments", async (importOriginal) => ({
   }),
 }));
 vi.mock("~/state/entities", () => ({
-  useQuietThreadShell: () => thread,
-  useProject: () => ({ workspaceRoot: "/repo" }),
+  useQuietThreadShell: () => (state.draft ? null : thread),
+  useProject: (ref: unknown) => (ref ? { workspaceRoot: "/repo" } : null),
   useThreadProjection: () => null,
 }));
 vi.mock("~/state/threads", () => ({ threadEnvironment: { startTurn: {} } }));
@@ -106,6 +156,8 @@ function setup(
   open: boolean | typeof drafted = true,
   settings: Partial<typeof DEFAULT_CLIENT_SETTINGS> = {},
 ) {
+  // Remembered key paths are read back from storage: an earlier test's must not leak in.
+  localStorage.clear();
   __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, ...settings });
   state.branch = branch;
   state.cloud = null;
@@ -115,7 +167,16 @@ function setup(
   state.primary = null;
   state.os = "unknown";
   state.worker = "opencode";
+  state.cloudError = null;
+  state.keyFiles = {};
+  state.keyFilesDenied = new Set();
+  state.fixKeyFile.mockReset();
+  state.tasks.mockReset();
+  state.rows = [];
+  state.rowListeners.clear();
   state.dollarBudgets = null;
+  state.draft = false;
+  useComposerDraftStore.setState({ draftThreadsByThreadKey: {} });
   state.start.mockReset();
   state.configure.mockReset();
   state.cloudRefresh.mockReset();
@@ -216,6 +277,51 @@ it("shows what is missing, displays a refusal in full, and opens the tasks pane 
   });
 });
 
+it("asks before a Claude worker runs in an untrusted folder, and starts only on Trust", async () => {
+  setup("feature/export");
+  state.worker = "claude";
+  const untrusted = AsyncResult.failure(
+    Cause.fail(
+      new AgentdCommandError({
+        message: "Claude Code hasn’t been allowed to work in /repo yet.",
+        notSetUp: false,
+        untrustedFolder: "/repo",
+      }),
+    ),
+  );
+  state.start
+    .mockResolvedValueOnce(untrusted)
+    .mockResolvedValueOnce(untrusted)
+    .mockResolvedValueOnce(
+      AsyncResult.success({
+        id: "hof-123abc",
+        started: true,
+        note: null,
+      } satisfies AgentdStartTaskResult),
+    );
+  await using _screen = await renderDialog();
+  await fillTask();
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  const question = page.getByRole("alertdialog");
+
+  await start.click();
+  await expect.element(question.getByText("Let Claude Code work in /repo?")).toBeVisible();
+  await question.getByRole("button", { name: "Cancel" }).click();
+  await expect.element(question).not.toBeInTheDocument();
+  await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
+  expect(state.start).toHaveBeenCalledTimes(1);
+
+  await start.click();
+  await question.getByRole("button", { name: "Trust folder" }).click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+  expect(state.start).toHaveBeenCalledTimes(3);
+  expect(state.start.mock.calls[1]![0].input).not.toHaveProperty("trustClaudeFolder");
+  expect(state.start).toHaveBeenLastCalledWith({
+    environmentId: thread.environmentId,
+    input: expect.objectContaining({ worker: "claude", trustClaudeFolder: true }),
+  });
+});
+
 it("starts a cloud task with a dollar cap and a provider key path, without the local branch gate", async () => {
   setup("main");
   state.cloud = {
@@ -261,6 +367,11 @@ it("starts a cloud task with a dollar cap and a provider key path, without the l
     expect(state.start).not.toHaveBeenCalled();
   }
   await userEvent.fill(openai, "");
+  state.keyFiles["/private/key file"] = {
+    provider: "anthropic",
+    readable: true,
+    openToOthers: false,
+  };
   await userEvent.fill(keyPath, "/private/key file");
   await expect.element(page.getByText(/Your provider bills inference separately/)).toBeVisible();
   await start.click();
@@ -276,6 +387,28 @@ it("starts a cloud task with a dollar cap and a provider key path, without the l
       cloud: { budget: "60m,$2.50", modelAccess: "byok", anthropicKeyFile: "/private/key file" },
     },
   });
+});
+
+it("warns that a cloud task cannot open an issue or a pull request, and offers this computer", async () => {
+  setup("main");
+  state.cloud = {
+    supported: true,
+    project: "fork-owner/export",
+    balanceUsd: 20,
+    balanceText: null,
+    defaultBudget: null,
+    problem: null,
+  };
+  await using _screen = await renderDialog();
+  const option = page.getByRole("checkbox", { name: "Run in the cloud" });
+  const here = page.getByRole("button", { name: "Run on this computer" });
+  await option.click();
+  await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+  await expect.element(page.getByText("Available LibraOS credit: $20.00")).toBeVisible();
+  await expect.element(here).not.toBeInTheDocument();
+  await userEvent.fill(page.getByLabelText("Goal"), "Reply to the review on PR #12");
+  await here.click();
+  await expect.element(option).not.toBeChecked();
 });
 
 it("fills where and with what budget a task runs from Settings → Workers", async () => {
@@ -321,10 +454,13 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
     outcomeUnknown?: true;
     replaceSubmission?: string;
   }) => AsyncResult.failure(Cause.fail(new AgentdCommandError({ notSetUp: false, ...fields })));
+  const unfinished =
+    "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
+  // The dialog asks in the user's language, whatever text agentd's refusal carries.
+  const said = "server question";
   state.start
-    .mockResolvedValueOnce(
-      refused({ message: "acme/app holds an AgentD reservation.", replaceSubmission: earlier }),
-    )
+    .mockResolvedValueOnce(refused({ message: said, replaceSubmission: earlier }))
+    .mockResolvedValueOnce(refused({ message: said, replaceSubmission: earlier }))
     .mockResolvedValueOnce(
       refused({ message: "AgentD may have created this cloud task.", outcomeUnknown: true }),
     )
@@ -333,8 +469,13 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
   await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
   await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
   await page.getByRole("button", { name: "Start", exact: true }).click();
-  await expect.element(page.getByText("acme/app holds an AgentD reservation.")).toBeVisible();
-  await page.getByRole("button", { name: "Submit this task in its place" }).click();
+  await expect.element(page.getByText(unfinished)).toBeVisible();
+  // One Cancel only: the footer's, which discards the dialog.
+  await expect.element(page.getByRole("button", { name: "Cancel" })).toBeVisible();
+  await page.getByRole("button", { name: "Don’t replace" }).click();
+  await expect.element(page.getByText(unfinished)).not.toBeInTheDocument();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Replace", exact: true }).click();
   const input = { cwd: "/repo/worktrees/export", goal: "Fix export", accept: [], check: null };
   expect(state.start).toHaveBeenLastCalledWith({
     environmentId: thread.environmentId,
@@ -353,12 +494,27 @@ it("checks an unknown cloud outcome before retrying and can replace an earlier s
     environmentId: thread.environmentId,
     input: { ...input, cloud: { budget: "30m,$5", modelAccess: "libraos" } },
   });
+  // Until agentd records a task, nothing here subscribes to the task list.
+  expect(state.tasks).not.toHaveBeenCalled();
   answer(AsyncResult.success({ id: "hof-aabbcc", started: false, note: "Recorded." }));
   await expect.element(page.getByText(/AgentD saved task hof-aabbcc/)).toBeVisible();
+  // While the dialog shows it, its task list subscription drives the cloud sync fallback.
+  expect(state.tasks).toHaveBeenCalledWith(thread.environmentId);
+  // The sync finds the job under way: the dialog no longer says it didn't start.
+  state.rows = [{ id: "hof-aabbcc", cloudState: "running" }];
+  for (const listener of state.rowListeners) listener();
+  await expect
+    .element(
+      page.getByText(
+        "Task hof-aabbcc started in Cloud Workers. Check Background tasks for its progress.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(page.getByText(/AgentD saved task hof-aabbcc/)).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("button", { name: /Start|Check and retry/ }))
     .not.toBeInTheDocument();
-  expect(state.start).toHaveBeenCalledTimes(3);
+  expect(state.start).toHaveBeenCalledTimes(4);
 });
 
 it("turns off cloud start if the checkout’s origin is not a GitHub repository", async () => {
@@ -378,16 +534,52 @@ it("turns off cloud start if the checkout’s origin is not a GitHub repository"
     .toBeVisible();
 });
 
-it("does not contact the worker bridge when the branch changes to main before Start", async () => {
+it("does not contact the worker bridge when the checkout is detached before Start", async () => {
   setup("feature/export");
-  state.refresh.mockResolvedValue(AsyncResult.success({ isRepo: true, refName: "main" }));
+  state.refresh.mockResolvedValue(AsyncResult.success({ isRepo: true, refName: null }));
   await using _screen = await renderDialog();
   await fillTask();
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect
     .element(page.getByRole("alert"))
-    .toHaveTextContent("The working directory is on main. Switch to a different branch first.");
+    .toHaveTextContent("Check out a named branch in this working directory first.");
   expect(state.start).not.toHaveBeenCalled();
+});
+
+it("starts from the default branch and says the worker gets its own worktree", async () => {
+  setup("main", drafted);
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
+  );
+  await using _screen = await renderDialog();
+  await expect
+    .element(page.getByText("Runs on a new branch in its own worktree, from main."))
+    .toBeVisible();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+  expect(state.start).toHaveBeenCalledWith(
+    expect.objectContaining({ input: expect.objectContaining({ cwd: "/repo/worktrees/export" }) }),
+  );
+});
+
+it("runs a draft thread’s task in its project’s checkout", async () => {
+  setup("feature/export", drafted);
+  state.draft = true;
+  useComposerDraftStore
+    .getState()
+    .setLogicalProjectDraftThreadId(
+      "draft-project",
+      scopeProjectRef(thread.environmentId, thread.projectId),
+      DraftId.make("draft-1"),
+      { threadId: thread.id },
+    );
+  await using _screen = await renderDialog();
+  await expect
+    .element(page.getByText("This session has no project working directory."))
+    .not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Edit" }).click();
+  await expect.element(page.getByLabelText("Working directory")).toHaveValue("/repo");
 });
 
 it("shows a drafted task as one summary with Start and its inputs folded under Edit", async () => {
@@ -532,11 +724,6 @@ it("caps a cloud budget by the balance and says the estimate comes from local ru
 });
 
 it.each([
-  [
-    "a protected branch",
-    { branch: "main" },
-    "The working directory is on main. Switch to a different branch first.",
-  ],
   ["no worker", { worker: null }, "Choose a worker. The default is set in agentd."],
   ["no credit", { balanceUsd: 0 }, "There is not enough LibraOS credit for Cloud Workers."],
   [
@@ -545,7 +732,7 @@ it.each([
     "Sign in to LibraOS or connect the LibraOS Gateway to use LibraOS models.",
   ],
 ] as const)("shows %s in one line and disables Start", async (_name, problem, line) => {
-  setup("branch" in problem ? problem.branch : "feature/export", drafted);
+  setup("feature/export", drafted);
   if ("worker" in problem) state.worker = problem.worker;
   await using _screen = await renderDialog();
   if ("balanceUsd" in problem) {
@@ -849,6 +1036,13 @@ it("starts a cloud task on the Claude plan agentd has set up, never choosing it 
       page.getByText("Using the Claude token AgentD has set up. It runs out about Nov 1, 2027."),
     )
     .toBeVisible();
+  // The optional file stays folded while agentd has a token, and nothing optional takes focus.
+  await expect
+    .element(page.getByLabelText("Claude token file path (optional)"))
+    .not.toBeInTheDocument();
+  await page.getByRole("button", { name: "Use a different token file" }).click();
+  await expect.element(page.getByLabelText("Claude token file path (optional)")).toHaveValue("");
+  await expect.element(page.getByLabelText("Claude token file path (optional)")).not.toHaveFocus();
   await expect.element(page.getByText(/^Billed to your Claude plan\./)).toBeVisible();
   await expect.element(page.getByText(/budget up to \$5\.00 · your Claude plan/)).toBeVisible();
 
@@ -926,4 +1120,389 @@ it("says how to set up a plan with no credential, and starts with a chosen file"
       },
     },
   });
+});
+
+it("keeps each model access mode's key paths to itself and submits only the shown ones", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady({
+    subscription: {
+      claude: plan({ configured: false, valid: null }),
+      codex: plan({ configured: false, valid: null }),
+      setupUnavailable: false,
+    },
+  });
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
+  );
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+  const access = page.getByRole("combobox", { name: "Model access" });
+  await access.click();
+  await page.getByRole("option", { name: "Your API key" }).click();
+  await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/openai.key");
+
+  await access.click();
+  await page.getByRole("option", { name: "Your subscription" }).click();
+  const token = page.getByLabelText("Claude token file path (optional)");
+  await expect.element(token).toHaveValue("");
+  await expect.element(token).not.toHaveFocus();
+  await userEvent.fill(token, "/home/me/claude.token");
+
+  await access.click();
+  await page.getByRole("option", { name: "Your API key" }).click();
+  await expect
+    .element(page.getByLabelText("OpenAI key file path"))
+    .toHaveValue("/home/me/openai.key");
+  await expect.element(page.getByLabelText("Anthropic key file path")).toHaveValue("");
+
+  await access.click();
+  await page.getByRole("option", { name: "Your subscription" }).click();
+  await expect.element(token).toHaveValue("/home/me/claude.token");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+  expect(state.start).toHaveBeenCalledExactlyOnceWith({
+    environmentId: thread.environmentId,
+    input: {
+      cwd: "/repo/worktrees/export",
+      goal: "Fix export",
+      accept: [],
+      check: null,
+      cloud: {
+        budget: "60m,$5",
+        modelAccess: "subscription",
+        plan: "claude",
+        claudeTokenFile: "/home/me/claude.token",
+      },
+    },
+  });
+});
+
+it.each([
+  {
+    unanswered: "agentd",
+    reason:
+      "Couldn’t reach AgentD to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
+  },
+  {
+    unanswered: "git",
+    reason:
+      "Couldn’t read this checkout’s origin for Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
+  },
+])(
+  "keeps a cloud Start in the cloud while $unanswered doesn't answer the probe, until turned off",
+  async ({ unanswered, reason }) => {
+    setup("feature/export", false, { agentdRunTasksOn: "cloud" });
+    if (unanswered === "agentd") state.cloudError = new Error("agentd timed out");
+    else state.cloud = cloudReady({ project: null, checkoutUnknown: true });
+    state.start.mockResolvedValue(
+      AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
+    );
+    await using _screen = await render(
+      <AppAtomRegistryProvider>
+        <ToastProvider>
+          <TaskDraftCard threadRef={threadRef} fields={{ ...drafted, budget: "30m,$2" }} />
+          <StartTaskDialogHost />
+        </ToastProvider>
+      </AppAtomRegistryProvider>,
+    );
+    const card = page.getByRole("region", { name: "Drafted task" });
+    await expect.element(card.getByText(reason)).toBeVisible();
+    await expect.element(card.getByRole("button", { name: "Start" })).toBeDisabled();
+    // The cap shown is the cloud's, never the drafted local budget.
+    await expect
+      .element(card.getByText("Cloud Workers · budget up to $5.00 · check: pnpm test"))
+      .toBeVisible();
+    await card.getByRole("button", { name: "Retry" }).click();
+    expect(state.cloudRefresh).toHaveBeenCalled();
+
+    openStartTaskDialog(threadRef, drafted);
+    const dialog = page.getByRole("dialog");
+    const start = dialog.getByRole("button", { name: "Start", exact: true });
+    const option = dialog.getByRole("checkbox", { name: "Run in the cloud" });
+    await expect.element(option).toBeChecked();
+    await expect.element(start).toBeDisabled();
+    await expect.element(dialog.getByLabelText("Worker")).not.toBeInTheDocument();
+    await dialog.getByRole("button", { name: "Retry" }).click();
+    // Only turning cloud off runs the task here.
+    await option.click();
+    await expect.element(start).toBeEnabled();
+    await start.click();
+    await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+    expect(state.start).toHaveBeenCalledExactlyOnceWith({
+      environmentId: thread.environmentId,
+      input: expect.objectContaining({ worker: "opencode" }),
+    });
+  },
+);
+
+it("answers a replacement question on the draft card itself", async () => {
+  setup("feature/export", false, { agentdRunTasksOn: "cloud" });
+  state.cloud = cloudReady();
+  const earlier = "0123abcd-ef01-8234-8567-89abcdef0123";
+  const question = AsyncResult.failure(
+    Cause.fail(
+      new AgentdCommandError({
+        message: "server question",
+        notSetUp: false,
+        replaceSubmission: earlier,
+      }),
+    ),
+  );
+  state.start
+    .mockResolvedValueOnce(question)
+    .mockResolvedValueOnce(question)
+    .mockResolvedValueOnce(AsyncResult.success({ id: "hof-123abc", started: true, note: null }));
+  await using _screen = await render(
+    <AppAtomRegistryProvider>
+      <ToastProvider>
+        <TaskDraftCard threadRef={threadRef} fields={drafted} />
+      </ToastProvider>
+    </AppAtomRegistryProvider>,
+  );
+  const card = page.getByRole("region", { name: "Drafted task" });
+  const asked = card.getByText(/Replace it with this one\?/);
+  await card.getByRole("button", { name: "Start" }).click();
+  await expect.element(asked).toBeVisible();
+  await card.getByRole("button", { name: "Don’t replace" }).click();
+  await expect.element(asked).not.toBeInTheDocument();
+  await card.getByRole("button", { name: "Start" }).click();
+  await card.getByRole("button", { name: "Replace", exact: true }).click();
+  await expect.element(card.getByText(/Task hof-123abc is in Background tasks/)).toBeVisible();
+  expect(state.start).toHaveBeenCalledTimes(3);
+  expect(state.start).toHaveBeenLastCalledWith({
+    environmentId: thread.environmentId,
+    input: expect.objectContaining({
+      cloud: expect.objectContaining({ replaceSubmission: earlier }),
+    }),
+  });
+});
+
+it("follows a cloud task the draft card saved but agentd didn't confirm until it starts", async () => {
+  setup("feature/export", false, { agentdRunTasksOn: "cloud" });
+  state.cloud = cloudReady();
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-aabbcc", started: false, note: "Recorded." }),
+  );
+  await using _screen = await render(
+    <AppAtomRegistryProvider>
+      <ToastProvider>
+        <TaskDraftCard threadRef={threadRef} fields={drafted} />
+      </ToastProvider>
+    </AppAtomRegistryProvider>,
+  );
+  const card = page.getByRole("region", { name: "Drafted task" });
+  expect(state.tasks).not.toHaveBeenCalled();
+  await card.getByRole("button", { name: "Start" }).click();
+  await expect.element(card.getByText("Recorded.")).toBeVisible();
+  // Its task list subscription drives the cloud sync fallback with the tasks pane closed.
+  expect(state.tasks).toHaveBeenCalledWith(thread.environmentId);
+  state.rows = [{ id: "hof-aabbcc", cloudState: "running" }];
+  for (const listener of state.rowListeners) listener();
+  await expect
+    .element(
+      card.getByText(
+        "Task hof-aabbcc started in Cloud Workers. Check Background tasks for its progress.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(card.getByText("Recorded.")).not.toBeInTheDocument();
+});
+
+it("offers Retry on the AgentD page when agentd didn't answer the cloud probe", async () => {
+  setup("feature/export", false);
+  state.cloud = { ...cloudReady(), unreachable: true };
+  await using _screen = await render(<AgentdPageCloud environmentId={thread.environmentId} />);
+  await expect.element(page.getByText("LibraOS balance unavailable.")).not.toBeInTheDocument();
+  await page.getByRole("button", { name: "Retry" }).click();
+  expect(state.cloudRefresh).toHaveBeenCalled();
+});
+
+it("keeps Start disabled until each BYOK path is checked, and says when one can't be read or checked", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+  await page.getByRole("combobox", { name: "Model access" }).click();
+  await page.getByRole("option", { name: "Your API key" }).click();
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  const anthropic = page.getByLabelText("Anthropic key file path");
+  await userEvent.fill(anthropic, "/home/me/new.key");
+  await expect.element(page.getByText("Checking this key file…")).toBeVisible();
+  await expect.element(start).toBeDisabled();
+
+  state.keyFiles["/home/me/gone.key"] = { provider: null, readable: false, openToOthers: false };
+  await userEvent.fill(anthropic, "/home/me/gone.key");
+  await expect
+    .element(page.getByText(/Couldn’t read \/home\/me\/gone.key on this environment’s machine/))
+    .toBeVisible();
+  await expect.element(start).toBeDisabled();
+  expect(state.start).not.toHaveBeenCalled();
+  // Recreated at the same path: Check again reads it again.
+  state.keyFiles["/home/me/gone.key"] = {
+    provider: "anthropic",
+    readable: true,
+    openToOthers: false,
+  };
+  await page.getByRole("button", { name: "Check again" }).click();
+  await expect.element(start).toBeEnabled();
+
+  // A connection without filesystem read can't check the file: agentd checks it on Start.
+  state.keyFilesDenied.add("/home/me/team.key");
+  await userEvent.fill(anthropic, "/home/me/team.key");
+  await expect
+    .element(page.getByText(/This connection can’t read files on this environment’s machine/))
+    .toBeVisible();
+  await expect.element(start).toBeEnabled();
+});
+
+it("checks each BYOK key file's provider and privacy, and remembers the paths that were sent, closed or not", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  state.keyFiles = {
+    "/home/me/anthropic.key": { provider: "anthropic", readable: true, openToOthers: false },
+    "/home/me/shared.key": { provider: "openai", readable: true, openToOthers: true },
+    "/home/me/openai.key": { provider: "openai", readable: true, openToOthers: false },
+  };
+  state.fixKeyFile.mockResolvedValue(
+    AsyncResult.success({ provider: "openai", readable: true, openToOthers: false }),
+  );
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
+  );
+  {
+    await using _screen = await renderDialog();
+    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+    await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+    await page.getByRole("combobox", { name: "Model access" }).click();
+    await page.getByRole("option", { name: "Your API key" }).click();
+    const start = page.getByRole("button", { name: "Start", exact: true });
+    const openai = page.getByLabelText("OpenAI key file path");
+    await userEvent.fill(openai, "/home/me/anthropic.key");
+    await expect
+      .element(page.getByText("This is an Anthropic key; choose it under Anthropic key file."))
+      .toBeVisible();
+    await expect.element(start).toBeDisabled();
+
+    await userEvent.fill(openai, "/home/me/shared.key");
+    await expect
+      .element(
+        page.getByText(
+          "/home/me/shared.key can be read by other users. Run chmod 600 /home/me/shared.key, then try again.",
+        ),
+      )
+      .toBeVisible();
+    await expect.element(start).toBeDisabled();
+    await page.getByRole("button", { name: "Fix permissions" }).click();
+    expect(state.fixKeyFile).toHaveBeenCalledWith({
+      environmentId: thread.environmentId,
+      input: { path: "/home/me/shared.key" },
+    });
+    // Fixed in a terminal instead: Check again reads the same path anew.
+    state.keyFiles["/home/me/shared.key"] = {
+      provider: "openai",
+      readable: true,
+      openToOthers: false,
+    };
+    await page.getByRole("button", { name: "Check again" }).click();
+    await expect.element(page.getByText(/can be read by other users/)).not.toBeInTheDocument();
+    await expect.element(start).toBeEnabled();
+
+    await userEvent.fill(openai, "/home/me/openai.key");
+    await expect.element(start).toBeEnabled();
+    await start.click();
+    await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+  }
+  // The next task starts with the path that was sent, in its own field.
+  openStartTaskDialog(threadRef);
+  {
+    // A task agentd recorded but the cloud didn't take keeps the last path that worked.
+    state.keyFiles["/home/me/other.key"] = {
+      provider: "openai",
+      readable: true,
+      openToOthers: false,
+    };
+    state.start.mockResolvedValue(
+      AsyncResult.success({ id: "hof-456def", started: false, note: "Refused." }),
+    );
+    await using _screen = await renderDialog();
+    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+    await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+    await page.getByRole("combobox", { name: "Model access" }).click();
+    await page.getByRole("option", { name: "Your API key" }).click();
+    await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/other.key");
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect.element(page.getByText("Refused.")).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).first().click();
+  }
+  openStartTaskDialog(threadRef);
+  {
+    await using _screen = await renderDialog();
+    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+    await page.getByRole("combobox", { name: "Model access" }).click();
+    await page.getByRole("option", { name: "Your API key" }).click();
+    await expect
+      .element(page.getByLabelText("OpenAI key file path"))
+      .toHaveValue("/home/me/openai.key");
+    await expect.element(page.getByLabelText("Anthropic key file path")).toHaveValue("");
+    // An earlier submission's task agentd found isn't this draft's: never shown as its start, and
+    // its paths aren't kept.
+    state.keyFiles["/home/me/draft.key"] = {
+      provider: "openai",
+      readable: true,
+      openToOthers: false,
+    };
+    state.start.mockResolvedValue(
+      AsyncResult.success({ id: "hof-777eee", started: false, earlier: true, note: "Earlier." }),
+    );
+    await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+    await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/draft.key");
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect.element(page.getByText("Earlier.")).toBeVisible();
+    await expect.element(page.getByText(/AgentD saved task hof-777eee/)).not.toBeInTheDocument();
+    state.rows = [{ id: "hof-777eee", cloudState: "running" }];
+    for (const listener of state.rowListeners) listener();
+    await expect
+      .element(page.getByText(/Task hof-777eee started in Cloud Workers/))
+      .not.toBeInTheDocument();
+    await expect.element(page.getByText("Earlier.")).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).first().click();
+  }
+  openStartTaskDialog(threadRef);
+  {
+    await using _screen = await renderDialog();
+    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+    await page.getByRole("combobox", { name: "Model access" }).click();
+    await page.getByRole("option", { name: "Your API key" }).click();
+    await expect
+      .element(page.getByLabelText("OpenAI key file path"))
+      .toHaveValue("/home/me/openai.key");
+    // One agentd saved without a receipt keeps its path once sync shows it started, after the
+    // dialog was closed too.
+    state.keyFiles["/home/me/later.key"] = {
+      provider: "openai",
+      readable: true,
+      openToOthers: false,
+    };
+    state.start.mockResolvedValue(
+      AsyncResult.success({ id: "hof-789aaa", started: false, note: "Recorded." }),
+    );
+    await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+    await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/later.key");
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect.element(page.getByText("Recorded.")).toBeVisible();
+    await page.getByRole("button", { name: "Close" }).first().click();
+    await expect.element(page.getByText("Recorded.")).not.toBeInTheDocument();
+    state.rows = [{ id: "hof-789aaa", cloudState: "running" }];
+    for (const listener of state.rowListeners) listener();
+  }
+  openStartTaskDialog(threadRef);
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await page.getByRole("combobox", { name: "Model access" }).click();
+  await page.getByRole("option", { name: "Your API key" }).click();
+  await expect
+    .element(page.getByLabelText("OpenAI key file path"))
+    .toHaveValue("/home/me/later.key");
 });

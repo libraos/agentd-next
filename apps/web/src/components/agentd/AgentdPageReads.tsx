@@ -1,4 +1,4 @@
-import type { AgentdStatus } from "@t3tools/contracts";
+import type { AgentdStatus, EnvironmentId } from "@t3tools/contracts";
 import { Link } from "@tanstack/react-router";
 import { T, useLocale, Var } from "gt-react";
 import type { ReactNode } from "react";
@@ -64,8 +64,13 @@ export function AgentdStatusDetails({
   status,
   team,
   onSetUp,
+  environmentId,
+  onRepaired,
 }: {
   status: AgentdStatus;
+  /** Where the services' Repair runs; null shows their notice without it. */
+  environmentId: EnvironmentId | null;
+  onRepaired: () => void;
   /** Opens Set up AgentD; absent when this connection cannot set agentd up. */
   onSetUp?: (() => void) | undefined;
   /** Shown under the team server once this environment is joined to one. */
@@ -127,7 +132,7 @@ export function AgentdStatusDetails({
           </span>
         )}
       </div>
-      <AgentdInstallStatus status={status} />
+      <AgentdInstallStatus status={status} environmentId={environmentId} onRepaired={onRepaired} />
       {checks.length > 0 ? (
         <ul className="divide-y divide-border border-t border-border">
           {checks.map((check) => (

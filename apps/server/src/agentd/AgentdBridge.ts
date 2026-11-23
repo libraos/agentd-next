@@ -11,14 +11,22 @@ import {
   AgentdNotFoundError,
   AgentdUserListJson,
   AgentdWhoJson,
+  type AgentdWorkerGateway,
   AgentdWorkerTool,
   type AgentdApproval,
+  type AgentdBackupCreated,
+  type AgentdBackupCreateInput,
   type AgentdCloudSetup,
   type AgentdCloudReview,
   type AgentdCloudReviewInput,
   type AgentdCloudSetupInput,
   type AgentdCloudConfigureInput,
   type AgentdCloudConfigured,
+  type AgentdCloudKeyFileCheck,
+  type AgentdCloudKeyFileInput,
+  type AgentdServicesProblem,
+  type AgentdServicesRepairResult,
+  type AgentdServicesRepairInput,
   type AgentdTaskDefaults,
   type AgentdTaskDefaultsInput,
   type AgentdCloudTaskInput,
@@ -31,6 +39,8 @@ import {
   type AgentdPeopleInput,
   type AgentdStartTaskInput,
   type AgentdStartTaskResult,
+  type AgentdBlockingTask,
+  type AgentdRetryStartInput,
   type AgentdStatus,
   type AgentdStopTaskInput,
   type AgentdTask,
@@ -42,6 +52,7 @@ import {
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveCommandPath } from "@t3tools/shared/shell";
+import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -50,6 +61,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
@@ -58,6 +71,12 @@ import { makeAgentdCloud } from "./agentdCloud.ts";
 import { makeCloudReview } from "./agentdCloudReview.ts";
 import { AgentdArgumentError, agentdArgs, agentdTicket } from "./agentdCommands.ts";
 import * as AgentdJson from "./agentdJson.ts";
+import { AGENTD_BACKUP_FILE, agentdBackupFileName } from "./agentdBackup.ts";
+import { blockingRefusal } from "./blockedStart.ts";
+import type { WorkerGatewayChoice } from "./workerGatewaySetting.ts";
+import { detectServices, repairServices, serviceAgentd, setupAgentd } from "./agentdServices.ts";
+import { makeClaudeTrust, projectFolder } from "./claudeTrust.ts";
+import { makeCloudKeyFile } from "./cloudKeyFile.ts";
 import {
   estimateType,
   PROJECT_FILES,
@@ -80,6 +99,9 @@ export class AgentdBridge extends Context.Service<
     readonly startTask: (
       input: AgentdStartTaskInput | AgentdCloudTaskInput,
     ) => Effect.Effect<AgentdStartTaskResult, AgentdError>;
+    readonly retryStart: (
+      input: AgentdRetryStartInput,
+    ) => Effect.Effect<AgentdStartTaskResult, AgentdError>;
     readonly approvals: Effect.Effect<ReadonlyArray<AgentdApproval>, AgentdError>;
     readonly inbox: Effect.Effect<ReadonlyArray<AgentdInboxItem>, AgentdError>;
     readonly people: (input: AgentdPeopleInput) => Effect.Effect<AgentdPeople, AgentdError>;
@@ -99,6 +121,15 @@ export class AgentdBridge extends Context.Service<
     readonly cloudConfigure: (
       input: AgentdCloudConfigureInput,
     ) => Effect.Effect<AgentdCloudConfigured, AgentdError>;
+    /** A chosen key file's provider and privacy; with makePrivate, chmod 600 first. */
+    readonly cloudKeyFile: (
+      input: AgentdCloudKeyFileInput,
+      makePrivate: boolean,
+    ) => Effect.Effect<AgentdCloudKeyFileCheck, AgentdError>;
+    /** Re-registers services on a missing or old agentd with this app's; only on the user's say. */
+    readonly repairServices: (
+      input: AgentdServicesRepairInput,
+    ) => Effect.Effect<AgentdServicesRepairResult, AgentdError>;
     readonly taskDefaults: (
       input: AgentdTaskDefaultsInput,
     ) => Effect.Effect<AgentdTaskDefaults, AgentdError>;
@@ -107,9 +138,25 @@ export class AgentdBridge extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<AgentdTaskOther>>;
     /** agentd's path, for the team node's long-lived worker. */
     readonly binary: Effect.Effect<string, AgentdError>;
+    /** The agentd `init` runs as: one clients can be connected to. */
+    readonly setupBinary: Effect.Effect<string, AgentdError>;
     readonly enrolWorker: (server: string, ticket: string) => Effect.Effect<void, AgentdError>;
     readonly foreground: (minutes: number) => Effect.Effect<void, AgentdError>;
     readonly eula: Effect.Effect<AgentdEula, AgentdError>;
+    /**
+     * Makes a backup of agentd's ledger in `dir`, encrypted to `input.recipient`, and removes the
+     * backups made before it there. One at a time: a second waits for the first.
+     */
+    readonly backupCreate: (
+      input: AgentdBackupCreateInput,
+      dir: string,
+    ) => Effect.Effect<Omit<AgentdBackupCreated, "relativeUrl" | "expiresAt">, AgentdError>;
+    readonly workerGateway: Effect.Effect<Omit<AgentdWorkerGateway, "chosen">, AgentdError>;
+    /** Null goes back to the tool's own login and default model. */
+    readonly setWorkerGateway: (
+      tool: AgentdWorkerTool,
+      choice: WorkerGatewayChoice | null,
+    ) => Effect.Effect<void, AgentdError>;
   }
 >()("t3/agentd/AgentdBridge") {}
 
@@ -123,6 +170,26 @@ const OUTPUT_TAIL_BYTES = 64 * 1024;
 // agentd reads are host reads a client asks for while it shows them, as diagnostics are.
 const POLL_SCOPE = { type: "diagnostics" } as const;
 const RUNNING_STATES = new Set(["offered", "claimed"]);
+// A cloud job past these has nothing more for `cloud sync` to mirror.
+const CLOUD_FINAL_STATES = new Set([
+  "completed",
+  "failed",
+  "failed_verification",
+  "budget_exceeded",
+  "cancelled",
+  "settlement_conflict",
+  "expired",
+]);
+// The watchdog syncs cloud jobs each pass; while one may not run, a shown list syncs this often.
+const CLOUD_SYNC_INTERVAL = Duration.seconds(30);
+
+/** A listed cloud job whose state agentd still has to mirror from the Job API. */
+function hasOpenCloudJob(rows: ReadonlyArray<AgentdTaskRow>): boolean {
+  return rows.some(
+    (row) =>
+      row.cloudState != null && row.cloudState !== "" && !CLOUD_FINAL_STATES.has(row.cloudState),
+  );
+}
 
 function sameRows(a: ReadonlyArray<AgentdTaskRow>, b: ReadonlyArray<AgentdTaskRow>): boolean {
   return (
@@ -206,6 +273,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       readonly stdin?: string;
       readonly jsonOnFailure?: boolean;
       readonly command?: string;
+      readonly timeout?: Duration.Input;
     } = {},
   ) {
     const command = options.command ?? (yield* binary);
@@ -214,7 +282,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
         command,
         args: argv,
         stdin: options.stdin,
-        timeout: Duration.seconds(60),
+        timeout: options.timeout ?? Duration.seconds(60),
         maxOutputBytes: 16 * 1024 * 1024,
       })
       .pipe(
@@ -243,6 +311,14 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return output.stdout;
   });
 
+  const backupLock = yield* Semaphore.make(1);
+
+  const cloudKeyFile = makeCloudKeyFile({
+    isAbsolute: pathService.isAbsolute,
+    platform,
+    uid: process.getuid?.(),
+  });
+
   const cloud = yield* makeAgentdCloud({
     binary,
     run,
@@ -250,6 +326,11 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     isAbsolute: pathService.isAbsolute,
     args,
     platform,
+    keyProvider: (path) =>
+      cloudKeyFile({ path }, false).pipe(
+        Effect.map((check) => check.provider),
+        Effect.orElseSucceed(() => null),
+      ),
   });
 
   const readShow = (id: string) =>
@@ -262,6 +343,108 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     runProcess: runner.run,
     readShow,
     originProject: cloud.originProject,
+  });
+
+  // The desktop app's last pass installing agentd for the terminal and agents, when it ran one.
+  const recordPath = env.AGENTD_DESKTOP_INSTALL_RECORD?.trim();
+  const readInstallRecord = recordPath
+    ? fs.readFileString(recordPath).pipe(
+        Effect.flatMap(decodeInstallRecord),
+        Effect.orElseSucceed(() => null),
+      )
+    : Effect.succeed(null);
+
+  // agentd's services on a missing or old agentd: checked on start and after a Repair, never moved
+  // unless the user confirms Repair.
+  let servicesProblem: AgentdServicesProblem | null = null;
+  const bundledBinary = env.AGENTD_DESKTOP_BUNDLED === "1" ? env.AGENTD_BIN?.trim() : undefined;
+  const home = bundledBinary ? yield* HostProcess.HomeDirectory : "";
+  const serviceDeps = bundledBinary
+    ? readInstallRecord.pipe(
+        Effect.map((installed) => ({
+          bundled: bundledBinary,
+          target: serviceAgentd(bundledBinary, env.APPDIR, installed),
+          platform,
+          home,
+          root: env.AGENTD_ROOT,
+          run: runner.run,
+        })),
+      )
+    : null;
+  const setupBinary = bundledBinary
+    ? readInstallRecord.pipe(
+        Effect.map((installed) => setupAgentd(bundledBinary, installed)),
+        Effect.flatMap((chosen) =>
+          chosen === bundledBinary
+            ? binary
+            : fs.exists(chosen).pipe(
+                Effect.orElseSucceed(() => false),
+                Effect.flatMap((there) => (there ? Effect.succeed(chosen) : binary)),
+              ),
+        ),
+      )
+    : binary;
+  const provideFiles = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, pathService),
+    );
+  const checkServices = Effect.fn("AgentdBridge.checkServices")(function* () {
+    if (serviceDeps === null) return null;
+    const problem = yield* provideFiles(detectServices(yield* serviceDeps));
+    servicesProblem = problem;
+    if (problem !== null)
+      yield* Effect.logWarning("agentd services run a missing or old agentd", problem);
+    return problem;
+  });
+  if (serviceDeps !== null) yield* checkServices().pipe(Effect.ignore, Effect.forkScoped);
+
+  const repairAgentdServices = Effect.fn("AgentdBridge.repairServices")(function* (
+    input: AgentdServicesRepairInput,
+  ) {
+    const problem = serviceDeps === null ? null : yield* checkServices();
+    if (serviceDeps === null || problem === null) return { ok: true };
+    if (problem.moves.length === 0)
+      return yield* commandError(
+        "Repair isn’t available for these services. Run agentd install in a terminal.",
+      );
+    const confirmed = new Set(input.moves);
+    if (problem.moves.length !== confirmed.size || problem.moves.some((n) => !confirmed.has(n)))
+      return yield* commandError(
+        "AgentD’s background services changed since you confirmed Repair. Check what it changes now and confirm again.",
+      );
+    const installed = yield* provideFiles(repairServices(yield* serviceDeps, problem));
+    // A service still on a missing or old agentd, or a watchdog systemd hasn't enabled, after
+    // install is no repair.
+    const after = yield* checkServices();
+    const result = installed.ok && after !== null ? { ...installed, ok: false } : installed;
+    if (result.ok) yield* Effect.logInfo("agentd services repaired on request");
+    else yield* Effect.logWarning("agentd services repair fell short", { result, after });
+    return result;
+  });
+
+  // Until the watchdog runs a working agentd, the listed cloud jobs are synced here, never often.
+  // One sync at a time, beside the list: a slow Job API never holds up the local tasks.
+  const bridgeScope = yield* Scope.Scope;
+  let lastCloudSync = 0;
+  let syncing = false;
+  const syncCloud = Effect.fn("AgentdBridge.syncCloud")(function* (
+    rows: ReadonlyArray<AgentdTaskRow>,
+  ) {
+    if (syncing || !hasOpenCloudJob(rows)) return;
+    const now = yield* Clock.currentTimeMillis;
+    if (now - lastCloudSync < Duration.toMillis(CLOUD_SYNC_INTERVAL)) return;
+    lastCloudSync = now;
+    syncing = true;
+    yield* run(agentdArgs.cloudSync()).pipe(
+      Effect.ignore,
+      Effect.ensuring(
+        Effect.sync(() => {
+          syncing = false;
+        }),
+      ),
+      Effect.forkIn(bridgeScope),
+    );
   });
 
   const readTasks = run(agentdArgs.list()).pipe(
@@ -297,6 +480,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   });
 
   const status: AgentdBridge["Service"]["status"] = Effect.gen(function* () {
+    // A problem shown is read again, so services the user fixed by hand stop showing on Refresh.
+    if (servicesProblem !== null) yield* checkServices().pipe(Effect.ignore);
     const [version, doctor] = yield* Effect.all([run(agentdArgs.version()), readDoctor], {
       concurrency: 2,
     }).pipe(
@@ -331,15 +516,15 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
           { concurrency: 2 },
         )
       : [null, null];
-    // The desktop app's last pass installing agentd for the terminal and agents, when it ran one.
-    const recordPath = env.AGENTD_DESKTOP_INSTALL_RECORD?.trim();
-    const install = recordPath
-      ? yield* fs.readFileString(recordPath).pipe(
-          Effect.flatMap(decodeInstallRecord),
-          Effect.orElseSucceed(() => null),
-        )
-      : null;
-    return { ...status, defaultWorker, dollarBudgets, binary: yield* binary, install };
+    const install = yield* readInstallRecord;
+    return {
+      ...status,
+      defaultWorker,
+      dollarBudgets,
+      binary: yield* binary,
+      install,
+      ...(servicesProblem === null ? {} : { servicesProblem }),
+    };
   }).pipe(Effect.withSpan("AgentdBridge.status"));
 
   // The first read fails the stream; a later failed read keeps the last list until agentd answers.
@@ -355,6 +540,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
         if (!(yield* backgroundPolicy.shouldRunScopeWork(POLL_SCOPE))) {
           return [[], Option.some(previous)] as const;
         }
+        yield* syncCloud(previous);
         const rows = yield* readTasks.pipe(Effect.option);
         if (Option.isNone(rows) || sameRows(previous, rows.value)) {
           return [[], Option.some(previous)] as const;
@@ -441,10 +627,79 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       }),
     );
 
+  const claudeTrust = makeClaudeTrust({
+    fs,
+    path: pathService,
+    env,
+    home: yield* HostProcess.HomeDirectory,
+  });
+
+  // Claude Code checks the main checkout, also for a worktree, then the folder and its parents.
+  const ensureClaudeTrust = Effect.fn("AgentdBridge.ensureClaudeTrust")(function* (
+    cwd: string,
+    consent: boolean,
+  ) {
+    const commonDir = yield* runner
+      .run({
+        command: "git",
+        args: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd,
+        timeout: Duration.seconds(10),
+      })
+      .pipe(
+        Effect.map((output) => (output.code === 0 ? output.stdout : null)),
+        Effect.orElseSucceed(() => null),
+      );
+    const folder = projectFolder(cwd, commonDir, pathService);
+    if ((yield* claudeTrust.trusted(folder)) || (yield* claudeTrust.trusted(cwd))) return;
+    if (!consent)
+      return yield* new AgentdCommandError({
+        message: `Claude Code hasn’t been allowed to work in ${folder} yet.`,
+        notSetUp: false,
+        untrustedFolder: folder,
+      });
+    yield* claudeTrust.trust(folder);
+  });
+
+  const listRow = (id: string) =>
+    run(agentdArgs.list()).pipe(
+      Effect.flatMap(decodeList),
+      Effect.map((rows) => rows.find((row) => row.id === id) ?? null),
+    );
+
+  // agentd names the open task holding the directory in prose; the app shows it as a choice.
+  const refused = Effect.fn("AgentdBridge.refusedDispatch")(function* (id: string, note: string) {
+    const refusal = blockingRefusal(note);
+    if (refusal === null) return { id, started: false, note };
+    // The goal and a fresher running state, when agentd's list still has the task.
+    const row = yield* listRow(refusal.id).pipe(Effect.orElseSucceed(() => null));
+    const blocking: AgentdBlockingTask = {
+      id: refusal.id,
+      state: row?.state ?? refusal.state,
+      goal: row === null ? null : row.goal || row.title || null,
+      running: refusal.running || row?.worker_running === true,
+    };
+    return { id, started: false, note, blocking };
+  });
+
+  // A failed dispatch leaves the task offered in agentd, where Start can run it again.
+  const dispatch = Effect.fn("AgentdBridge.dispatch")(function* (
+    id: string,
+    worker: AgentdWorkerTool,
+    force: boolean,
+  ) {
+    return yield* run(yield* args(() => agentdArgs.dispatch(id, worker, force))).pipe(
+      Effect.as<AgentdStartTaskResult>({ id, started: true, note: null }),
+      Effect.catchTags({ AgentdCommandError: (error) => refused(id, error.message) }),
+    );
+  });
+
   const startTask = Effect.fn("AgentdBridge.startTask")(function* (
     input: AgentdStartTaskInput | AgentdCloudTaskInput,
   ) {
     if (input.cloud !== undefined) return yield* cloud.startCloudTask(input);
+    if (input.worker === "claude")
+      yield* ensureClaudeTrust(input.cwd, input.trustClaudeFolder === true);
     const created = yield* run(yield* args(() => agentdArgs.new(input))).pipe(
       Effect.flatMap(
         decodeJson(
@@ -457,13 +712,30 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     );
     const id = created.handoff ?? created.id;
     if (id === undefined) return yield* commandError("agentd new did not name the task it made.");
-    // A failed dispatch leaves the task offered in agentd, where Start can run it again.
-    return yield* run(yield* args(() => agentdArgs.dispatch(id, input.worker))).pipe(
-      Effect.as({ id, started: true, note: null }),
-      Effect.catchTags({
-        AgentdCommandError: (error) => Effect.succeed({ id, started: false, note: error.message }),
-      }),
-    );
+    return yield* dispatch(id, input.worker, false);
+  });
+
+  const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
+    if (input.action === "force") return yield* dispatch(input.id, input.worker, true);
+    const row = yield* listRow(input.blocking);
+    if (row === null) {
+      return yield* commandError(
+        `AgentD could not read task ${input.blocking}, so it was not released.`,
+      );
+    }
+    // Releasing a task whose worker still runs would stop live work the person did not see.
+    if (row.worker_running === true) {
+      return yield* commandError(
+        `Task ${input.blocking} still has a worker running, so it was not released.`,
+      );
+    }
+    // agentd's decline is only for the session an offer is addressed to; a cancel by its sender
+    // or an owner releases an offered or claimed task alike.
+    if (row.state === "offered" || row.state === "claimed") {
+      const reason = `Released from AgentD Next to start ${input.id}`;
+      yield* run(yield* args(() => agentdArgs.cancel(input.blocking, reason)));
+    }
+    return yield* dispatch(input.id, input.worker, false);
   });
 
   const people = Effect.fn("AgentdBridge.people")(function* (input: AgentdPeopleInput) {
@@ -593,6 +865,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       return {};
     }),
     startTask,
+    retryStart,
     approvals: run(agentdArgs.approvals()).pipe(
       Effect.flatMap(decodeApprovals),
       Effect.map(AgentdJson.agentdApprovals),
@@ -616,9 +889,12 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     cloudSetup: cloud.cloudSetup,
     cloudReview,
     cloudConfigure: cloud.cloudConfigure,
+    cloudKeyFile,
+    repairServices: repairAgentdServices,
     taskDefaults,
     taskOthers,
     binary,
+    setupBinary,
     enrolWorker: Effect.fn("AgentdBridge.enrolWorker")(function* (server, ticket) {
       const argv = yield* args(() => agentdArgs.enrolWorker(server));
       const checked = yield* args(() => [agentdTicket(ticket)]);
@@ -628,7 +904,74 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       yield* run(agentdArgs.foreground(minutes));
     }),
     eula,
+    backupCreate: Effect.fn("AgentdBridge.backupCreate")(function* (input, dir) {
+      return yield* backupLock.withPermits(1)(
+        Effect.gen(function* () {
+          const nowMs = yield* Clock.currentTimeMillis;
+          const fileName = agentdBackupFileName(nowMs, crypto.getRandomValues(new Uint8Array(4)));
+          const output = pathService.join(dir, fileName);
+          const argv = yield* args(() => agentdArgs.backupCreate(output, input.recipient));
+          yield* fs
+            .makeDirectory(dir, { recursive: true, mode: 0o700 })
+            .pipe(Effect.mapError(() => commandError("The backups folder could not be made.")));
+          const before = yield* fs
+            .readDirectory(dir)
+            .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []));
+          // A ledger of a few hundred megabytes takes minutes to copy, compress and encrypt.
+          const answer = yield* run(argv, { timeout: Duration.minutes(15) });
+          const made = yield* decodeBackupCreated(answer).pipe(
+            Effect.mapError(() =>
+              commandError("agentd's answer to backup create could not be read."),
+            ),
+          );
+          yield* Effect.forEach(
+            before.filter((name) => AGENTD_BACKUP_FILE.test(name) && name !== fileName),
+            (name) => fs.remove(pathService.join(dir, name)).pipe(Effect.ignore),
+            { discard: true },
+          );
+          return { fileName, bytes: made.size, sha256: made.sha256, created: made.created };
+        }),
+      );
+    }),
+    workerGateway: Effect.gen(function* () {
+      const read = (argv: ReadonlyArray<string>) =>
+        run(argv).pipe(
+          Effect.map((stdout) => stdout.trim()),
+          Effect.orElseSucceed(() => ""),
+        );
+      const [help, claude, codex, opencode] = yield* Effect.all(
+        [
+          read(agentdArgs.configHelp()),
+          read(agentdArgs.workerModel("claude")),
+          read(agentdArgs.workerModel("codex")),
+          read(agentdArgs.workerModel("opencode")),
+        ],
+        { concurrency: 4 },
+      );
+      return {
+        supported: help.includes("dispatch.claude_base_url"),
+        models: { claude, codex, opencode },
+      };
+    }).pipe(Effect.withSpan("AgentdBridge.workerGateway")),
+    setWorkerGateway: Effect.fn("AgentdBridge.setWorkerGateway")(function* (tool, choice) {
+      const gateway = yield* args(() =>
+        agentdArgs.setWorkerGateway(tool, choice?.url ?? "", choice?.keyFile ?? null),
+      );
+      const model = yield* args(() => agentdArgs.setWorkerModel(tool, choice?.model ?? ""));
+      yield* run(gateway);
+      yield* run(model);
+    }),
   });
 });
+
+const decodeBackupCreated = Schema.decodeEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      size: Schema.Number,
+      sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
+      created: Schema.String,
+    }),
+  ),
+);
 
 export const layer = Layer.effect(AgentdBridge, make());

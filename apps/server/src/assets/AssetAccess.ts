@@ -63,7 +63,14 @@ import { toHostDrivePath } from "../workspace/hostDrivePath.ts";
 import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { extractIcnsPng } from "./icns.ts";
-import { openMediaFile, readMediaFileHeader, type OpenMediaFile } from "./MediaFile.ts";
+import {
+  mediaFileRevision,
+  openMediaFile,
+  readMediaFileHeader,
+  type OpenMediaFile,
+} from "./MediaFile.ts";
+import { AGENTD_BACKUP_FILE, agentdBackupsDir } from "../agentd/agentdBackup.ts";
+import * as WorkspacePreviewRevisions from "./WorkspacePreviewRevisions.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 export const ASSET_ROUTE_PREFIX = "/api/assets";
@@ -129,6 +136,8 @@ const AssetClaimsSchema = Schema.Union([
     kind: Schema.Literal("workspace-file"),
     workspaceRoot: Schema.String,
     baseRelativePath: Schema.String,
+    /** The opened page, which the files it requests are tracked under; absent on older URLs. */
+    entryFileName: Schema.optionalKey(Schema.String),
     expiresAt: Schema.Number,
   }),
   Schema.Struct({
@@ -174,6 +183,12 @@ const AssetClaimsSchema = Schema.Union([
     version: Schema.Literal(1),
     kind: Schema.Literal("native-app-icon"),
     app: NativeAppIconReference,
+    expiresAt: Schema.Number,
+  }),
+  Schema.Struct({
+    version: Schema.Literal(1),
+    kind: Schema.Literal("agentd-backup"),
+    fileName: Schema.String,
     expiresAt: Schema.Number,
   }),
   Schema.Struct({
@@ -449,7 +464,7 @@ const finalizeAbsoluteMediaFileAsset = Effect.fn("AssetAccess.finalizeAbsoluteMe
                 : Effect.succeed(null),
               (dimensions) => ({
                 identity: { device: file.info.dev.toString(), inode: file.info.ino.toString() },
-                fileRevision: `${file.info.dev}:${file.info.ino}:${file.info.size}:${file.info.mtimeNs}:${file.info.ctimeNs}`,
+                fileRevision: mediaFileRevision(file.info),
                 dimensions,
               }),
             ),
@@ -558,25 +573,36 @@ const finalizeWorkspaceFileAsset = Effect.fn("AssetAccess.finalizeWorkspaceFileA
     )
       ? yield* readImageDimensionsFromHeader(canonicalFile)
       : null;
+    if (!/\.html?$/i.test(resolved.relativePath)) {
+      return {
+        claims: {
+          version: 1 as const,
+          kind: "workspace-file-exact" as const,
+          workspaceRoot: canonicalWorkspaceRoot,
+          relativePath: resolved.relativePath,
+          expiresAt: input.expiresAt,
+        },
+        fileName: path.basename(resolved.relativePath),
+        imageDimensions,
+        fileRevision: undefined,
+      };
+    }
+    const revisions = yield* WorkspacePreviewRevisions.WorkspacePreviewRevisions;
     return {
-      claims: !/\.html?$/i.test(resolved.relativePath)
-        ? {
-            version: 1 as const,
-            kind: "workspace-file-exact" as const,
-            workspaceRoot: canonicalWorkspaceRoot,
-            relativePath: resolved.relativePath,
-            expiresAt: input.expiresAt,
-          }
-        : {
-            version: 1 as const,
-            kind: "workspace-file" as const,
-            workspaceRoot: canonicalWorkspaceRoot,
-            baseRelativePath: path.dirname(resolved.relativePath),
-            expiresAt: input.expiresAt,
-          },
+      claims: {
+        version: 1 as const,
+        kind: "workspace-file" as const,
+        workspaceRoot: canonicalWorkspaceRoot,
+        baseRelativePath: path.dirname(resolved.relativePath),
+        entryFileName: path.basename(resolved.relativePath),
+        expiresAt: input.expiresAt,
+      },
       fileName: path.basename(resolved.relativePath),
       imageDimensions,
-      fileRevision: undefined,
+      fileRevision: yield* revisions.revision({
+        workspaceRoot: canonicalWorkspaceRoot,
+        entryRelativePath: resolved.relativePath,
+      }),
     };
   },
 );
@@ -654,6 +680,7 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       claims = finalized.claims;
       fileName = finalized.fileName;
       imageDimensions = finalized.imageDimensions;
+      fileRevision = finalized.fileRevision;
       break;
     }
     case "draft-workspace-file": {
@@ -884,6 +911,11 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       fileName = `${input.resource.themeId}-background`;
       break;
     }
+    case "agentd-backup": {
+      claims = { version: 1, kind: "agentd-backup", fileName: input.resource.fileName, expiresAt };
+      fileName = input.resource.fileName;
+      break;
+    }
     case "native-app-icon": {
       claims = {
         version: 1,
@@ -1050,6 +1082,30 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
     return file ? ({ kind: "file", path: background.path, file } satisfies ResolvedAsset) : null;
   }
 
+  if (claims.kind === "agentd-backup") {
+    // Only the newest backup is there; the name is checked again, as claims outlive a release.
+    if (!AGENTD_BACKUP_FILE.test(claims.fileName)) return null;
+    const config = yield* ServerConfig.ServerConfig;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const dir = yield* fileSystem
+      .realPath(agentdBackupsDir(path, config.stateDir))
+      .pipe(Effect.orElseSucceed(() => null));
+    if (dir === null) return null;
+    const backupPath = path.join(dir, claims.fileName);
+    const file = yield* openMediaFile(backupPath).pipe(Effect.orElseSucceed(() => null));
+    return file
+      ? ({
+          kind: "file",
+          path: backupPath,
+          mimeType: "application/octet-stream",
+          file,
+          download: true,
+          fileName: claims.fileName,
+        } satisfies ResolvedAsset)
+      : null;
+  }
+
   if (claims.kind === "native-app-icon") {
     const nativeAppIconResolver = yield* NativeAppIconResolver.NativeAppIconResolver;
     const iconPath = yield* nativeAppIconResolver.resolve(claims.app);
@@ -1105,6 +1161,17 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
   if (!isPreviewDependencyPath(decodedPath, path)) return null;
   const joinedRelativePath =
     claims.baseRelativePath === "." ? decodedPath : path.join(claims.baseRelativePath, decodedPath);
+  if (claims.entryFileName !== undefined) {
+    // Before the file is resolved and read, so the recorded state is never newer than the response.
+    const revisions = yield* WorkspacePreviewRevisions.WorkspacePreviewRevisions;
+    yield* revisions.observe(
+      {
+        workspaceRoot: claims.workspaceRoot,
+        entryRelativePath: path.join(claims.baseRelativePath, claims.entryFileName),
+      },
+      joinedRelativePath,
+    );
+  }
   const workspaceFile = yield* resolveCanonicalWorkspaceFileForRequest({
     workspaceRoot: claims.workspaceRoot,
     relativePath: joinedRelativePath,

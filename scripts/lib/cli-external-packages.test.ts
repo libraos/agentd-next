@@ -52,6 +52,19 @@ describe("shouldBundleCliDependency", () => {
   });
 });
 
+describe("selectCliRuntimeExternalDependencies", () => {
+  it("stages the Pi the app ships beside the import externals", () => {
+    assert.deepStrictEqual(
+      selectCliRuntimeExternalDependencies({
+        "@earendil-works/pi-coding-agent": "1.6.0",
+        "node-pty": "1.0.0",
+        effect: "4.0.0",
+      }),
+      { "@earendil-works/pi-coding-agent": "1.6.0", "node-pty": "1.0.0" },
+    );
+  });
+});
+
 it.layer(NodeServices.layer)("external package dependency closure", (it) => {
   // Read the pnpm store directly: isolation hides transitive names and exports maps can block package.json.
   const readInstalledPackages = Effect.gen(function* () {

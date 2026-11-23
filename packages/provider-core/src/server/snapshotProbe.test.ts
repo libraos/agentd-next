@@ -15,8 +15,11 @@ import {
   isCommandMissingCause,
   resolveProviderProbeTimeoutMs,
   parseGenericCliVersion,
+  buildServerProvider,
+  NO_SERVED_MODELS_MESSAGE,
   providerModelsFromSettings,
   spawnAndCollect,
+  withNoServedModelsNotice,
 } from "./snapshotProbe.ts";
 
 const OPENCODE_CUSTOM_MODEL_CAPABILITIES: ModelCapabilities = createModelCapabilities({
@@ -96,6 +99,92 @@ describe("providerModelsFromSettings", () => {
 
     expect(models.map((model) => model.slug)).toEqual(["claude-opus-4-8", "opus"]);
     expect(models[1]?.isCustom).toBe(true);
+  });
+
+  it("lists only the served models when the endpoint's list replaces the catalog", () => {
+    const fast = createModelCapabilities({
+      optionDescriptors: [{ id: "fastMode", label: "Fast Mode", type: "boolean" }],
+    });
+    const plain = createModelCapabilities({ optionDescriptors: [] });
+    const catalog = [
+      { slug: "gpt-6.2-sol", name: "GPT-6.2-Sol", isCustom: false, capabilities: fast },
+      { slug: "gpt-6.1-sol", name: "GPT-6.1-Sol", isCustom: false, capabilities: fast },
+      { slug: "gpt-6-astra", name: "GPT-6-Astra", isCustom: false, capabilities: fast },
+      { slug: "gpt-5.5", name: "GPT-5.5", isCustom: false, capabilities: plain },
+    ];
+
+    const models = providerModelsFromSettings(
+      catalog,
+      [
+        { slug: "gpt-6-astra", name: "OpenAI: GPT-6 Astra" },
+        "gpt-6.1-sol",
+        { slug: "gpt-7-preview", name: "GPT-7 Preview" },
+        { slug: "gemini/gemini-2.5-pro", name: "Gemini 2.5 Pro", subProvider: "gemini" },
+        "team-a/deployment",
+        { slug: "openai/gpt-6.2-sol", subProvider: "openai" },
+      ],
+      plain,
+      { onlyCustomModels: true },
+    );
+
+    expect(models).toEqual([
+      catalog[1],
+      catalog[2],
+      { slug: "gpt-7-preview", name: "GPT-7 Preview", isCustom: true, capabilities: plain },
+      // A model is labelled with the family its entry names, never guessed from its id.
+      {
+        slug: "gemini/gemini-2.5-pro",
+        name: "Gemini 2.5 Pro",
+        subProvider: "gemini",
+        isCustom: true,
+        capabilities: plain,
+      },
+      { slug: "team-a/deployment", name: "team-a/deployment", isCustom: true, capabilities: plain },
+      // A family-prefixed catalog id offers that catalog model's options.
+      {
+        slug: "openai/gpt-6.2-sol",
+        name: "openai/gpt-6.2-sol",
+        subProvider: "openai",
+        isCustom: true,
+        capabilities: fast,
+      },
+    ]);
+  });
+
+  it("lists nothing when the endpoint serves none of the agent's models", () => {
+    const capabilities = createModelCapabilities({ optionDescriptors: [] });
+    const catalog = [{ slug: "claude-opus-4-8", name: "Opus", isCustom: false, capabilities }];
+
+    expect(
+      providerModelsFromSettings(catalog, [], capabilities, { onlyCustomModels: true }),
+    ).toEqual([]);
+    expect(providerModelsFromSettings(catalog, [], capabilities)).toEqual(catalog);
+  });
+});
+
+describe("withNoServedModelsNotice", () => {
+  const draft = (models: ReturnType<typeof providerModelsFromSettings>) =>
+    buildServerProvider({
+      presentation: { displayName: "Claude" },
+      enabled: true,
+      checkedAt: "2026-11-19T00:00:00.000Z",
+      models,
+      probe: {
+        installed: true,
+        version: "2.1.0",
+        status: "ready",
+        auth: { status: "authenticated" },
+      },
+    });
+
+  it("says why an agent limited to its key's models has none", () => {
+    const notice = withNoServedModelsNotice(draft([]), true);
+    expect(notice.status).toBe("warning");
+    expect(notice.message).toBe(NO_SERVED_MODELS_MESSAGE);
+  });
+
+  it("leaves an agent on its own catalog alone", () => {
+    expect(withNoServedModelsNotice(draft([]), undefined).status).toBe("ready");
   });
 });
 

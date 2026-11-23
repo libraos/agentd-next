@@ -1,7 +1,7 @@
 import { type ProviderDriverKind, type ProviderInstanceId } from "@t3tools/contracts";
 import { T, useGT } from "gt-react";
 import { memo } from "react";
-import { CheckIcon, StarIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, StarIcon } from "lucide-react";
 import { getDisplayModelName } from "./providerIconUtils";
 import { ComboboxItem } from "../ui/combobox";
 import { Button } from "../ui/button";
@@ -11,6 +11,23 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "~/lib/utils";
 import { modelPickerModelKey } from "./modelPickerKeys";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
+
+export interface ModelRowSource {
+  readonly instanceId: ProviderInstanceId;
+  readonly slug: string;
+  readonly label: string;
+  readonly color: string;
+}
+
+function SourceDot({ color }: { readonly color: string }) {
+  return (
+    <span
+      className="size-2 shrink-0 rounded-full"
+      style={{ backgroundColor: color }}
+      aria-hidden="true"
+    />
+  );
+}
 
 export const ModelListRow = memo(function ModelListRow(props: {
   index: number;
@@ -23,9 +40,19 @@ export const ModelListRow = memo(function ModelListRow(props: {
   providerAccentColor?: string | undefined;
   acpRegistryAgentId?: string | undefined;
   acpRegistryIconUrl?: string | undefined;
+  /** Where the model runs: a sign-in, or a gateway and the agent that runs it. */
+  sourceLabel: string;
+  /** Another source of the model in the row above, listed under it. */
+  isVariant?: boolean;
+  /** The source's color: its accent, else its provider's. */
+  sourceColor: string;
+  /** Every source of a model that has several, this row's included; shown while the row is pointed at. */
+  sources?: ReadonlyArray<ModelRowSource> | undefined;
+  onPickSource?: (instanceId: ProviderInstanceId, slug: string) => void;
+  /** Given when the model has other sources: lists them under this row. */
+  onToggleVariants?: () => void;
+  variantsExpanded?: boolean;
   isFavorite: boolean;
-  /** In Favorites every row is starred, so the star shows only on hover. */
-  favoriteStarOnHover?: boolean;
   isSelected: boolean;
   /** Marks this instance apart from another of the same provider. */
   showInstanceBadge: boolean;
@@ -56,6 +83,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
       )}
     >
       {/* One row shape in every tab: the logo names the provider, so Favorites needs no second line. */}
+      {props.isVariant ? <span className="w-3 shrink-0" aria-hidden="true" /> : null}
       <ProviderInstanceIcon
         driverKind={props.driverKind}
         displayName={props.providerDisplayName}
@@ -103,6 +131,62 @@ export const ModelListRow = memo(function ModelListRow(props: {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {/* Pointing at a model with several sources offers each one, in its color. */}
+        {props.sources && !props.disabledReason ? (
+          <span className="hidden items-center gap-1 group-hover:flex">
+            {props.sources.map((source) => (
+              <Button
+                key={source.instanceId}
+                size="xs"
+                variant={source.instanceId === props.instanceId ? "outline" : "ghost-muted"}
+                data-model-source-choice={source.label}
+                aria-pressed={source.instanceId === props.instanceId}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onPickSource?.(source.instanceId, source.slug);
+                }}
+                onKeyDown={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                <SourceDot color={source.color} />
+                <span className="max-w-24 truncate">{source.label}</span>
+              </Button>
+            ))}
+          </span>
+        ) : null}
+        {props.onToggleVariants ? (
+          <Button
+            size="xs"
+            variant="ghost-muted"
+            className={cn(props.sources && !props.disabledReason && "group-hover:hidden")}
+            data-model-source={props.sourceLabel}
+            aria-expanded={props.variantsExpanded === true}
+            aria-label={gt("{source}. Other sources of this model", { source: props.sourceLabel })}
+            onClick={(event) => {
+              event.stopPropagation();
+              props.onToggleVariants?.();
+            }}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <SourceDot color={props.sourceColor} />
+            <span className="max-w-28 truncate">{props.sourceLabel}</span>
+            <ChevronDownIcon
+              className={cn("size-3", props.variantsExpanded && "rotate-180")}
+              aria-hidden="true"
+            />
+          </Button>
+        ) : (
+          <span
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            data-model-source={props.sourceLabel}
+          >
+            <SourceDot color={props.sourceColor} />
+            <span className="max-w-28 truncate">{props.sourceLabel}</span>
+          </span>
+        )}
         <Tooltip>
           <TooltipTrigger
             render={
@@ -123,7 +207,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
                   className={cn(
                     "size-3.5 sm:size-3",
                     props.isFavorite && "fill-current text-warning",
-                    (!props.isFavorite || props.favoriteStarOnHover) &&
+                    !props.isFavorite &&
                       "opacity-0 group-hover:opacity-100 group-data-highlighted:opacity-100 in-focus-visible:opacity-100 pointer-coarse:opacity-100",
                   )}
                 />

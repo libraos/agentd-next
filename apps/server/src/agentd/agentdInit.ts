@@ -205,7 +205,7 @@ const make = Effect.fn("AgentdInit.make")(function* () {
       Effect.gen(function* () {
         const current = yield* SubscriptionRef.get(state);
         if (current.phase === "running") return current;
-        const command = yield* bridge.binary;
+        const command = yield* bridge.setupBinary;
         const flag = yield* hasAcceptFlag(command);
         const running: AgentdSetupState = {
           ...IDLE,

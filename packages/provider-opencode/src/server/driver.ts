@@ -45,7 +45,7 @@ import {
   openCode2SkillsToServerProviderSkills,
   openCodeSkillsToServerProviderSkills,
   openCodeCommandsToServerProviderSlashCommands,
-  openCodeProviderModels,
+  openCodeEndpointModels,
   readSettledOpenCode2Catalog,
 } from "./status.ts";
 import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
@@ -525,6 +525,7 @@ export const OpenCodeDriver: ProviderDriver<
           loadOpenCode2Models,
           processEnv,
           host.compatibility,
+          host.endpointKeyModels,
         ).pipe(
           Effect.annotateLogs({ providerInstanceId: instanceId }),
           Effect.annotateSpans({ providerInstanceId: instanceId }),
@@ -567,10 +568,20 @@ export const OpenCodeDriver: ProviderDriver<
           // A project's opencode.jsonc can define its own providers.
           models: OpenCodeRuntime.loadOpenCodeProviderCatalog(client).pipe(
             Effect.timeoutOption("10 seconds"),
-            Effect.map(
-              Option.flatMapNullishOr((catalog) =>
-                openCodeProviderModels(effectiveConfig, catalog),
-              ),
+            // The machine status's Gateway check applies to the project's providers too.
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.succeed(Option.none<ReadonlyArray<ServerProviderModel>>()),
+                onSome: (catalog) =>
+                  openCodeEndpointModels(effectiveConfig, catalog, host.endpointKeyModels).pipe(
+                    // A list an endpoint decided is final even when empty, not a cold start.
+                    Effect.map(({ models, fallbackModels, endpointProviders }) =>
+                      Option.fromNullishOr(
+                        models ?? (endpointProviders.length === 0 ? undefined : fallbackModels),
+                      ),
+                    ),
+                  ),
+              }),
             ),
             Effect.orElseSucceed(() => Option.none<ReadonlyArray<ServerProviderModel>>()),
           ),

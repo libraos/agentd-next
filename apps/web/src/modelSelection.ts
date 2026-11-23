@@ -2,6 +2,9 @@ import {
   DEFAULT_TEXT_GENERATION_MODEL,
   DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,
+  isEndpointDecidedModel,
+  isLibraosGatewayInstanceId,
+  LIBRAOS_GATEWAY_ORIGIN,
   type ModelSelection,
   type ProjectId,
   ProviderDriverKind,
@@ -15,6 +18,7 @@ import {
   normalizeCustomModelSlug,
   readCustomModelEntries,
   resolveSelectableModel,
+  type SelectableModelOption,
 } from "@t3tools/shared/model";
 import { getComposerProviderState } from "./components/chat/composerProviderState";
 import { type ClientSettings, UnifiedSettings } from "@t3tools/contracts/settings";
@@ -74,19 +78,51 @@ export interface AppModelOption {
   isUnavailable?: boolean;
 }
 
+/** The server lists exactly the Gateway key's models for this agent; settings cannot add one. */
+export function listsGatewayModels(
+  instanceId: string,
+  provider: Pick<ServerProvider, "auth"> | undefined,
+): boolean {
+  return (
+    isLibraosGatewayInstanceId(instanceId) || provider?.auth.endpoint === LIBRAOS_GATEWAY_ORIGIN
+  );
+}
+
+// An agent on the LibraOS Gateway lists its key's models, so it loses a model when the key does.
+function listsModelsAtRuntime(entry: ProviderInstanceEntry): boolean {
+  return (
+    hasRuntimeModelCatalog(entry.driverKind) || listsGatewayModels(entry.instanceId, entry.snapshot)
+  );
+}
+
+// A Gateway id is the model it names: one the key dropped stays itself (unavailable) rather than
+// resolving by alias or name to another row, such as a revoked literal `opus` to Opus 5.5.
+function resolveListedModel(
+  provider: ProviderDriverKind,
+  value: string | null | undefined,
+  options: ReadonlyArray<SelectableModelOption>,
+  exactIds: boolean,
+): string | null {
+  if (!exactIds) return resolveSelectableModel(provider, value, options);
+  const slug = value?.trim();
+  return options.find((option) => option.slug === slug)?.slug ?? null;
+}
+
 function appendUnavailableDynamicModelSelection(
   options: AppModelOption[],
   rawModels: ReadonlyArray<ServerProvider["models"][number]>,
   provider: ProviderDriverKind,
+  runtimeCatalog: boolean,
   selectedModel: string | null | undefined,
   hiddenModels: ReadonlyArray<string>,
+  exactIds = false,
 ): AppModelOption[] {
-  if (!hasRuntimeModelCatalog(provider)) return options;
+  if (!runtimeCatalog) return options;
   const slug = normalizeCustomModelSlug(selectedModel);
   if (!slug) return options;
   if (isRuntimeModelDefaultAlias(provider, slug)) return options;
 
-  if (resolveSelectableModel(provider, slug, rawModels) !== null) return options;
+  if (resolveListedModel(provider, slug, rawModels, exactIds) !== null) return options;
   if (hiddenModels.includes(slug)) return options;
   if (options.some((option) => option.slug === slug)) return options;
 
@@ -201,6 +237,7 @@ function getAppModelOptions(
     applyInstanceModelPreferences(options, preferences),
     rawModels,
     provider,
+    hasRuntimeModelCatalog(provider),
     selectedModel,
     preferences.hiddenModels,
   );
@@ -211,8 +248,10 @@ export function getAppModelOptionsForInstance(
   entry: ProviderInstanceEntry,
   selectedModel?: string | null,
 ): AppModelOption[] {
+  const gatewayListed = listsGatewayModels(entry.instanceId, entry.snapshot);
+  // The Gateway's list, custom rows included, is the authority; saved custom models are not.
   const options: AppModelOption[] = entry.models
-    .filter((model) => !model.isCustom)
+    .filter((model) => gatewayListed || !model.isCustom)
     .map((model) => toAppModelOption(model, entry.driverKind));
   const seen = new Set(options.map((option) => option.slug));
   const builtInModelSlugs = new Set(
@@ -221,9 +260,19 @@ export function getAppModelOptionsForInstance(
     ),
   );
 
-  const customModels = readInstanceCustomModels(settings, entry.instanceId, entry.driverKind);
+  const customModels = gatewayListed
+    ? []
+    : readInstanceCustomModels(settings, entry.instanceId, entry.driverKind);
   for (const custom of normalizeCustomModelEntries(customModels, builtInModelSlugs)) {
     if (seen.has(custom.slug)) {
+      continue;
+    }
+    // A sub-provider whose key decides its list (the Gateway in a mixed OpenCode account) left
+    // this saved model out of the server's list because the key does not allow it.
+    if (
+      isEndpointDecidedModel(entry.snapshot.auth, custom.slug) &&
+      !entry.models.some((model) => model.slug === custom.slug)
+    ) {
       continue;
     }
 
@@ -242,8 +291,10 @@ export function getAppModelOptionsForInstance(
     applyInstanceModelPreferences(options, preferences),
     entry.models,
     entry.driverKind,
+    listsModelsAtRuntime(entry),
     selectedModel,
     preferences.hiddenModels,
+    gatewayListed,
   );
 }
 
@@ -277,17 +328,18 @@ export function resolveAppModelSelectionForInstance(
     entry,
     resolutionOptions?.preserveUnavailableSelection ? selectedModel : null,
   );
-  const resolvedSelection = resolveSelectableModel(entry.driverKind, selectedModel, options);
+  const exactIds = listsGatewayModels(entry.instanceId, entry.snapshot);
+  const resolvedSelection = resolveListedModel(entry.driverKind, selectedModel, options, exactIds);
   if (resolvedSelection) {
     return resolvedSelection;
   }
-  if (resolutionOptions?.preserveUnavailableSelection && hasRuntimeModelCatalog(entry.driverKind)) {
+  if (resolutionOptions?.preserveUnavailableSelection && listsModelsAtRuntime(entry)) {
     const unavailableSelection = normalizeCustomModelSlug(selectedModel);
     const hiddenModels = readInstanceModelPreferences(settings, entry.instanceId).hiddenModels;
     if (
       unavailableSelection &&
       !hiddenModels.includes(unavailableSelection) &&
-      resolveSelectableModel(entry.driverKind, selectedModel, entry.models) === null &&
+      resolveListedModel(entry.driverKind, selectedModel, entry.models, exactIds) === null &&
       !isRuntimeModelDefaultAlias(entry.driverKind, unavailableSelection)
     ) {
       return unavailableSelection;

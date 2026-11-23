@@ -81,10 +81,6 @@ export function isProviderInstancePickerReady(entry: ProviderInstanceEntry): boo
   );
 }
 
-export function isProviderInstancePickerVisible(entry: ProviderInstanceEntry): boolean {
-  return entry.enabled;
-}
-
 export function deriveProviderInstanceEntries(
   providers: ReadonlyArray<ServerProvider>,
 ): ReadonlyArray<ProviderInstanceEntry> {

@@ -82,6 +82,12 @@ describe("searchSettings", () => {
     expect(searchSettings("1password").map((item) => item.to)).not.toContain("/settings/secrets");
   });
 
+  it("finds where subagents and side chats open by any of its names", () => {
+    for (const query of ["side panel", "subagent", "side chat", "linked thread", "middle click"]) {
+      expect(searchSettings(query).map((item) => item.id)).toContain("side-thread-open-target");
+    }
+  });
+
   it("keeps disabled product areas out of navigation and search", () => {
     const paths = SETTINGS_NAV_GROUPS.flatMap((group) => group.paths);
     expect(paths).not.toContain("/settings/scheduled-tasks");

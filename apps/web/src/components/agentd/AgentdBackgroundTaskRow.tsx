@@ -1,8 +1,10 @@
 import { useAtomValue } from "@effect/atom-react";
+import { secondTick } from "@t3tools/client-runtime/clock";
 import type { AgentdRunsOn, AgentdTask, AgentdTaskRow, EnvironmentId } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/orchestrationTimingCopy";
 import { T, useGT, useLocale, useMessages, Var } from "gt-react";
-import { useEffect, useRef, useState } from "react";
+import { CheckIcon } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
 import { agentdEnvironment, useAgentdCommands, useAgentdTask } from "../../lib/agentdState";
@@ -14,7 +16,13 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { AgentdTaskOutput } from "./AgentdTaskOutput";
 import { BackgroundTaskCard } from "./BackgroundTaskCard";
 import { CloudTaskReviewActions } from "./CloudTaskReview";
-import { finishedAgentdTaskLabel, runningAgentdTaskLabel } from "./backgroundTasks.logic";
+import {
+  agentdTaskBudgetUse,
+  type AgentdTaskBudgetTone,
+  finishedAgentdTaskLabel,
+  runningAgentdTaskLabel,
+} from "./backgroundTasks.logic";
+import { budgetDollarLimit, budgetMinutes } from "./startTask.logic";
 
 function AgentdTaskLocation({ location }: { readonly location: AgentdRunsOn }) {
   switch (location) {
@@ -88,6 +96,125 @@ function TaskCost({ task }: { readonly task: AgentdTask }) {
     <T>
       Cost: <Var>{cost}</Var>
     </T>
+  );
+}
+
+const BUDGET_TONE: Record<AgentdTaskBudgetTone, string> = {
+  progress: "bg-primary",
+  warning: "bg-warning",
+  success: "bg-success",
+  failure: "bg-destructive",
+};
+
+/** The task's elapsed time, ticking each second while it runs. */
+function useElapsedMs(task: AgentdTask | null, live: boolean): number {
+  const now = useSyncExternalStore(
+    (listener) => (live ? secondTick.subscribe(listener) : () => {}),
+    () => (live ? Math.floor(Date.now() / 1000) * 1000 : 0),
+  );
+  const started = Date.parse(task?.started ?? "");
+  if (!Number.isFinite(started)) return 0;
+  const ended = live ? now : Date.parse(task?.updated ?? "");
+  return Number.isFinite(ended) ? Math.max(0, ended - started) : 0;
+}
+
+function TaskBudgetBar(props: {
+  readonly task: AgentdTask;
+  readonly finished: boolean;
+  readonly elapsedMs: number;
+}) {
+  const gt = useGT();
+  const { task, finished, elapsedMs } = props;
+  const use = agentdTaskBudgetUse({
+    budget: task.budget,
+    elapsedMs,
+    costUsd: task.costUsd,
+    finished,
+    state: task.state,
+    verdict: task.verdict,
+    budgetState: task.budgetState,
+  });
+  if (use === null) return null;
+  const percent = Math.round(use.fraction * 100);
+  return (
+    <span className="flex basis-full items-center gap-1.5 pt-0.5">
+      <span
+        role="progressbar"
+        aria-label={gt("Budget used")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-muted"
+      >
+        <span
+          className={`block h-full rounded-full ${BUDGET_TONE[use.tone]}`}
+          style={{ width: `${percent}%` }}
+        />
+      </span>
+      {use.tone === "success" ? (
+        <CheckIcon aria-hidden="true" className="size-3 shrink-0 text-success" />
+      ) : null}
+    </span>
+  );
+}
+
+function TaskBudgetDetails(props: {
+  readonly task: AgentdTask;
+  readonly finished: boolean;
+  readonly elapsedMs: number;
+}) {
+  const locale = useLocale();
+  const resolve = useMessages();
+  const { task, finished, elapsedMs } = props;
+  const minutes = budgetMinutes(task.budget);
+  const dollars = budgetDollarLimit(task.budget);
+  if (!minutes && !dollars) return null;
+  const money = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" });
+  const used = formatDuration(elapsedMs, resolve);
+  return (
+    <dl className="space-y-2 wrap-anywhere select-text">
+      <div>
+        <dt className="font-medium">
+          <T>Budget used</T>
+        </dt>
+        <dd className="text-muted-foreground tabular-nums">
+          {minutes ? (
+            <span className="block">
+              <T>
+                Time: <Var>{used}</Var> of <Var>{minutes}</Var> min
+              </T>
+            </span>
+          ) : null}
+          {dollars ? (
+            <span className="block">
+              {task.costUsd === null ? (
+                <T>
+                  Budget: <Var>{money.format(dollars)}</Var>
+                </T>
+              ) : task.costEstimate ? (
+                <T>
+                  Estimated cost: <Var>{money.format(task.costUsd)}</Var> of{" "}
+                  <Var>{money.format(dollars)}</Var>
+                </T>
+              ) : (
+                <T>
+                  Cost: <Var>{money.format(task.costUsd)}</Var> of{" "}
+                  <Var>{money.format(dollars)}</Var>
+                </T>
+              )}
+            </span>
+          ) : null}
+        </dd>
+      </div>
+      {!finished && task.report ? (
+        <div>
+          <dt className="font-medium">
+            <T>Latest report</T>
+          </dt>
+          <dd className="whitespace-pre-wrap text-muted-foreground">{task.report}</dd>
+        </div>
+      ) : null}
+    </dl>
   );
 }
 
@@ -313,6 +440,7 @@ export function AgentdBackgroundTaskRow(props: {
   const worker = workerName(task?.workerTool ?? row.workerTool);
   const location = task?.runsOn ?? (row.runsOn === "cloud" ? row.runsOn : null);
   const cloud = location === "cloud";
+  const elapsedMs = useElapsedMs(task, !finished);
   return (
     <BackgroundTaskCard
       title={title}
@@ -361,6 +489,9 @@ export function AgentdBackgroundTaskRow(props: {
           {cloud && task?.note ? (
             <span className="basis-full wrap-anywhere text-destructive">{task.note}</span>
           ) : null}
+          {task && !cloud ? (
+            <TaskBudgetBar task={task} finished={finished} elapsedMs={elapsedMs} />
+          ) : null}
         </>
       }
       action={
@@ -377,6 +508,9 @@ export function AgentdBackgroundTaskRow(props: {
             Couldn&apos;t load task details: <Var>{error}</Var>
           </T>
         </p>
+      ) : null}
+      {task && !cloud ? (
+        <TaskBudgetDetails task={task} finished={finished} elapsedMs={elapsedMs} />
       ) : null}
       {finished ? (
         task ? (

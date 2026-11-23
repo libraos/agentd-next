@@ -107,6 +107,8 @@ export type ModelCapabilities = typeof ModelCapabilities.Type;
 export const CustomModelEntry = Schema.Struct({
   slug: TrimmedNonEmptyString,
   name: Schema.optional(TrimmedNonEmptyString),
+  /** The family a picker groups it under, for an endpoint that serves several. */
+  subProvider: Schema.optional(TrimmedNonEmptyString),
   capabilities: Schema.optional(ModelCapabilities),
 });
 export type CustomModelEntry = typeof CustomModelEntry.Type;

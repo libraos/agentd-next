@@ -11,10 +11,12 @@ import {
   collectExternalUsageLinks as collectExternalUsageLinksWith,
   cursorUsageWindowDetails as cursorUsageWindowDetailsBase,
   type LimitPool,
+  type LibraosCopy,
   type LimitPresentations,
   providersWithLimits,
   type ResetCreditChoice,
   resetCountdown,
+  unshownFailedHubAccounts,
 } from "./usageLimits.ts";
 
 const MINUTE = 60_000;
@@ -37,6 +39,20 @@ const CURSOR_USAGE_WINDOW_COPY: Readonly<
     description: msg("Usage allowance for third-party models such as Claude, GPT, and Gemini."),
   },
 };
+
+/** English unless a resolver is given; numbers are grouped for the resolver's locale. */
+export function libraosCopy(resolve: MFunctionType = mFallback): LibraosCopy {
+  return {
+    windowLabel: resolve(msg("Worker minutes", { $context: "LibraOS monthly plan allowance" })),
+    minutesLeft: (left, included) =>
+      resolve(
+        msg("{left, number} of {included, number} min left", {
+          left: Math.round(left),
+          included: Math.round(included),
+        }),
+      ),
+  };
+}
 
 /** @public */
 export function cursorUsageWindowDetails(
@@ -86,11 +102,20 @@ export function collectLimitNotices(
   const label = (environmentLabel: string, subject: string) =>
     presentations.size > 1 ? `${environmentLabel} · ${subject}` : subject;
   const notices = new Set<string>();
+  // A failed hub read needs no notice when another report already shows the account's row.
+  const failedAccounts = unshownFailedHubAccounts(presentations);
   for (const presentation of presentations.values()) {
     const environmentLabel = presentation.entry.target.label;
     for (const provider of providersWithLimits(presentation.serverConfig?.providers ?? [])) {
-      if (provider.usageLimits?.unavailable?.reason === "unsupported") continue;
-      const notice = provider.usageLimits ? limitsNotice(provider.usageLimits, resolve) : null;
+      const limits = provider.usageLimits;
+      // A bare unsupported means the account has no limits; an external usage link shows its message.
+      if (
+        limits?.unavailable?.reason === "unsupported" &&
+        (!limits.unavailable.message || limits.externalUsage)
+      ) {
+        continue;
+      }
+      const notice = limits ? limitsNotice(limits, resolve) : null;
       const name = provider.displayName?.trim() || String(provider.driver);
       if (notice) notices.add(`${label(environmentLabel, name)}: ${notice}`);
     }
@@ -105,6 +130,12 @@ export function collectLimitNotices(
             }),
           ),
         );
+      }
+      for (const account of source.accounts) {
+        const name = failedAccounts.get(account);
+        if (name === undefined) continue;
+        const notice = limitsNotice(account.usageLimits, resolve);
+        notices.add(`${label(environmentLabel, source.label)} · ${name}: ${notice}`);
       }
     }
   }

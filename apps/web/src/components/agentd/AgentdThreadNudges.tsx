@@ -293,6 +293,11 @@ function WorkerOfferCard({
               A local worker cannot start on this branch, so Cloud Workers would take the task while
               you keep working.
             </T>
+          ) : offer === "local-or-cloud" ? (
+            <T>
+              A worker on this machine or Cloud Workers can take this task in the background while
+              you keep working.
+            </T>
           ) : (
             <T>A worker can take this task in the background while you keep working.</T>
           )}

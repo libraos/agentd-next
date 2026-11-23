@@ -5,6 +5,7 @@ import {
   type AgentdTaskOthersInput,
   type AgentdTaskSize,
   type EnvironmentId,
+  type ProjectId,
 } from "@t3tools/contracts";
 import { useMessages } from "gt-react";
 
@@ -104,6 +105,15 @@ export function useAgentdEula(target: EnvironmentId | null) {
   );
 }
 
+/** Which gateway and model this machine's workers use. */
+export function useAgentdWorkerGateway(target: EnvironmentId | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null ? null : agentdEnvironment.workerGateway({ environmentId, input: {} }),
+    useMessages(),
+  );
+}
+
 /** The environment's `agentd init` run: its phase and output. */
 export function useAgentdSetup(target: EnvironmentId | null) {
   const environmentId = useAgentdEnvironment(target);
@@ -122,6 +132,36 @@ export function useAgentdCommands() {
     joinTeam: useAtomCommand(agentdEnvironment.joinTeam),
     setTeamNode: useAtomCommand(agentdEnvironment.setTeamNode),
     cloudConfigure: useAtomCommand(agentdEnvironment.cloudConfigure),
+    cloudKeyFileFix: useAtomCommand(agentdEnvironment.cloudKeyFileFix),
+    repairServices: useAtomCommand(agentdEnvironment.repairServices),
+    setWorkerGateway: useAtomCommand(agentdEnvironment.setWorkerGateway, { reportFailure: false }),
+  };
+}
+
+/** The catalogue's plugins and, for the project named, whether a send runs a before-send hook. */
+export function useAgentdPlugins(target: EnvironmentId | null, projectId?: ProjectId | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : agentdEnvironment.plugins({
+          environmentId,
+          input: projectId === null || projectId === undefined ? {} : { projectId },
+        }),
+    useMessages(),
+  );
+}
+
+/** Each fails with a message the caller shows beside the plugin or in the review. */
+export function useAgentdPluginCommands() {
+  const quiet = { reportFailure: false } as const;
+  return {
+    install: useAtomCommand(agentdEnvironment.pluginsInstall, quiet),
+    remove: useAtomCommand(agentdEnvironment.pluginsRemove, quiet),
+    setEnabled: useAtomCommand(agentdEnvironment.pluginsSetEnabled, quiet),
+    review: useAtomCommand(agentdEnvironment.beforeSendReview, quiet),
+    confirm: useAtomCommand(agentdEnvironment.beforeSendConfirm, quiet),
+    discard: useAtomCommand(agentdEnvironment.beforeSendDiscard, quiet),
   };
 }
 
@@ -136,6 +176,21 @@ export function useAgentdCloudAccount(target: EnvironmentId | null) {
   );
 }
 
+/** The cloud account for the Usage page, through the primary environment's agentd. */
+export function useAgentdCloudBalance() {
+  const environmentId = useAgentdEnvironment(undefined);
+  const query = useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : agentdEnvironment.cloudBalance({
+          environmentId,
+          input: { cwd: null, includeBalance: true },
+        }),
+    useMessages(),
+  );
+  return { environmentId, data: query.data, dataUpdatedAt: query.dataUpdatedAt };
+}
+
 export function useAgentdCloudSetup(
   cwd: string | null,
   target: EnvironmentId,
@@ -146,6 +201,17 @@ export function useAgentdCloudSetup(
     environmentId === null || cwd === null
       ? null
       : agentdEnvironment.cloudSetup({ environmentId, input: { cwd, includeBalance } }),
+    useMessages(),
+  );
+}
+
+/** Whose key a chosen Cloud Workers key file holds, and whether others can read it. */
+export function useAgentdCloudKeyFile(path: string | null, target: EnvironmentId) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null || path === null
+      ? null
+      : agentdEnvironment.cloudKeyFile({ environmentId, input: { path } }),
     useMessages(),
   );
 }

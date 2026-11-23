@@ -60,13 +60,16 @@ describe("workerOffer", () => {
     ["a folder that is not a git repository", { branch: "not-repo" }],
     ["git status unknown", { branch: undefined }],
     ["a worker already running", { workerRunning: true }],
-    ["main without a linked account", { branch: "protected" }],
+    ["a detached head without a linked account", { branch: "detached" }],
   ] as const)("hides with %s", (_reason, change) => {
     expect(workerOffer({ ...base, ...change })).toBeNull();
   });
-  it("names Cloud Workers on main or a detached head when the account is linked", () => {
-    expect(workerOffer({ ...base, branch: "protected", cloudLinked: true })).toBe("cloud");
+  it("names Cloud Workers on a detached head when the account is linked", () => {
     expect(workerOffer({ ...base, branch: "detached", cloudLinked: true })).toBe("cloud");
+  });
+  it("offers a local worker on main, and Cloud Workers too when the account is linked", () => {
+    expect(workerOffer({ ...base, branch: "protected" })).toBe("local");
+    expect(workerOffer({ ...base, branch: "protected", cloudLinked: true })).toBe("local-or-cloud");
   });
 });
 

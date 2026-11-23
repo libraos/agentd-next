@@ -238,6 +238,7 @@ function Panel({ fixture }: { fixture: ReturnType<typeof setup> }) {
         onDeleteProjectScript={scriptResult}
         usage={{
           providerInstanceId: null,
+          model: null,
           providers: [],
           sources: [],
           contextWindow: fixture.contextWindow,

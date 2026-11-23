@@ -1,4 +1,8 @@
-import { ClientSettingsSchema, type ClientSettings } from "@t3tools/contracts";
+import {
+  ClientSettingsSchema,
+  type ClientSettings,
+  withStoredCloudKeyFiles,
+} from "@t3tools/contracts";
 
 import { getLocalStorageItem, setLocalStorageItem } from "./hooks/useLocalStorage";
 
@@ -21,7 +25,11 @@ export function writeBrowserClientSettings(settings: ClientSettings): void {
     return;
   }
 
-  setLocalStorageItem(CLIENT_SETTINGS_STORAGE_KEY, settings, ClientSettingsSchema);
+  setLocalStorageItem(
+    CLIENT_SETTINGS_STORAGE_KEY,
+    withStoredCloudKeyFiles(readBrowserClientSettings(), settings),
+    ClientSettingsSchema,
+  );
 }
 
 /** Storage events fire only for other tabs' writes; a null key means storage was cleared. */

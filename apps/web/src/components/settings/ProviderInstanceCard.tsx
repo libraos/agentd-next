@@ -19,6 +19,8 @@ import * as Result from "effect/Result";
 import { Fragment, useState, type ReactElement, type ReactNode } from "react";
 import { T, useGT, useMessages, Var } from "gt-react";
 import {
+  isEndpointDecidedModel,
+  LIBRAOS_GATEWAY_INSTANCE_IDS,
   isProviderDriverKind,
   resolveProviderInstanceEnabled,
   type ProviderInstanceConfig,
@@ -41,6 +43,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useStableCallback } from "../../hooks/useStableCallback";
+import { listsGatewayModels } from "../../modelSelection";
 import { normalizeProviderAccentColor } from "../../providerInstances";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -184,7 +187,10 @@ function nextConfigBlobWithValue(
 export function deriveProviderModelsForDisplay(input: {
   readonly liveModels: ReadonlyArray<ServerProviderModel> | undefined;
   readonly customModels: ReadonlyArray<CustomModelDefinition>;
+  readonly gatewayListed?: boolean;
+  readonly liveAuth?: ServerProvider["auth"] | undefined;
 }): ReadonlyArray<ServerProviderModel> {
+  if (input.gatewayListed && input.liveModels) return input.liveModels;
   const liveCustomModelsBySlug = new Map(
     Arr.filterMap(input.liveModels ?? [], (model) =>
       model.isCustom ? Result.succeed([model.slug, model] as const) : Result.failVoid,
@@ -193,7 +199,11 @@ export function deriveProviderModelsForDisplay(input: {
   const serverModels = input.liveModels?.filter((model) => !model.isCustom) ?? [];
   const serverSlugs = new Set(serverModels.map((model) => model.slug));
   const customModels = input.customModels.flatMap((entry) =>
-    serverSlugs.has(entry.slug)
+    serverSlugs.has(entry.slug) ||
+    // The server left it out: the key its sub-provider sends to the Gateway does not allow it.
+    (input.liveAuth !== undefined &&
+      isEndpointDecidedModel(input.liveAuth, entry.slug) &&
+      !liveCustomModelsBySlug.has(entry.slug))
       ? []
       : [
           {
@@ -906,9 +916,13 @@ export function ProviderInstanceCard({
       return onUpdate({ ...rest, config: nextConfig } as ProviderInstanceConfig);
     },
   );
+  // The Gateway serves only the key's models, so another slug would fail at the first turn.
+  const gatewayModels = listsGatewayModels(instanceId, liveProvider);
   const modelsForDisplay = deriveProviderModelsForDisplay({
     liveModels: liveProvider?.models,
     customModels,
+    gatewayListed: gatewayModels,
+    liveAuth: liveProvider?.auth,
   });
   const updateDisplayName = (value: string) => {
     const trimmed = value.trim();
@@ -1493,8 +1507,25 @@ export function ProviderInstanceCard({
                 across connected devices.
               </T>
             </p>
+            {gatewayModels ? (
+              <p className="mb-3 text-xs text-muted-foreground">
+                {readOnly && instanceId === LIBRAOS_GATEWAY_INSTANCE_IDS.opencode ? (
+                  // Every status check asks the Gateway with the agent's key, but opencode's
+                  // inventory, which a key can only narrow, is rewritten by a manager's refresh.
+                  <T>
+                    These are the models your LibraOS Gateway key allows. A model added in Console
+                    shows here after a device that manages providers refreshes.
+                  </T>
+                ) : (
+                  <T>
+                    These are the models your LibraOS Gateway key allows. Change them in Console,
+                    then refresh.
+                  </T>
+                )}
+              </p>
+            ) : null}
             <ProviderModelsSection
-              canManageCustomModels={!readOnly}
+              canManageCustomModels={!readOnly && !gatewayModels}
               canWritePreferences={canWriteSettings}
               instanceId={instanceId}
               driverKind={driverKind}

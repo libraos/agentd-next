@@ -44,6 +44,7 @@ import {
   OPENCODE_2_WORKSPACE_RESPONSES,
   replayOpenCodeServer,
 } from "./probeResponses.fixture.ts";
+import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
 
 it("only probes a locally configured OpenCode server's installed CLI", () => {
@@ -1342,10 +1343,33 @@ const openCode1Provider = (id: string, models: ReadonlyArray<string>) => ({
 });
 const openCode1Project = "/work/project-with-config";
 const openCode1UnreadableProject = "/work/unreadable-project";
+const openCode1GatewayProject = "/work/project-on-gateway";
+// The Gateway beside an ordinary provider that lists no models.
+const openCode1MixedGatewayProject = "/work/project-on-gateway-and-uni";
 const openCode1Providers = (directory: string) => {
   const all = [
-    openCode1Provider("opencode", ["big-pickle"]),
-    ...(directory === openCode1Project ? [openCode1Provider("uni", ["medium-gpt"])] : []),
+    ...(directory === openCode1MixedGatewayProject
+      ? [
+          { ...openCode1Provider("uni", []), options: {} },
+          {
+            ...openCode1Provider("libraos", ["openai/gpt-6-astra"]),
+            key: "lk_project_key",
+            options: { baseURL: "https://api.libraos.com/v1" },
+          },
+        ]
+      : [{ ...openCode1Provider("opencode", ["big-pickle"]), options: {} }]),
+    ...(directory === openCode1Project
+      ? [{ ...openCode1Provider("uni", ["medium-gpt"]), options: {} }]
+      : []),
+    ...(directory === openCode1GatewayProject
+      ? [
+          {
+            ...openCode1Provider("libraos", ["openai/gpt-6-astra", "openai/gpt-6-luna"]),
+            key: "lk_project_key",
+            options: { baseURL: "https://api.libraos.com/v1" },
+          },
+        ]
+      : []),
   ];
   return { all, connected: all.map((provider) => provider.id), default: {} };
 };
@@ -1401,6 +1425,50 @@ it.layer(Layer.mergeAll(layer, Layer.succeed(OpenCodeRuntime.OpenCodeRuntime, op
         assert.deepStrictEqual(slugsOf(unreadable), ["opencode/big-pickle"]);
         assert.strictEqual(unreadable.workspaceModels, undefined);
         assert.strictEqual(unreadable.workspaceModelsPending, true);
+      }),
+    );
+
+    it.effect("lists only the Gateway key's models for a project's own Gateway provider", () =>
+      Effect.gen(function* () {
+        const asked: Array<{ readonly endpoint: string; readonly key: string | undefined }> = [];
+        const instance = yield* create({}, noHttp).pipe(
+          Effect.updateService(ProviderHost.ProviderHost, (host) => ({
+            ...host,
+            endpointKeyModels: (input) =>
+              Effect.sync(() => asked.push(input)).pipe(
+                Effect.as([{ slug: "openai/gpt-6-astra" }]),
+              ),
+          })),
+        );
+        const snapshot = yield* instance.snapshotForCwd!(openCode1GatewayProject);
+        assert.deepStrictEqual(snapshot.models.map((model) => model.slug).toSorted(), [
+          "libraos/openai/gpt-6-astra",
+          "opencode/big-pickle",
+        ]);
+        assert.deepStrictEqual(asked, [
+          { endpoint: "https://api.libraos.com", key: "lk_project_key" },
+        ]);
+      }),
+    );
+
+    it.effect("a project's Gateway list the key emptied is final, not a cold start", () =>
+      Effect.gen(function* () {
+        let served: ReadonlyArray<{ readonly slug: string }> = [{ slug: "openai/gpt-6-astra" }];
+        const instance = yield* create({}, noHttp).pipe(
+          Effect.updateService(ProviderHost.ProviderHost, (host) => ({
+            ...host,
+            endpointKeyModels: () => Effect.sync(() => served),
+          })),
+        );
+        const before = yield* instance.snapshotForCwd!(openCode1MixedGatewayProject);
+        assert.deepStrictEqual(
+          before.models.map((model) => model.slug),
+          ["libraos/openai/gpt-6-astra"],
+        );
+        served = [];
+        const revoked = yield* instance.snapshotForCwd!(openCode1MixedGatewayProject);
+        assert.deepStrictEqual(revoked.models, []);
+        assert.strictEqual(revoked.workspaceModelsPending, undefined);
       }),
     );
   },

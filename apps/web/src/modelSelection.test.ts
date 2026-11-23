@@ -494,6 +494,134 @@ describe("instance-scoped model selection", () => {
     });
   });
 
+  it("shows a model the Gateway key no longer allows as unavailable", () => {
+    const instanceId = ProviderInstanceId.make("libraosCodex");
+    const providers = [
+      provider({ instanceId: "libraosCodex", models: ["gpt-6-astra"] }),
+      provider({ instanceId: "codex", models: ["gpt-6-astra"] }),
+    ];
+    const settings: UnifiedSettings = {
+      ...DEFAULT_UNIFIED_SETTINGS,
+      providerInstances: {
+        [instanceId]: {
+          driver: ProviderDriverKind.make("codex"),
+          // As an older build saved it, before the server marks it limited.
+          config: { customModels: ["gpt-6-astra"] },
+        },
+      },
+    };
+    const [gateway, ownLogin] = deriveProviderInstanceEntries(providers);
+
+    expect(getAppModelOptionsForInstance(settings, gateway!, "gpt-6.2-sol")).toContainEqual(
+      expect.objectContaining({ slug: "gpt-6.2-sol", isUnavailable: true }),
+    );
+    expect(
+      resolveAppModelSelectionForInstance(instanceId, settings, providers, "gpt-6.2-sol", {
+        preserveUnavailableSelection: true,
+      }),
+    ).toBe("gpt-6.2-sol");
+    expect(
+      getAppModelOptionsForInstance(settings, ownLogin!, "gpt-6.2-sol").map((o) => o.slug),
+    ).toEqual(["gpt-6-astra"]);
+
+    // Codex's own config sends its requests to the Gateway.
+    const [ownGateway] = deriveProviderInstanceEntries([
+      {
+        ...provider({ instanceId: "codex", models: ["gpt-6-astra"] }),
+        auth: { status: "authenticated", endpoint: "https://api.libraos.com" },
+      },
+    ]);
+    expect(getAppModelOptionsForInstance(settings, ownGateway!, "gpt-6.2-sol")).toContainEqual(
+      expect.objectContaining({ slug: "gpt-6.2-sol", isUnavailable: true }),
+    );
+
+    // A revoked literal `opus` stays itself, not the catalog row that has `opus` as an alias.
+    const claudeId = ProviderInstanceId.make("libraosClaude");
+    const claudeProviders: ServerProvider[] = [
+      {
+        ...provider({ instanceId: "claude_gateway", models: [] }),
+        instanceId: claudeId,
+        models: [
+          {
+            slug: "claude-opus-5-5",
+            name: "Claude Opus 5.5",
+            aliases: ["opus"],
+            isCustom: false,
+            capabilities: null,
+          },
+        ],
+      },
+    ];
+    const [claudeGateway] = deriveProviderInstanceEntries(claudeProviders);
+    expect(getAppModelOptionsForInstance(settings, claudeGateway!, "opus")).toContainEqual(
+      expect.objectContaining({ slug: "opus", isUnavailable: true }),
+    );
+    expect(
+      resolveAppModelSelectionForInstance(claudeId, settings, claudeProviders, "opus", {
+        preserveUnavailableSelection: true,
+      }),
+    ).toBe("opus");
+  });
+
+  it("lists exactly the Gateway's models for an agent configured by hand to use it", () => {
+    const instanceId = ProviderInstanceId.make("codex");
+    const base = provider({ instanceId: "codex", models: ["gpt-6-astra"] });
+    const [entry] = deriveProviderInstanceEntries([
+      {
+        ...base,
+        auth: { status: "authenticated", endpoint: "https://api.libraos.com" },
+        // The key allows a model the CLI catalog lacks; the probe adds it as custom.
+        models: [{ slug: "gpt-7-nova", name: "GPT-7 Nova", isCustom: true, capabilities: {} }],
+      },
+    ]);
+    const settings: UnifiedSettings = {
+      ...DEFAULT_UNIFIED_SETTINGS,
+      providerInstances: {
+        [instanceId]: {
+          driver: ProviderDriverKind.make("codex"),
+          // Saved before, and not served for this key.
+          config: { customModels: ["old-custom"] },
+        },
+      },
+    };
+
+    expect(getAppModelOptionsForInstance(settings, entry!).map((o) => o.slug)).toEqual([
+      "gpt-7-nova",
+    ]);
+  });
+
+  it("leaves out a saved Gateway model the key denies in a mixed OpenCode account", () => {
+    const instanceId = ProviderInstanceId.make("opencode");
+    const driver = ProviderDriverKind.make("opencode");
+    const [entry] = deriveProviderInstanceEntries([
+      {
+        ...provider({ provider: driver, instanceId, models: ["openai/gpt-5.4"] }),
+        auth: { status: "authenticated", endpointProviders: ["libraos"] },
+        models: [
+          { slug: "openai/gpt-5.4", name: "GPT-5.4", isCustom: false, capabilities: null },
+          { slug: "libraos/openai/gpt-6-luna", name: "Luna", isCustom: true, capabilities: null },
+        ],
+      },
+    ]);
+    const settings: UnifiedSettings = {
+      ...DEFAULT_UNIFIED_SETTINGS,
+      providerInstances: {
+        [instanceId]: {
+          driver,
+          config: {
+            customModels: ["libraos/openai/gpt-6-astra", "libraos/openai/gpt-6-luna", "uni/x"],
+          },
+        },
+      },
+    };
+
+    expect(
+      getAppModelOptionsForInstance(settings, entry!)
+        .map((o) => o.slug)
+        .toSorted(),
+    ).toEqual(["libraos/openai/gpt-6-luna", "openai/gpt-5.4", "uni/x"]);
+  });
+
   it("falls back from an explicit non-OpenCode draft with a missing model", () => {
     const instanceId = ProviderInstanceId.make("codex");
     const driver = ProviderDriverKind.make("codex");

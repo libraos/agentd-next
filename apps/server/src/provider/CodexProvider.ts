@@ -3,6 +3,7 @@ import { pipe } from "effect/Function";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as Equal from "effect/Equal";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
@@ -23,7 +24,6 @@ import * as CodexErrors from "effect-codex-app-server/errors";
 
 import type {
   CodexSettings,
-  CustomModelSetting,
   ServerProvider,
   ServerProviderState,
   ModelCapabilities,
@@ -45,7 +45,9 @@ import {
   COMPACT_SLASH_COMMAND,
   DEFAULT_TIMEOUT_MS,
   providerModelsFromSettings,
+  withNoServedModelsNotice,
   providerProbeEnvironment,
+  type EndpointKeyModels,
   spawnAndCollect,
   type ServerProviderDraft,
 } from "@t3tools/provider-core/server/snapshotProbe";
@@ -90,7 +92,10 @@ const CodexRoutingConfig = Schema.Struct({
   model_providers: Schema.optionalKey(
     Schema.Record(
       Schema.String,
-      Schema.Struct({ base_url: Schema.optionalKey(Schema.NullOr(Schema.String)) }),
+      Schema.Struct({
+        base_url: Schema.optionalKey(Schema.NullOr(Schema.String)),
+        env_key: Schema.optionalKey(Schema.NullOr(Schema.String)),
+      }),
     ),
   ),
 });
@@ -140,6 +145,14 @@ export function codexCustomEndpoint(config: unknown): string | undefined {
     : undefined;
 }
 
+/** The variable Codex reads its key from for a custom endpoint (`model_providers.*.env_key`). */
+export function codexEndpointKeyEnv(config: unknown): string | undefined {
+  if (codexCustomEndpoint(config) === undefined) return undefined;
+  const routing = Option.getOrUndefined(decodeCodexRoutingConfig(config));
+  const providerId = routing?.model_provider ?? "openai";
+  return routing?.model_providers?.[providerId]?.env_key?.trim() || undefined;
+}
+
 // A stored login does not mean this provider's traffic spends that login's quota.
 export const codexRoutesSpendNativeQuota = (
   account: CodexSchema.V2GetAccountResponse,
@@ -169,6 +182,9 @@ const CODEX_PRESENTATION = {
 export interface CodexAppServerProviderSnapshot {
   readonly account: CodexSchema.V2GetAccountResponse;
   readonly endpoint?: string | undefined;
+  readonly endpointKeyEnv?: string | undefined;
+  /** `config/read` failed, so `endpoint` and `endpointKeyEnv` are unknown, not absent. */
+  readonly routeUnknown?: boolean;
   readonly nativeUsage?: boolean;
   readonly rateLimits?: CodexRateLimitsProbe;
   readonly version: string | undefined;
@@ -485,10 +501,12 @@ function applyConfiguredCodexCyberAccess(
  */
 function appendCustomCodexModels(
   models: ReadonlyArray<ServerProviderModel>,
-  customModels: ReadonlyArray<CustomModelSetting>,
+  settings: Pick<CodexSettings, "customModels" | "onlyCustomModels">,
 ): ReadonlyArray<ServerProviderModel> {
   const fallbackCapabilities = models.find((model) => model.capabilities)?.capabilities ?? null;
-  return providerModelsFromSettings(models, customModels, fallbackCapabilities);
+  return providerModelsFromSettings(models, settings.customModels, fallbackCapabilities, {
+    onlyCustomModels: settings.onlyCustomModels,
+  });
 }
 
 function parseCodexSkillsListResponse(
@@ -824,6 +842,8 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
   return {
     account: accountResponse,
     endpoint: config ? codexCustomEndpoint(config) : undefined,
+    endpointKeyEnv: config ? codexEndpointKeyEnv(config) : undefined,
+    ...(config === undefined ? { routeUnknown: true } : {}),
     nativeUsage,
     ...(rateLimits ? { rateLimits } : {}),
     version,
@@ -938,7 +958,7 @@ export const makeCodexSkillsProbe = Effect.fn("makeCodexSkillsProbe")(function* 
 });
 
 const emptyCodexModelsFromSettings = (codexSettings: CodexSettings): ServerProvider["models"] =>
-  appendCustomCodexModels([], codexSettings.customModels);
+  appendCustomCodexModels([], codexSettings);
 
 const makePendingCodexProvider = Effect.fn("CodexProvider.makePendingCodexProvider")(function* (
   codexSettings: CodexSettings,
@@ -1021,7 +1041,7 @@ function accountProbeStatus(
   return { status: "ready", auth };
 }
 
-export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(function* (
+const probeCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(function* (
   codexSettings: CodexSettings,
   probe: (input: {
     readonly probeTimeoutMs: number;
@@ -1038,6 +1058,7 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   > = probeCodexAppServerProvider,
   environment?: NodeJS.ProcessEnv,
   managedAuth?: ServerProvider["auth"],
+  endpointKeyModels?: EndpointKeyModels,
 ): Effect.fn.Return<
   ServerProviderDraft,
   ServerSettingsError,
@@ -1134,6 +1155,23 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
   }
 
   const snapshot = probeResult.success.value;
+  // Codex lists its own catalog whatever endpoint it sends requests to; one that serves only some
+  // models for the key Codex sends (LibraOS Gateway) decides which of them work.
+  const endpointKey = snapshot.endpointKeyEnv
+    ? resolvedEnvironment[snapshot.endpointKeyEnv]?.trim()
+    : undefined;
+  // A Gateway agent's stored list is the connected key's; the key it sends now may be another.
+  const endpointModels =
+    endpointKeyModels && snapshot.endpoint
+      ? yield* endpointKeyModels({
+          endpoint: snapshot.endpoint,
+          key: endpointKey,
+          ...(codexSettings.onlyCustomModels === true ? { known: codexSettings.customModels } : {}),
+        })
+      : undefined;
+  const modelSettings = endpointModels
+    ? { customModels: endpointModels, onlyCustomModels: true }
+    : codexSettings;
   const accountStatus = managedAuth
     ? { status: "ready" as const, auth: managedAuth, message: undefined }
     : accountProbeStatus(
@@ -1160,12 +1198,12 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
             checkedAt,
           });
 
-  return buildServerProvider({
+  const draft = buildServerProvider({
     presentation: CODEX_PRESENTATION,
     enabled: codexSettings.enabled,
     checkedAt,
     models: pipe(
-      appendCustomCodexModels(snapshot.models ?? [], codexSettings.customModels),
+      appendCustomCodexModels(snapshot.models ?? [], modelSettings),
       applyPreferredCodexDefaultModel,
       (models) => applyConfiguredCodexServiceTier(models, snapshot.serviceTier),
       (models) => applyConfiguredCodexCyberAccess(models, snapshot),
@@ -1199,6 +1237,40 @@ export const checkCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(fu
       ...(managedAuth ? {} : { usageLimits }),
     },
   });
+  return withNoServedModelsNotice(draft, modelSettings.onlyCustomModels);
 });
+
+type CodexStatusProbe = NonNullable<Parameters<typeof probeCodexProviderStatus>[1]>;
+
+/**
+ * The probe, with the last route Codex's config confirmed standing in when a later config read
+ * fails, so one failed read cannot widen a Gateway agent's list to Codex's whole catalog.
+ */
+export const withRememberedCodexRoute = Effect.fn("withRememberedCodexRoute")(function* (
+  probe: CodexStatusProbe = probeCodexAppServerProvider,
+) {
+  const last = yield* Ref.make<
+    Pick<CodexAppServerProviderSnapshot, "endpoint" | "endpointKeyEnv"> | undefined
+  >(undefined);
+  const remembered: CodexStatusProbe = (input) =>
+    probe(input).pipe(
+      Effect.flatMap((snapshot: CodexAppServerProviderSnapshot) =>
+        snapshot.routeUnknown
+          ? Ref.get(last).pipe(
+              Effect.map((route) => (route ? { ...snapshot, ...route } : snapshot)),
+            )
+          : Ref.set(last, {
+              endpoint: snapshot.endpoint,
+              endpointKeyEnv: snapshot.endpointKeyEnv,
+            }).pipe(Effect.as(snapshot)),
+      ),
+    );
+  return remembered;
+});
+
+export const checkCodexProviderStatus = (...args: Parameters<typeof probeCodexProviderStatus>) =>
+  probeCodexProviderStatus(...args).pipe(
+    Effect.map((draft) => withNoServedModelsNotice(draft, args[0].onlyCustomModels)),
+  );
 
 export { makePendingCodexProvider };

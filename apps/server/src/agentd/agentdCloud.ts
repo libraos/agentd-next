@@ -5,6 +5,7 @@ import {
   type AgentdCloudConfigureInput,
   type AgentdCloudConfigured,
   type AgentdCloudPlanState,
+  type AgentdCloudPlanUsage,
   type AgentdCloudSetup,
   type AgentdCloudSubscription,
   type AgentdCloudSetupInput,
@@ -22,10 +23,11 @@ import type { ProcessRunner } from "../processRunner.ts";
 import {
   currentReservation,
   foundHandoffs,
+  newAttempt,
   nextSubmissionId,
   type Reservation,
   submissionFingerprint,
-  submissionMarker,
+  stateDraft,
   submissionSession,
 } from "./agentdCloudSubmissions.ts";
 import { agentdArgs } from "./agentdCommands.ts";
@@ -35,6 +37,8 @@ import {
   cloudReason,
   cloudSetupProblem,
   cloudSetupReason,
+  openKeyFile,
+  refusedBeforeTask,
 } from "./cloudFailure.ts";
 
 const isCloudTask = Schema.is(AgentdCloudBudget);
@@ -45,6 +49,17 @@ const balanceDetails = Schema.decodeUnknownOption(
     available_usd: Schema.optionalKey(Schema.Unknown),
     balance_usd: Schema.optionalKey(Schema.Unknown),
     default_budget: Schema.optionalKey(Schema.Unknown),
+    plan: Schema.optionalKey(Schema.Unknown),
+  }),
+);
+const planDetails = Schema.decodeUnknownOption(
+  Schema.Struct({
+    name: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_included: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_used: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_reserved: Schema.optionalKey(Schema.Unknown),
+    worker_minutes_left: Schema.optionalKey(Schema.Unknown),
+    month_ends_at: Schema.optionalKey(Schema.Unknown),
   }),
 );
 const offerReceipt = Schema.decodeUnknownOption(
@@ -123,6 +138,29 @@ function usdAmount(value: unknown): number | null {
   return typeof usd === "number" && Number.isFinite(usd) ? usd : null;
 }
 
+function minutes(value: unknown): number | null {
+  const amount = usdAmount(value);
+  return amount !== null && amount >= 0 ? amount : null;
+}
+
+/** A plan account's `plan` object; null for an account without one or one that isn't an object. */
+function planUsage(value: unknown): AgentdCloudPlanUsage | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const decoded = planDetails(value);
+  if (decoded._tag === "None") return null;
+  const plan = decoded.value;
+  const ends = plan.month_ends_at;
+  const name = typeof plan.name === "string" && plan.name.trim() !== "" ? plan.name.trim() : null;
+  return {
+    name,
+    includedMinutes: minutes(plan.worker_minutes_included),
+    usedMinutes: minutes(plan.worker_minutes_used),
+    reservedMinutes: minutes(plan.worker_minutes_reserved),
+    leftMinutes: minutes(plan.worker_minutes_left),
+    monthEndsAt: typeof ends === "string" && !Number.isNaN(Date.parse(ends)) ? ends : null,
+  };
+}
+
 /** `today` is YYYY-MM-DD: an expiry before it is not valid, whatever else agentd said. */
 function planState(
   supported: boolean,
@@ -151,6 +189,8 @@ const emptySetup = {
   defaultBudget: null,
   problem: null,
 };
+const REPLACE_UNCONFIRMED =
+  "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
 const originError = "Cloud Workers require a GitHub repository as the checkout’s origin.";
 const UNKNOWN_OUTCOME =
   "AgentD may have created this cloud task. Check Background tasks. Start checks whether AgentD recorded it before submitting again.";
@@ -221,6 +261,7 @@ function readBalance(stdout: string) {
   return {
     ...emptySetup,
     balanceUsd,
+    plan: details._tag === "Some" ? planUsage(details.value.plan) : null,
     defaultBudget:
       details._tag === "Some" && isCloudTask(details.value.default_budget)
         ? details.value.default_budget
@@ -244,13 +285,21 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
     build: () => ReadonlyArray<string>,
   ) => Effect.Effect<ReadonlyArray<string>, AgentdError>;
   readonly platform: string;
+  /** Whose key a file on this host holds; null when it can't be read or told. */
+  readonly keyProvider: (path: string) => Effect.Effect<"anthropic" | "openai" | null>;
 }) {
-  const { binary, run, runProcess, isAbsolute, args, platform } = deps;
+  const { binary, run, runProcess, isAbsolute, args, platform, keyProvider } = deps;
   // A second Start for a project waits on agentd's answer to the first, in this server too.
   const inFlight = new Set<string>();
   const capabilities = yield* Cache.makeWith(
     ([command]: readonly [string, string]) =>
       run(agentdArgs.cloudHelp(), { command, jsonOnFailure: true }).pipe(
+        // A crashed or cut-off probe prints no usage: that is no answer, never "no cloud", and the
+        // cache keeps only answers.
+        Effect.filterOrFail(
+          (help) => /usage/i.test(help),
+          () => commandError("agentd did not answer the Cloud Workers probe."),
+        ),
         Effect.map((help): CloudFeatures => ({
           cloud: /(?:^|[\s[|])--cloud(?=[\s\]|=,]|$)/u.test(help),
           subscription: /--claude-token-file\b/.test(help),
@@ -331,27 +380,40 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       Effect.orElseSucceed(() => null),
     );
 
-  const originProject = Effect.fn("AgentdCloud.originProject")(function* (cwd: string) {
+  // Undefined when git didn't say whether there is an origin (timed out, couldn't start, or failed
+  // reading the checkout's config): the origin is unknown. Only "no such remote" (exit 2) and "not a
+  // git repository" are answers; LC_ALL=C keeps the latter in git's own words.
+  const readOrigin = Effect.fn("AgentdCloud.readOrigin")(function* (cwd: string) {
     if (!isAbsolute(cwd) || cwd.includes("\0")) return null;
     const result = yield* runProcess({
       command: "git",
       args: ["remote", "get-url", "--", "origin"],
       cwd,
+      env: { LC_ALL: "C" },
       timeout: "5 seconds",
       maxOutputBytes: 4096,
     }).pipe(Effect.option);
-    if (result._tag === "None" || result.value.code !== 0) return null;
-    return githubProject(result.value.stdout);
+    if (result._tag === "None") return undefined;
+    const { code, stdout, stderr } = result.value;
+    if (code === 0) return githubProject(stdout);
+    if (code === 2 || /not a git repository/i.test(stderr)) return null;
+    return undefined;
   });
+  const originProject = (cwd: string) =>
+    readOrigin(cwd).pipe(Effect.map((project) => project ?? null));
 
   const cloudSetup = Effect.fn("AgentdCloud.setup")(function* ({
     cwd,
     includeBalance,
   }: AgentdCloudSetupInput) {
-    const found = yield* cloudAgentd;
+    const probed = yield* cloudAgentd.pipe(Effect.timeout("20 seconds"), Effect.result);
+    // Only an agentd that answered without cloud lacks it; one that didn't answer may have it.
+    if (probed._tag === "Failure") return { ...emptySetup, supported: true, unreachable: true };
+    const found = probed.success;
     if (found === null) return { ...emptySetup, supported: false };
     const { command, version, features } = found;
-    const project = cwd === null ? null : yield* originProject(cwd);
+    const origin = cwd === null ? null : yield* readOrigin(cwd);
+    const project = origin ?? null;
     const canConfigure = yield* Cache.get(setupCommand, [command, version]);
     const base = {
       supported: true,
@@ -359,6 +421,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       setupUrl: canConfigure ? yield* setupDestination(command) : null,
       subscription: null,
     };
+    if (origin === undefined) return { ...emptySetup, ...base, checkoutUnknown: true };
     if ((cwd !== null && project === null) || !includeBalance)
       return { ...emptySetup, ...base, project };
     const readAccount = run(agentdArgs.cloudBalance(), { command }).pipe(
@@ -466,6 +529,26 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
           "Enter at least one absolute provider key-file path on the selected machine.",
         );
       }
+      // agentd reads either field's file as a key, so a swapped file fails only on the worker.
+      // Checked here too, for callers that can't read files: only a recognised other provider's
+      // key is refused, and an unreadable file stays agentd's to report.
+      const fields = [
+        ["anthropic", input.cloud.anthropicKeyFile],
+        ["openai", input.cloud.openaiKeyFile],
+      ] as const;
+      for (const [field, file] of fields) {
+        if (file === undefined) continue;
+        const holds = yield* keyProvider(file);
+        if (holds !== null && holds !== field)
+          return yield* new AgentdCommandError({
+            message:
+              field === "openai"
+                ? "The file in the OpenAI key field holds an Anthropic key, so nothing was submitted. Put each key file in its own provider’s field."
+                : "The file in the Anthropic key field holds an OpenAI key, so nothing was submitted. Put each key file in its own provider’s field.",
+            notSetUp: false,
+            wrongKeyFile: field,
+          });
+      }
     }
     const found = yield* cloudAgentd;
     if (found === null)
@@ -509,7 +592,8 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
         ),
       ),
     );
-    // The task agentd recorded for a submission; null when it has none.
+    // The task agentd recorded for a submission and the draft that made it (null for an older
+    // version's, which names none); null when it has none.
     const recorded = (id: string) =>
       agentd(() => agentdArgs.findSubmission(id)).pipe(
         Effect.map(foundHandoffs),
@@ -523,37 +607,73 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
         Effect.flatMap((shows) => {
           const show = shows[0];
           if (show === undefined) return Effect.succeed(null);
-          return show._tag === "Some" && show.value.body?.state === submissionMarker(id)
-            ? Effect.succeed(show.value.id)
+          const draft = show._tag === "Some" ? stateDraft(show.value.body?.state, id) : undefined;
+          return show._tag === "Some" && draft !== undefined
+            ? Effect.succeed({ handoff: show.value.id, draft })
             : Effect.fail(unknownOutcome());
         }),
         Effect.mapError(() => unknownOutcome()),
       );
+    // agentd refused the offer before making a task, so the next Start need not ask before reusing
+    // its key. The key itself is never given up: another server sharing this ledger may be offering
+    // under it right now, and only one key per reservation keeps that to one paid job.
+    const release = (id: string, attempt: string) =>
+      agentd(() => agentdArgs.releaseSubmission(session, id, attempt)).pipe(Effect.ignore);
     const remember = (id: string, handoff: string) =>
       agentd(() => agentdArgs.rememberSubmission(session, id, handoff)).pipe(Effect.ignore);
-    const alreadyRecorded = (handoff: string): AgentdStartTaskResult => ({
-      id: handoff,
-      started: false,
-      note: `AgentD already recorded this Cloud Workers submission as task ${handoff}. See it in Background tasks before starting again.`,
-    });
+    // A different draft than the one recorded is not sent: that task is the earlier submission's.
+    const alreadyRecorded = (handoff: string, earlier: boolean): AgentdStartTaskResult =>
+      earlier
+        ? {
+            id: handoff,
+            started: false,
+            earlier: true,
+            note: `AgentD already recorded your earlier Cloud Workers submission for this project as task ${handoff}, so this one wasn’t sent. See it in Background tasks before starting again.`,
+          }
+        : {
+            id: handoff,
+            started: false,
+            note: `AgentD already recorded this Cloud Workers submission as task ${handoff}. See it in Background tasks before starting again.`,
+          };
 
     const current = yield* reservation;
     let submission: string;
+    // An offer under an earlier reservation's key, whose task may be an earlier draft's.
+    let reused = false;
+    // This offer, which a refusal releases: never an earlier or later one under the same key.
+    const attempt = newAttempt();
     if (current !== null && current.handoff === null) {
-      const handoff = yield* recorded(current.id);
-      if (handoff !== null) {
-        yield* remember(current.id, handoff);
-        return alreadyRecorded(handoff);
+      const found = yield* recorded(current.id);
+      if (found !== null) {
+        yield* remember(current.id, found.handoff);
+        return alreadyRecorded(found.handoff, (found.draft ?? current.fingerprint) !== fingerprint);
       }
-      if (current.fingerprint !== fingerprint && input.cloud.replaceSubmission !== current.id) {
+      if (
+        !current.released &&
+        current.fingerprint !== fingerprint &&
+        input.cloud.replaceSubmission !== current.id
+      ) {
         return yield* new AgentdCommandError({
-          message: `${project} holds an AgentD reservation for an earlier Cloud Workers submission that has no task. Start that task again, or replace it with this one.`,
+          message: REPLACE_UNCONFIRMED,
           notSetUp: false,
           replaceSubmission: current.id,
         });
       }
-      // The same key again: agentd's --idem makes this the earlier offer, never a second one.
+      // The same key again: agentd's --idem makes this the earlier offer, never a second one; a
+      // different draft under it is refused once the earlier one made a task, and found above.
       submission = current.id;
+      reused = true;
+      // Recorded first, so a lost answer for this offer, even a retry of the same draft, asks the
+      // next different one to replace it.
+      yield* agentd(() =>
+        agentdArgs.attemptSubmission(session, submission, fingerprint, attempt),
+      ).pipe(
+        Effect.mapError(() =>
+          commandError(
+            "AgentD couldn’t reserve this Cloud Workers submission, so nothing was submitted.",
+          ),
+        ),
+      );
     } else {
       if (current !== null && current.handoff !== null) {
         const holder = current.handoff;
@@ -564,13 +684,19 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
         if (show._tag === "None") return yield* unknownOutcome();
         if (show.value.cloud_state === "submitting" && !CLOSED_STATES.has(show.value.state)) {
           return yield* commandError(
-            `${project} already holds an AgentD reservation: task ${holder} is still being submitted to Cloud Workers. Wait for it, or stop it in Background tasks.`,
+            `Task ${holder} for ${project} is still being submitted to Cloud Workers. Wait for it, or stop it in Background tasks, before starting another.`,
           );
         }
       }
       submission = nextSubmissionId(session, current?.id ?? null);
       yield* agentd(() =>
-        agentdArgs.reserveSubmission(session, submission, current?.id ?? null, fingerprint),
+        agentdArgs.reserveSubmission(
+          session,
+          submission,
+          current?.id ?? null,
+          fingerprint,
+          attempt,
+        ),
       ).pipe(
         Effect.mapError(() =>
           commandError(
@@ -580,13 +706,20 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       );
       const saved = yield* reservation;
       if (saved?.id !== submission || saved.fingerprint !== fingerprint) {
+        // This window offers nothing, so its reservation pin mustn't keep the winner's open.
+        yield* release(submission, attempt);
         return yield* commandError(
           `Another window started a Cloud Workers submission for ${project}. Press Start to check it.`,
         );
       }
     }
 
-    const argv = yield* args(() => agentdArgs.cloudOffer(input, project, submission));
+    // A failure before the offer runs offered nothing under this attempt, so it is closed; the
+    // reservation and its other attempts stay: another server sharing this ledger may already be
+    // offering under it.
+    const argv = yield* args(() =>
+      agentdArgs.cloudOffer(input, project, submission, fingerprint),
+    ).pipe(Effect.tapError(() => release(submission, attempt)));
     yield* agentd(() => agentdArgs.cloudSession(input.cwd)).pipe(
       Effect.catchTags({
         AgentdCommandError: (error) =>
@@ -596,12 +729,18 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
               : commandError("AgentD couldn’t prepare a session for the cloud task."),
           ),
       }),
+      Effect.tapError(() => release(submission, attempt)),
     );
+    // A ledger that can't be read leaves the outcome unknown, and the reservation kept.
     const reconcile = (said: string | null) =>
       recorded(submission).pipe(
-        Effect.orElseSucceed(() => null),
-        Effect.flatMap((handoff) => {
-          if (handoff !== null)
+        Effect.flatMap((found) => {
+          if (found !== null && found.draft !== fingerprint)
+            return remember(submission, found.handoff).pipe(
+              Effect.as(alreadyRecorded(found.handoff, true)),
+            );
+          if (found !== null) {
+            const handoff = found.handoff;
             return remember(submission, handoff).pipe(
               Effect.as({
                 id: handoff,
@@ -611,20 +750,49 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
                   `AgentD recorded task ${handoff} but didn’t confirm that Cloud Workers accepted it. Check Background tasks for updates.`,
               } satisfies AgentdStartTaskResult),
             );
+          }
           const reason = said ? cloudReason(said) : null;
-          return Effect.fail(reason === null ? unknownOutcome() : commandError(reason));
+          // Released only when agentd said it refused the offer before making a task; a runner or
+          // network failure may still have reached the Job API under this --idem key.
+          if (reason === null || said === null || !refusedBeforeTask(said))
+            return Effect.fail(unknownOutcome());
+          const privateFile = said ? openKeyFile(said) : null;
+          return release(submission, attempt).pipe(
+            Effect.andThen(
+              Effect.fail(
+                new AgentdCommandError({
+                  message: reason,
+                  notSetUp: false,
+                  ...(privateFile === null ? {} : { privateFile }),
+                }),
+              ),
+            ),
+          );
         }),
       );
     const offered = yield* run(argv, { command }).pipe(Effect.result);
     if (offered._tag === "Failure") {
       const error = offered.failure;
       if (error._tag !== "AgentdCommandError") return yield* error;
-      if (error.notSetUp) return yield* offerError(error.message, true);
+      if (error.notSetUp) {
+        yield* release(submission, attempt);
+        return yield* offerError(error.message, true);
+      }
       return yield* reconcile(error.message);
     }
     const receipt = offerReceipt(offered.success);
     if (receipt._tag === "None") return yield* reconcile(null);
     const { handoff: id, cloud } = receipt.value;
+    // agentd answers a reused key only for the same request, whose --state names this draft; a
+    // task the ledger shows as another draft's is that one's all the same. An unread ledger leaves
+    // the receipt to stand.
+    if (reused) {
+      const owner = yield* recorded(submission).pipe(Effect.orElseSucceed(() => null));
+      if (owner !== null && owner.handoff === id && owner.draft !== fingerprint) {
+        yield* remember(submission, id);
+        return alreadyRecorded(id, true);
+      }
+    }
     yield* remember(submission, id);
     const note = cloud?.error
       ? offerError(cloud.error).message

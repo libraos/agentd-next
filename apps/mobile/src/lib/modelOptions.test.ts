@@ -425,6 +425,74 @@ describe("mobile model options", () => {
     expect(resolveSelectableModelSelection(null, disabled, null)).toBe(disabled);
   });
 
+  it("marks a model the LibraOS Gateway key dropped unavailable instead of offering it", () => {
+    const instanceId = ProviderInstanceId.make("libraosCodex");
+    const config = {
+      providers: [
+        {
+          instanceId,
+          driver: "codex",
+          displayName: "Codex · LibraOS Gateway",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [{ slug: "gpt-6-luna", name: "GPT-6-Luna", isCustom: true, capabilities: null }],
+        },
+      ],
+    } as unknown as ServerConfig;
+    const dropped = { instanceId, model: "gpt-6-astra" };
+
+    expect(isModelSelectionUnavailable(config, dropped, null)).toBe(true);
+    expect(
+      buildModelOptions(config, dropped, undefined, null).find(
+        (option) => option.key === `${instanceId}:gpt-6-astra`,
+      ),
+    ).toMatchObject({ isUnavailable: true });
+    expect(describeUnavailableModelSelection(config, dropped, null).detail).toContain(
+      "LibraOS Gateway key",
+    );
+    expect(isModelSelectionUnavailable(config, { instanceId, model: "gpt-6-luna" }, null)).toBe(
+      false,
+    );
+
+    // Codex's own config sends its requests to the Gateway.
+    const codex = ProviderInstanceId.make("codex");
+    const ownConfig = {
+      providers: [
+        {
+          ...config.providers[0],
+          instanceId: codex,
+          displayName: "Codex",
+          auth: { status: "authenticated", endpoint: "https://api.libraos.com" },
+        },
+      ],
+    } as unknown as ServerConfig;
+    expect(
+      isModelSelectionUnavailable(ownConfig, { instanceId: codex, model: "gpt-6-astra" }, null),
+    ).toBe(true);
+
+    // An OpenCode account with the Gateway beside another provider: only the Gateway's models.
+    const opencode = ProviderInstanceId.make("opencode");
+    const mixed = {
+      providers: [
+        {
+          ...config.providers[0],
+          instanceId: opencode,
+          driver: "opencode",
+          displayName: "OpenCode",
+          auth: { status: "authenticated", endpointProviders: ["libraos"] },
+          models: [
+            { slug: "openai/gpt-5.4", name: "GPT-5.4", isCustom: false, capabilities: null },
+          ],
+        },
+      ],
+    } as unknown as ServerConfig;
+    const unavailable = (model: string) =>
+      isModelSelectionUnavailable(mixed, { instanceId: opencode, model }, null);
+    expect(unavailable("libraos/openai/gpt-6-astra")).toBe(true);
+    expect(unavailable("openai/gpt-5.4")).toBe(false);
+  });
+
   describe("Antigravity selections", () => {
     const selection = {
       instanceId: ProviderInstanceId.make("google_work"),

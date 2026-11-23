@@ -27,14 +27,14 @@ ID); electron-builder warns about exactly that combination. `notarize: false` ma
 
 ## Workflow
 
-- Triggers: tag `v*-agentd.*` and `workflow_dispatch` (inputs `n`, `agentd_release`). The tag's upstream part
-  must equal `apps/desktop/package.json`'s version, and N must be a number, or the run fails at once.
+- Triggers: tag `vX.Y.Z` and `workflow_dispatch` (input `agentd_release`). The tag must equal
+  `apps/desktop/package.json`'s version, or the run fails at once (patch 144; before it, `v*-agentd.*`).
 - `prepare` resolves the version and one agentd release for all builds (input, else the `AGENTD_RELEASE`
   repository variable, else the latest of libraos/agentd).
 - `build` matrix: `ubuntu-latest` linux x64, `windows-latest` win x64, `macos-14` mac arm64,
   `macos-15-intel` mac x64. The task named `macos-13`; GitHub retired that image in December 2025, and
   `macos-15-intel` is its Intel replacement. Each installs Rust 1.100.0 (as the local Docker image) with the
-  target, and runs `build-desktop.sh` on the host. Blockmaps are not uploaded (no update feed).
+  target, and runs `build-desktop.sh` on the host. Blockmaps and `latest*.yml` are uploaded (patch 144).
 - `checksums` fails unless the AppImage, `.deb`, `.exe` and both `.dmg` are there, then writes `SHA256SUMS`
   over every installer (the macOS `.zip` files too) and uploads it as an artifact, so a dispatch run has it.
 - `release` (tag pushes only, the one job with `contents: write`) checks `SHA256SUMS` and runs

@@ -15,6 +15,7 @@ import { parseGenericCliVersion } from "@t3tools/provider-core/server/snapshotPr
 import type { PiSettings } from "../settings.ts";
 
 import { makePiRpcConnection, piRecordField, piRecordString, resolvePiModelSlug } from "./rpc.ts";
+import { piCommandLine } from "./binary.ts";
 import { buildPiRpcLaunch, resolvePiLaunchArgs } from "./mcpInjection.ts";
 import * as TextGenerationOperations from "@t3tools/provider-core/server/textGenerationOperations";
 import { isPiThinkingLevel } from "./modelCapabilities.ts";
@@ -85,10 +86,8 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
         disableTools: true,
       });
       const connection = yield* makePiRpcConnection({
-        command: piSettings.binaryPath || "pi",
-        args: launch.args,
+        ...piCommandLine(piSettings.binaryPath, launch.args, launch.env),
         cwd,
-        env: launch.env,
       }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner));
 
       if (modelSelection.model !== "default") {

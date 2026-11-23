@@ -2,11 +2,8 @@
 
 Upstream files changed:
 
-- `scripts/lib/tagged-source-version.ts`: `resolveAgentdDesktopVersion` turns a plain upstream `x.y.z` into `x.y.z-agentd.N` (N defaults to 1) and keeps a version that already has a suffix. `resolveTaggedSourceVersion` is unchanged, so standalone server and web builds still report the upstream version.
-- `scripts/lib/tagged-source-version.test.ts`: the suffix rule, with hand-written versions.
-- `scripts/build-desktop-artifact.ts` (version lines only): with no `--build-version` / `T3CODE_DESKTOP_VERSION` the packager builds `resolveAgentdDesktopVersion(<tagged source version>)`; `isAgentdDesktopVersion` matches `x.y.z-agentd.N`, and such a build gets no publish config (no update feed, so no `app-update.yml` and a versioned AppImage name). `resolveDesktopUpdateChannel` already treats it as `latest` (stable), not nightly; it is not changed.
+- Version: patch 144 replaced the `x.y.z-agentd.N` scheme with our own `x.y.z` in `apps/desktop/package.json`; `scripts/lib/tagged-source-version.ts` and the packager's version lines are upstream's again.
 - `scripts/linux-glibc.ts` (not in the task's list, one argument): `readelf` gets `-wN` so binutils 2.38 (Ubuntu 22.04) does not print split-debug warnings for Electron's `libvulkan.so.1`, which the check counted as a failure; the version information it reads is the same.
-- `scripts/build-desktop-artifact.test.ts`: an `-agentd.1` build has no publish config, no versionless AppImage name, and the stable channel.
 
 New, ours: `agentd/scripts/build-desktop.sh linux|win` and `agentd/design/build.md` (commands, contents, sizes).
 

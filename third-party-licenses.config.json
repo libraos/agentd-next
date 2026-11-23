@@ -1,6 +1,21 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop", "mobile"],
+      "license": "MIT",
+      "name": "Apple Speech engine (adapted from @react-native-ai/apple)",
+      "sourceUrl": "https://github.com/callstackincubator/ai",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": [
+            "Copyright (c) 2024-2025 Szymon Rybczak",
+            "Copyright (c) 2025-present Callstack"
+          ]
+        }
+      ]
+    },
+    {
       "bundles": ["desktop", "mobile", "web"],
       "license": "MIT",
       "name": "GitHub gemoji alias data",
@@ -241,6 +256,96 @@
     }
   ],
   "packageOverrides": [
+    {
+      "name": "@earendil-works/pi-coding-agent",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-agent-core",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-ai",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-schema",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-telemetry",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-codemode",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-mcp",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "@earendil-works/pi-tui",
+      "version": "1.6.0",
+      "sourceUrl": "https://github.com/earendil-works/pi",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Mario Zechner"]
+      }
+    },
+    {
+      "name": "standardwebhooks",
+      "version": "1.0.0",
+      "sourceUrl": "https://github.com/standard-webhooks/standard-webhooks",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Standard Webhooks"]
+      }
+    },
+    {
+      "name": "data-uri-to-buffer",
+      "version": "4.0.1",
+      "sourceUrl": "https://github.com/TooTallNate/node-data-uri-to-buffer",
+      "generatedNotice": {
+        "licenseId": "MIT",
+        "copyrights": ["Copyright (c) Nathan Rajlich"]
+      }
+    },
     {
       "name": "entities",
       "version": "8.1.0",
@@ -606,17 +711,6 @@
       "generatedNotice": {
         "licenseId": "MIT",
         "copyrights": ["Copyright (c) Meta Platforms, Inc. and affiliates."]
-      }
-    },
-    {
-      "name": "@react-native-ai/apple",
-      "sourceUrl": "https://github.com/callstackincubator/ai",
-      "generatedNotice": {
-        "licenseId": "MIT",
-        "copyrights": [
-          "Copyright (c) 2024-2025 Szymon Rybczak",
-          "Copyright (c) 2025-present Callstack"
-        ]
       }
     },
     {

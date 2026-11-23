@@ -1,5 +1,6 @@
 import appCss from "../index.css?inline";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import * as shelfHooks from "../state/olderSettledShelf";
 import { createWorkspaceFocusController, workspaceAreaProps } from "../lib/workspaceFocus";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -17,6 +18,7 @@ import { userEvent } from "vite-plus/test/browser";
 
 import { act, fakeTimers, render } from "../../test/render";
 import { openCommandPalette } from "../commandPaletteBus";
+import { DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { makeThreadFixture } from "../test-fixtures";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useScratchProject } from "../hooks/useScratchProject";
@@ -62,6 +64,7 @@ vi.mock(import("../state/server"), async (original) => {
   const keybindings = compileResolvedKeybindingsConfig([
     { key: "mod+1", command: "thread.jump.1" },
     { key: "mod+2", command: "thread.jump.2" },
+    { key: "mod+shift+[", command: "thread.previous" },
   ]);
   return { ...(await original()), primaryServerKeybindingsAtom: Atom.make(keybindings) };
 });
@@ -136,6 +139,68 @@ describe("sidebar header new thread", () => {
       expect(openCommandPalette).not.toHaveBeenCalled();
       expect(startThread).toHaveBeenCalledExactlyOnceWith(currentProjectRef);
     }
+  });
+});
+
+// regression: #38623 unsent drafts are listed above threads but mod+1..9 skipped them
+describe("sidebar numbered jumps", () => {
+  it("numbers the unsent draft at the top before the threads below it", async () => {
+    const initial = useComposerDraftStore.getState();
+    using stack = new DisposableStack();
+    stack.defer(() => useComposerDraftStore.setState(initial, true));
+    const previousSettings = getClientSettings();
+    stack.defer(() => __setClientSettingsForTests(previousSettings));
+    __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
+    using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
+    const web = project("web");
+    vi.mocked(useProjects).mockReturnValue([web]);
+    const thread = threadShell(web.id, 0);
+    vi.mocked(useQuietThreadShells).mockReturnValue([thread]);
+    const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+    vi.mocked(useThreadRouteTarget).mockReturnValue({ kind: "server", threadRef });
+    vi.mocked(useHandleNewThread).mockReturnValue({
+      activeDraftThread: null,
+      activeThread: null,
+      defaultProjectRef: null,
+      defaultProjectFallbackReady: true,
+      handleNewThread: vi.fn(),
+      routeDraftId: null,
+      routeThreadRef: threadRef,
+    });
+    const draftId = DraftId.make("unsent-draft");
+    initial.setProjectDraftThreadId(scopeProjectRef(web.environmentId, web.id), draftId, {
+      threadId: ThreadId.make("unsent-draft-thread"),
+      createdAt: "2026-01-02T00:00:00.000Z",
+    });
+    initial.setPrompt(draftId, "Unsent prompt");
+
+    await using screen = await render(
+      <SidebarProvider>
+        <Sidebar routeReveal={{ observedKey: null, pendingKey: null }} />
+      </SidebarProvider>,
+    );
+    const draftRow = screen.getByTestId("sidebar-draft-row");
+    await expect.element(draftRow).toBeInTheDocument();
+    await expect.element(screen.getByText("Thread 0").first()).toBeInTheDocument();
+    await userEvent.keyboard("{Control>}");
+    await expect.element(screen.getByText("Ctrl+1")).toBeVisible();
+    await expect.element(draftRow.getByText("Ctrl+1")).toBeVisible();
+    await expect.element(screen.getByText("Ctrl+2")).toBeVisible();
+    await userEvent.keyboard("{/Control}");
+
+    // Previous thread from the open thread steps up to the draft above it.
+    await userEvent.keyboard("{Control>}{Shift>}{BracketLeft}{/Shift}{/Control}");
+    await vi.waitFor(() =>
+      expect(screen.router!.state.location.pathname).toBe(`/draft/${draftId}`),
+    );
+    await userEvent.keyboard("{Control>}2{/Control}");
+    await vi.waitFor(() =>
+      expect(screen.router!.state.location.pathname).not.toBe(`/draft/${draftId}`),
+    );
+    await userEvent.keyboard("{Control>}1{/Control}");
+    await vi.waitFor(() =>
+      expect(screen.router!.state.location.pathname).toBe(`/draft/${draftId}`),
+    );
   });
 });
 
@@ -653,6 +718,65 @@ describe("sidebar Chat and Code tabs", () => {
     await expect.poll(() => codeRow().elements()).toHaveLength(0);
     expect(
       screen.getByRole("button", { name: "Filter threads by project" }).elements(),
+    ).toHaveLength(0);
+  });
+
+  it("Chat and Code each count and page only their own Settled threads, and Chat points to Code", async () => {
+    localStorage.setItem("t3code:sidebar:settled-expanded", "true");
+    using _expanded = {
+      [Symbol.dispose]: () => localStorage.removeItem("t3code:sidebar:settled-expanded"),
+    };
+    const settledChat = {
+      ...scratchChat,
+      settledOverride: "settled" as const,
+      settledAt: "2026-01-01T00:00:00.000Z",
+    };
+    // The server holds 37 older settled project sessions and 3 older settled chats this client
+    // has not loaded; asked for every project, it counts both.
+    const originalShelf = vi.mocked(shelfHooks.useOlderSettledShelf).getMockImplementation()!;
+    using _shelf = vi.spyOn(shelfHooks, "useOlderSettledShelf").mockImplementation((input) => ({
+      ...originalShelf(input),
+      unloadedCount: () =>
+        input.scopes.some((scope) => scope.projectIds === null)
+          ? 40
+          : input.scopes.some((scope) => scope.projectIds?.includes(app.id))
+            ? 37
+            : 0,
+    }));
+    using _setup = setup({ threads: [settledChat, appThread], route: null }).stack;
+    await using screen = await renderSidebar();
+    await userEvent.click(screen.getByRole("button", { name: "Chat", exact: true }));
+    const settledHeader = () => screen.getByTestId("sidebar-settled-shelf-toggle");
+
+    await expect.element(screen.getByText("Scratch chat", { exact: true })).toBeVisible();
+    await expect.element(settledHeader().getByText("1", { exact: true })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Show \d+ more$/ }).elements()).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Project sessions are in Code" }));
+    await expect
+      .element(screen.getByRole("button", { name: "Code", exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect.element(screen.getByText("Thread 1", { exact: true })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Project sessions are in Code" }).elements(),
+    ).toHaveLength(0);
+    // Code with no project chosen counts and pages only project sessions, not the chats.
+    await expect.element(settledHeader().getByText("37", { exact: true })).toBeVisible();
+    expect(
+      vi
+        .mocked(shelfHooks.useOlderSettledShelf)
+        .mock.lastCall![0].scopes.map((scope) => scope.projectIds),
+    ).toEqual([[app.id]]);
+  });
+
+  it("Chat has no pointer to Code without project sessions", async () => {
+    using _setup = setup({ threads: [scratchChat], route: null }).stack;
+    await using screen = await renderSidebar();
+    await userEvent.click(screen.getByRole("button", { name: "Chat", exact: true }));
+
+    await expect.element(screen.getByText("Scratch chat", { exact: true })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Project sessions are in Code" }).elements(),
     ).toHaveLength(0);
   });
 

@@ -284,6 +284,9 @@ export function getProviderOptionStatedValue(
   );
 }
 
+/** The variant choice that sends no variant; distinct from any variant name a provider defines. */
+export const DEFAULT_VARIANT_CHOICE_ID = "t3:default";
+
 export function getProviderOptionCurrentValue(
   descriptor: ProviderOptionDescriptor | null | undefined,
   selection?: ModelSelection | null,
@@ -296,6 +299,16 @@ export function getProviderOptionCurrentValue(
   // Reported values are display-only; callers that build dispatch options omit this context.
   const reportedValue = getReportedOptionValue(descriptor.id, selection, reportedSelection);
   if (reportedValue !== undefined) return reportedValue;
+  // Without an explicit variant none is sent, which is exactly the catalog's Default choice.
+  if (
+    descriptor.type === "select" &&
+    descriptor.id === "variant" &&
+    selection &&
+    !hasExplicitOption &&
+    descriptor.options.some((option) => option.id === DEFAULT_VARIANT_CHOICE_ID)
+  ) {
+    return DEFAULT_VARIANT_CHOICE_ID;
+  }
   if (descriptor.id === "variant" && selection && !hasExplicitOption) return undefined;
   if (descriptor.type === "boolean") {
     return descriptor.currentValue;
@@ -423,7 +436,18 @@ export function normalizeCustomModelSlug(model: string | null | undefined): stri
 export interface CustomModelDefinition {
   readonly slug: string;
   readonly name: string;
+  readonly subProvider?: string;
   readonly capabilities: ModelCapabilities | null;
+}
+
+/**
+ * The catalog slug a family-prefixed entry with no options of its own stands for (`gpt-5.5` for
+ * `openai/gpt-5.5` under `openai`), whose options it then offers.
+ */
+export function familyCatalogSlug(entry: CustomModelDefinition): string | undefined {
+  if (entry.capabilities !== null || !entry.subProvider) return undefined;
+  const prefix = `${entry.subProvider}/`;
+  return entry.slug.startsWith(prefix) ? entry.slug.slice(prefix.length) : undefined;
 }
 
 const decodeCustomModelCapabilities = Schema.decodeUnknownOption(ModelCapabilities);
@@ -437,7 +461,12 @@ export function readCustomModelEntries(value: unknown): CustomModelDefinition[] 
       typeof raw === "string"
         ? { slug: raw }
         : raw !== null && typeof raw === "object"
-          ? (raw as { slug?: unknown; name?: unknown; capabilities?: unknown })
+          ? (raw as {
+              slug?: unknown;
+              name?: unknown;
+              subProvider?: unknown;
+              capabilities?: unknown;
+            })
           : null;
     if (!record) continue;
     const slug = normalizeCustomModelSlug(typeof record.slug === "string" ? record.slug : null);
@@ -449,9 +478,12 @@ export function readCustomModelEntries(value: unknown): CustomModelDefinition[] 
       record.capabilities === undefined || record.capabilities === null
         ? null
         : Option.getOrNull(decodeCustomModelCapabilities(record.capabilities));
+    const subProvider =
+      typeof record.subProvider === "string" ? normalizeCustomModelSlug(record.subProvider) : null;
     entries.push({
       slug,
       name,
+      ...(subProvider ? { subProvider } : {}),
       capabilities: capabilities
         ? createModelCapabilities({ optionDescriptors: capabilities.optionDescriptors ?? [] })
         : null,

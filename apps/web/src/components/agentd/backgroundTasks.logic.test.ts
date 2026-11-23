@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   agentdTaskBelongsToProject,
+  agentdTaskBudgetUse,
   finishedAgentdTaskLabel,
   isFinishedAgentdTask,
   runningAgentdTaskLabel,
@@ -95,5 +96,57 @@ describe("agentdTaskBelongsToProject", () => {
     expect(agentdTaskBelongsToProject({ project: "libraos/site" }, "/home/me/site", null)).toBe(
       false,
     );
+  });
+});
+
+describe("agentd task budget use", () => {
+  const running = { finished: false, state: "claimed", verdict: null, budgetState: null };
+  const minutes = (n: number) => n * 60_000;
+
+  it("takes the larger of time and money used", () => {
+    expect(
+      agentdTaskBudgetUse({ ...running, budget: "90m,$15", elapsedMs: minutes(52), costUsd: 2.1 }),
+    ).toEqual({ fraction: 52 / 90, tone: "progress" });
+    expect(
+      agentdTaskBudgetUse({ ...running, budget: "90m,$15", elapsedMs: minutes(10), costUsd: 12 }),
+    ).toEqual({ fraction: 0.8, tone: "progress" });
+  });
+
+  it("warns from 85% and caps at the whole budget", () => {
+    expect(
+      agentdTaskBudgetUse({ ...running, budget: "90m", elapsedMs: minutes(80), costUsd: null }),
+    ).toEqual({ fraction: 80 / 90, tone: "warning" });
+    expect(
+      agentdTaskBudgetUse({ ...running, budget: "$5", elapsedMs: minutes(1), costUsd: 6 }),
+    ).toEqual({ fraction: 1, tone: "warning" });
+  });
+
+  it("fills the bar when the task ends", () => {
+    const ended = { budget: "30m", elapsedMs: minutes(5), costUsd: 1, budgetState: null };
+    expect(
+      agentdTaskBudgetUse({
+        ...ended,
+        finished: true,
+        state: "done",
+        verdict: { verdict: "verified", check: "passed" },
+      }),
+    ).toEqual({ fraction: 1, tone: "success" });
+    expect(
+      agentdTaskBudgetUse({
+        ...ended,
+        finished: true,
+        state: "done",
+        verdict: { verdict: "act", check: "failed: exit 1" },
+      }),
+    ).toEqual({ fraction: 1, tone: "failure" });
+    expect(
+      agentdTaskBudgetUse({ ...ended, finished: true, state: "cancelled", verdict: null }),
+    ).toEqual({ fraction: 1, tone: "warning" });
+  });
+
+  it("has no bar without a budget", () => {
+    expect(
+      agentdTaskBudgetUse({ ...running, budget: null, elapsedMs: minutes(5), costUsd: 1 }),
+    ).toBeNull();
   });
 });

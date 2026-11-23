@@ -1,6 +1,9 @@
 import {
   defaultInstanceIdForDriver,
   isProviderWorkspaceSnapshotCurrent,
+  isEndpointDecidedModel,
+  isGatewayInstanceId,
+  LIBRAOS_GATEWAY_ORIGIN,
   isProviderWorkspaceSnapshotPending,
   ProviderDriverKind,
   type ProviderInstanceId,
@@ -194,6 +197,13 @@ export function upsertProviderWorkspaceSnapshot(
 }
 
 const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean => {
+  // A Gateway agent's list is the key's list, so a model missing from it was taken away.
+  if (
+    isGatewayInstanceId(provider.instanceId) ||
+    provider.auth.endpoint === LIBRAOS_GATEWAY_ORIGIN
+  ) {
+    return false;
+  }
   if (provider.driver === ProviderDriverKind.make("pi")) {
     // Pi auth becomes known only after inventory discovery: empty means unauthenticated; failed/interactive discovery preserves unknown auth and cached models.
     return !(
@@ -272,6 +282,8 @@ const mergeProviderModels = (
   const retainablePreviousModels = previousModels.filter(
     (model) =>
       !model.isCustom &&
+      // An endpoint's key decided this sub-provider's list, so a model missing from it was taken.
+      !isEndpointDecidedModel(provider.auth, model.slug) &&
       !updateRequiredSlugs.has(model.slug) &&
       !unavailableSubProviders.has(model.subProvider ?? ""),
   );

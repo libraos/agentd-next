@@ -19,13 +19,21 @@ import {
 } from "./mcpApps.ts";
 import {
   PeerLink,
+  PeerLinkClientPairingInput,
+  PeerLinkLinkPairingInput,
+  PeerLinkClientPairingResult,
   PeerLinkCreateInput,
   PeerLinkError,
+  PeerLinkName,
   PeerLinkRemoveInput,
   PeerLinkRemoveResult,
   PeerLinkRequestAnswerInput,
   PeerLinkRequestError,
   PeerLinkSummary,
+  PeerLinkThreadHistoryInput,
+  PeerLinkThreadInput,
+  PeerLinkThreadItemInput,
+  PeerLinkThreadReadError,
 } from "./peerLink.ts";
 import {
   ChatGptReconnectProfileInput,
@@ -94,6 +102,18 @@ import {
   FilesystemBrowseError,
 } from "./filesystem.ts";
 import {
+  WorkspaceFoldersError,
+  TaskFolder,
+  TaskFolderError,
+  WorkspaceAddTaskFolderRepositoryInput,
+  WorkspaceListFoldersInput,
+  WorkspaceListFoldersResult,
+  WorkspaceScanFoldersInput,
+  WorkspaceScanFoldersResult,
+  WorkspaceTaskFolderInput,
+  WorkspaceTaskFolderResult,
+} from "./workspaceFolders.ts";
+import {
   AgentSessionImportInput,
   AgentSessionImportProjectChangedError,
   AgentSessionImportProjectNotFoundError,
@@ -150,7 +170,7 @@ import {
   VcsStatusInput,
   VcsBranchStatus,
   VcsStatusSubscriptionInput,
-  VcsStatusResult,
+  VcsRefreshStatusResult,
   VcsStatusStreamEvent,
 } from "./git.ts";
 import {
@@ -165,6 +185,11 @@ import {
 import { KeybindingsConfigError } from "./keybindings.ts";
 import { OrchestrationSearchThreadsError } from "./threadSearch.ts";
 import {
+  ProviderMcpSignInCompleteInput,
+  ProviderMcpSignInCompleteResult,
+  ProviderMcpSignInError,
+  ProviderMcpSignInStartInput,
+  ProviderMcpSignInStartResult,
   ProviderUploadFeedbackError,
   ProviderUploadFeedbackInput,
   ProviderUploadFeedbackResult,
@@ -261,6 +286,7 @@ import {
   OrchestrationV2CommandOutputError,
   OrchestrationV2GetThreadProjectionError,
   OrchestrationV2RpcSchemas,
+  OrchestrationV2ThreadHistoryPage,
   OrchestrationV2ThreadLaunchError,
 } from "./orchestrationV2.ts";
 import {
@@ -380,6 +406,8 @@ import {
 } from "./resourceTelemetry.ts";
 import {
   AgentdApproval,
+  AgentdBackupCreated,
+  AgentdBackupCreateInput,
   AgentdCommandOutput,
   AgentdConnectAgentInput,
   AgentdError,
@@ -391,17 +419,24 @@ import {
   AgentdPeopleInput,
   AgentdStartTaskInput,
   AgentdStartTaskResult,
+  AgentdRetryStartInput,
   AgentdStatus,
   AgentdStopTaskInput,
   AgentdTask,
   AgentdTaskInput,
   AgentdTaskRow,
   AgentdEula,
+  AgentdWorkerGateway,
+  AgentdWorkerGatewayInput,
   AgentdSetupState,
   AgentdCloudSetup,
   AgentdCloudSetupInput,
   AgentdCloudConfigureInput,
   AgentdCloudConfigured,
+  AgentdCloudKeyFileCheck,
+  AgentdServicesRepairResult,
+  AgentdServicesRepairInput,
+  AgentdCloudKeyFileInput,
   AgentdCloudReview,
   AgentdCloudReviewInput,
   AgentdTaskDefaults,
@@ -417,10 +452,31 @@ import {
   AgentdSkills,
 } from "./agentdSkills.ts";
 import {
+  AgentdBeforeSendConfirmInput,
+  AgentdBeforeSendDiscardInput,
+  AgentdBeforeSendError,
+  AgentdBeforeSendReview,
+  AgentdBeforeSendReviewInput,
+  AgentdPluginEnableInput,
+  AgentdPluginError,
+  AgentdPluginInput,
+  AgentdPlugins,
+  AgentdPluginsListInput,
+} from "./agentdPlugins.ts";
+import {
   LibraosGatewayConnectInput,
   LibraosGatewayError,
   LibraosGatewayStatus,
 } from "./libraosGateway.ts";
+import {
+  CustomGatewayAddInput,
+  CustomGatewayAddResult,
+  CustomGatewayError,
+  CustomGatewayIdInput,
+  CustomGatewayList,
+  CustomGatewayHiddenModelsInput,
+  CustomGatewayRenameInput,
+} from "./customGateway.ts";
 import {
   UsageLimitSourceError,
   ProviderConsumeResetCreditInput,
@@ -499,6 +555,10 @@ export const WS_METHODS = {
   shellOpenInEditor: "shell.openInEditor",
 
   filesystemBrowse: "filesystem.browse",
+  workspaceListFolders: "workspace.listFolders",
+  workspaceScanFolders: "workspace.scanFolders",
+  workspaceTaskFolder: "workspace.taskFolder",
+  workspaceAddTaskFolderRepository: "workspace.addTaskFolderRepository",
   filesystemGetMetadata: "filesystem.getMetadata",
   agentSessionsScan: "agentSessions.scan",
   agentSessionsImport: "agentSessions.import",
@@ -513,6 +573,8 @@ export const WS_METHODS = {
   mcpAppsUpdateModelContext: "mcpApps.updateModelContext",
 
   providerUploadFeedback: "provider.uploadFeedback",
+  providerMcpSignInStart: "provider.mcpSignIn.start",
+  providerMcpSignInComplete: "provider.mcpSignIn.complete",
   providerAuthStart: "provider.auth.start",
   providerConsumeResetCredit: "provider.consumeResetCredit",
   providerAuthComplete: "provider.auth.complete",
@@ -590,9 +652,15 @@ export const WS_METHODS = {
   serverGetDatabaseStorage: "server.getDatabaseStorage",
   serverReclaimDatabaseSpace: "server.reclaimDatabaseSpace",
   peerLinksList: "peerLinks.list",
+  peerLinksNames: "peerLinks.names",
   peerLinksLink: "peerLinks.link",
   peerLinksUnlink: "peerLinks.unlink",
   peerLinksAnswerRequest: "peerLinks.answerRequest",
+  peerLinksSubscribeThread: "peerLinks.subscribeThread",
+  peerLinksThreadHistoryPage: "peerLinks.threadHistoryPage",
+  peerLinksThreadItem: "peerLinks.threadItem",
+  peerLinksPairClient: "peerLinks.pairClient",
+  peerLinksPairLink: "peerLinks.pairLink",
   serverGetSettings: "server.getSettings",
   serverUpdateSettings: "server.updateSettings",
   serverDiscoverSourceControl: "server.discoverSourceControl",
@@ -722,29 +790,49 @@ export const WS_METHODS = {
   agentdSubscribeTaskOutput: "agentd.subscribeTaskOutput",
   agentdStopTask: "agentd.stopTask",
   agentdStartTask: "agentd.startTask",
+  agentdRetryStart: "agentd.retryStart",
   agentdApprovals: "agentd.approvals",
   agentdInbox: "agentd.inbox",
   agentdPeople: "agentd.people",
   agentdConnectAgent: "agentd.connectAgent",
   agentdJoinTeam: "agentd.joinTeam",
+  agentdBackupCreate: "agentd.backupCreate",
   agentdCloudSetup: "agentd.cloudSetup",
   agentdCloudReview: "agentd.cloudReview",
   agentdCloudConfigure: "agentd.cloudConfigure",
+  agentdCloudKeyFile: "agentd.cloudKeyFile",
+  agentdCloudKeyFileFix: "agentd.cloudKeyFileFix",
+  agentdRepairServices: "agentd.repairServices",
   agentdTaskDefaults: "agentd.taskDefaults",
   agentdTaskOthers: "agentd.taskOthers",
   agentdSubscribeTeamNode: "agentd.subscribeTeamNode",
   agentdSetTeamNode: "agentd.setTeamNode",
   agentdTeamNodeForeground: "agentd.teamNodeForeground",
   agentdEula: "agentd.eula",
+  agentdWorkerGateway: "agentd.workerGateway",
+  agentdSetWorkerGateway: "agentd.setWorkerGateway",
   agentdSetupStart: "agentd.setupStart",
   agentdSubscribeSetup: "agentd.subscribeSetup",
   agentdSkillsList: "agentd.skillsList",
   agentdSkillsInstall: "agentd.skillsInstall",
   agentdSkillsRemove: "agentd.skillsRemove",
+  agentdPluginsList: "agentd.pluginsList",
+  agentdPluginsInstall: "agentd.pluginsInstall",
+  agentdPluginsRemove: "agentd.pluginsRemove",
+  agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
+  agentdBeforeSendReview: "agentd.beforeSendReview",
+  agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
+  agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
 
   libraosGatewayStatus: "libraosGateway.status",
   libraosGatewayConnect: "libraosGateway.connect",
   libraosGatewayDisconnect: "libraosGateway.disconnect",
+  customGatewayList: "customGateway.list",
+  customGatewayAdd: "customGateway.add",
+  customGatewayRename: "customGateway.rename",
+  customGatewaySetHiddenModels: "customGateway.setHiddenModels",
+  customGatewayRemove: "customGateway.remove",
+  customGatewayRefreshModels: "customGateway.refreshModels",
 } as const;
 
 const WsServerUpsertKeybindingRpc = Rpc.make(WS_METHODS.serverUpsertKeybinding, {
@@ -964,6 +1052,13 @@ const WsPeerLinksListRpc = Rpc.make(WS_METHODS.peerLinksList, {
   error: Schema.Union([PeerLinkError, EnvironmentAuthorizationError]),
 });
 
+/** The unexpired links' names, readable with thread read access. */
+const WsPeerLinksNamesRpc = Rpc.make(WS_METHODS.peerLinksNames, {
+  payload: Schema.Struct({}),
+  success: Schema.Struct({ links: Schema.Array(PeerLinkName) }),
+  error: Schema.Union([PeerLinkError, EnvironmentAuthorizationError]),
+});
+
 const WsPeerLinksLinkRpc = Rpc.make(WS_METHODS.peerLinksLink, {
   payload: PeerLinkCreateInput,
   success: PeerLink,
@@ -973,6 +1068,38 @@ const WsPeerLinksLinkRpc = Rpc.make(WS_METHODS.peerLinksLink, {
 const WsPeerLinksUnlinkRpc = Rpc.make(WS_METHODS.peerLinksUnlink, {
   payload: PeerLinkRemoveInput,
   success: PeerLinkRemoveResult,
+  error: Schema.Union([PeerLinkError, EnvironmentAuthorizationError]),
+});
+
+/** A linked environment's thread, as its own thread subscription streams it. */
+const WsPeerLinksSubscribeThreadRpc = Rpc.make(WS_METHODS.peerLinksSubscribeThread, {
+  payload: PeerLinkThreadInput,
+  success: OrchestrationV2RpcSchemas.subscribeThread.output,
+  error: Schema.Union([PeerLinkThreadReadError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
+const WsPeerLinksThreadHistoryPageRpc = Rpc.make(WS_METHODS.peerLinksThreadHistoryPage, {
+  payload: PeerLinkThreadHistoryInput,
+  success: OrchestrationV2ThreadHistoryPage,
+  error: Schema.Union([PeerLinkThreadReadError, EnvironmentAuthorizationError]),
+});
+
+const WsPeerLinksThreadItemRpc = Rpc.make(WS_METHODS.peerLinksThreadItem, {
+  payload: PeerLinkThreadItemInput,
+  success: OrchestrationV2RpcSchemas.getTurnItem.output,
+  error: Schema.Union([PeerLinkThreadReadError, EnvironmentAuthorizationError]),
+});
+
+const WsPeerLinksPairClientRpc = Rpc.make(WS_METHODS.peerLinksPairClient, {
+  payload: PeerLinkClientPairingInput,
+  success: PeerLinkClientPairingResult,
+  error: Schema.Union([PeerLinkError, EnvironmentAuthorizationError]),
+});
+
+const WsPeerLinksPairLinkRpc = Rpc.make(WS_METHODS.peerLinksPairLink, {
+  payload: PeerLinkLinkPairingInput,
+  success: PeerLinkClientPairingResult,
   error: Schema.Union([PeerLinkError, EnvironmentAuthorizationError]),
 });
 
@@ -1667,6 +1794,33 @@ const WsFilesystemBrowseRpc = Rpc.make(WS_METHODS.filesystemBrowse, {
   error: Schema.Union([FilesystemBrowseError, EnvironmentAuthorizationError]),
 });
 
+const WsWorkspaceListFoldersRpc = Rpc.make(WS_METHODS.workspaceListFolders, {
+  payload: WorkspaceListFoldersInput,
+  success: WorkspaceListFoldersResult,
+  error: Schema.Union([WorkspaceFoldersError, EnvironmentAuthorizationError]),
+});
+
+const WsWorkspaceScanFoldersRpc = Rpc.make(WS_METHODS.workspaceScanFolders, {
+  payload: WorkspaceScanFoldersInput,
+  success: WorkspaceScanFoldersResult,
+  error: Schema.Union([WorkspaceFoldersError, EnvironmentAuthorizationError]),
+});
+
+const WsWorkspaceTaskFolderRpc = Rpc.make(WS_METHODS.workspaceTaskFolder, {
+  payload: WorkspaceTaskFolderInput,
+  success: WorkspaceTaskFolderResult,
+  error: Schema.Union([TaskFolderError, EnvironmentAuthorizationError]),
+});
+
+const WsWorkspaceAddTaskFolderRepositoryRpc = Rpc.make(
+  WS_METHODS.workspaceAddTaskFolderRepository,
+  {
+    payload: WorkspaceAddTaskFolderRepositoryInput,
+    success: TaskFolder,
+    error: Schema.Union([TaskFolderError, EnvironmentAuthorizationError]),
+  },
+);
+
 const WsAgentSessionsScanRpc = Rpc.make(WS_METHODS.agentSessionsScan, {
   payload: AgentSessionScanInput,
   success: AgentSessionScanResult,
@@ -1736,6 +1890,18 @@ const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFeedback, 
   error: Schema.Union([ProviderUploadFeedbackError, EnvironmentAuthorizationError]),
 });
 
+const WsProviderMcpSignInStartRpc = Rpc.make(WS_METHODS.providerMcpSignInStart, {
+  payload: ProviderMcpSignInStartInput,
+  success: ProviderMcpSignInStartResult,
+  error: Schema.Union([ProviderMcpSignInError, EnvironmentAuthorizationError]),
+});
+
+const WsProviderMcpSignInCompleteRpc = Rpc.make(WS_METHODS.providerMcpSignInComplete, {
+  payload: ProviderMcpSignInCompleteInput,
+  success: ProviderMcpSignInCompleteResult,
+  error: Schema.Union([ProviderMcpSignInError, EnvironmentAuthorizationError]),
+});
+
 const WsSubscribeVcsBranchRpc = Rpc.make(WS_METHODS.subscribeVcsBranch, {
   payload: VcsStatusInput,
   success: VcsBranchStatus,
@@ -1767,7 +1933,7 @@ const WsVcsRefreshStatusRpc = Rpc.make(WS_METHODS.vcsRefreshStatus, {
     ...VcsStatusInput.fields,
     localOnly: Schema.optional(Schema.Boolean),
   }),
-  success: VcsStatusResult,
+  success: VcsRefreshStatusResult,
   error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
 });
 
@@ -2363,6 +2529,12 @@ const WsAgentdStartTaskRpc = Rpc.make(WS_METHODS.agentdStartTask, {
   error: AgentdRpcError,
 });
 
+const WsAgentdRetryStartRpc = Rpc.make(WS_METHODS.agentdRetryStart, {
+  payload: AgentdRetryStartInput,
+  success: AgentdStartTaskResult,
+  error: AgentdRpcError,
+});
+
 const WsAgentdApprovalsRpc = Rpc.make(WS_METHODS.agentdApprovals, {
   payload: Schema.Struct({}),
   success: Schema.Array(AgentdApproval),
@@ -2393,6 +2565,12 @@ const WsAgentdJoinTeamRpc = Rpc.make(WS_METHODS.agentdJoinTeam, {
   error: AgentdRpcError,
 });
 
+const WsAgentdBackupCreateRpc = Rpc.make(WS_METHODS.agentdBackupCreate, {
+  payload: AgentdBackupCreateInput,
+  success: AgentdBackupCreated,
+  error: AgentdRpcError,
+});
+
 const WsAgentdCloudSetupRpc = Rpc.make(WS_METHODS.agentdCloudSetup, {
   payload: AgentdCloudSetupInput,
   success: AgentdCloudSetup,
@@ -2402,6 +2580,24 @@ const WsAgentdCloudSetupRpc = Rpc.make(WS_METHODS.agentdCloudSetup, {
 const WsAgentdCloudConfigureRpc = Rpc.make(WS_METHODS.agentdCloudConfigure, {
   payload: AgentdCloudConfigureInput,
   success: AgentdCloudConfigured,
+  error: AgentdRpcError,
+});
+
+const WsAgentdCloudKeyFileRpc = Rpc.make(WS_METHODS.agentdCloudKeyFile, {
+  payload: AgentdCloudKeyFileInput,
+  success: AgentdCloudKeyFileCheck,
+  error: AgentdRpcError,
+});
+
+const WsAgentdCloudKeyFileFixRpc = Rpc.make(WS_METHODS.agentdCloudKeyFileFix, {
+  payload: AgentdCloudKeyFileInput,
+  success: AgentdCloudKeyFileCheck,
+  error: AgentdRpcError,
+});
+
+const WsAgentdRepairServicesRpc = Rpc.make(WS_METHODS.agentdRepairServices, {
+  payload: AgentdServicesRepairInput,
+  success: AgentdServicesRepairResult,
   error: AgentdRpcError,
 });
 
@@ -2448,6 +2644,18 @@ const WsAgentdEulaRpc = Rpc.make(WS_METHODS.agentdEula, {
   error: AgentdRpcError,
 });
 
+const WsAgentdWorkerGatewayRpc = Rpc.make(WS_METHODS.agentdWorkerGateway, {
+  payload: Schema.Struct({}),
+  success: AgentdWorkerGateway,
+  error: AgentdRpcError,
+});
+
+const WsAgentdSetWorkerGatewayRpc = Rpc.make(WS_METHODS.agentdSetWorkerGateway, {
+  payload: AgentdWorkerGatewayInput,
+  success: AgentdWorkerGateway,
+  error: AgentdRpcError,
+});
+
 const WsAgentdSetupStartRpc = Rpc.make(WS_METHODS.agentdSetupStart, {
   payload: Schema.Struct({}),
   success: AgentdSetupState,
@@ -2481,6 +2689,50 @@ const WsAgentdSkillsRemoveRpc = Rpc.make(WS_METHODS.agentdSkillsRemove, {
   error: AgentdSkillsRpcError,
 });
 
+const AgentdPluginsRpcError = Schema.Union([AgentdPluginError, EnvironmentAuthorizationError]);
+
+const WsAgentdPluginsListRpc = Rpc.make(WS_METHODS.agentdPluginsList, {
+  payload: AgentdPluginsListInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsInstallRpc = Rpc.make(WS_METHODS.agentdPluginsInstall, {
+  payload: AgentdPluginInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsRemoveRpc = Rpc.make(WS_METHODS.agentdPluginsRemove, {
+  payload: AgentdPluginInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsSetEnabledRpc = Rpc.make(WS_METHODS.agentdPluginsSetEnabled, {
+  payload: AgentdPluginEnableInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdBeforeSendReviewRpc = Rpc.make(WS_METHODS.agentdBeforeSendReview, {
+  payload: AgentdBeforeSendReviewInput,
+  success: Schema.NullOr(AgentdBeforeSendReview),
+  error: EnvironmentAuthorizationError,
+});
+
+const WsAgentdBeforeSendConfirmRpc = Rpc.make(WS_METHODS.agentdBeforeSendConfirm, {
+  payload: AgentdBeforeSendConfirmInput,
+  success: Schema.Struct({}),
+  error: Schema.Union([AgentdBeforeSendError, EnvironmentAuthorizationError]),
+});
+
+const WsAgentdBeforeSendDiscardRpc = Rpc.make(WS_METHODS.agentdBeforeSendDiscard, {
+  payload: AgentdBeforeSendDiscardInput,
+  success: Schema.Struct({}),
+  error: EnvironmentAuthorizationError,
+});
+
 const LibraosGatewayRpcError = Schema.Union([LibraosGatewayError, EnvironmentAuthorizationError]);
 
 const WsLibraosGatewayStatusRpc = Rpc.make(WS_METHODS.libraosGatewayStatus, {
@@ -2499,6 +2751,44 @@ const WsLibraosGatewayDisconnectRpc = Rpc.make(WS_METHODS.libraosGatewayDisconne
   payload: Schema.Struct({}),
   success: LibraosGatewayStatus,
   error: LibraosGatewayRpcError,
+});
+
+const CustomGatewayRpcError = Schema.Union([CustomGatewayError, EnvironmentAuthorizationError]);
+
+const WsCustomGatewayListRpc = Rpc.make(WS_METHODS.customGatewayList, {
+  payload: Schema.Struct({}),
+  success: CustomGatewayList,
+  error: CustomGatewayRpcError,
+});
+
+const WsCustomGatewayAddRpc = Rpc.make(WS_METHODS.customGatewayAdd, {
+  payload: CustomGatewayAddInput,
+  success: CustomGatewayAddResult,
+  error: CustomGatewayRpcError,
+});
+
+const WsCustomGatewayRenameRpc = Rpc.make(WS_METHODS.customGatewayRename, {
+  payload: CustomGatewayRenameInput,
+  success: CustomGatewayList,
+  error: CustomGatewayRpcError,
+});
+
+const WsCustomGatewaySetHiddenModelsRpc = Rpc.make(WS_METHODS.customGatewaySetHiddenModels, {
+  payload: CustomGatewayHiddenModelsInput,
+  success: CustomGatewayList,
+  error: CustomGatewayRpcError,
+});
+
+const WsCustomGatewayRemoveRpc = Rpc.make(WS_METHODS.customGatewayRemove, {
+  payload: CustomGatewayIdInput,
+  success: CustomGatewayList,
+  error: CustomGatewayRpcError,
+});
+
+const WsCustomGatewayRefreshModelsRpc = Rpc.make(WS_METHODS.customGatewayRefreshModels, {
+  payload: CustomGatewayIdInput,
+  success: CustomGatewayList,
+  error: CustomGatewayRpcError,
 });
 
 export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthorization>()(
@@ -2554,9 +2844,15 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerReclaimDatabaseSpaceRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,
+  WsPeerLinksNamesRpc,
   WsPeerLinksLinkRpc,
   WsPeerLinksUnlinkRpc,
   WsPeerLinksAnswerRequestRpc,
+  WsPeerLinksSubscribeThreadRpc,
+  WsPeerLinksThreadHistoryPageRpc,
+  WsPeerLinksThreadItemRpc,
+  WsPeerLinksPairClientRpc,
+  WsPeerLinksPairLinkRpc,
   WsServerDiscoverSourceControlRpc,
   WsServerCheckSecretSourceRpc,
   WsServerSearchAcpRegistryRpc,
@@ -2654,6 +2950,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsProjectsMutateRpc,
   WsShellOpenInEditorRpc,
   WsFilesystemBrowseRpc,
+  WsWorkspaceListFoldersRpc,
+  WsWorkspaceScanFoldersRpc,
+  WsWorkspaceTaskFolderRpc,
+  WsWorkspaceAddTaskFolderRepositoryRpc,
   WsFilesystemGetMetadataRpc,
   WsAgentSessionsScanRpc,
   WsAgentSessionsImportRpc,
@@ -2666,6 +2966,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsMcpAppsReadResourceRpc,
   WsMcpAppsUpdateModelContextRpc,
   WsProviderUploadFeedbackRpc,
+  WsProviderMcpSignInStartRpc,
+  WsProviderMcpSignInCompleteRpc,
   WsSubscribeVcsStatusRpc,
   WsSubscribeVcsBranchRpc,
   WsVcsRefreshBranchRpc,
@@ -2725,28 +3027,48 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdSubscribeTaskOutputRpc,
   WsAgentdStopTaskRpc,
   WsAgentdStartTaskRpc,
+  WsAgentdRetryStartRpc,
   WsAgentdApprovalsRpc,
   WsAgentdInboxRpc,
   WsAgentdPeopleRpc,
   WsAgentdConnectAgentRpc,
   WsAgentdJoinTeamRpc,
+  WsAgentdBackupCreateRpc,
   WsAgentdCloudSetupRpc,
   WsAgentdCloudReviewRpc,
   WsAgentdCloudConfigureRpc,
+  WsAgentdCloudKeyFileRpc,
+  WsAgentdCloudKeyFileFixRpc,
+  WsAgentdRepairServicesRpc,
   WsAgentdTaskDefaultsRpc,
   WsAgentdTaskOthersRpc,
   WsAgentdSubscribeTeamNodeRpc,
   WsAgentdSetTeamNodeRpc,
   WsAgentdTeamNodeForegroundRpc,
   WsAgentdEulaRpc,
+  WsAgentdWorkerGatewayRpc,
+  WsAgentdSetWorkerGatewayRpc,
   WsAgentdSetupStartRpc,
   WsAgentdSkillsListRpc,
   WsAgentdSkillsInstallRpc,
   WsAgentdSkillsRemoveRpc,
+  WsAgentdPluginsListRpc,
+  WsAgentdPluginsInstallRpc,
+  WsAgentdPluginsRemoveRpc,
+  WsAgentdPluginsSetEnabledRpc,
+  WsAgentdBeforeSendReviewRpc,
+  WsAgentdBeforeSendConfirmRpc,
+  WsAgentdBeforeSendDiscardRpc,
   WsAgentdSubscribeSetupRpc,
   WsLibraosGatewayStatusRpc,
   WsLibraosGatewayConnectRpc,
   WsLibraosGatewayDisconnectRpc,
+  WsCustomGatewayListRpc,
+  WsCustomGatewayAddRpc,
+  WsCustomGatewayRenameRpc,
+  WsCustomGatewaySetHiddenModelsRpc,
+  WsCustomGatewayRemoveRpc,
+  WsCustomGatewayRefreshModelsRpc,
   WsOrchestrationV2DispatchCommandRpc,
   WsOrchestrationV2GetWorkflowScriptRpc,
   WsOrchestrationV2GetNativeChildWorkRpc,

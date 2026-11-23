@@ -6,6 +6,26 @@ import * as Schema from "effect/Schema";
 export const LIBRAOS_GATEWAY_ORIGIN = "https://api.libraos.com";
 export const LIBRAOS_CONSOLE_API_KEYS_URL = "https://console.libraos.com/api-keys";
 
+/** The provider instances a connected key adds; their models are the key's, not the user's. */
+export const LIBRAOS_GATEWAY_INSTANCE_IDS = {
+  claude: "libraosClaude",
+  codex: "libraosCodex",
+  opencode: "libraosOpencode",
+  pi: "libraosPi",
+} as const;
+
+export const isLibraosGatewayInstanceId = (instanceId: string): boolean =>
+  Object.values(LIBRAOS_GATEWAY_INSTANCE_IDS).some((id) => id === instanceId);
+
+/** The model is one of a sub-provider whose list the key it sends to its endpoint decides. */
+export const isEndpointDecidedModel = (
+  auth: { readonly endpointProviders?: ReadonlyArray<string> | undefined },
+  slug: string,
+): boolean => {
+  const separator = slug.indexOf("/");
+  return separator > 0 && (auth.endpointProviders?.includes(slug.slice(0, separator)) ?? false);
+};
+
 export const LibraosGatewayModel = Schema.Struct({
   /** The Gateway's id, such as `anthropic/claude-opus-5-5`. */
   id: Schema.String,
@@ -27,6 +47,8 @@ export const LibraosGatewayStatus = Schema.Struct({
   models: Schema.Array(LibraosGatewayModel),
   /** agentd's answer to the last connect since the server started; null before one. */
   agentd: Schema.NullOr(LibraosGatewayAgentdSetup),
+  /** The Gateway's reason for refusing the key at its last refresh; null while it serves it. */
+  refusal: Schema.optional(Schema.NullOr(Schema.String)),
 });
 export type LibraosGatewayStatus = typeof LibraosGatewayStatus.Type;
 

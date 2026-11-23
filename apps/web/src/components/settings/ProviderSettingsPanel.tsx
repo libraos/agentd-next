@@ -29,6 +29,7 @@ import {
   type ProviderInstanceConfig,
   type ProviderInstanceId,
   type ServerProvider,
+  isGatewayInstanceId,
   isProviderDriverOffered,
   resolveEnvironmentMachineKind,
   resolveProjectProviderInstanceEnabled,
@@ -86,6 +87,8 @@ import {
 } from "../ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatesAction } from "../ProviderUpdatesAction";
 import { ConnectEndpointScreen } from "../onboarding/ConnectEndpointScreen";
+import { CustomGatewayList } from "../onboarding/CustomGatewayList";
+import { useGatewayEnvironment } from "../../lib/libraosGatewayState";
 import { Button } from "../ui/button";
 import {
   Empty,
@@ -340,6 +343,7 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
     <SettingsPageContainer className="@container/providers gap-8">
       {target.setupEndpoint ? (
         <ConnectEndpointScreen
+          customChosen
           environmentId={target.environmentId}
           back={
             <Link
@@ -352,15 +356,7 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
         />
       ) : (
         <>
-          <div>
-            <Link
-              to="/settings/providers"
-              search={(search) => ({ ...search, setupEndpoint: true })}
-              className="text-sm underline underline-offset-4"
-            >
-              <T>Use an API key or gateway</T>
-            </Link>
-          </div>
+          <GatewaysSection environmentId={target.environmentId} />
           <ProviderSettingsPanelContent
             key={`${target.environmentId ?? ""}:${target.instanceId ?? ""}`}
             {...target}
@@ -368,6 +364,44 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
         </>
       )}
     </SettingsPageContainer>
+  );
+}
+
+/** The gateways added here, with the one visible way to add another. */
+function GatewaysSection({
+  environmentId,
+}: {
+  readonly environmentId: EnvironmentId | null | undefined;
+}) {
+  const gatewayEnvironment = useGatewayEnvironment(environmentId);
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <h2 className="text-sm font-medium text-foreground">
+            <T>Gateways and API keys</T>
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            <T>Run your agents on a gateway's models instead of their own sign-in.</T>
+          </p>
+        </div>
+        <Button
+          size="sm"
+          render={
+            <Link
+              to="/settings/providers"
+              search={(search) => ({ ...search, setupEndpoint: true })}
+            />
+          }
+        >
+          <PlusIcon className="size-4" aria-hidden />
+          <T>Add gateway</T>
+        </Button>
+      </div>
+      {gatewayEnvironment === null ? null : (
+        <CustomGatewayList environmentId={gatewayEnvironment} />
+      )}
+    </section>
   );
 }
 
@@ -778,7 +812,7 @@ export function EnvironmentProviderSettings({
   >();
   for (const [rawId, instance] of Object.entries(settings.providerInstances ?? {})) {
     const driver = instance.driver;
-    if (rawId !== targetInstanceId && !isOffered(driver)) continue;
+    if (rawId !== targetInstanceId && !isOffered(driver) && !isGatewayInstanceId(rawId)) continue;
     const list = instancesByDriver.get(driver) ?? [];
     list.push([rawId as ProviderInstanceId, instance]);
     instancesByDriver.set(driver, list);

@@ -6,7 +6,7 @@ An IDE for working with coding agents. You chat with an agent, work on a project
 
 ## Is AgentD Next a harness?
 
-No. A harness is what turns a model into an agent: it gives the model tools, runs them and hands the results back. Claude Code, Codex and opencode are harnesses. AgentD Next starts the harness you already use and shows its work; it does not work without one.
+No. A harness is what turns a model into an agent: it gives the model tools, runs them and hands the results back. Claude Code, Codex and opencode are harnesses. AgentD Next starts the harness you already use and shows its work. With none installed, it runs the Pi it ships through a gateway you connect.
 
 Supported: Claude Code, Codex, Cursor, Grok Build, OpenCode, Google Antigravity, Kiro, Pi, Muse Code, fx, and agents from the ACP Registry. [Provider setup](./install.md#providers)
 
@@ -48,7 +48,7 @@ Open **Settings → Worktrees → Cleanup** and turn on automatic worktree clean
 
 ## Is there voice input?
 
-Yes. Web and desktop require you to choose an environment first. The transcript goes into your draft for review. See [Voice input](./voice-input.md).
+Yes. On iPhone and Android, dictation uses on-device speech by default, with the option to use a paired environment. On macOS 26 or later, desktop users can choose Apple Speech directly under **On this Mac** or choose an environment. Web and other desktop users can enable dictation by choosing an environment. The transcript goes into your draft for review. See [Voice input](./voice-input.md).
 
 ## Does it work on Windows, Mac, and Linux?
 

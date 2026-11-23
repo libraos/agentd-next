@@ -9,6 +9,7 @@ import {
 import type { ModelInfo as ClaudeModelInfo } from "@anthropic-ai/claude-agent-sdk";
 import * as Option from "effect/Option";
 import {
+  familyCatalogSlug,
   getModelSelectionStringOptionValue,
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
@@ -147,7 +148,13 @@ export function scopeClaudeModelCatalog(
   const builtInSlugs = new Set(builtInModels.map((entry) => entry.model.slug));
   const customCatalogModels: Array<ClaudeCatalogModel> = [];
   for (const entry of customEntries) {
-    if (!entry.capabilities || builtInSlugs.has(entry.slug)) continue;
+    if (builtInSlugs.has(entry.slug)) continue;
+    const family = builtInModels.find((built) => built.model.slug === familyCatalogSlug(entry));
+    if (!entry.capabilities && family) {
+      customCatalogModels.push(familyIdCatalogModel(family, entry.slug, entry.name));
+      continue;
+    }
+    if (!entry.capabilities) continue;
     customCatalogModels.push({
       model: {
         slug: entry.slug,
@@ -161,6 +168,47 @@ export function scopeClaudeModelCatalog(
   }
 
   return { models: [...builtInModels, ...customCatalogModels] };
+}
+
+// A Gateway's family-prefixed id (`anthropic/claude-sonnet-4-6`) runs its catalog model's effort
+// mapping and context window, but is sent as listed: an option that works by a model suffix
+// (`[1m]`) is left out, since Claude Code would rewrite the suffixed id, and the context window
+// is that option's default.
+function familyIdCatalogModel(
+  family: ClaudeCatalogModel,
+  slug: string,
+  name: string,
+): ClaudeCatalogModel {
+  const { modelSuffixes, contextWindowTokens, ...runtime } = family.runtime;
+  const suffixed = new Set(Object.keys(modelSuffixes ?? {}));
+  const descriptors = family.model.capabilities?.optionDescriptors ?? [];
+  const contextWindow = getProviderOptionCurrentValue(
+    getProviderOptionDescriptors({ caps: { optionDescriptors: descriptors } }).find(
+      (descriptor) => descriptor.id === "contextWindow",
+    ),
+  );
+  const defaultTokens =
+    typeof contextWindow === "string" ? contextWindowTokens?.[contextWindow] : undefined;
+  return {
+    model: {
+      slug,
+      name,
+      isCustom: true,
+      capabilities: {
+        optionDescriptors: descriptors.filter((descriptor) => !suffixed.has(descriptor.id)),
+      },
+    },
+    runtime: {
+      ...runtime,
+      ...(!suffixed.has("contextWindow") && contextWindowTokens ? { contextWindowTokens } : {}),
+      ...(suffixed.has("contextWindow") &&
+      runtime.fixedContextWindowTokens === undefined &&
+      defaultTokens !== undefined
+        ? { fixedContextWindowTokens: defaultTokens }
+        : {}),
+    },
+    compatibility: {},
+  };
 }
 
 const CLAUDE_EFFORT_LABELS: Readonly<Record<string, string>> = {
@@ -344,9 +392,15 @@ export function resolveClaudeUpdateRequiredModels(
   });
 }
 
+// The two casks conflict, so moving to the faster channel means replacing the install.
+const HOMEBREW_STABLE_CASK_UPDATE_COMMAND = "brew upgrade --cask claude-code";
+const HOMEBREW_LATEST_CASK_SWITCH_COMMAND =
+  "brew uninstall --cask claude-code && brew install --cask claude-code@latest";
+
 export function formatClaudeVersionUpgradeMessage(
   catalog: ClaudeModelCatalog,
   version: string | null,
+  channel?: { readonly latestVersion: string | null; readonly updateCommand: string | null },
 ): string | undefined {
   const unavailable = catalog.models
     .filter(
@@ -359,7 +413,38 @@ export function formatClaudeVersionUpgradeMessage(
     )[0];
   if (!unavailable?.compatibility.minVersion) return undefined;
   const versionLabel = version ? `v${version}` : "the installed version";
-  return `Claude Code ${versionLabel} is too old for ${unavailable.model.name}. Upgrade to v${unavailable.compatibility.minVersion} or newer to access it.`;
+  const minVersion = unavailable.compatibility.minVersion;
+  const latestVersion = channel?.latestVersion;
+  if (latestVersion && compareSemverVersions(latestVersion, minVersion) < 0) {
+    const tooOld = `Claude Code ${versionLabel} is too old for ${unavailable.model.name}, which needs v${minVersion} or newer`;
+    if (channel?.updateCommand === HOMEBREW_STABLE_CASK_UPDATE_COMMAND) {
+      return `${tooOld}, but the claude-code Homebrew cask only has v${latestVersion}. Switch to the claude-code@latest cask: ${HOMEBREW_LATEST_CASK_SWITCH_COMMAND}`;
+    }
+    return `${tooOld}, but the newest version this install can update to is v${latestVersion}. Install Claude Code another way or wait for a newer release.`;
+  }
+  return `Claude Code ${versionLabel} is too old for ${unavailable.model.name}. Upgrade to v${minVersion} or newer to access it.`;
+}
+
+/** The status check words the upgrade before the install channel reports its newest version. */
+export function scopeClaudeUpgradeMessageToChannel<
+  P extends {
+    readonly message?: string | undefined;
+    readonly version: string | null;
+    readonly versionAdvisory?:
+      | { readonly latestVersion: string | null; readonly updateCommand: string | null }
+      | undefined;
+  },
+>(catalog: ClaudeModelCatalog, provider: P): P {
+  const channel = provider.versionAdvisory;
+  if (
+    !channel?.latestVersion ||
+    provider.message === undefined ||
+    provider.message !== formatClaudeVersionUpgradeMessage(catalog, provider.version)
+  ) {
+    return provider;
+  }
+  const message = formatClaudeVersionUpgradeMessage(catalog, provider.version, channel);
+  return message === undefined ? provider : { ...provider, message };
 }
 
 /** Claude Code's effort levels, lowest first. */
@@ -442,11 +527,21 @@ export function capClaudeCatalogEffort(
     modelMaxEffortLevels: resolveClaudeModelMaxEffortLevels(catalog, source.modelMaxEffortLevels),
   }));
   return models.map((model) => {
-    // Custom model labels are user-authored, so they are left alone.
-    if (model.isCustom || !model.capabilities?.optionDescriptors) return model;
+    // Custom model labels are user-authored, so they are left alone, except a family-prefixed
+    // catalog id (a Gateway's `anthropic/claude-sonnet-4-6`), which shows its catalog model's.
+    const familySlug =
+      model.subProvider && model.slug.startsWith(`${model.subProvider}/`)
+        ? model.slug.slice(model.subProvider.length + 1)
+        : undefined;
+    const catalogSlug = !model.isCustom
+      ? model.slug
+      : catalog.models.some((entry) => !entry.model.isCustom && entry.model.slug === familySlug)
+        ? familySlug
+        : undefined;
+    if (catalogSlug === undefined || !model.capabilities?.optionDescriptors) return model;
     const modelMaxEffortLevel = resolvedSources.reduce<ClaudeEffortLevel | undefined>(
       (lowest, source) => {
-        const level = source.modelMaxEffortLevels.get(model.slug) ?? source.maxEffortLevel;
+        const level = source.modelMaxEffortLevels.get(catalogSlug) ?? source.maxEffortLevel;
         return level &&
           level !== "max" &&
           (!lowest || claudeEffortRank(level) < claudeEffortRank(lowest))
@@ -478,7 +573,7 @@ export function capClaudeCatalogEffort(
             options: descriptor.options.map((option) => {
               const idRank = claudeEffortRank(option.id);
               const sentRank = claudeEffortRank(
-                normalizeClaudeCatalogEffort(catalog, option.id, model.slug),
+                normalizeClaudeCatalogEffort(catalog, option.id, catalogSlug),
               );
               const displayedRank = idRank >= 0 ? idRank : sentRank;
               const runsRank = sentRank >= 0 ? sentRank : idRank;

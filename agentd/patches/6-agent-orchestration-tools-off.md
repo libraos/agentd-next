@@ -46,6 +46,6 @@ Windows; the tests are platform-neutral.
 
 - With browser access on (the default) the session still gets `t3-code` with preview tools,
   and the adapters' T3 orchestration instructions (`provider-core` `orchestrationInstructions`)
-  are still sent whenever any `t3-code` server is present, so they mention `delegate_task` etc.
-  Gating that text on the `orchestration` capability touches every adapter and is not done here.
+  were still sent whenever any `t3-code` server is present. Codex, Claude and opencode gate them on
+  `orchestration` since #148 (`148-delegation-fallback.md`); Cursor, ACP and Pi do not.
 - No UI toggle (needs `ServerSettingsPatch` and a settings row).

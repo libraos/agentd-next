@@ -72,6 +72,8 @@ export const ServerProviderAuth = Schema.Struct({
   workspaceId: Schema.optional(TrimmedNonEmptyString),
   /** Origin of the custom endpoint the instance sends its requests to. */
   endpoint: Schema.optional(TrimmedNonEmptyString),
+  /** Sub-providers (model slug `<id>/…`) whose models the key an endpoint is sent decides. */
+  endpointProviders: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
 });
 export type ServerProviderAuth = typeof ServerProviderAuth.Type;
 
@@ -1070,6 +1072,13 @@ export class ServerSelfUpdateError extends Schema.TaggedError<ServerSelfUpdateEr
   "ServerSelfUpdateError",
   {
     reason: TrimmedNonEmptyString,
+    /** Set when the host's desktop app refused only because its build and saved tracks differ. */
+    trackMismatch: Schema.optionalKey(
+      Schema.Struct({
+        buildChannel: DesktopUpdateChannelSchema,
+        savedChannel: DesktopUpdateChannelSchema,
+      }),
+    ),
     cause: Schema.optional(Schema.Defect()),
   },
 ) {

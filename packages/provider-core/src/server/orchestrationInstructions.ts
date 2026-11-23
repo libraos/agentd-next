@@ -1,5 +1,10 @@
 import type { ProviderInteractionMode } from "@t3tools/contracts";
 
+const T3_CODE_VISUALS_SECTION = `### Visuals and preview
+
+- Answer data with a trend or comparison with a chart and show any visual the user asks for here: pass an HTML file path or inline HTML to \`html_preview\`, then \`html_render\`. A screenshot on disk or a text description doesn't show it. Never start a server for it. Page tools write only on user request. Never use them to show results. Asked for an image to post, send or use elsewhere: a \`.png\` file and its path, never \`html_render\`.
+- Never use \`preview_*\` unasked to verify or show your own edit. Use them when the current request asks for browser work, including recording edits, or names a page or tab. Don't repeat preview calls from an earlier turn. Public pages: web fetch or search unless browser work was asked; then preview tools only, no web fetch. Close a tab you opened before you reply, unless the user asked for it or uses it.`;
+
 // Codex truncates entries over 4,000 bytes; keep each section self-contained and below that limit.
 export const T3_CODE_ORCHESTRATION_SECTIONS: ReadonlyArray<string> = [
   `## AgentD Next orchestration
@@ -18,16 +23,30 @@ Ordinary coding tasks need no T3 tools.
 - In your reply, mention a thread by its \`link\`, verbatim, never a plain title or bare id.
 - A login, token, PIN, pairing code or sudo password only the user can give: call \`request_secret\`, not a chat ask or a handoff. Not for access you have. Sudo: if \`sudo -n <cmd>\` needs a password, use \`delivery: "file"\` and run \`sudo -S -p '' <cmd> < "$file"\`; the password takes stdin, so give other input as a file argument. Asked only to schedule: \`schedule_task\` without running its prompt.
 - T3 tools may load late. Try the name once before you call it absent.`,
-  `### Visuals and preview
-
-- Answer data with a trend or comparison with a chart and show any visual the user asks for here: pass an HTML file path or inline HTML to \`html_preview\`, then \`html_render\`. A screenshot on disk or a text description doesn't show it. Never start a server for it. Page tools write only on user request. Never use them to show results. Asked for an image to post, send or use elsewhere: a \`.png\` file and its path, never \`html_render\`.
-- Never use \`preview_*\` unasked to verify or show your own edit. Use them when the current request asks for browser work, including recording edits, or names a page or tab. Don't repeat preview calls from an earlier turn. Public pages: web fetch or search unless browser work was asked; then preview tools only, no web fetch. Close a tab you opened before you reply, unless the user asked for it or uses it.`,
+  T3_CODE_VISUALS_SECTION,
 ];
 
 export const T3_CODE_ORCHESTRATION_INSTRUCTIONS = `
 
 ${T3_CODE_ORCHESTRATION_SECTIONS.join("\n\n")}
 `;
+
+// AgentD: with orchestration tools off (the default) the T3 task tools are not listed, and the
+// sections above made models report them unavailable and stop instead of using agentd.
+const T3_CODE_AGENTD_WORKER_SECTION = `## AgentD Next workers
+
+This session has no T3 task tools: \`delegate_task\`, \`orchestrator_capabilities\`, \`task_*\` and \`thread_*\` are not offered here, so do not look for them or report them missing. To hand work to an AgentD worker, track it in AgentD, or run it in the background, use the AgentD skill (\`agentd\`) or the agentd MCP tools; agentd owns tasks, workers and approvals. A subagent inside this session uses your native tool (Claude \`Agent\`, Codex \`spawn_agent\`). If neither the AgentD skill nor agentd tools are available, say so and tell the user to set up AgentD from the AgentD page.`;
+
+/** Sections for a session whose credential does or does not hold `orchestration`. */
+export const t3InstructionSections = (orchestration: boolean): ReadonlyArray<string> =>
+  orchestration
+    ? T3_CODE_ORCHESTRATION_SECTIONS
+    : [T3_CODE_AGENTD_WORKER_SECTION, T3_CODE_VISUALS_SECTION];
+
+export const t3Instructions = (orchestration: boolean): string =>
+  orchestration
+    ? T3_CODE_ORCHESTRATION_INSTRUCTIONS
+    : `\n\n${t3InstructionSections(false).join("\n\n")}\n`;
 
 export const T3_CODE_BROWSER_TOOL_INSTRUCTIONS = `
 
@@ -57,7 +76,7 @@ export const T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH = deviceToolInstr
 
 // ACP only: some ACP agents accept the injected MCP server but never expose
 // its tools, so they need the terminal transport other harnesses never use.
-const T3_CODE_ACP_MCP_FALLBACK_INSTRUCTIONS = `ACP fallback: if the T3 tools are absent and \`T3_ACP_MCP_NODE\` is present, call them through the terminal: \`ELECTRON_RUN_AS_NODE=1 "$T3_ACP_MCP_NODE" \${T3_ACP_MCP_ENTRYPOINT:+"$T3_ACP_MCP_ENTRYPOINT"} acp-mcp-call orchestrator_capabilities '{}'\` (\`T3_ACP_MCP_ENTRYPOINT\` is unset for a standalone executable). Delegate with \`acp-mcp-call delegate_task '{"task":"...","target":{"providerInstanceId":"...","model":"..."},"mode":"async","clientRequestId":"..."}'\`.`;
+const T3_CODE_ACP_MCP_FALLBACK_INSTRUCTIONS = `ACP fallback: if the T3 tools are absent and \`T3_ACP_MCP_NODE\` is present, call them through the terminal: \`ELECTRON_RUN_AS_NODE=1 "$T3_ACP_MCP_NODE" \${T3_ACP_MCP_ENTRYPOINT:+"$T3_ACP_MCP_ENTRYPOINT"} acp-mcp-call orchestrator_capabilities '{}'\` (\`T3_ACP_MCP_ENTRYPOINT\` is unset for a standalone executable). Delegate with \`acp-mcp-call delegate_task '{"task":"...","target":{"providerInstanceId":"...","model":"..."},"mode":"async","clientRequestId":"..."}'\`. On Windows, run \`T3_ACP_MCP_CALL\` instead and pipe the JSON to stdin, as in PowerShell \`'{}' | & $env:T3_ACP_MCP_CALL orchestrator_capabilities -\`, writing non-ASCII characters as \`\\uXXXX\` escapes.`;
 
 const T3_CODE_ACP_DEFAULT_MODE_INSTRUCTIONS = `## AgentD Next interaction mode: Default
 
@@ -104,10 +123,10 @@ export function t3AcpPromptWithInstructions(input: {
   return `<t3_code_instructions>\n${instructions.join("\n\n")}\n</t3_code_instructions>\n\n<user_request>\n${input.prompt}\n</user_request>`;
 }
 
-const orchestrationInstructions = (hasDeviceTools: boolean) =>
+const orchestrationInstructions = (hasDeviceTools: boolean, orchestration = true) =>
   hasDeviceTools
-    ? `${T3_CODE_ORCHESTRATION_INSTRUCTIONS}\n${T3_CODE_DEVICE_TOOL_INSTRUCTIONS}\n`
-    : T3_CODE_ORCHESTRATION_INSTRUCTIONS;
+    ? `${t3Instructions(orchestration)}\n${T3_CODE_DEVICE_TOOL_INSTRUCTIONS}\n`
+    : t3Instructions(orchestration);
 
 function prependT3OrchestrationInstructions(prompt: string, instructions: string): string {
   return `<t3_code_orchestration_instructions>${instructions.trim()}</t3_code_orchestration_instructions>\n\n<user_request>\n${prompt}\n</user_request>`;
@@ -120,22 +139,28 @@ export function t3OrchestrationPrompt(input: {
   readonly hasDeviceTools: boolean;
   readonly orchestrationDelivered: boolean;
   readonly deviceInstructionsDelivered: boolean;
+  /** Guidance for this provider's own tools, sent until `providerInstructionsDelivered`. */
+  readonly providerInstructions?: string;
+  readonly providerInstructionsDelivered?: boolean;
 }): string {
   if (!input.hasT3Mcp) return input.prompt;
-  if (!input.orchestrationDelivered) {
-    return prependT3OrchestrationInstructions(
-      input.prompt,
-      orchestrationInstructions(input.hasDeviceTools),
-    );
-  }
-  return input.hasDeviceTools && !input.deviceInstructionsDelivered
-    ? prependT3OrchestrationInstructions(input.prompt, T3_CODE_DEVICE_TOOL_INSTRUCTIONS)
-    : input.prompt;
+  const instructions = [
+    !input.orchestrationDelivered
+      ? orchestrationInstructions(input.hasDeviceTools)
+      : input.hasDeviceTools && !input.deviceInstructionsDelivered
+        ? T3_CODE_DEVICE_TOOL_INSTRUCTIONS
+        : undefined,
+    input.providerInstructionsDelivered === true ? undefined : input.providerInstructions,
+  ].flatMap((part) => (part === undefined ? [] : [part.trim()]));
+  return instructions.length === 0
+    ? input.prompt
+    : prependT3OrchestrationInstructions(input.prompt, instructions.join("\n\n"));
 }
 
 export function t3OrchestrationSystemPrompt(
   hasT3Mcp: boolean,
   hasDeviceTools: boolean,
+  hasOrchestrationTools = true,
 ): string | undefined {
-  return hasT3Mcp ? orchestrationInstructions(hasDeviceTools) : undefined;
+  return hasT3Mcp ? orchestrationInstructions(hasDeviceTools, hasOrchestrationTools) : undefined;
 }

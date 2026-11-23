@@ -5,8 +5,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { HttpClient } from "effect/http";
 
 import { resolveAttachmentPath } from "../attachmentStore.ts";
+import { makeGatewayKeyModels } from "../gateway/gatewayKeyModels.ts";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ServerConfig from "../config.ts";
@@ -34,6 +36,11 @@ export const layer = Layer.effect(
     const portDiscovery = yield* Effect.serviceOption(PortScanner.PortDiscovery);
     // Optional like the services above; without it the bundled policy still applies.
     const manifest = yield* Effect.serviceOption(ModelManifest.ModelManifest);
+    // Optional so hosts built without HTTP still construct; OpenCode then keeps its inventory.
+    const http = yield* Effect.serviceOption(HttpClient.HttpClient);
+    const endpointKeyModels = Option.isSome(http)
+      ? yield* makeGatewayKeyModels().pipe(Effect.provideService(HttpClient.HttpClient, http.value))
+      : undefined;
     const currentManifest = Option.match(manifest, {
       onNone: () => Effect.succeed(ModelManifest.BUNDLED_MODEL_MANIFEST),
       onSome: (service) => service.current,
@@ -56,6 +63,7 @@ export const layer = Layer.effect(
         subscribe: serverSettings.subscribeChanges,
       },
       shouldRunBackgroundWork: backgroundPolicy.shouldRunScopeWork,
+      ...(endpointKeyModels ? { endpointKeyModels } : {}),
       ...Option.match(lifecycleEvents, {
         onNone: () => ({}),
         onSome: (events) => ({ awaitServerReady: events.awaitReady }),

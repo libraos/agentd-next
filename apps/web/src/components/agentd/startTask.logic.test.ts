@@ -6,11 +6,15 @@ import { makeStreamingTimelineFixture } from "~/test-fixtures";
 import {
   autoBudget,
   budgetMinutes,
+  cloudOfferEnded,
+  cloudOfferStarted,
   localBudget,
   cloudPlanProblem,
   conversationTaskDraft,
   defaultCloudPlan,
   defaultModelAccess,
+  keyFileProblem,
+  rememberKeyFiles,
   modelAccessChoices,
   EMPTY_TASK_FIELDS,
   prepareTaskFields,
@@ -188,7 +192,8 @@ it("names the first problem that stops a Start", () => {
   };
   expect(taskStartProblem(ok)).toBeNull();
   expect(taskStartProblem({ ...ok, worker: null })).toBe("worker");
-  expect(taskStartProblem({ ...ok, branch: "protected" })).toBe("protected");
+  expect(taskStartProblem({ ...ok, branch: "protected" })).toBeNull();
+  expect(taskStartProblem({ ...ok, branch: "detached" })).toBe("detached");
   expect(taskStartProblem({ ...ok, branch: "not-repo" })).toBe("not-repo");
   expect(taskStartProblem({ ...ok, hasDirectory: false })).toBe("no-directory");
   const cloud = { ...ok, cloud: true, signedIn: true, branch: "protected" as const };
@@ -238,4 +243,46 @@ it("offers each subscription plan only when agentd can run it and has its creden
   expect(defaultCloudPlan(unset)).toBe("codex");
   expect(defaultCloudPlan(claudeOnly)).toBe("claude");
   expect(defaultCloudPlan(null)).toBe("claude");
+});
+
+it("blocks a key file under the other provider's field, then one others can read", () => {
+  const check = (provider: "anthropic" | "openai" | null, openToOthers = false) => ({
+    provider,
+    readable: provider !== null,
+    openToOthers,
+  });
+  expect(keyFileProblem("openai", check("anthropic"))).toBe("anthropic-key");
+  expect(keyFileProblem("anthropic", check("openai", true))).toBe("openai-key");
+  expect(keyFileProblem("openai", check("openai", true))).toBe("open-to-others");
+  expect(keyFileProblem("anthropic", check("anthropic"))).toBe(null);
+  // An unrecognised key is left to agentd; Start waits for the check and stops on a failed one.
+  expect(keyFileProblem("openai", { ...check(null), readable: true })).toBe(null);
+  expect(keyFileProblem("openai", check(null))).toBe("unreadable");
+  expect(keyFileProblem("openai", null)).toBe("checking");
+  expect(keyFileProblem("openai", "failed")).toBe("check-failed");
+  // A connection without filesystem read leaves the check to agentd on Start.
+  expect(keyFileProblem("openai", "not-permitted")).toBe("unchecked");
+});
+
+it("remembers accepted BYOK paths without dropping another environment's", () => {
+  const latest = { other: { openai: "/b/openai.key" }, here: { anthropic: "/a/old.key" } };
+  expect(rememberKeyFiles(latest, "here", { openaiKeyFile: "/a/openai.key" }, 7)).toEqual({
+    other: { openai: "/b/openai.key" },
+    here: { anthropic: "/a/old.key", openai: "/a/openai.key", openaiSavedAt: 7 },
+  });
+});
+
+it("reads an offered cloud task as started once its job is past submitting", () => {
+  expect(cloudOfferStarted(null, "hof-aa")).toBe(false);
+  expect(cloudOfferStarted([{ id: "hof-aa", cloudState: "submitting" }], "hof-aa")).toBe(false);
+  expect(cloudOfferStarted([{ id: "hof-aa", cloudState: null }], "hof-aa")).toBe(false);
+  expect(cloudOfferStarted([{ id: "hof-bb", cloudState: "running" }], "hof-aa")).toBe(false);
+  expect(cloudOfferStarted([{ id: "hof-aa", cloudState: "queued" }], "hof-aa")).toBe(true);
+  expect(cloudOfferStarted([{ id: "hof-aa", cloudState: "completed" }], "hof-aa")).toBe(true);
+  for (const ended of ["failed", "failed_verification", "cancelled", "budget_exceeded"]) {
+    expect(cloudOfferStarted([{ id: "hof-aa", cloudState: ended }], "hof-aa")).toBe(false);
+    expect(cloudOfferEnded([{ id: "hof-aa", cloudState: ended }], "hof-aa")).toBe(true);
+  }
+  for (const open of ["submitting", "queued", "running"])
+    expect(cloudOfferEnded([{ id: "hof-aa", cloudState: open }], "hof-aa")).toBe(false);
 });

@@ -1,4 +1,5 @@
 import { EasDeviceHostConfigs, SimlockDeviceHostConfigs, SshDeviceHostConfigs } from "./device.ts";
+import { CustomGatewaySetting } from "./customGateway.ts";
 import {
   AuthOrchestrationOperateScope,
   AuthAccessWriteScope,
@@ -321,6 +322,13 @@ export const BrowserLinkTarget = Schema.Literals(["system", "app"]);
 export type BrowserLinkTarget = typeof BrowserLinkTarget.Type;
 export const DEFAULT_BROWSER_LINK_TARGET: BrowserLinkTarget = "system";
 /**
+ * Where a plain click opens a subagent, a side chat or a linked environment's thread: beside the
+ * thread you are in, or in its place. A modified click opens it in the other one.
+ */
+export const SideThreadOpenTarget = Schema.Literals(["panel", "main"]);
+export type SideThreadOpenTarget = typeof SideThreadOpenTarget.Type;
+const DEFAULT_SIDE_THREAD_OPEN_TARGET: SideThreadOpenTarget = "panel";
+/**
  * What the address bar searches with when the input is not an address.
  * "custom" uses `browserCustomSearchUrl`, a template with `%s` for the query.
  */
@@ -415,6 +423,14 @@ export const AgentdDefaultBudget = Schema.String.check(
   Schema.isPattern(/^[1-9][0-9]{0,3}m,\$(?!0+(?:\.0{1,2})?$)[0-9]{1,4}(?:\.[0-9]{1,2})?$/),
 );
 export const DEFAULT_AGENTD_BUDGET = "60m,$5";
+
+const AgentdCloudKeyFiles = Schema.Struct({
+  anthropic: Schema.optionalKey(Schema.String),
+  openai: Schema.optionalKey(Schema.String),
+  // When each path was remembered (epoch ms): a write keeps the newer path per provider.
+  anthropicSavedAt: Schema.optionalKey(Schema.Number),
+  openaiSavedAt: Schema.optionalKey(Schema.Number),
+});
 
 export const ClientSettingsSchema = Schema.Struct({
   notificationMode: NotificationMode.pipe(
@@ -539,6 +555,9 @@ export const ClientSettingsSchema = Schema.Struct({
   followUpBehavior: Schema.Literals(["queue", "steer"]).pipe(
     Schema.withDecodingDefault(Effect.succeed("steer")),
   ),
+  sideThreadOpenTarget: SideThreadOpenTarget.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDE_THREAD_OPEN_TARGET)),
+  ),
   proactivePanelsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Code threads open the browser panel tab when the agent starts using it. */
   agentWorkPanelsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
@@ -623,6 +642,10 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   // Environment ids whose "Try a worker" card was shown or dismissed.
   agentdFirstTaskShown: Schema.Record(Schema.String, Schema.Boolean).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+  // Per environment id: the last BYOK key file paths a cloud task was submitted with.
+  agentdCloudKeyFiles: Schema.Record(Schema.String, AgentdCloudKeyFiles).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
 });
@@ -779,6 +802,10 @@ export const CodexSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
+    /** Its endpoint serves only `customModels`: catalog entries not among them are dropped. */
+    onlyCustomModels: Schema.optionalKey(Schema.Boolean).pipe(
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
   },
   {
     order: ["binaryPath", "homePath", "shadowHomePath", "launchArgs"],
@@ -832,6 +859,10 @@ export const ClaudeSettings = makeProviderSettingsSchema(
     ),
     customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    /** Its endpoint serves only `customModels`: catalog entries not among them are dropped. */
+    onlyCustomModels: Schema.optionalKey(Schema.Boolean).pipe(
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
     launchArgs: Schema.String.pipe(
@@ -1629,6 +1660,10 @@ export const ServerSettings = Schema.Struct({
   secretProviders: Schema.Record(SecretProviderId, SecretProviderConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
+  /** Gateways added by URL; their keys are in the secret store, their agents in providerInstances. */
+  customGateways: Schema.Array(CustomGatewaySetting).pipe(
+    Schema.withDecodingDefault(Effect.succeed([])),
+  ),
 
   usageHistoryRetentionDays: UsageHistoryRetentionDays.pipe(
     Schema.withDecodingDefault(Effect.succeed(92)),
@@ -2025,6 +2060,7 @@ export const ServerSettingsPatch = Schema.Struct({
   secretProviders: Schema.optionalKey(
     Schema.Record(SecretProviderId, Schema.NullOr(SecretProviderConfigWrite)),
   ),
+  customGateways: Schema.optionalKey(Schema.Array(CustomGatewaySetting)),
 
   usageHistoryRetentionDays: Schema.optionalKey(UsageHistoryRetentionDays),
 
@@ -2038,9 +2074,15 @@ export const ServerSettingsPatch = Schema.Struct({
 });
 export type ServerSettingsPatch = typeof ServerSettingsPatch.Type;
 
-/** The theme service sets theme defaults after it validates them, so clients cannot. */
+/** The theme service sets theme defaults after it validates them, so clients cannot; custom gateways change through their own RPCs, beside their keys and agents. */
 export const ClientServerSettingsPatch = ServerSettingsPatch.mapFields(
-  Struct.omit(["defaultTheme", "defaultThemeSetAt", "defaultAppearance", "defaultAppearanceSetAt"]),
+  Struct.omit([
+    "defaultTheme",
+    "defaultThemeSetAt",
+    "defaultAppearance",
+    "defaultAppearanceSetAt",
+    "customGateways",
+  ]),
 );
 
 export function requiredScopesForServerSettingsPatch(
@@ -2058,7 +2100,8 @@ export function requiredScopesForServerSettingsPatch(
       key === "providerInstances" ||
       key === "usageLimitSources" ||
       key === "textGenerators" ||
-      key === "secretProviders"
+      key === "secretProviders" ||
+      key === "customGateways"
     ) {
       changesProviders = true;
     } else {
@@ -2143,6 +2186,7 @@ export const ClientSettingsPatch = Schema.Struct({
   composerRichTextEnabled: Schema.optionalKey(Schema.Boolean),
   sendShortcut: Schema.optionalKey(Schema.Literals(["enter", "mod-enter-multiline", "mod-enter"])),
   followUpBehavior: Schema.optionalKey(Schema.Literals(["queue", "steer"])),
+  sideThreadOpenTarget: Schema.optionalKey(SideThreadOpenTarget),
   proactivePanelsEnabled: Schema.optionalKey(Schema.Boolean),
   agentWorkPanelsEnabled: Schema.optionalKey(Schema.Boolean),
   showSkillsInSlashMenu: Schema.optionalKey(Schema.Boolean),
@@ -2186,5 +2230,6 @@ export const ClientSettingsPatch = Schema.Struct({
   agentdRunTasksOn: Schema.optionalKey(AgentdRunTasksOn),
   agentdDefaultBudget: Schema.optionalKey(AgentdDefaultBudget),
   agentdFirstTaskShown: Schema.optionalKey(Schema.Record(Schema.String, Schema.Boolean)),
+  agentdCloudKeyFiles: Schema.optionalKey(Schema.Record(Schema.String, AgentdCloudKeyFiles)),
 });
 export type ClientSettingsPatch = typeof ClientSettingsPatch.Type;

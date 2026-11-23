@@ -15,6 +15,17 @@ export function AgentdPageCloud({ environmentId }: { readonly environmentId: Env
   if (account.error !== null) return <AgentdReadError error={account.error} />;
   const setup = account.data;
   if (setup === null) return <AgentdLoading />;
+  if (setup.unreachable === true)
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <p role="status" className="text-muted-foreground">
+          <T>Couldn’t reach AgentD.</T>
+        </p>
+        <Button type="button" size="xs" variant="outline" onClick={account.refresh}>
+          <T>Retry</T>
+        </Button>
+      </div>
+    );
   if (!setup.supported)
     return (
       <p className="text-sm text-muted-foreground">

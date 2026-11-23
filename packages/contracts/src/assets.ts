@@ -18,6 +18,12 @@ const ASSET_PATH_MAX_LENGTH = 1024;
  */
 export const SOURCE_CONTROL_MEDIA_ASSET = "github-media" as const;
 
+/** The one file name agentd backups get on this host; see AgentdBackupCreated. */
+export const AgentdBackupFileName = Schema.String.check(
+  Schema.isPattern(/^agentd-backup-\d{8}T\d{6}Z-[0-9a-f]{8}\.age$/),
+);
+export type AgentdBackupFileName = typeof AgentdBackupFileName.Type;
+
 export const NativeAppIconReference = Schema.Union([
   ToolActivityNativeAppReference,
   Schema.TaggedStruct("app-path", {
@@ -62,6 +68,10 @@ export const AssetResource = Schema.Union([
   }),
   Schema.TaggedStruct("native-app-icon", {
     app: NativeAppIconReference,
+  }),
+  // An encrypted agentd backup in the server's own backups directory, served as a download.
+  Schema.TaggedStruct("agentd-backup", {
+    fileName: AgentdBackupFileName,
   }),
   // Media a change request body points at on its host. A private repository serves these only
   // to a request that carries a credential, which the client has none of, so the server fetches

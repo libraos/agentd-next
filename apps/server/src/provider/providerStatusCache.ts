@@ -1,4 +1,5 @@
 import {
+  isGatewayInstanceId,
   type ProviderInstanceId,
   type ServerProvider,
   ServerProvider as ServerProviderSchema,
@@ -18,7 +19,15 @@ const decodeProviderStatusCache = Schema.decodeUnknownEffect(
 const mergeProviderModels = (
   fallbackModels: ReadonlyArray<ServerProvider["models"][number]>,
   cachedModels: ReadonlyArray<ServerProvider["models"][number]>,
+  onlyFallbackModels: boolean,
 ): ReadonlyArray<ServerProvider["models"][number]> => {
+  if (onlyFallbackModels) {
+    // The settings' list is the whole list; a cached catalog row only names one of its models.
+    const cachedBySlug = new Map(
+      cachedModels.filter((model) => !model.isCustom).map((model) => [model.slug, model]),
+    );
+    return fallbackModels.map((model) => cachedBySlug.get(model.slug) ?? model);
+  }
   const fallbackSlugs = new Set(fallbackModels.map((model) => model.slug));
   // Settings already supply current custom models; cached rows could resurrect removed ones.
   return [
@@ -79,7 +88,11 @@ export const hydrateCachedProvider = (input: {
   const { message: _fallbackMessage, ...fallbackWithoutMessage } = input.fallbackProvider;
   const hydratedProvider: ServerProvider = {
     ...fallbackWithoutMessage,
-    models: mergeProviderModels(input.fallbackProvider.models, input.cachedProvider.models),
+    models: mergeProviderModels(
+      input.fallbackProvider.models,
+      input.cachedProvider.models,
+      isGatewayInstanceId(input.fallbackProvider.instanceId),
+    ),
     installed: input.cachedProvider.installed,
     version: input.cachedProvider.version,
     status: input.cachedProvider.status,

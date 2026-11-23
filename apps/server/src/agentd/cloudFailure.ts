@@ -2,6 +2,11 @@
 // pattern is anchored to a phrase agentd prints, so a path or project name that happens to contain
 // "byok", "cloud-key" or "[cloud]" is not read as a setup or credential problem.
 
+import { AgentdCommandError, chmodPrivateCommand } from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
+
+const isCommandError = Schema.is(AgentdCommandError);
+
 export type CloudProblem = "setup" | "credit" | "repository";
 
 export const CLOUD_REASONS = {
@@ -69,7 +74,7 @@ export function cloudReason(message: string): string | null {
   const setup = cloudSetupProblem(message);
   if (setup !== null) return CLOUD_REASONS[setup];
   if (/can be read or written by others|belongs to another user/i.test(message))
-    return CLOUD_REASONS.privateFile;
+    return sharedFileReason(message);
   const chatgpt = chatgptReason(message);
   if (chatgpt !== null) return chatgpt;
   if (/must hold the token from claude setup-token/i.test(message))
@@ -110,6 +115,25 @@ export function cloudReason(message: string): string | null {
   return null;
 }
 
+// agentd names a shared key file as "SETTING PATH can be read or written by others (mode 644)".
+const SHARED_FILE =
+  /(?:^|\s)(?:[\w.]+_file|--[\w-]+-file)\s+(\S(?:.*?\S)?)\s+(can be read or written by others|belongs to another user)/i;
+
+/** The user's own key file agentd refused because others can read it; null for any other refusal. */
+export function openKeyFile(message: string): string | null {
+  const found = SHARED_FILE.exec(message);
+  return found?.[2]?.toLowerCase().startsWith("can") ? (found[1] ?? null) : null;
+}
+
+function sharedFileReason(message: string): string {
+  const found = SHARED_FILE.exec(message);
+  const path = found?.[1];
+  if (path === undefined) return CLOUD_REASONS.privateFile;
+  return found?.[2]?.toLowerCase().startsWith("can")
+    ? `${path} can be read by other users. Run ${chmodPrivateCommand(path)}, then try again.`
+    : `${path} belongs to another user. Copy it to a file of your own, run chmod 600 on that copy, then choose it.`;
+}
+
 // Codex on a ChatGPT plan: agentd names ChatGPT, codex_auth_file or codex login in each refusal.
 function chatgptReason(message: string): string | null {
   if (
@@ -130,6 +154,30 @@ function chatgptReason(message: string): string | null {
   if (/needs your (?:ChatGPT|Codex)|codex login|needs cloud\.codex_auth_file/i.test(message))
     return CLOUD_REASONS.chatgptAuth;
   return null;
+}
+
+// Refusals agentd or the Job API make before any job exists; every other reason may come from a
+// job that was created.
+const REFUSALS: ReadonlySet<string> = new Set([
+  CLOUD_REASONS.setup,
+  CLOUD_REASONS.credit,
+  CLOUD_REASONS.repository,
+  CLOUD_REASONS.keyFile,
+  CLOUD_REASONS.privateFile,
+  CLOUD_REASONS.subscriptionUnavailable,
+  CLOUD_REASONS.subscriptionToken,
+  CLOUD_REASONS.subscriptionTokenFormat,
+  CLOUD_REASONS.chatgptUnavailable,
+  CLOUD_REASONS.chatgptAuth,
+  CLOUD_REASONS.pickPlan,
+  CLOUD_REASONS.teamServer,
+]);
+
+/** agentd refused the offer outright, so it made no task and no cloud job. */
+export function refusedBeforeTask(message: string): boolean {
+  if (SHARED_FILE.test(message)) return true;
+  const reason = cloudReason(message);
+  return reason !== null && REFUSALS.has(reason);
 }
 
 /** One line for an `agentd cloud setup` refusal, from agentd's own wording; the key is never in it. */
@@ -157,4 +205,50 @@ export function cloudFailureReason(
     if (reason !== null) return reason;
   }
   return STATE_REASONS[state] ?? null;
+}
+
+/** The file a shared-file reason names (sharedFileReason's own wording); null for any other. */
+function sharedFileNamed(reason: string): string | null {
+  return (
+    /^(.+) can be read by other users\. Run /s.exec(reason)?.[1] ??
+    /^(.+) belongs to another user\. Copy it /s.exec(reason)?.[1] ??
+    null
+  );
+}
+
+/**
+ * A Start error for a connection that may not read host files: whose key a file holds isn't said,
+ * nor a file the host chose (a configured token file); a file it entered itself still is.
+ */
+export function startErrorFor<E>(
+  error: E,
+  readsHostFiles: boolean,
+  entered: ReadonlyArray<string>,
+): E | AgentdCommandError {
+  if (readsHostFiles || !isCommandError(error)) return error;
+  if (error.wrongKeyFile)
+    return new AgentdCommandError({ message: CLOUD_REASONS.keyFile, notSetUp: false });
+  const named = error.privateFile ?? sharedFileNamed(error.message);
+  if (named !== null && !entered.includes(named))
+    return new AgentdCommandError({ message: CLOUD_REASONS.privateFile, notSetUp: false });
+  return error;
+}
+
+/** The credential files a Start's input names, as the user entered them. */
+export function enteredKeyFiles(input: {
+  readonly cloud?: {
+    readonly anthropicKeyFile?: string;
+    readonly openaiKeyFile?: string;
+    readonly claudeTokenFile?: string;
+    readonly codexAuthFile?: string;
+  };
+}): ReadonlyArray<string> {
+  const cloud = input.cloud;
+  if (cloud === undefined) return [];
+  return [
+    cloud.anthropicKeyFile,
+    cloud.openaiKeyFile,
+    cloud.claudeTokenFile,
+    cloud.codexAuthFile,
+  ].filter((file) => file !== undefined);
 }

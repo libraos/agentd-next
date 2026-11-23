@@ -89,6 +89,16 @@ it("a chat shows the conversation only, a project session shows its panels", asy
     .element(page.getByRole("region", { name: /^Workspace panel: Background tasks/ }))
     .toBeVisible();
 
+  // So does a file one of its links opens.
+  await act(() =>
+    useRightPanelStore
+      .getState()
+      .openFile(scopeThreadRef(ENVIRONMENT_ID, chatThread.id), "poster.png"),
+  );
+  await expect
+    .element(page.getByRole("region", { name: /^Workspace panel: poster\.png/ }))
+    .toBeVisible();
+
   await act(() =>
     router.navigate({
       to: "/$environmentId/$threadId",

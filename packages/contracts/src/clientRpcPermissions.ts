@@ -3,6 +3,7 @@ import { GitPreparePullRequestThreadInput, GitRunStackedActionInput } from "./gi
 import {
   AuthAccessWriteScope,
   AuthEnvironmentMaintainScope,
+  AuthFilesystemReadScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthPreviewOperateScope,
@@ -18,6 +19,9 @@ import { WS_METHODS } from "./rpc.ts";
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.providerAuthRemoveMethod]: AuthProvidersManageScope,
+  // An MCP sign-in stores a credential for the agent, as an account sign-in does.
+  [WS_METHODS.providerMcpSignInStart]: AuthProvidersManageScope,
+  [WS_METHODS.providerMcpSignInComplete]: AuthProvidersManageScope,
   [WS_METHODS.previewClose]: AuthPreviewOperateScope,
   // Stopping a server signals its processes, as closing a terminal does.
   [WS_METHODS.previewStopLocalServer]: AuthTerminalOperateScope,
@@ -66,6 +70,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.gitPreparePullRequestThread]: AuthSourceControlWriteScope,
   [WS_METHODS.vcsCreateWorktree]: AuthSourceControlWriteScope,
   [WS_METHODS.vcsRemoveWorktree]: AuthSourceControlWriteScope,
+  [WS_METHODS.workspaceAddTaskFolderRepository]: AuthSourceControlWriteScope,
   [WS_METHODS.vcsCreateRef]: AuthSourceControlWriteScope,
   [WS_METHODS.vcsSwitchRef]: AuthSourceControlWriteScope,
   [WS_METHODS.vcsInit]: AuthSourceControlWriteScope,
@@ -79,12 +84,20 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.scheduledTasksRotateWebhookToken]: AuthOrchestrationOperateScope,
   // agentd tasks start and stop agent workers on this host, as threads do.
   [WS_METHODS.agentdStartTask]: AuthOrchestrationOperateScope,
+  [WS_METHODS.agentdRetryStart]: AuthOrchestrationOperateScope,
   [WS_METHODS.agentdStopTask]: AuthOrchestrationOperateScope,
   // Connecting an agent edits its config on this host; joining a team links the host to a server.
   [WS_METHODS.agentdConnectAgent]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdJoinTeam]: AuthEnvironmentMaintainScope,
+  // A backup holds all of agentd's ledger, which filesystem:read can already read, encrypted to
+  // a key the caller names: so only a caller that may read every file may ask for one.
+  [WS_METHODS.agentdBackupCreate]: AuthFilesystemReadScope,
   // Cloud setup writes agentd's account key and [cloud] settings on this host.
   [WS_METHODS.agentdCloudConfigure]: AuthEnvironmentMaintainScope,
+  // Making a key file private changes a mode anywhere the server user can, not only in a workspace.
+  [WS_METHODS.agentdCloudKeyFileFix]: AuthEnvironmentMaintainScope,
+  // Repair rewrites agentd's services on this host with this app's agentd install.
+  [WS_METHODS.agentdRepairServices]: AuthEnvironmentMaintainScope,
   // Working for the team runs agents on this host for the team server.
   [WS_METHODS.agentdSetTeamNode]: AuthEnvironmentMaintainScope,
   // Setting agentd up accepts its EULA and writes its services on this host.
@@ -92,9 +105,21 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // Skills are written into, and removed from, the agents' Skills folders on this host.
   [WS_METHODS.agentdSkillsInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdSkillsRemove]: AuthEnvironmentMaintainScope,
+  // Plugins install under the server's state and their hooks run on every send here.
+  [WS_METHODS.agentdPluginsInstall]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsRemove]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsSetEnabled]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdBeforeSendConfirm]: AuthOrchestrationOperateScope,
+  [WS_METHODS.agentdBeforeSendDiscard]: AuthOrchestrationOperateScope,
   // The Gateway key goes to this host's agentd and its agents' sessions.
   [WS_METHODS.libraosGatewayConnect]: AuthEnvironmentMaintainScope,
   [WS_METHODS.libraosGatewayDisconnect]: AuthEnvironmentMaintainScope,
+  // A custom gateway's key goes to this host's agents' sessions, as the Gateway key does.
+  [WS_METHODS.customGatewayAdd]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.customGatewayRename]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.customGatewaySetHiddenModels]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.customGatewayRemove]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.customGatewayRefreshModels]: AuthEnvironmentMaintainScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   // Force stop kills agent processes, as Stop on a terminal does.
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: AuthOrchestrationOperateScope,
@@ -104,6 +129,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.peerLinksUnlink]: AuthAccessWriteScope,
   // A link lets every agent here reach the other environment: Settings' bar.
   [WS_METHODS.peerLinksAnswerRequest]: AuthAccessWriteScope,
+  [WS_METHODS.peerLinksPairClient]: AuthAccessWriteScope,
+  [WS_METHODS.peerLinksPairLink]: AuthAccessWriteScope,
 } as const;
 export type ClientGuardedRpcTag = keyof typeof CLIENT_GUARDED_RPC_SCOPES;
 

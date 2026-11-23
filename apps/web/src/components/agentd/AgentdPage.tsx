@@ -31,6 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { AgentdNeedsYou, AgentdRead, AgentdSection, AgentdStatusDetails } from "./AgentdPageReads";
 import { AgentdPageCloud } from "./AgentdPageCloud";
+import { AgentdPagePlugins } from "./AgentdPagePlugins";
 import { AgentdPageWorkers } from "./AgentdPageWorkers";
 import { openAgentdSetupDialog, useCanSetUpAgentd } from "./AgentdSetupDialog";
 import { AgentdTeamNodeSwitch } from "./AgentdTeamNodeSwitch";
@@ -192,6 +193,8 @@ export function AgentdPage() {
                     {(data) => (
                       <AgentdStatusDetails
                         status={data}
+                        environmentId={environmentId}
+                        onRepaired={status.refresh}
                         onSetUp={
                           canSetUp && environmentId !== null
                             ? () => openAgentdSetupDialog(environmentId)
@@ -210,6 +213,11 @@ export function AgentdPage() {
                   </AgentdRead>
                 )}
               </AgentdSection>
+              {environmentId !== null && canRead ? (
+                <AgentdSection id="agentd-plugins" title={<T>Plugins</T>}>
+                  <AgentdPagePlugins environmentId={environmentId} />
+                </AgentdSection>
+              ) : null}
               {activeEnvironmentId !== null ? (
                 <>
                   <AgentdSection id="agentd-needs-you" title={<T>Needs you</T>}>

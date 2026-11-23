@@ -14,6 +14,7 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   applyPreferredCodexDefaultModel,
   codexCustomEndpoint,
+  codexEndpointKeyEnv,
   codexRoutesSpendNativeQuota,
   makeCodexSkillsProbe,
   mapCodexModelCapabilities,
@@ -340,6 +341,16 @@ it("reports native quota only for an OpenAI login on a native route", () => {
   );
   assert.strictEqual(codexCustomEndpoint({ openai_base_url: "https://chatgpt.com/x" }), undefined);
   assert.strictEqual(codexCustomEndpoint({}), undefined);
+  // The variable Codex reads the endpoint's key from, as in a hand-written LibraOS route.
+  const libraos = {
+    model_provider: "libraos",
+    model_providers: {
+      libraos: { base_url: "https://api.libraos.com/v1", env_key: "LIBRAOS_API_KEY" },
+    },
+  };
+  assert.strictEqual(codexEndpointKeyEnv(libraos), "LIBRAOS_API_KEY");
+  assert.strictEqual(codexEndpointKeyEnv({ ...libraos, model_provider: "openai" }), undefined);
+  assert.strictEqual(codexEndpointKeyEnv(hub), undefined);
 });
 
 it.each([

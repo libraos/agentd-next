@@ -13,14 +13,21 @@ launch AgentD Next and configure providers afterwards.
 Download an installer from the
 [releases page](https://github.com/libraos/agentd-next/releases). Each
 release lists its files and a `SHA256SUMS` file; installers are named
-`AgentD-Next-<version>-<arch>.<ext>`.
+`AgentD-Next-<version>-<arch>.<ext>`, except the AppImage, which has no version
+in its name so that updates replace it in place.
 
-| System                | File                                                  |
-| --------------------- | ----------------------------------------------------- |
-| macOS (Apple silicon) | `AgentD-Next-<version>-arm64.dmg` or `…-arm64.zip`    |
-| macOS (Intel)         | `AgentD-Next-<version>-x64.dmg` or `…-x64.zip`        |
-| Windows (x64)         | `AgentD-Next-<version>-x64.exe`                       |
-| Linux (x64)           | `AgentD-Next-<version>-x64.AppImage` or `…-amd64.deb` |
+| System                | File                                               |
+| --------------------- | -------------------------------------------------- |
+| macOS (Apple silicon) | `AgentD-Next-<version>-arm64.dmg` or `…-arm64.zip` |
+| macOS (Intel)         | `AgentD-Next-<version>-x64.dmg` or `…-x64.zip`     |
+| Windows (x64)         | `AgentD-Next-<version>-x64.exe`                    |
+| Linux (x64)           | `AgentD-Next-x86_64.AppImage` or `…-amd64.deb`     |
+
+From 0.2.0 the app checks for a new release at launch and every four hours, and
+asks before installing it (Settings → About also has **Check for Updates**). On
+Windows and Linux it downloads and installs the update; on macOS it opens the
+release page, and you install the new version by hand. 0.1.10-agentd.8 and
+earlier do not check: install 0.2.0 by hand once.
 
 Releases up to 0.1.10-agentd.6 carry the earlier name, AgentD Desktop, in their
 file names (`AgentD-Desktop-…`).
@@ -49,8 +56,8 @@ if the repair fails, AgentD shows "needs attention" with agentd's own fix.
 To launch the AppImage, open a terminal in its download folder:
 
 ```bash
-chmod +x ./AgentD-Next-*-x64.AppImage
-./AgentD-Next-*-x64.AppImage
+chmod +x ./AgentD-Next-*x*64.AppImage
+./AgentD-Next-*x*64.AppImage
 ```
 
 To install the `.deb`:

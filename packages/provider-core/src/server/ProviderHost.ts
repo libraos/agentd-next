@@ -12,6 +12,7 @@ import type * as Stream from "effect/Stream";
 
 import type { ProviderCompatibilityLookup } from "./compatibility.ts";
 import type { ProviderCredentialError } from "./errors.ts";
+import type { EndpointKeyModels } from "./snapshotProbe.ts";
 
 export interface ProviderHostPaths {
   readonly cwd: string;
@@ -61,5 +62,7 @@ export class ProviderHost extends Context.Service<
     ) => Effect.Effect<ProviderCredentials>;
     /** A driver declares its minimum version in the policy and asks here, not in a constant. */
     readonly compatibility: ProviderCompatibilityLookup;
+    /** The models an endpoint serves for a key an agent's own config sends it (LibraOS Gateway). */
+    readonly endpointKeyModels?: EndpointKeyModels;
   }
 >()("@t3tools/provider-core/server/ProviderHost") {}

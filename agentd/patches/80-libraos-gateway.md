@@ -21,8 +21,8 @@ New files (ours): `packages/contracts/src/libraosGateway.ts`, `apps/server/src/g
 
 No provider adapter changed: upstream provider instances already carry per-instance environment variables (sensitive ones in the server's secret store), launch arguments and custom models, which is all a Gateway session needs:
 
-- Claude Code: `ANTHROPIC_BASE_URL=https://api.libraos.com`, `ANTHROPIC_API_KEY` (sensitive); the key's `anthropic/*` models as custom models.
-- Codex: `-c model_provider="libraos"` with `model_providers.libraos` at `https://api.libraos.com/v1`, `wire_api="responses"`, `env_key="LIBRAOS_API_KEY"` (sensitive); the key's `openai/*` models as custom models.
+- Claude Code: `ANTHROPIC_BASE_URL=https://api.libraos.com`, `ANTHROPIC_API_KEY` (sensitive); every model the key allows (its `anthropic/*` ones without the prefix) as custom models, which replace Claude's catalog (#117, #145).
+- Codex: `-c model_provider="libraos"` with `model_providers.libraos` at `https://api.libraos.com/v1`, `wire_api="responses"`, `env_key="LIBRAOS_API_KEY"` (sensitive); every model the key allows (its `openai/*` ones without the prefix) as custom models, which replace Codex's catalog (#117, #145).
 - opencode: `OPENCODE_CONFIG_CONTENT` with an `@ai-sdk/openai-compatible` provider at `https://api.libraos.com/v1`, the key read from `{env:LIBRAOS_API_KEY}`, every model the key lists, and only that provider enabled.
 
 Nothing writes `~/.claude`, `~/.codex` or opencode's global config.

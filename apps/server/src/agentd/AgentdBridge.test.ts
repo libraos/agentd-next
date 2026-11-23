@@ -13,6 +13,13 @@ import * as TestClock from "effect/testing/TestClock";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as AgentdBridge from "./AgentdBridge.ts";
+import {
+  RESERVE_ATTEMPT,
+  attemptRecord,
+  releaseRecord,
+  reserveRecord,
+  submissionFingerprint,
+} from "./agentdCloudSubmissions.ts";
 
 // Recorded from agentd v0.1.13 (`handoff list --json`, `handoff show ID --json`, `doctor --json`),
 // trimmed; unknown keys stay to show they are ignored.
@@ -96,7 +103,8 @@ const DOCTOR_JSON = `{
 }`;
 
 const SUBMISSION = /^[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-8[a-f0-9]{3}-[a-f0-9]{12}$/;
-const MARKER = /^desktop-cloud-[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-8[a-f0-9]{3}-[a-f0-9]{12}$/;
+const MARKER =
+  /^desktop-cloud-[a-f0-9]{8}-[a-f0-9]{4}-8[a-f0-9]{3}-8[a-f0-9]{3}-[a-f0-9]{12} [a-f0-9]{64}$/;
 
 const output = (stdout: string, code = 0): ProcessRunner.ProcessRunOutput => ({
   stdout,
@@ -144,8 +152,8 @@ function cloudLedger() {
         return output("{}");
       case "find": {
         const marker = args[1]!.slice(1, -1);
-        const hits = [...handoffs.values()].filter(
-          (show) => (show.body as { state: string }).state === marker,
+        const hits = [...handoffs.values()].filter((show) =>
+          (show.body as { state: string }).state.includes(marker),
         );
         return output(JSON.stringify(hits.map((show) => ({ kind: "handoff", ref: show.id }))));
       }
@@ -516,6 +524,333 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("names the task holding the directory, and releases or forces past it as chosen", () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      let running = false;
+      const refusal =
+        "error: dispatch refused: /work/app already has handoff hof-b10c4ed001, claimed by session codex-615065aa16; wait for it, use another worktree or issue, or override with --force";
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const line = input.args.join(" ");
+        calls.push(line);
+        if (input.args[0] === "new") return Effect.succeed(output(`{"handoff":"hof-0e3d000001"}`));
+        switch (line) {
+          case "handoff dispatch hof-0e3d000001 --tool codex":
+            return Effect.succeed(
+              calls.includes(
+                "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001",
+              )
+                ? output("{}")
+                : { ...output("", 1), stderr: refusal },
+            );
+          case "handoff dispatch hof-0e3d000001 --tool codex --force":
+          case "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001":
+            return Effect.succeed(output("{}"));
+          case "handoff list --json":
+            return Effect.succeed(
+              output(
+                JSON.stringify([
+                  {
+                    id: "hof-b10c4ed001",
+                    state: "claimed",
+                    goal: "Tidy the README",
+                    ...(running ? { worker_running: true } : {}),
+                  },
+                ]),
+              ),
+            );
+          default:
+            return Effect.die(`unexpected agentd ${line}`);
+        }
+      });
+      const started = yield* bridge.startTask({
+        goal: "Fix the login form",
+        accept: [],
+        check: null,
+        worker: "codex",
+        budget: "30m",
+        cwd: "/work/app",
+        issue: null,
+      });
+      expect(started).toEqual({
+        id: "hof-0e3d000001",
+        started: false,
+        note: refusal,
+        blocking: {
+          id: "hof-b10c4ed001",
+          state: "claimed",
+          goal: "Tidy the README",
+          running: false,
+        },
+      });
+
+      const retry = { id: "hof-0e3d000001", worker: "codex", blocking: "hof-b10c4ed001" } as const;
+      running = true;
+      const live = yield* Effect.flip(bridge.retryStart({ ...retry, action: "release" }));
+      expect(live.message).toBe(
+        "Task hof-b10c4ed001 still has a worker running, so it was not released.",
+      );
+      expect(calls.some((call) => call.startsWith("handoff done"))).toBe(false);
+
+      calls.length = 0;
+      expect(yield* bridge.retryStart({ ...retry, action: "force" })).toMatchObject({
+        started: true,
+      });
+      expect(calls).toEqual(["handoff dispatch hof-0e3d000001 --tool codex --force"]);
+
+      running = false;
+      calls.length = 0;
+      expect(yield* bridge.retryStart({ ...retry, action: "release" })).toMatchObject({
+        started: true,
+      });
+      expect(calls).toEqual([
+        "handoff list --json",
+        "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001",
+        "handoff dispatch hof-0e3d000001 --tool codex",
+      ]);
+    }),
+  );
+
+  it.effect("syncs open cloud jobs beside the task list, never holding it up", () =>
+    Effect.gen(function* () {
+      const row = (state: string) =>
+        JSON.stringify([
+          { id: "hof-c10d000001", goal: "Fix it", state: "claimed", cloud_state: state },
+        ]);
+      let listed = row("queued");
+      const syncStarted = yield* Deferred.make<void>();
+      const firstListed = yield* Deferred.make<void>();
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const key = input.args.join(" ");
+        if (key === "handoff list --json") {
+          const answer = listed;
+          listed = row("running");
+          return Deferred.succeed(firstListed, undefined).pipe(Effect.as(output(answer)));
+        }
+        // A Job API that never answers.
+        if (key === "cloud sync")
+          return Deferred.succeed(syncStarted, undefined).pipe(Effect.andThen(Effect.never));
+        return Effect.die(`unexpected agentd ${key}`);
+      });
+      yield* TestClock.setTime(31_000);
+      const lists = yield* bridge.subscribeTasks.pipe(
+        Stream.take(2),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* Deferred.await(firstListed);
+      yield* TestClock.adjust("5 seconds");
+      const [first, second] = yield* Fiber.join(lists);
+      yield* Deferred.await(syncStarted);
+      expect(first?.[0]?.cloudState).toBe("queued");
+      expect(second?.[0]?.cloudState).toBe("running");
+    }),
+  );
+
+  it.effect("repairs services only as confirmed, and says so only once they run this agentd", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const units = path.join(home, ".config", "systemd", "user");
+      yield* fs.makeDirectory(units, { recursive: true });
+      const unit = path.join(units, "agentd-watchdog.service");
+      yield* fs.writeFileString(unit, "[Service]\nExecStart=/gone/agentd watchdog\n");
+      let rewrites = false;
+      // Whether install gets as far as the timer: it writes the service first, stops at an error.
+      let writesTimer = false;
+      // Whether systemd can start the timer; enabling it links it into timers.target either way.
+      let starts = false;
+      let active = false;
+      const runs: Array<string> = [];
+      const bridge = yield* makeBridge(
+        { PATH: "", AGENTD_BIN: process.execPath, AGENTD_DESKTOP_BUNDLED: "1" },
+        (input) => {
+          runs.push([input.command, ...input.args].join(" "));
+          if (input.command === "systemctl") {
+            if (input.args[1] === "is-active")
+              return Effect.succeed(active ? output("active\n") : output("inactive\n", 3));
+            if (input.args[1] !== "enable") return Effect.succeed(output(""));
+            const timer = path.join(units, "agentd-watchdog.timer");
+            const wants = path.join(units, "timers.target.wants");
+            // systemd links only a timer that is written.
+            const link = fs.makeDirectory(wants, { recursive: true }).pipe(
+              Effect.andThen(
+                fs
+                  .symlink(
+                    path.join(units, "agentd-watchdog.timer"),
+                    path.join(wants, "agentd-watchdog.timer"),
+                  )
+                  .pipe(Effect.ignore),
+              ),
+              Effect.orDie,
+              Effect.andThen(
+                Effect.sync(() => {
+                  active = starts;
+                  return output("", starts ? 0 : 1);
+                }),
+              ),
+            );
+            return fs.exists(timer).pipe(
+              Effect.orDie,
+              Effect.flatMap((written) => (written ? link : Effect.succeed(output("", 1)))),
+            );
+          }
+          if (input.args[0] !== "install") return Effect.succeed(output(""));
+          if (!rewrites)
+            return Effect.succeed(
+              output("then: systemctl --user enable --now agentd-watchdog.timer\n"),
+            );
+          const service = fs.writeFileString(
+            unit,
+            `[Service]\nExecStart=${process.execPath} watchdog\n`,
+          );
+          if (!writesTimer) return service.pipe(Effect.orDie, Effect.as(output("", 1)));
+          return service.pipe(
+            Effect.andThen(
+              fs.writeFileString(path.join(units, "agentd-watchdog.timer"), "[Timer]\n"),
+            ),
+            Effect.orDie,
+            Effect.as(output("then: systemctl --user enable --now agentd-watchdog.timer\n")),
+          );
+        },
+      ).pipe(
+        Effect.provideService(HostProcess.Platform, "linux"),
+        Effect.provideService(HostProcess.HomeDirectory, home),
+      );
+      // A scope other than the one confirmed now: refused, nothing run.
+      expect(
+        yield* Effect.flip(bridge.repairServices({ moves: ["watchdog", "dash"] })),
+      ).toMatchObject({ _tag: "AgentdCommandError" });
+      expect(runs.filter((run) => run.includes("install"))).toEqual([]);
+      // An install that leaves the stale program in effect is no repair.
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      rewrites = true;
+      // Install rewrites the service, then fails before the timer: a failure, and the next Repair
+      // runs install again.
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      runs.length = 0;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      expect(runs).toContain(`${process.execPath} install`);
+      writesTimer = true;
+      // The unit is rewritten, systemd enables its timer but can't start it: still a failure, and
+      // the same Repair is still offered.
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      // Once systemd can start it, the same Repair starts the timer, and then has nothing to do.
+      starts = true;
+      runs.length = 0;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: true });
+      expect(runs).toContain("systemctl --user enable --now agentd-watchdog.timer");
+      runs.length = 0;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: true });
+      expect(runs.filter((run) => !run.startsWith("systemctl --user show"))).toEqual([
+        "systemctl --user is-active agentd-watchdog.timer",
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("keeps Repair while systemd still runs the stale service a failed reload kept", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const units = path.join(home, ".config", "systemd", "user");
+      const wants = path.join(units, "timers.target.wants");
+      yield* fs.makeDirectory(wants, { recursive: true });
+      const unit = path.join(units, "agentd-watchdog.service");
+      yield* fs.writeFileString(unit, "[Service]\nExecStart=/gone/agentd watchdog\n");
+      yield* fs.writeFileString(path.join(units, "agentd-watchdog.timer"), "[Timer]\n");
+      yield* fs.symlink(
+        path.join(units, "agentd-watchdog.timer"),
+        path.join(wants, "agentd-watchdog.timer"),
+      );
+      // The timer is on throughout; what it starts is the service systemd last loaded.
+      let loaded = "/gone/agentd";
+      let reloads = false;
+      const runs: Array<string> = [];
+      const bridge = yield* makeBridge(
+        { PATH: "", AGENTD_BIN: process.execPath, AGENTD_DESKTOP_BUNDLED: "1" },
+        (input) => {
+          runs.push([input.command, ...input.args].join(" "));
+          if (input.command === "systemctl") {
+            switch (input.args[1]) {
+              case "is-active":
+                return Effect.succeed(output("active\n"));
+              case "show":
+                return fs.readFileString(unit).pipe(
+                  Effect.orDie,
+                  Effect.map((text) =>
+                    output(
+                      `NeedDaemonReload=${text.includes(loaded) ? "no" : "yes"}\n` +
+                        `ExecStart={ path=${loaded} ; argv[]=${loaded} watchdog ; ignore_errors=no }\n`,
+                    ),
+                  ),
+                );
+              case "daemon-reload":
+                if (!reloads) return Effect.succeed(output("", 1));
+                loaded = process.execPath;
+                return Effect.succeed(output(""));
+              default:
+                return Effect.succeed(output(""));
+            }
+          }
+          if (input.args[0] !== "install") return Effect.succeed(output(""));
+          return fs
+            .writeFileString(unit, `[Service]\nExecStart=${process.execPath} watchdog\n`)
+            .pipe(
+              Effect.orDie,
+              Effect.as(output("then: systemctl --user enable --now agentd-watchdog.timer\n")),
+            );
+        },
+      ).pipe(
+        Effect.provideService(HostProcess.Platform, "linux"),
+        Effect.provideService(HostProcess.HomeDirectory, home),
+      );
+      // The file is rewritten but the reload fails: the timer still runs the gone agentd.
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      runs.length = 0;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: false });
+      expect(runs).toContain("systemctl --user daemon-reload");
+      // Once systemd reloads, the same Repair succeeds, and then has nothing to do.
+      reloads = true;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: true });
+      runs.length = 0;
+      expect(yield* bridge.repairServices({ moves: ["watchdog"] })).toEqual({ ok: true });
+      expect(runs.some((run) => run.includes("install"))).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reads a shown services problem again on each status read", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const units = path.join(home, ".config", "systemd", "user");
+      yield* fs.makeDirectory(units, { recursive: true });
+      const unit = path.join(units, "agentd-dash.service");
+      yield* fs.writeFileString(unit, "[Service]\nExecStart=/gone/agentd dash\n");
+      const bridge = yield* makeBridge(
+        { PATH: "", AGENTD_BIN: process.execPath, AGENTD_DESKTOP_BUNDLED: "1" },
+        (input) => {
+          const key = input.args.join(" ");
+          if (key === "version") return Effect.succeed(output("agentd v0.1.15\n"));
+          if (key === "doctor --json") return Effect.succeed(output(DOCTOR_JSON, 1));
+          return Effect.succeed(output(""));
+        },
+      ).pipe(
+        Effect.provideService(HostProcess.Platform, "linux"),
+        Effect.provideService(HostProcess.HomeDirectory, home),
+      );
+      // A Repair of another scope only reads the services: the stale dash is now known.
+      yield* Effect.flip(bridge.repairServices({ moves: ["watchdog"] }));
+      expect((yield* bridge.status).servicesProblem).toMatchObject({ moves: ["dash"] });
+      // Fixed by hand, as the notice says: the next read no longer shows it.
+      yield* fs.writeFileString(unit, `[Service]\nExecStart=${process.execPath} dash\n`);
+      expect(yield* bridge.status).not.toHaveProperty("servicesProblem");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("answers every method with AgentdNotFoundError when there is no agentd", () =>
     Effect.gen(function* () {
       const bridge = yield* makeBridge({ PATH: "" }, () => Effect.die("agentd must not run"));
@@ -559,6 +894,49 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("asks before a Claude worker runs where Claude Code was never trusted", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const repo = path.join(home, "app");
+      const worktree = path.join(home, "app-wt");
+      const ran: string[] = [];
+      const bridge = yield* makeBridge({ PATH: "", AGENTD_BIN: process.execPath }, (input) => {
+        if (input.command === "git") return Effect.succeed(output(`${path.join(repo, ".git")}\n`));
+        ran.push(input.args[0]!);
+        return Effect.succeed(
+          output(input.args[0] === "new" ? '{"handoff":"hof-a6e5f4e329"}' : "{}"),
+        );
+      }).pipe(Effect.provideService(HostProcess.HomeDirectory, home));
+      const input = {
+        goal: "Fix it",
+        accept: [],
+        check: null,
+        worker: "claude",
+        budget: "30m",
+        cwd: worktree,
+        issue: null,
+      } as const;
+
+      expect(yield* Effect.flip(bridge.startTask(input))).toMatchObject({ untrustedFolder: repo });
+      expect(ran).toEqual([]);
+      // Another worker is not Claude Code's to trust.
+      yield* bridge.startTask({ ...input, worker: "codex" });
+      expect(ran).toEqual(["new", "handoff"]);
+
+      expect(yield* bridge.startTask({ ...input, trustClaudeFolder: true })).toMatchObject({
+        started: true,
+      });
+      expect(JSON.parse(yield* fs.readFileString(path.join(home, ".claude.json")))).toEqual({
+        projects: { [repo.replace(/\\/g, "/")]: { hasTrustDialogAccepted: true } },
+      });
+      // Trusted now: no question the next time.
+      yield* bridge.startTask(input);
+      expect(ran).toEqual(["new", "handoff", "new", "handoff", "new", "handoff"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("offers cloud jobs against origin and passes only absolute key file paths", () =>
     Effect.gen(function* () {
       const runs: Array<ProcessRunner.ProcessRunInput> = [];
@@ -599,6 +977,13 @@ describe("AgentdBridge", () => {
       const cwd = platform === "win32" ? "C:\\work\\fork" : "/work/fork";
       const keyFile = path.join(cwd, "private", "OpenAI key.txt");
       const input = { cwd, goal: "Fix the check", accept: ["Pass it"], check: "pnpm test" };
+      // A probe agentd answers with nothing is no answer: the option stays, with Retry.
+      help = "";
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        supported: true,
+        unreachable: true,
+      });
+      help = "usage: agentd handoff offer [--cloud]";
       expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toEqual({
         supported: true,
         canConfigure: false,
@@ -607,9 +992,56 @@ describe("AgentdBridge", () => {
         project: "fork-owner/its-fork",
         balanceUsd: 12.75,
         balanceText: null,
+        plan: null,
         defaultBudget: "30m,$5",
         problem: null,
       });
+      balance = output(
+        JSON.stringify({
+          available_usd: "8.50",
+          held_usd: "1.00",
+          plan: {
+            name: "Team",
+            worker_minutes_included: 3600,
+            worker_minutes_used: "1800",
+            worker_minutes_reserved: 200,
+            worker_minutes_left: 1600,
+            month_ends_at: "2026-12-01T00:00:00Z",
+          },
+        }),
+      );
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 8.5,
+        plan: {
+          name: "Team",
+          includedMinutes: 3600,
+          usedMinutes: 1800,
+          reservedMinutes: 200,
+          leftMinutes: 1600,
+          monthEndsAt: "2026-12-01T00:00:00Z",
+        },
+      });
+      // A malformed plan keeps the credit and drops only what can't be read.
+      balance = output(
+        '{"available_usd":2,"plan":{"worker_minutes_included":"lots","worker_minutes_used":-5,"month_ends_at":"soon"}}',
+      );
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 2,
+        plan: {
+          name: null,
+          includedMinutes: null,
+          usedMinutes: null,
+          reservedMinutes: null,
+          leftMinutes: null,
+          monthEndsAt: null,
+        },
+      });
+      balance = output('{"available_usd":2,"plan":"pro"}');
+      expect(yield* bridge.cloudSetup({ cwd, includeBalance: true })).toMatchObject({
+        balanceUsd: 2,
+        plan: null,
+      });
+      balance = output('{"available_usd":"12.75","default_budget":"30m,$5"}');
       expect(
         yield* bridge.startTask({ ...input, cloud: { modelAccess: "libraos", budget: "$5" } }),
       ).toEqual({ id: "hof-abc123", started: true, note: null });
@@ -678,10 +1110,11 @@ describe("AgentdBridge", () => {
           undefined,
         ],
       ]);
-      expect(runs.filter(({ args }) => args.includes("--help"))).toHaveLength(1);
+      // The unanswered probe is asked again; an answer is kept.
+      expect(runs.filter(({ args }) => args.includes("--help"))).toHaveLength(2);
       expect(
         runs.filter(({ args }) => args[0] === "remote").map((run) => [run.args, run.cwd]),
-      ).toEqual(Array.from({ length: 3 }, () => [["remote", "get-url", "--", "origin"], cwd]));
+      ).toEqual(Array.from({ length: 6 }, () => [["remote", "get-url", "--", "origin"], cwd]));
 
       const pastedKey = "sk-example-credential";
       yield* Effect.flip(
@@ -689,6 +1122,35 @@ describe("AgentdBridge", () => {
       );
       yield* Effect.flip(bridge.startTask({ ...input, cloud: { ...byok, budget: "20m" } }));
       expect(JSON.stringify(runs)).not.toContain(pastedKey);
+      // A key file in the other provider's field is refused here, for callers that can't check it.
+      const keys = yield* Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = yield* fs.makeTempDirectoryScoped();
+        const anthropic = path.join(dir, "anthropic.key");
+        const openai = path.join(dir, "openai.key");
+        yield* fs.writeFileString(anthropic, "sk-ant-api03-example\n");
+        yield* fs.writeFileString(openai, "  sk-proj-example\n");
+        return { anthropic, openai };
+      }).pipe(Effect.provide(NodeServices.layer));
+      const before = offers().length;
+      expect(
+        yield* Effect.flip(
+          bridge.startTask({ ...input, cloud: { ...byok, openaiKeyFile: keys.anthropic } }),
+        ),
+      ).toMatchObject({
+        message:
+          "The file in the OpenAI key field holds an Anthropic key, so nothing was submitted. Put each key file in its own provider’s field.",
+        wrongKeyFile: "openai",
+      });
+      expect(
+        (yield* Effect.flip(
+          bridge.startTask({
+            ...input,
+            cloud: { modelAccess: "byok", budget: "20m,$8", anthropicKeyFile: keys.openai },
+          }),
+        )).message,
+      ).toContain("Anthropic key field holds an OpenAI key");
+      expect(offers()).toHaveLength(before);
 
       receipt =
         '{"handoff":"hof-abc123","cloud":{"state":"submitting","error":"402: insufficient credit"}}';
@@ -723,7 +1185,7 @@ describe("AgentdBridge", () => {
       expect(yield* bridge.cloudSetup({ cwd, includeBalance: false })).toMatchObject({
         supported: false,
       });
-      expect(runs.filter(({ args }) => args.includes("--help"))).toHaveLength(2);
+      expect(runs.filter(({ args }) => args.includes("--help"))).toHaveLength(3);
     }),
   );
 
@@ -739,7 +1201,8 @@ describe("AgentdBridge", () => {
       const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
         runs.push(input.args);
         if (brokenPins && input.args[0] === "pin") return Effect.succeed(output("<html>"));
-        if (failPinAdd && input.args[0] === "pin" && input.args[1] === "add")
+        const handoffPin = input.args[1] === "add" && input.args[2]?.includes('"handoff"');
+        if (failPinAdd && input.args[0] === "pin" && handoffPin)
           return Effect.succeed(output("ledger busy", 1));
         const recorded = ledger.answer(input.args);
         if (recorded !== null) return Effect.succeed(recorded);
@@ -783,8 +1246,32 @@ describe("AgentdBridge", () => {
       const other = { ...input, goal: "Update the changelog" };
       const refused = yield* Effect.flip(bridge.startTask(other));
       expect(refused).toMatchObject({ replaceSubmission: keys()[0] });
-      expect(refused.message).toMatch(/^acme\/app holds an AgentD reservation/);
+      expect(refused.message).toBe(
+        "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
+      );
       expect(offers()).toHaveLength(2);
+
+      // The first offer's task shows up only after the last lookup, and wins the shared key: the
+      // replacement is not this draft's start, whether agentd answers with that task or refuses.
+      const replace = { ...other, cloud: { ...other.cloud, replaceSubmission: keys()[0]! } };
+      failPinAdd = true;
+      for (const answer of [
+        output('{"handoff":"hof-aabbcc","cloud":{"state":"queued"}}'),
+        output("idempotency key reused with different request", 1),
+      ]) {
+        offer = () => {
+          ledger.record(offers()[0]!, "hof-aabbcc", "queued");
+          return answer;
+        };
+        expect(yield* bridge.startTask(replace)).toMatchObject({
+          id: "hof-aabbcc",
+          started: false,
+          earlier: true,
+        });
+        ledger.handoffs.delete("hof-aabbcc");
+      }
+      expect(offers()).toHaveLength(4);
+      failPinAdd = false;
 
       // agentd recorded the offer but the answer was lost, and so was the record of its task.
       offer = (args) => {
@@ -799,15 +1286,20 @@ describe("AgentdBridge", () => {
         }),
       ).toMatchObject({ id: "hof-aabbcc", started: false });
       expect(new Set(keys()).size).toBe(1);
+      // The same draft again finds its own task; a different draft from another checkout of the
+      // same project finds it as the earlier submission. Neither offers anything.
+      const again = yield* bridge.startTask(other);
+      expect(again).toMatchObject({ id: "hof-aabbcc", started: false });
+      expect(again).not.toHaveProperty("earlier");
       failPinAdd = false;
-      // The next Start, from another checkout of the same project, finds that task and offers nothing.
       origin = "git@github.com:acme/app.git";
       expect(yield* bridge.startTask({ ...input, cwd: clone })).toMatchObject({
         id: "hof-aabbcc",
         started: false,
+        earlier: true,
         note: expect.stringContaining("hof-aabbcc"),
       });
-      expect(offers()).toHaveLength(3);
+      expect(offers()).toHaveLength(5);
 
       // A task agentd is still submitting holds the project: no offer from any checkout.
       ledger.handoffs.set("hof-aabbcc", {
@@ -816,9 +1308,9 @@ describe("AgentdBridge", () => {
       });
       const held = yield* Effect.flip(bridge.startTask(other));
       expect(held.message).toBe(
-        "acme/app already holds an AgentD reservation: task hof-aabbcc is still being submitted to Cloud Workers. Wait for it, or stop it in Background tasks.",
+        "Task hof-aabbcc for acme/app is still being submitted to Cloud Workers. Wait for it, or stop it in Background tasks, before starting another.",
       );
-      expect(offers()).toHaveLength(3);
+      expect(offers()).toHaveLength(5);
 
       // Once it is queued, a new Start is a new submission with a new key.
       ledger.handoffs.set("hof-aabbcc", {
@@ -839,7 +1331,7 @@ describe("AgentdBridge", () => {
       // A reservation agentd cannot list is an unknown outcome, never a blind offer.
       brokenPins = true;
       expect(yield* Effect.flip(bridge.startTask(other))).toMatchObject({ outcomeUnknown: true });
-      expect(offers()).toHaveLength(4);
+      expect(offers()).toHaveLength(6);
     }),
   );
 
@@ -1117,6 +1609,253 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("keeps a cloud reservation unless agentd positively refused the offer", () =>
+    Effect.gen(function* () {
+      const runs: Array<ReadonlyArray<string>> = [];
+      let ledger = cloudLedger();
+      let offerSays = "error: runner unavailable";
+      let brokenFind = false;
+      let breakLedgerOnOffer = false;
+      let brokenJoin = false;
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        runs.push(input.args);
+        if (brokenFind && input.args[0] === "find")
+          return Effect.succeed(output("ledger locked", 1));
+        const recorded = ledger.answer(input.args);
+        if (recorded !== null) return Effect.succeed(recorded);
+        switch (input.args.slice(0, 2).join(" ")) {
+          case "version":
+            return Effect.succeed(output("agentd v0.1.14"));
+          case "remote get-url":
+            return Effect.succeed(output("https://github.com/acme/app.git"));
+          case "session join":
+            return Effect.succeed(brokenJoin ? output("ledger busy", 1) : output("{}"));
+          case "handoff offer":
+            if (input.args.includes("--help"))
+              return Effect.succeed(output("usage: agentd handoff offer [--cloud]"));
+            brokenFind = breakLedgerOnOffer;
+            return Effect.succeed(output(offerSays, 1));
+          default:
+            return Effect.die(`unexpected agentd ${input.args.join(" ")}`);
+        }
+      });
+      const platform = yield* HostProcess.Platform;
+      const input = {
+        cwd: platform === "win32" ? "C:\\work\\app" : "/work/app",
+        goal: "Fix the check",
+        accept: [],
+        check: "pnpm test",
+        cloud: { modelAccess: "libraos", budget: "$5" },
+      } as const;
+      const keys = () =>
+        runs
+          .filter((args) => args.includes("--cloud") && !args.includes("--help"))
+          .map((args) => args[args.indexOf("--idem") + 1]);
+
+      // A runner error with no task on the ledger may still have reached the Job API.
+      expect(yield* Effect.flip(bridge.startTask(input))).toMatchObject({ outcomeUnknown: true });
+      // So may one whose ledger can't be read after it.
+      breakLedgerOnOffer = true;
+      expect(yield* Effect.flip(bridge.startTask(input))).toMatchObject({ outcomeUnknown: true });
+      breakLedgerOnOffer = false;
+      brokenFind = false;
+      // A retry whose session join fails offers nothing and keeps the reservation too.
+      brokenJoin = true;
+      yield* Effect.flip(bridge.startTask(input));
+      brokenJoin = false;
+      expect(keys()).toHaveLength(2);
+      offerSays = "error: 402: insufficient credit";
+      expect((yield* Effect.flip(bridge.startTask(input))).message).toBe(
+        "There is not enough LibraOS credit for this dollar cap.",
+      );
+      expect(new Set(keys()).size).toBe(1);
+      // A refused retry says nothing of the earlier attempt: the next Start still reuses its key.
+      yield* Effect.flip(bridge.startTask(input));
+      expect(new Set(keys()).size).toBe(1);
+
+      // A refusal never gives the key up, even for a reservation this Start made itself: a
+      // different draft reuses it without asking, as does a Start after a failed session join.
+      ledger = cloudLedger();
+      runs.length = 0;
+      yield* Effect.flip(bridge.startTask(input));
+      const changed = yield* Effect.flip(
+        bridge.startTask({ ...input, goal: "Update the changelog" }),
+      );
+      expect(changed).not.toHaveProperty("replaceSubmission");
+      brokenJoin = true;
+      yield* Effect.flip(bridge.startTask(input));
+      brokenJoin = false;
+      yield* Effect.flip(bridge.startTask(input));
+      expect(keys()).toHaveLength(3);
+      expect(new Set(keys()).size).toBe(1);
+
+      // A first Start whose session join fails offered nothing: a different draft just replaces it.
+      ledger = cloudLedger();
+      brokenJoin = true;
+      yield* Effect.flip(bridge.startTask(input));
+      brokenJoin = false;
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "After a failed join" })),
+      ).not.toHaveProperty("replaceSubmission");
+
+      // A refused draft retried after a top-up, whose answer is lost: the release of the refused
+      // offer says nothing of the retry, so a different draft must ask before replacing it.
+      ledger = cloudLedger();
+      runs.length = 0;
+      offerSays = "error: 402: insufficient credit";
+      yield* Effect.flip(bridge.startTask(input));
+      offerSays = "error: runner unavailable";
+      expect(yield* Effect.flip(bridge.startTask(input))).toMatchObject({ outcomeUnknown: true });
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Retry aftermath" })),
+      ).toMatchObject({ replaceSubmission: keys()[0] });
+      expect(keys()).toHaveLength(2);
+      // A release written late, by a server whose earlier offer was refused, doesn't apply either.
+      ledger.pins.push({
+        session: ledger.pins[0]!.session,
+        text: releaseRecord(keys()[0]!, RESERVE_ATTEMPT),
+      });
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Retry aftermath" })),
+      ).toMatchObject({ replaceSubmission: keys()[0] });
+      // A later attempt's refusal doesn't cover an earlier one still in flight: another server
+      // pinned its attempt for the same draft and hasn't heard back.
+      ledger = cloudLedger();
+      runs.length = 0;
+      offerSays = "error: 402: insufficient credit";
+      yield* Effect.flip(bridge.startTask(input));
+      ledger.pins.push({
+        session: ledger.pins[0]!.session,
+        text: attemptRecord(keys()[0]!, submissionFingerprint(input, "acme/app"), "other-server"),
+      });
+      yield* Effect.flip(bridge.startTask(input));
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Retry aftermath" })),
+      ).toMatchObject({ replaceSubmission: keys()[0] });
+      // Once that one is refused too, nothing is left open.
+      ledger.pins.push({
+        session: ledger.pins[0]!.session,
+        text: releaseRecord(keys()[0]!, "other-server"),
+      });
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Retry aftermath" })),
+      ).not.toHaveProperty("replaceSubmission");
+      // Two servers that reserved the same draft at once: one's refusal leaves the other's open.
+      ledger = cloudLedger();
+      runs.length = 0;
+      offerSays = "error: 402: insufficient credit";
+      yield* Effect.flip(bridge.startTask(input));
+      const fingerprint = submissionFingerprint(input, "acme/app");
+      ledger.pins.push({
+        session: ledger.pins[0]!.session,
+        text: reserveRecord(keys()[0]!, null, fingerprint, "other-server"),
+      });
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Retry aftermath" })),
+      ).toMatchObject({ replaceSubmission: keys()[0] });
+
+      ledger = cloudLedger();
+      runs.length = 0;
+      yield* Effect.flip(bridge.startTask(input));
+      yield* Effect.flip(bridge.startTask(input));
+      yield* Effect.flip(bridge.startTask(input));
+      offerSays = "error: runner unavailable";
+
+      // After a refusal, a different draft whose outcome is lost is the one a third must replace.
+      offerSays = "error: runner unavailable";
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Bump the version" })),
+      ).toMatchObject({ outcomeUnknown: true });
+      const third = yield* Effect.flip(bridge.startTask({ ...input, goal: "Tidy the README" }));
+      expect(third).toMatchObject({ replaceSubmission: keys()[0] });
+      expect(keys()).toHaveLength(4);
+      // Its retry, and the replaced draft once confirmed, go under the same key without asking.
+      yield* Effect.flip(bridge.startTask({ ...input, goal: "Bump the version" }));
+      yield* Effect.flip(
+        bridge.startTask({
+          ...input,
+          goal: "Tidy the README",
+          cloud: { ...input.cloud, replaceSubmission: keys()[0]! },
+        }),
+      );
+      expect(
+        yield* Effect.flip(bridge.startTask({ ...input, goal: "Bump the version" })),
+      ).toMatchObject({ replaceSubmission: keys()[0] });
+      expect(keys()).toHaveLength(6);
+      expect(new Set(keys()).size).toBe(1);
+    }),
+  );
+
+  it.effect("keeps one cloud key while another server shares the ledger", () =>
+    Effect.gen(function* () {
+      const ledger = cloudLedger();
+      const offers: Array<string> = [];
+      const secondOffering = yield* Deferred.make<void>();
+      const secondMayFinish = yield* Deferred.make<void>();
+      const platform = yield* HostProcess.Platform;
+      const input = {
+        cwd: platform === "win32" ? "C:\\work\\app" : "/work/app",
+        goal: "Fix the check",
+        accept: [],
+        check: "pnpm test",
+        cloud: { modelAccess: "libraos", budget: "$5" },
+      } as const;
+      const server = (
+        offer: (args: ReadonlyArray<string>) => Effect.Effect<ProcessRunner.ProcessRunOutput>,
+      ) =>
+        makeBridge({ AGENTD_BIN: process.execPath }, (run) => {
+          const recorded = ledger.answer(run.args);
+          if (recorded !== null) return Effect.succeed(recorded);
+          switch (run.args.slice(0, 2).join(" ")) {
+            case "version":
+              return Effect.succeed(output("agentd v0.1.14"));
+            case "remote get-url":
+              return Effect.succeed(output("https://github.com/acme/app.git"));
+            case "session join":
+              return Effect.succeed(output("{}"));
+            case "handoff offer":
+              if (run.args.includes("--help"))
+                return Effect.succeed(output("usage: agentd handoff offer [--cloud]"));
+              offers.push(run.args[run.args.indexOf("--idem") + 1]!);
+              return offer(run.args);
+            default:
+              return Effect.die(`unexpected agentd ${run.args.join(" ")}`);
+          }
+        });
+      // The second server's offer reaches agentd and is slow to answer; it makes a task.
+      const other = yield* server((args) =>
+        Deferred.succeed(secondOffering, undefined).pipe(
+          Effect.andThen(Deferred.await(secondMayFinish)),
+          Effect.andThen(
+            Effect.sync(() => {
+              ledger.record(args, "hof-aabbcc", "queued");
+              return output('{"handoff":"hof-aabbcc","cloud":{"state":"queued"}}');
+            }),
+          ),
+        ),
+      );
+      type Start = ReturnType<typeof other.startTask>;
+      let second: Fiber.Fiber<Effect.Success<Start>, Effect.Error<Start>> | undefined;
+      // The first is refused before a task; the second picks up its reservation in that window.
+      const first = yield* server(() =>
+        Effect.gen(function* () {
+          if (second === undefined) {
+            second = yield* Effect.forkChild(other.startTask(input));
+            yield* Deferred.await(secondOffering);
+          }
+          return output("error: 402: insufficient credit", 1);
+        }),
+      );
+      yield* Effect.flip(first.startTask(input));
+      // The next Start on the first server may not offer under a fresh key.
+      yield* Effect.flip(first.startTask(input));
+      yield* Deferred.succeed(secondMayFinish, undefined);
+      yield* Fiber.join(second!);
+      expect(offers).toHaveLength(3);
+      expect(new Set(offers).size).toBe(1);
+    }),
+  );
+
   it.effect("names cloud refusals in one line, and reads GitHub origins in every form", () =>
     Effect.gen(function* () {
       let origin = "";
@@ -1132,7 +1871,20 @@ describe("AgentdBridge", () => {
           case "help cloud":
             return Effect.succeed(output("usage: agentd cloud sync | balance"));
           case "remote get-url":
-            return Effect.succeed(output(`${origin}\n`));
+            return origin === "timeout"
+              ? Effect.fail(
+                  new ProcessRunner.ProcessTimeoutError({
+                    command: "git",
+                    argumentCount: 4,
+                    timeoutMs: 5000,
+                  }),
+                )
+              : origin.startsWith("exit ")
+                ? Effect.succeed({
+                    ...output("", Number(origin.slice(5, 8))),
+                    stderr: origin.slice(9),
+                  })
+                : Effect.succeed(output(`${origin}\n`));
           case "session join":
             return Effect.succeed(output("{}"));
           case "handoff offer":
@@ -1165,6 +1917,27 @@ describe("AgentdBridge", () => {
           project,
         );
       }
+      // git not answering, or failing to read the checkout, is not "no GitHub origin": the app
+      // must retry, never run it here.
+      for (const unknown of [
+        "timeout",
+        "exit 128 fatal: unable to access '.git/config': Permission denied",
+      ]) {
+        origin = unknown;
+        expect(yield* bridge.cloudSetup({ cwd, includeBalance: false }), unknown).toMatchObject({
+          project: null,
+          checkoutUnknown: true,
+        });
+      }
+      for (const missing of [
+        "exit 002 error: No such remote 'origin'",
+        "exit 128 fatal: not a git repository (or any of the parent directories): .git",
+      ]) {
+        origin = missing;
+        const setup = yield* bridge.cloudSetup({ cwd, includeBalance: false });
+        expect(setup.project, missing).toBeNull();
+        expect(setup.checkoutUnknown, missing).not.toBe(true);
+      }
 
       origin = "git@github.com:acme/app.git";
       const path = yield* Effect.provide(Path.Path, NodeServices.layer);
@@ -1182,8 +1955,8 @@ describe("AgentdBridge", () => {
           "The repository owner must install the Cloud Workers GitHub App on this repository.",
         ],
         [
-          `cloud.openai_key_file ${keyFile} can be read or written by others`,
-          "Choose a credential file that only your account can access.",
+          `cloud.openai_key_file ${keyFile} can be read or written by others (mode 644)`,
+          `${keyFile} can be read by other users. Run chmod 600 ${keyFile}, then try again.`,
         ],
         [
           "--model-access subscription is not offered through an agentd server",
@@ -1203,7 +1976,13 @@ describe("AgentdBridge", () => {
         expect((yield* Effect.flip(bridge.startTask(input))).message, said).toBe(reason);
       }
       expect(offers.every((args) => args.includes(keyFile))).toBe(true);
+      // Each refusal made no task: the next Start reuses its key without asking.
       expect(new Set(offers.map((args) => args[args.indexOf("--idem") + 1])).size).toBe(1);
+      refusal = `cloud.openai_key_file ${keyFile} can be read or written by others (mode 644)`;
+      const other = { ...input, goal: "Update the changelog" };
+      const shared = yield* Effect.flip(bridge.startTask(other));
+      expect(shared).toMatchObject({ privateFile: keyFile });
+      expect(shared).not.toHaveProperty("replaceSubmission");
     }),
   );
 
@@ -1223,6 +2002,65 @@ describe("AgentdBridge", () => {
         ],
       ]);
     }),
+  );
+
+  it.effect("makes a backup to the device's public key and keeps only the newest", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const older = "agentd-backup-20261120T080000Z-00000000.age";
+      yield* fs.writeFileString(`${dir}/${older}`, "old");
+      yield* fs.writeFileString(`${dir}/keep.txt`, "not ours");
+      const runs: Array<ProcessRunner.ProcessRunInput> = [];
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        runs.push(input);
+        return Effect.succeed(
+          output(
+            JSON.stringify({
+              path: input.args[3],
+              size: 2048,
+              sha256: "a".repeat(64),
+              created: "2026-11-21T10:15:00Z",
+              names: ["ledger.db"],
+            }),
+          ),
+        );
+      });
+      const recipient = `age1${"q".repeat(58)}`;
+      const made = yield* bridge.backupCreate({ recipient }, dir);
+      expect(made).toEqual({
+        fileName: expect.stringMatching(/^agentd-backup-\d{8}T\d{6}Z-[0-9a-f]{8}\.age$/),
+        bytes: 2048,
+        sha256: "a".repeat(64),
+        created: "2026-11-21T10:15:00Z",
+      });
+      expect(runs.map((run) => [run.args, run.stdin])).toEqual([
+        [
+          ["backup", "create", "-o", `${dir}/${made.fileName}`, "--recipient", recipient, "--json"],
+          undefined,
+        ],
+      ]);
+      expect([...(yield* fs.readDirectory(dir))].sort()).toEqual(["keep.txt"]);
+
+      // A recipient that is not an age public key, such as a private key, reaches no agentd.
+      for (const bad of [
+        `AGE-SECRET-KEY-1${"Q".repeat(58)}`,
+        `-${recipient}`,
+        `age1${"b".repeat(58)}`,
+      ]) {
+        const refused = yield* Effect.flip(bridge.backupCreate({ recipient: bad }, dir));
+        expect(refused).toMatchObject({ message: "not an age public key (age1...)" });
+      }
+      expect(runs).toHaveLength(1);
+
+      // A failed backup removes no earlier one.
+      const failing = yield* makeBridge({ AGENTD_BIN: process.execPath }, () =>
+        Effect.succeed(output("", 1)),
+      );
+      yield* fs.writeFileString(`${dir}/${older}`, "old");
+      yield* Effect.flip(failing.backupCreate({ recipient }, dir));
+      expect([...(yield* fs.readDirectory(dir))].sort()).toEqual([older, "keep.txt"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect("combines issue and repository holdings without naming the user or finished work", () =>

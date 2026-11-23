@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # AgentD Next with agentd inside. Usage: agentd/scripts/build-desktop.sh linux|win|mac [arm64|x64]
 #
-# Writes release/AgentD-Next-<upstream>-agentd.<N>-<arch>.{AppImage,deb,exe,dmg,zip}. Nothing is
+# Writes release/AgentD-Next-<version>-<arch>.{deb,exe,dmg,zip}, AgentD-Next-x86_64.AppImage (no
+# version in the name, so the updater replaces it in place) and the updater's latest*.yml. Nothing is
 # published (.github/workflows/release.yml does that). For linux and win it runs the upstream packager
 # (scripts/build-desktop-artifact.ts) by default inside a container made from electron-builder's Wine
 # image, pinned by digest, plus Rust, MinGW and ImageMagick, so the host needs only Docker, git, gh and
 # the repository's Node and dependencies. mac always builds on the host (a Mac with Xcode's command line
 # tools and Rust), unsigned and ad-hoc signed; its arch defaults to the host's.
 #
-#   AGENTD_BUILD_N=1          N in <upstream>-agentd.N
+#   AGENTD_UPDATE_REPOSITORY  GitHub releases the app updates from (default libraos/agentd-next;
+#                             empty: no update feed)
 #   AGENTD_DIST_DIR=DIR       agentd release assets and their SHA256SUMS; unset: downloaded with gh
 #   AGENTD_RELEASE=vX.Y.Z     the agentd release to download (default: the latest of libraos/agentd)
 #   AGENTD_BUILD_ON_HOST=1    run the packager here, not in the container (the host then needs
@@ -51,11 +53,12 @@ rust_toolchain=1.100.0
 win_rust_target=x86_64-pc-windows-gnu
 home_dir=$repo/release/.agentd-build-home
 
-upstream=$(node -p 'require("./apps/desktop/package.json").version')
-version=$upstream-agentd.${AGENTD_BUILD_N:-1}
+# Our own version, not upstream's: apps/desktop/package.json carries it (agentd/UPSTREAM.md names the base).
+version=$(node -p 'require("./apps/desktop/package.json").version')
 case "$version" in
-  [0-9]*.[0-9]*.[0-9]*-agentd.[0-9]*) ;;
-  *) echo "bad version: $version" >&2; exit 2 ;;
+  *[!0-9.]* | *.*.*.* | .* | *. | *..*) echo "bad version: $version (want x.y.z)" >&2; exit 2 ;;
+  *.*.*) ;;
+  *) echo "bad version: $version (want x.y.z)" >&2; exit 2 ;;
 esac
 
 if [ "${AGENTD_BUILD_INSIDE:-}" != 1 ]; then
@@ -104,15 +107,16 @@ RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-to
       -e HOME=/w/release/.agentd-build-home -e CARGO_HOME=/w/release/.agentd-build-home/cargo \
       -e RUSTUP_HOME=/opt/rustup \
       -e PATH="$node_dir:/w/node_modules/.bin:/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin" \
-      -e AGENTD_BUILD_INSIDE=1 -e AGENTD_DIST_DIR=/agentd-dist -e AGENTD_BUILD_N \
+      -e AGENTD_BUILD_INSIDE=1 -e AGENTD_DIST_DIR=/agentd-dist -e AGENTD_UPDATE_REPOSITORY \
       -e npm_config_store_dir -e T3CODE_DESKTOP_VERBOSE -e T3CODE_DESKTOP_SKIP_BUILD \
       "$image" bash agentd/scripts/build-desktop.sh "$platform"
   fi
 fi
 
 export T3CODE_DESKTOP_VERSION=$version
-# No update feed: our builds must not pick up a GitHub repository from the environment.
-unset T3CODE_DESKTOP_UPDATE_REPOSITORY GITHUB_REPOSITORY
+# The feed is ours alone: a GitHub repository from the environment (CI sets one) must not choose it.
+unset GITHUB_REPOSITORY
+export T3CODE_DESKTOP_UPDATE_REPOSITORY=${AGENTD_UPDATE_REPOSITORY-libraos/agentd-next}
 
 if [ "$platform" = win ] && [ "${AGENTD_BUILD_INSIDE:-}" = 1 ]; then
   # Off Windows there is no MSVC: build the resource monitor with MinGW and hand it to the
@@ -127,8 +131,9 @@ fi
 
 echo "[agentd] building $platform/$target $arch $version with agentd from $AGENTD_DIST_DIR"
 node scripts/build-desktop-artifact.ts --platform "$platform" --target "$target" --arch "$arch"
-if [ "$platform" = linux ]; then
-  # electron-builder names an AppImage after its own arch (x86_64); ours carry x64 as on Windows.
+if [ "$platform" = linux ] && [ -e "release/AgentD-Next-$version-x86_64.AppImage" ]; then
+  # Without a feed the AppImage is versioned; it then carries x64 as on Windows. With one, its name
+  # is what latest-linux.yml lists, so it stays.
   mv -f "release/AgentD-Next-$version-x86_64.AppImage" "release/AgentD-Next-$version-x64.AppImage"
 fi
-ls -l release/AgentD-Next-"$version"-*
+ls -l release/AgentD-Next-* release/*.yml 2>/dev/null || true

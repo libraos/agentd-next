@@ -122,6 +122,28 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
     );
   });
 
+  it("shows a LibraOS Gateway agent only the key's models from its cached catalog", () => {
+    const row = (slug: string, isCustom: boolean) =>
+      ({ slug, name: slug, isCustom, capabilities: emptyCapabilities }) as const;
+    const instanceId = ProviderInstanceId.make("libraosCodex");
+    // Cached by an older build: Codex's whole catalog.
+    const cachedCodex = makeProvider(CODEX_DRIVER, {
+      instanceId,
+      models: [row("gpt-6.2-sol", false), row("gpt-6-luna", false), row("gpt-5.5", false)],
+    });
+    // Settings hold the key's list, before the first probe names its catalog entries.
+    const fallbackCodex = makeProvider(CODEX_DRIVER, {
+      instanceId,
+      models: [row("gpt-6-luna", true), row("gpt-6-astra", true)],
+    });
+
+    assert.deepStrictEqual(
+      hydrateCachedProvider({ cachedProvider: cachedCodex, fallbackProvider: fallbackCodex })
+        .models,
+      [row("gpt-6-luna", false), row("gpt-6-astra", true)],
+    );
+  });
+
   it("ignores stale cached enabled state when the provider is now disabled", () => {
     const cachedCodex = makeProvider(CODEX_DRIVER, {
       checkedAt: "2026-04-10T12:00:00.000Z",

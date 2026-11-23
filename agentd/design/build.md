@@ -2,11 +2,11 @@
 
 ## Cutting a release
 
-1. Pick the version: upstream's version in `apps/desktop/package.json`, then `-agentd.N`, with N one more than the last release on that upstream version (1 for a new upstream version).
-2. Tag the commit to release and push the tag to `origin`: `git tag v0.1.10-agentd.4`, then push `v0.1.10-agentd.4`. A tag whose upstream part differs from `apps/desktop/package.json` fails the run.
-3. `.github/workflows/release.yml` builds on GitHub-hosted runners, in parallel: Linux x64 (`ubuntu-24.04`: AppImage and `.deb`), Windows x64 (`windows-latest`: NSIS `.exe`, MSVC on the runner), macOS arm64 (`macos-15`) and macOS x64 (`macos-15-intel`; GitHub retired `macos-13`): `.dmg` and `.zip`. Each runs `agentd/scripts/build-desktop.sh <platform> <arch>` with `AGENTD_BUILD_ON_HOST=1`.
-4. A last job checks that every installer is there, writes `SHA256SUMS` over them and creates a **draft** release for the tag, with notes on the unsigned builds and the agentd version inside.
-5. Review the draft on GitHub (download an installer, check it against `SHA256SUMS`), then publish it. Nothing is public until then.
+1. Set the version in `apps/desktop/package.json` (`x.y.z`, ours: minor for features, patch for fixes) and merge it.
+2. Tag that commit and push the tag to `origin`: `git tag v0.2.0`, then push `v0.2.0`. A tag that differs from `apps/desktop/package.json` fails the run; a suffixed tag does not run it.
+3. `.github/workflows/release.yml` builds on GitHub-hosted runners, in parallel: Linux x64 (`ubuntu-24.04`: AppImage and `.deb`), Windows x64 (`windows-latest`: NSIS `.exe`, MSVC on the runner), macOS arm64 (`macos-26`) and macOS x64 (`macos-26-intel`; Xcode 26, which the Apple Speech helper needs, is their default): `.dmg` and `.zip`. Each runs `agentd/scripts/build-desktop.sh <platform> <arch>` with `AGENTD_BUILD_ON_HOST=1`.
+4. A job merges the two macOS `latest-mac.yml` files into one, checks that every installer and `latest.yml`, `latest-linux.yml` and `latest-mac.yml` are there for this version, and writes `SHA256SUMS`. The last job creates a **draft** release for the tag with all of them, the blockmaps and notes on the unsigned builds and the agentd version inside.
+5. Review the draft on GitHub (download an installer, check it against `SHA256SUMS`), then publish it as the latest release. Nothing is public until then, and installed apps are offered it only once it is published and marked latest.
 
 agentd inside: the `prepare` job resolves one libraos/agentd release for every build, using the dispatch input first, then the `AGENTD_RELEASE` repository variable, then the latest release, and each build downloads that release's asset for its target, `SKILL.md`, `SKILL-agentd.md` and `SHA256SUMS`. The packager refuses an asset that is missing or does not match `SHA256SUMS`.
 
@@ -30,7 +30,7 @@ The internal test build of AgentD Desktop, with agentd inside. Built 2026-11-18 
 | `AgentD-Desktop-0.1.10-agentd.1-x64.exe`      | 219,374,582 bytes (209 MiB) | Windows x64, NSIS one-click, unpacked 711 MiB    |
 | `AgentD-Desktop-0.1.10-agentd.1-amd64.deb`    | 216,823,528 bytes (207 MiB) | Linux x64; upstream's Linux target also makes it |
 
-Version `0.1.10-agentd.1`: upstream's `apps/desktop/package.json` version, then `-agentd.N`. These builds are on the stable channel (`resolveDesktopUpdateChannel` gives `latest`, so the production icon and name, not nightly ones), and they have no update feed: no `app-update.yml`, so the app's updater says no feed is configured.
+Version `0.1.10-agentd.1`: upstream's `apps/desktop/package.json` version, then `-agentd.N` (the scheme before 0.2.0). These builds are on the stable channel (`resolveDesktopUpdateChannel` gives `latest`, so the production icon and name, not nightly ones), and they have no update feed: no `app-update.yml`, so the app's updater says no feed is configured. From 0.2.0 the feed is this repository's releases (patch 144).
 
 What each contains, checked by unpacking it:
 

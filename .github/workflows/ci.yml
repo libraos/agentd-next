@@ -16,6 +16,35 @@ concurrency:
 # setup-vp installs Vite+ and the Node.js version in package.json `engines`;
 # `vp install` then uses the pnpm version in `packageManager`.
 jobs:
+  # Skips jobs a pull request cannot affect; .github/scripts/ci-changes.cjs maps changed files to
+  # packages and their dependents. Pushes to main run everything; an unreadable diff runs everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      typecheck: ${{ steps.detect.outputs.typecheck }}
+      build: ${{ steps.detect.outputs.build }}
+      test: ${{ steps.detect.outputs.test }}
+      test_packages: ${{ steps.detect.outputs.test_packages }}
+      test_web: ${{ steps.detect.outputs.test_web }}
+      test_server: ${{ steps.detect.outputs.test_server }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          sparse-checkout: |
+            /pnpm-workspace.yaml
+            /.github/scripts/ci-changes.cjs
+            /.github/actions/ci-changes/
+            /*/package.json
+            /*/*/package.json
+          sparse-checkout-cone-mode: false
+      - name: Detect affected jobs
+        id: detect
+        uses: ./.github/actions/ci-changes
+
   check:
     name: Format, lint and i18n
     runs-on: ubuntu-latest
@@ -37,6 +66,8 @@ jobs:
 
   typecheck:
     name: Typecheck
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.typecheck != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -50,36 +81,103 @@ jobs:
       - name: Typecheck
         run: vp run typecheck
 
-  test:
-    name: Unit tests (${{ matrix.part.name }})
+  test_web:
+    name: Unit tests (web ${{ matrix.shard }}/2)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.test_web != 'false' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    # Split so a slow or flaky part neither starves nor hides the others' results.
-    # Server test files run one at a time (fileParallelism: false), so its shards go to
-    # separate runners; weightedShardSequencer.ts splits files by recorded duration.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        part:
-          - { name: web 1/2, filter: "--filter @t3tools/web", shard: "--shard 1/2" }
-          - { name: web 2/2, filter: "--filter @t3tools/web", shard: "--shard 2/2" }
-          - { name: server 1/6, filter: "--filter t3", shard: "--shard 1/6" }
-          - { name: server 2/6, filter: "--filter t3", shard: "--shard 2/6" }
-          - { name: server 3/6, filter: "--filter t3", shard: "--shard 3/6" }
-          - { name: server 4/6, filter: "--filter t3", shard: "--shard 4/6" }
-          - { name: server 5/6, filter: "--filter t3", shard: "--shard 5/6" }
-          - { name: server 6/6, filter: "--filter t3", shard: "--shard 6/6" }
-          - {
-              name: other,
-              filter: "--filter '!@t3tools/monorepo' --filter '!@t3tools/web' --filter '!t3'",
-              shard: "",
-            }
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./apps/web/node_modules/playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Chromium
+        id: chromium_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-shell-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+      - name: Install Chromium
+        if: steps.chromium_cache.outputs.cache-hit != 'true'
+        run: node apps/web/node_modules/playwright/cli.js install --only-shell chromium
+      - name: Install missing Chromium system libraries
+        run: |
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          test -n "$browser"
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/web/node_modules/playwright/cli.js install-deps chromium
+          fi
+      - name: Test
+        run: vp run --filter @t3tools/web test --shard ${{ matrix.shard }}/2
+
+  # Server test files run one at a time (fileParallelism: false), so its shards go to separate
+  # runners; weightedShardSequencer.ts splits files by recorded duration.
+  test_server:
+    name: Unit tests (server ${{ matrix.shard }}/6)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.test_server != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       # The server tests ran the runner's 14 GB disk full; these preinstalled SDKs are unused here.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./apps/server/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Chromium
+        id: chromium_cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-shell-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
+      - name: Install Chromium
+        if: steps.chromium_cache.outputs.cache-hit != 'true'
+        run: node apps/server/node_modules/playwright-core/cli.js install --only-shell chromium
+      - name: Install missing Chromium system libraries
+        run: |
+          browser=$(find "$HOME/.cache/ms-playwright" -name chrome-headless-shell -type f -print -quit)
+          test -n "$browser"
+          if ldd "$browser" | grep '=> not found'; then
+            node apps/server/node_modules/playwright-core/cli.js install-deps chromium
+          fi
+      - name: Test
+        run: vp run --filter t3 test --shard ${{ matrix.shard }}/6
+      - name: Disk left
+        if: always()
+        run: df -h /
+
+  test_other:
+    name: Unit tests (other)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.test != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
@@ -90,22 +188,28 @@ jobs:
         with:
           node-version-file: package.json
           cache: true
+      - name: Cache Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('node_modules/.pnpm/electron@*/node_modules/electron/package.json') }}
       - name: Ensure Electron runtime is installed
         run: vp run --filter @t3tools/desktop ensure:electron
-      # Web browser tests use playwright, server integration tests playwright-core.
-      - name: Install Chromium
-        run: |
-          node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
-          node apps/server/node_modules/playwright-core/cli.js install --only-shell chromium
       - name: Test
-        # Every package's own test task; the root `test` script would recurse.
-        run: vp run ${{ matrix.part.filter }} test ${{ matrix.part.shard }}
-      - name: Disk left
-        if: always()
-        run: df -h /
+        env:
+          TEST_PACKAGES: ${{ needs.changes.outputs.test_packages }}
+        run: |
+          filters=(--filter '!t3' --filter '!@t3tools/monorepo' --filter '!@t3tools/web')
+          if [[ -n "$TEST_PACKAGES" ]]; then
+            filters=()
+            for package in $TEST_PACKAGES; do filters+=(--filter "$package"); done
+          fi
+          vp run --parallel --concurrency-limit 4 "${filters[@]}" test
 
   build_web:
     name: Web build
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

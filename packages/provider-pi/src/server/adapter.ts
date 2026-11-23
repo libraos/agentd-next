@@ -79,6 +79,7 @@ import {
   materializePiT3McpExtension,
   resolvePiLaunchArgs,
 } from "./mcpInjection.ts";
+import { piCommandLine } from "./binary.ts";
 import { PI_FILE_CHANGE_TOOLS, PI_T3_SERVICE_TIER_COMMAND } from "./mcpExtensionSource.ts";
 import { PI_STANDARD_SERVICE_TIER } from "./modelCapabilities.ts";
 
@@ -545,12 +546,13 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             sessionPath,
             runtimeMode: input.runtimePolicy.runtimeMode,
           });
+          const line = piCommandLine(options.settings.binaryPath, launch.args, launch.env);
           const scopedLaunch = yield* agentScope.wrap({
-            command: options.settings.binaryPath || "pi",
-            args: launch.args,
+            command: line.command,
+            args: [...line.args],
             name: "pi",
             threadId: input.threadId,
-            env: launch.env,
+            env: line.env,
           });
           // Finalizers run in reverse order: reap detached work after terminating Pi.
           const scopeUnit = scopedLaunch.unit;
@@ -563,7 +565,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             command: scopedLaunch.command,
             args: scopedLaunch.args,
             cwd,
-            env: launch.env,
+            env: line.env,
           });
           // Its tools carry T3CODE_THREAD_ID, so port discovery must scan while Pi runs.
           const trackAgent = host.trackAgent;
@@ -1618,12 +1620,14 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         run: unknown,
       ) {
         const children = recordField(run, "children");
+        let childrenSettled = true;
         for (const child of Array.isArray(children) ? children : []) {
           const id = recordString(child, "id");
           const agent = recordString(child, "agent");
           const status = piAsyncSubagentStatus(recordString(child, "state"));
           if (recordString(child, "kind") !== "step" || id === undefined) continue;
           if (agent === undefined || status === undefined) continue;
+          if (status === "running" || status === "pending") childrenSettled = false;
           const model = recordString(child, "model") ?? null;
           const key = `${status}:${model}`;
           if (tracked.emitted.get(id) === key) continue;
@@ -1638,6 +1642,8 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         }
         const runStatus = piAsyncSubagentStatus(recordString(run, "state"));
         if (runStatus === undefined || runStatus === "running" || runStatus === "pending") return;
+        // pi-subagents can settle the run one snapshot before its last step.
+        if (!childrenSettled) return;
         piAsyncRuns.delete(runId);
         const providerTurnId = tracked.turn.providerTurn.id;
         for (const other of piAsyncRuns.values()) {
@@ -2925,10 +2931,12 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
         return yield* Effect.scoped(
           Effect.gen(function* () {
             const forkConnection = yield* makePiRpcConnection({
-              command: options.settings.binaryPath || "pi",
-              args: [...forkLaunch.args, "--fork", sourceFile],
+              ...piCommandLine(
+                options.settings.binaryPath,
+                [...forkLaunch.args, "--fork", sourceFile],
+                forkLaunch.env,
+              ),
               cwd,
-              env: forkLaunch.env,
             });
             yield* Stream.fromQueue(forkConnection.events).pipe(
               Stream.runDrain,

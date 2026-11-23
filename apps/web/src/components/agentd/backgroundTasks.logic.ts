@@ -7,6 +7,7 @@ import type {
 import { msg } from "gt-react";
 
 import { m, type MessageResolver } from "../../i18n/messages";
+import { budgetDollarLimit, budgetMinutes } from "./startTask.logic";
 
 function comparablePath(path: string): string {
   const slashed = path.replaceAll("\\", "/").replace(/\/+$/u, "");
@@ -85,6 +86,13 @@ export function runningAgentdTaskLabel(
   return resolve(msg("Assigned", { $context: "status of background work" }));
 }
 
+function isFailedAgentdTask(
+  state: string,
+  verdict: Pick<AgentdTaskVerdict, "check"> | null,
+): boolean {
+  return state === "declined" || /^(?:failed|timed_out)(?=:|\s|$)/.test(verdict?.check ?? "");
+}
+
 export function finishedAgentdTaskLabel(
   state: string,
   verdict: Pick<AgentdTaskVerdict, "verdict" | "check"> | null,
@@ -92,7 +100,7 @@ export function finishedAgentdTaskLabel(
 ): string {
   if (state === "cancelled")
     return resolve(msg("Stopped", { $context: "result of background work" }));
-  if (state === "declined" || /^(?:failed|timed_out)(?=:|\s|$)/.test(verdict?.check ?? "")) {
+  if (isFailedAgentdTask(state, verdict)) {
     return resolve(msg("Failed", { $context: "result of background work" }));
   }
   if (verdict?.verdict === "verified") {
@@ -100,6 +108,49 @@ export function finishedAgentdTaskLabel(
   }
   if (verdict === null) return resolve(msg("Result unavailable"));
   return resolve(msg("Needs work", { $context: "result of background work" }));
+}
+
+const BUDGET_WARNING = 0.85;
+
+export type AgentdTaskBudgetTone = "progress" | "warning" | "success" | "failure";
+
+/**
+ * How much of its budget a task has used: the larger of time and money, capped at all of it. It is
+ * not how much of the work is done. A finished task fills the bar in its result's tone; a task
+ * without a budget has none.
+ */
+export function agentdTaskBudgetUse(input: {
+  readonly budget: string | null;
+  readonly elapsedMs: number;
+  readonly costUsd: number | null;
+  readonly finished: boolean;
+  readonly state: string;
+  readonly verdict: Pick<AgentdTaskVerdict, "verdict" | "check"> | null;
+  readonly budgetState: string | null;
+}): { readonly fraction: number; readonly tone: AgentdTaskBudgetTone } | null {
+  const minutes = budgetMinutes(input.budget);
+  const dollars = budgetDollarLimit(input.budget);
+  if (!minutes && !dollars) return null;
+  if (input.finished) {
+    const tone =
+      input.state === "cancelled"
+        ? "warning"
+        : isFailedAgentdTask(input.state, input.verdict)
+          ? "failure"
+          : input.verdict?.verdict === "verified"
+            ? "success"
+            : "warning";
+    return { fraction: 1, tone };
+  }
+  const fraction = Math.min(
+    1,
+    Math.max(
+      minutes ? input.elapsedMs / (minutes * 60_000) : 0,
+      dollars && input.costUsd !== null ? input.costUsd / dollars : 0,
+    ),
+  );
+  const stopped = input.budgetState === "stopped" || input.budgetState === "budget_exceeded";
+  return { fraction, tone: stopped || fraction >= BUDGET_WARNING ? "warning" : "progress" };
 }
 
 /** The agentd tasks a session command waits on or reads, e.g. `agentd handoff wait hof-…`. */

@@ -1,18 +1,16 @@
 name: Release
 
-# A tag v<upstream>-agentd.<N> builds every installer and puts them in a draft release that a
-# person reviews and publishes. workflow_dispatch builds the same files as workflow artifacts only.
+# A tag v<version> (apps/desktop/package.json) builds every installer and the updater manifests and
+# puts them in a draft release that a person reviews and publishes; installed apps update to the
+# latest published release. workflow_dispatch builds the same files as workflow artifacts only.
 # Unsigned (decided 2026-11-18): no secrets beyond GITHUB_TOKEN; macOS is ad-hoc signed, not notarized.
 on:
   push:
     tags:
-      - "v*-agentd.*"
+      # Releases only: a suffixed tag (v0.2.1-preview.20261121.1) must never feed the updater.
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
-      n:
-        description: "N in <upstream>-agentd.N"
-        required: true
-        default: "1"
       agentd_release:
         description: "libraos/agentd release to bundle, e.g. v0.1.13 (empty: the latest)"
         required: false
@@ -32,7 +30,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.version.outputs.version }}
-      n: ${{ steps.version.outputs.n }}
       agentd_release: ${{ steps.agentd.outputs.release }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -45,22 +42,12 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           TAG: ${{ github.ref_name }}
-          INPUT_N: ${{ inputs.n }}
         run: |
-          upstream=$(node -p 'require("./apps/desktop/package.json").version')
-          if [ "$EVENT" = push ]; then
-            case "$TAG" in
-              "v$upstream-agentd."*) n=${TAG#"v$upstream-agentd."} ;;
-              *) echo "::error::tag $TAG does not match v$upstream-agentd.<N> (apps/desktop/package.json is $upstream)"; exit 1 ;;
-            esac
-          else
-            n=$INPUT_N
+          version=$(node -p 'require("./apps/desktop/package.json").version')
+          if [ "$EVENT" = push ] && [ "$TAG" != "v$version" ]; then
+            echo "::error::tag $TAG does not match v$version (apps/desktop/package.json)"; exit 1
           fi
-          case "$n" in
-            '' | *[!0-9]*) echo "::error::N must be a number, got '$n'"; exit 1 ;;
-          esac
-          echo "version=$upstream-agentd.$n" >> "$GITHUB_OUTPUT"
-          echo "n=$n" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       # Resolved once so every installer carries the same agentd.
       - name: Resolve agentd release
         id: agentd
@@ -96,13 +83,13 @@ jobs:
             arch: x64
             rust_target: x86_64-pc-windows-msvc
           - label: macOS arm64
-            runner: macos-15
+            runner: macos-26
             platform: mac
             arch: arm64
             rust_target: aarch64-apple-darwin
-          # GitHub retired macos-13; macos-15-intel is its Intel successor.
+          # macOS 26 images default to Xcode 26, which the Apple Speech helper needs.
           - label: macOS x64
-            runner: macos-15-intel
+            runner: macos-26-intel
             platform: mac
             arch: x64
             rust_target: x86_64-apple-darwin
@@ -132,21 +119,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AGENTD_BUILD_ON_HOST: "1"
-          AGENTD_BUILD_N: ${{ needs.prepare.outputs.n }}
           AGENTD_RELEASE: ${{ needs.prepare.outputs.agentd_release }}
           T3CODE_DESKTOP_VERBOSE: "1"
         run: bash agentd/scripts/build-desktop.sh "${{ matrix.platform }}" "${{ matrix.arch }}"
-      # Blockmaps serve update feeds, which our builds do not have.
+      # electron-builder names both macOS arches' manifest latest-mac.yml; the release job merges them.
+      - name: Name the macOS x64 updater manifest
+        if: matrix.platform == 'mac' && matrix.arch == 'x64'
+        run: mv release/latest-mac.yml release/latest-mac-x64.yml
       - name: Upload installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.AppImage
+            release/AgentD-Next-x86_64.AppImage
             release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.deb
             release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.exe
             release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.dmg
             release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.zip
+            release/AgentD-Next-*.blockmap
+            release/latest*.yml
           if-no-files-found: error
           compression-level: 0
 
@@ -154,30 +145,51 @@ jobs:
     name: SHA256SUMS
     needs: [prepare, build]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: desktop-*
           path: dist
           merge-multiple: true
-      - name: Check every installer is there and write SHA256SUMS
+      # The updater reads one latest-mac.yml and picks the file for its arch.
+      - name: Merge the macOS updater manifests
+        run: |
+          node scripts/merge-update-manifests.ts --platform mac \
+            dist/latest-mac.yml dist/latest-mac-x64.yml dist/latest-mac.yml
+          rm dist/latest-mac-x64.yml
+      - name: Check every installer and manifest is there and write SHA256SUMS
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           cd dist
-          for f in "AgentD-Next-$VERSION-x64.AppImage" "AgentD-Next-$VERSION-amd64.deb" \
+          for f in AgentD-Next-x86_64.AppImage "AgentD-Next-$VERSION-amd64.deb" \
             "AgentD-Next-$VERSION-x64.exe" "AgentD-Next-$VERSION-arm64.dmg" \
-            "AgentD-Next-$VERSION-x64.dmg"; do
+            "AgentD-Next-$VERSION-x64.dmg" "AgentD-Next-$VERSION-arm64.zip" \
+            "AgentD-Next-$VERSION-x64.zip" latest.yml latest-linux.yml latest-mac.yml; do
             test -s "$f" || { echo "::error::missing $f"; ls -l; exit 1; }
           done
+          for m in latest.yml latest-linux.yml latest-mac.yml; do
+            grep -Eq "^version: '?$VERSION'?\$" "$m" || { echo "::error::$m is not $VERSION"; cat "$m"; exit 1; }
+          done
           sha256sum AgentD-Next-* > SHA256SUMS
-          cat SHA256SUMS
+          cat SHA256SUMS latest-mac.yml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: desktop-SHA256SUMS
-          path: dist/SHA256SUMS
+          name: release-files
+          path: |
+            dist/AgentD-Next-*
+            dist/latest*.yml
+            dist/SHA256SUMS
           if-no-files-found: error
+          compression-level: 0
 
   release:
     name: Draft release
@@ -190,9 +202,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: desktop-*
+          name: release-files
           path: dist
-          merge-multiple: true
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -206,10 +217,22 @@ jobs:
           cat > notes.md <<EOF
           AgentD Next $VERSION, with agentd $AGENTD_RELEASE and its Skills inside.
 
+          **Which file to download**
+
+          - macOS, Apple silicon (M1 or later): \`AgentD-Next-$VERSION-arm64.dmg\`
+          - macOS, Intel: \`AgentD-Next-$VERSION-x64.dmg\`
+          - Windows: \`AgentD-Next-$VERSION-x64.exe\`
+          - Linux: \`AgentD-Next-x86_64.AppImage\`, or \`AgentD-Next-$VERSION-amd64.deb\` on Debian and Ubuntu
+
+          Not sure which Mac you have? Apple menu → About This Mac: "Chip: Apple M…" is Apple silicon, "Processor: Intel" is Intel.
+          The \`.zip\`, \`.blockmap\` and \`latest*.yml\` files are for automatic updates; you don't need them.
+
           These builds are not signed yet:
 
           - **macOS:** the app is not notarized. The first time, right-click AgentD Next in Applications and choose Open, or open System Settings → Privacy & Security and click Open Anyway.
           - **Windows:** SmartScreen may warn. Click More info, then Run anyway.
+
+          The app checks for updates at launch and every four hours and asks before installing. On macOS it opens this page instead; install the new version by hand. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
 
           Coming from AgentD Desktop (the earlier name)? Settings, threads and the background service carry over. On macOS, delete the old AgentD Desktop app from Applications after installing AgentD Next.
 
@@ -217,4 +240,4 @@ jobs:
           EOF
           gh release create "$TAG" -R "$REPO" --draft --verify-tag \
             --title "AgentD Next $VERSION" --notes-file notes.md \
-            AgentD-Next-* SHA256SUMS
+            AgentD-Next-* latest*.yml SHA256SUMS

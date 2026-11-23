@@ -53,4 +53,4 @@ After the merge: resolve conflicts, run `vp i`, run `vp run check:changed` and t
 
 ## Versions
 
-Our version is `<upstream version>-agentd.N`: `0.1.10-agentd.1` is our first release built on upstream `0.1.10`. `N` starts at 1 for each new upstream version and goes up with each of our releases on it.
+Our version is our own, in `apps/desktop/package.json` (a patched upstream file: keep ours in a sync). It started at `0.2.0`; minor for features, patch for fixes. The upstream base is the synced commit named above, not part of the version. Releases up to `0.1.10-agentd.8` were `<upstream version>-agentd.N`. A test build for other people is `x.y.z-preview.<yyyymmdd>.<n>`: the packager gives it no update feed, and the release workflow does not run for its tag.

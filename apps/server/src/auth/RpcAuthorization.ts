@@ -75,6 +75,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.providerAuthStart]: AuthProvidersManageScope,
   [WS_METHODS.providerConsumeResetCredit]: AuthProvidersManageScope,
   [WS_METHODS.providerAuthComplete]: AuthProvidersManageScope,
+  [WS_METHODS.providerMcpSignInStart]: AuthProvidersManageScope,
+  [WS_METHODS.providerMcpSignInComplete]: AuthProvidersManageScope,
   [WS_METHODS.chatGptReconnectProfile]: AuthProvidersManageScope,
   [WS_METHODS.chatGptImportProfile]: AuthProvidersManageScope,
   [WS_METHODS.chatGptHandoffSubscribe]: AuthProvidersManageScope,
@@ -96,6 +98,12 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverGetDatabaseStorage]: AuthOrchestrationReadScope,
   [WS_METHODS.serverGetSettings]: AuthOrchestrationReadScope,
   [WS_METHODS.peerLinksList]: AuthAccessReadScope,
+  // Names only, so a client that reads threads can open a linked environment's.
+  [WS_METHODS.peerLinksNames]: AuthOrchestrationReadScope,
+  // A linked environment's thread is read as this one's own are.
+  [WS_METHODS.peerLinksSubscribeThread]: AuthOrchestrationReadScope,
+  [WS_METHODS.peerLinksThreadHistoryPage]: AuthOrchestrationReadScope,
+  [WS_METHODS.peerLinksThreadItem]: AuthOrchestrationReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,
   [WS_METHODS.serverPrepareAcpRegistryAgent]: AuthProvidersManageScope,
@@ -171,8 +179,12 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.projectsWriteFile]: AuthFilesystemWriteScope,
   [WS_METHODS.projectsEnsureScratch]: AuthOrchestrationOperateScope,
   [WS_METHODS.projectsCreateNew]: AuthOrchestrationOperateScope,
+  [WS_METHODS.agentdSetWorkerGateway]: AuthOrchestrationOperateScope,
   [WS_METHODS.shellOpenInEditor]: AuthOrchestrationOperateScope,
   [WS_METHODS.filesystemBrowse]: AuthFilesystemReadScope,
+  [WS_METHODS.workspaceListFolders]: AuthFilesystemReadScope,
+  [WS_METHODS.workspaceScanFolders]: AuthFilesystemReadScope,
+  [WS_METHODS.workspaceTaskFolder]: AuthFilesystemReadScope,
   [WS_METHODS.filesystemGetMetadata]: AuthFilesystemReadScope,
   [WS_METHODS.agentSessionsScan]: AuthOrchestrationReadScope,
   [WS_METHODS.agentSessionsImport]: AuthOrchestrationOperateScope,
@@ -238,6 +250,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentdInbox]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdPeople]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdCloudSetup]: AuthOrchestrationReadScope,
+  // Opens a path the caller names on this host, as browsing the filesystem does.
+  [WS_METHODS.agentdCloudKeyFile]: AuthFilesystemReadScope,
   // Fetches into temporary refs it deletes; the checkout's branch, index and files stay as they were.
   [WS_METHODS.agentdCloudReview]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdTaskDefaults]: AuthOrchestrationReadScope,
@@ -246,9 +260,13 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentdSubscribeTeamNode]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdTeamNodeForeground]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdEula]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentdWorkerGateway]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdSubscribeSetup]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdSkillsList]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentdPluginsList]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentdBeforeSendReview]: AuthOrchestrationReadScope,
   [WS_METHODS.libraosGatewayStatus]: AuthOrchestrationReadScope,
+  [WS_METHODS.customGatewayList]: AuthOrchestrationReadScope,
 } as const satisfies Readonly<Record<WsRpcMethod, AuthEnvironmentScope>>;
 
 export function requiredScopeForRpcMethod(method: string): AuthEnvironmentScope {
@@ -326,7 +344,9 @@ const requiredScopesForRpcCall = (
       resource._tag === "workspace-file" ||
       resource._tag === "media-file" ||
       resource._tag === "draft-workspace-file" ||
-      (resource._tag === "native-app-icon" && resource.app._tag === "app-path")
+      (resource._tag === "native-app-icon" && resource.app._tag === "app-path") ||
+      // The ledger, if encrypted: as agentd.backupCreate that made it.
+      resource._tag === "agentd-backup"
         ? AuthFilesystemReadScope
         : AuthOrchestrationReadScope,
     ];

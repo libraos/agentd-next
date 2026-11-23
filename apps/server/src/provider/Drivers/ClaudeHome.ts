@@ -8,6 +8,7 @@ import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
+import { gatewayClaudeEnvironment } from "../../gateway/gatewaySetup.ts";
 import { readClaudeSettingsEnv } from "./ClaudeSkills.ts";
 
 const quotePath = Schema.encodeSync(Schema.fromJsonString(Schema.String));
@@ -80,11 +81,18 @@ export const mergeClaudeProcessEnvironment = Effect.fn("mergeClaudeProcessEnviro
   // an Electron app they start (AgentD Next itself, VS Code) would run as Node and exit.
   delete baseEnvironment.ELECTRON_RUN_AS_NODE;
   const environment = yield* mergeProviderInstanceEnvironment(instanceEnvironment, baseEnvironment);
-  const settingsEntrypoint = (yield* readClaudeSettingsEnv(config, undefined, environment))
-    .CLAUDE_CODE_ENTRYPOINT;
-  return settingsEntrypoint
-    ? { ...environment, CLAUDE_CODE_ENTRYPOINT: settingsEntrypoint }
-    : environment;
+  const settingsEnv = yield* readClaudeSettingsEnv(config, undefined, environment);
+  const settingsEntrypoint = settingsEnv.CLAUDE_CODE_ENTRYPOINT;
+  // A Claude Code sent to the Gateway by hand keeps the picked id, like the Gateway agent.
+  const gateway = gatewayClaudeEnvironment(
+    settingsEnv.ANTHROPIC_BASE_URL ?? environment.ANTHROPIC_BASE_URL,
+  );
+  const merged: NodeJS.ProcessEnv = {
+    ...gateway,
+    ...environment,
+    ...(settingsEntrypoint ? { CLAUDE_CODE_ENTRYPOINT: settingsEntrypoint } : {}),
+  };
+  return merged;
 });
 
 /** managed-mcp.json excludes other MCP config and forbids --strict-mcp-config; omit the flag when present. */
@@ -149,7 +157,11 @@ export const makeClaudeContinuationGroupKey = Effect.fn("makeClaudeContinuationG
     environment?: NodeJS.ProcessEnv,
   ): Effect.fn.Return<string, never, Path.Path> {
     const resolvedHomePath = yield* resolveClaudeHomePath(config, environment);
-    return `claude:home:${resolvedHomePath}`;
+    // Another endpoint (a gateway) is its own group: its threads never resume on the login.
+    const endpoint = environment?.ANTHROPIC_BASE_URL?.trim();
+    return endpoint
+      ? `claude:home:${resolvedHomePath}:endpoint:${endpoint}`
+      : `claude:home:${resolvedHomePath}`;
   },
 );
 

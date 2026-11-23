@@ -49,6 +49,7 @@ interface MarkdownFileLinkProps {
   openInEditorMenuLabel: string;
   onOpenInBrowser?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   onOpenMedia?: (() => void) | undefined;
+  onDownload?: (() => Promise<void>) | undefined;
   onReveal?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   revealLabel?: string | undefined;
 }
@@ -73,6 +74,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
   openInEditorMenuLabel,
   onOpenInBrowser,
   onOpenMedia,
+  onDownload,
   onReveal,
   revealLabel,
   resolveCopyPaths,
@@ -264,6 +266,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
             ? ([{ id: "open-in-browser", label: gt("Open in integrated browser") }] as const)
             : []),
           ...(onReveal && revealLabel ? ([{ id: "reveal", label: revealLabel }] as const) : []),
+          ...(onDownload ? ([{ id: "download", label: gt("Download") }] as const) : []),
           ...copyItems.map(({ id, label }) => ({ id, label })),
         ] as const,
         position,
@@ -284,6 +287,18 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
       }
       if (clicked === "reveal") {
         handleRevealInFileManager();
+        return;
+      }
+      if (clicked === "download") {
+        onDownload?.().catch((cause: unknown) =>
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: gt("Could not download {name}", { name: label }),
+              description: cause instanceof Error ? cause.message : gt("An error occurred."),
+            }),
+          ),
+        );
         return;
       }
       if (clicked === "copy-relative" || clicked === "copy-full") {
@@ -399,7 +414,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
           )
         }
       />
-      <TooltipPopup side="top" variant="code">
+      <TooltipPopup side="top" variant="code" className="pointer-events-auto">
         <WorkspaceEntryTooltip path={iconPath} label={targetPath} environmentId={environmentId} />
       </TooltipPopup>
     </Tooltip>
@@ -428,6 +443,7 @@ function areMarkdownFileLinkPropsEqual(
     previous.openInEditorMenuLabel === next.openInEditorMenuLabel &&
     previous.onOpenInBrowser === next.onOpenInBrowser &&
     previous.onOpenMedia === next.onOpenMedia &&
+    previous.onDownload === next.onDownload &&
     previous.onReveal === next.onReveal &&
     previous.resolveCopyPaths === next.resolveCopyPaths &&
     previous.resolveDragPath === next.resolveDragPath &&

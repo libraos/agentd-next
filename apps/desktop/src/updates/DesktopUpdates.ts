@@ -33,6 +33,7 @@ import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopState from "../app/DesktopState.ts";
+import * as ElectronShell from "../electron/ElectronShell.ts";
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as IpcChannels from "../ipc/channels.ts";
@@ -368,6 +369,13 @@ function getAutoUpdateDisabledReason(args: {
   return null;
 }
 
+const trackLabel = (channel: DesktopUpdateChannel) =>
+  channel === "nightly" ? "Nightly" : "Stable";
+
+// Clients localize `trackMismatch`; this English text serves older renderers and remote reports.
+const trackMismatchMessage = (build: DesktopUpdateChannel, saved: DesktopUpdateChannel) =>
+  `This ${trackLabel(build)} build can't update from the ${trackLabel(saved)} track on its own. Switch the update track back to ${trackLabel(build)}, or use Review beside Update track to retry the switch to ${trackLabel(saved)}.`;
+
 function isArm64HostRunningIntelBuild(runtimeInfo: DesktopRuntimeInfo): boolean {
   return runtimeInfo.hostArch === "arm64" && runtimeInfo.appArch === "x64";
 }
@@ -380,6 +388,7 @@ export const make = Effect.gen(function* () {
   const desktopState = yield* DesktopState.DesktopState;
   const electronUpdater = yield* ElectronUpdater.ElectronUpdater;
   const electronWindow = yield* ElectronWindow.ElectronWindow;
+  const electronShell = yield* ElectronShell.ElectronShell;
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
   const fileSystem = yield* FileSystem.FileSystem;
   const desktopSettings = yield* DesktopAppSettings.DesktopAppSettings;
@@ -464,6 +473,35 @@ export const make = Effect.gen(function* () {
           )
       : false;
 
+  // Squirrel.Mac installs only a build signed like the running one, so ad-hoc signed builds
+  // offer the release page instead of a download (the packager marks them).
+  const installsFromReleasePage =
+    environment.platform === "darwin" && environment.isPackaged
+      ? yield* fileSystem
+          .readFileString(environment.path.join(environment.appPath, "package.json"))
+          .pipe(
+            Effect.map(
+              (packageJson) =>
+                (JSON.parse(packageJson) as { agentdUpdateInstall?: unknown })
+                  .agentdUpdateInstall === "release-page",
+            ),
+            Effect.orElseSucceed(() => false),
+          )
+      : false;
+
+  const releasePageUrl = (version: string) =>
+    Ref.get(appUpdateYmlConfigRef).pipe(
+      Effect.map((config) => {
+        const owner = Option.getOrUndefined(config)?.owner;
+        const repo = Option.getOrUndefined(config)?.repo;
+        return owner && repo
+          ? Option.some(
+              `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/releases/tag/v${encodeURIComponent(version)}`,
+            )
+          : Option.none<string>();
+      }),
+    );
+
   const hasUpdateFeedConfig = Ref.get(appUpdateYmlConfigRef).pipe(
     Effect.map(
       (appUpdateYmlConfig) =>
@@ -495,6 +533,26 @@ export const make = Effect.gen(function* () {
           `${policy.message ?? "Nightly updates are turned off on this machine."} Switch to the stable channel to keep getting updates.`,
         )
       : Option.none();
+
+  // Without a release floor, a build on another track than its saved one never offers anything.
+  // A track the policy blocks is never named as the one to switch to.
+  const noOfferState = (state: DesktopUpdateState, checkedAt: string) =>
+    Effect.map(Ref.get(releaseFloorRef), (floor) => {
+      const buildChannel = desktopUpdateChannelOf(environment.appVersion);
+      if (Option.isSome(floor) || buildChannel === state.channel) {
+        return reduceDesktopUpdateStateOnNoUpdate(state, checkedAt);
+      }
+      const blocked = channelBlockedReason(buildChannel);
+      if (Option.isSome(blocked)) {
+        return reduceDesktopUpdateStateOnCheckFailure(state, blocked.value, checkedAt);
+      }
+      return reduceDesktopUpdateStateOnCheckFailure(
+        state,
+        trackMismatchMessage(buildChannel, state.channel),
+        checkedAt,
+        { buildChannel },
+      );
+    });
 
   const resolveStateDisabledReason = (channel: DesktopUpdateChannel) =>
     resolveDisabledReason.pipe(Effect.map(Option.orElse(() => channelBlockedReason(channel))));
@@ -1070,7 +1128,7 @@ export const make = Effect.gen(function* () {
               channel: state.channel,
             });
             const checkedAt = yield* currentIsoTimestamp;
-            yield* setState(reduceDesktopUpdateStateOnNoUpdate(state, checkedAt));
+            yield* setState(yield* noOfferState(state, checkedAt));
             yield* Ref.set(lastLoggedDownloadMilestoneRef, -1);
             return;
           }
@@ -1117,7 +1175,7 @@ export const make = Effect.gen(function* () {
   const handleUpdateNotAvailable = Effect.gen(function* () {
     const checkedAt = yield* currentIsoTimestamp;
     const state = yield* Ref.get(updateStateRef);
-    yield* setState(reduceDesktopUpdateStateOnNoUpdate(state, checkedAt));
+    yield* setState(yield* noOfferState(state, checkedAt));
     yield* Ref.set(lastLoggedDownloadMilestoneRef, -1);
     yield* logUpdaterInfo("no updates available");
   }).pipe(Effect.withSpan("desktop.updates.handleUpdateNotAvailable"));
@@ -1145,7 +1203,7 @@ export const make = Effect.gen(function* () {
 
     if (Option.isNone(activeAction)) {
       const checkedAt = yield* currentIsoTimestamp;
-      yield* updateState((current) => ({
+      yield* updateState(({ trackMismatch: _trackMismatch, ...current }) => ({
         ...current,
         status: "error",
         message: error.message,
@@ -1423,6 +1481,12 @@ export const make = Effect.gen(function* () {
       };
     }),
     download: Effect.gen(function* () {
+      const offered = yield* Ref.get(updateStateRef);
+      if (installsFromReleasePage && offered.availableVersion !== null) {
+        const url = yield* releasePageUrl(offered.availableVersion);
+        const opened = Option.isSome(url) && (yield* electronShell.openExternal(url.value));
+        return { accepted: opened, completed: false, state: offered };
+      }
       const result = yield* downloadAvailableUpdate(true);
       return {
         accepted: result.accepted,

@@ -8,12 +8,15 @@ import {
   EnvironmentId,
   MessageId,
   EventId,
+  GuestMessageId,
+  GuestShareId,
   NodeId,
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
   ProviderThreadId,
   ProviderTurnId,
+  RunId,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   ScheduledTaskId,
   ThreadId,
@@ -42,6 +45,14 @@ import * as Orchestrator from "./Orchestrator.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
 import * as ThreadManagementService from "./ThreadManagementService.ts";
+import * as ThreadMessageIntake from "./ThreadMessageIntake.ts";
+import * as ThreadLaunchService from "./ThreadLaunchService.ts";
+import * as DocumentText from "../provider/DocumentText.ts";
+import * as ServerConfig from "../config.ts";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
+import { sendConfirmed } from "../agentd/beforeSendConfirm.ts";
+import { AgentdBeforeSendError } from "@t3tools/contracts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
@@ -711,14 +722,15 @@ const nextTurnSelectionHarness = Effect.fn("nextTurnSelectionHarness")(function*
 
 it.effect.each([
   { notice: "delegated task question", goal: null, steers: true },
+  { notice: "delegated task question", goal: null, steers: false, summary: "/review is ready" },
   { notice: "background command", goal: "active", steers: true },
   { notice: "background command", goal: null, steers: false },
 ] as const)(
   "a $notice notice steers into the running turn: $steers (goal $goal)",
-  ({ notice, goal, steers }) =>
+  ({ notice, goal, steers, ...row }) =>
     Effect.gen(function* () {
       const { started, steered, layer, startFirstTurn } = yield* nextTurnSelectionHarness(
-        `notice-steer-${notice.replaceAll(" ", "-")}-${goal ?? "none"}`,
+        `notice-steer-${notice.replaceAll(" ", "-")}-${goal ?? "none"}-${steers}`,
       );
       yield* Effect.gen(function* () {
         const orchestrator = yield* Orchestrator.OrchestratorV2;
@@ -762,7 +774,7 @@ it.effect.each([
                   childThreadId: ThreadId.make("thread:question-child"),
                 },
                 outcome: "updated" as const,
-                summary: "Delegated task has a question",
+                summary: "summary" in row ? row.summary : "Delegated task has a question",
               }
             : {
                 source: { kind: "command" as const },
@@ -945,6 +957,7 @@ it.effect.each(
         const edited = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
           (candidate) => candidate.userMessageId === MessageId.make("message:edited-steer"),
         )!;
+        assert.equal(edited.steerWhenReadyRunId, run.id);
         yield* orchestrator.dispatch({
           type: "queued-run.edit",
           commandId: CommandId.make("edit-steer-to-compact"),
@@ -952,6 +965,11 @@ it.effect.each(
           runId: edited.id,
           text: "/compact",
         });
+        const compact = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+          (candidate) => candidate.id === edited.id,
+        )!;
+        assert.isUndefined(compact.steerWhenReadyRunId);
+        assert.equal(compact.queuePosition, edited.queuePosition);
       }
       if (direct) {
         yield* orchestrator.dispatch({
@@ -998,16 +1016,18 @@ it.effect.each(
         const maintenance = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
           (candidate) => candidate.userMessageId === MessageId.make(`message:${text}`),
         )!;
-        const error = yield* orchestrator
-          .dispatch({
-            type: "queued-message.promote-to-steer",
-            commandId: CommandId.make(`promote-${text}`),
-            threadId,
-            queuedRunId: maintenance.id,
-            targetRunId: run.id,
-          })
-          .pipe(Effect.flip);
-        assert.equal(error._tag, "OrchestratorDispatchError");
+        yield* orchestrator.dispatch({
+          type: "queued-message.promote-to-steer",
+          commandId: CommandId.make(`promote-${text}`),
+          threadId,
+          queuedRunId: maintenance.id,
+          targetRunId: run.id,
+        });
+        const promoted = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+          (candidate) => candidate.id === maintenance.id,
+        )!;
+        assert.equal(promoted.status, "queued");
+        assert.equal(promoted.queuePosition, 1);
       }
       const command = {
         type: "queued-message.promote-to-steer" as const,
@@ -2559,6 +2579,74 @@ it.effect("steers a promoted scheduled delivery with the thread's current select
   ),
 );
 
+it.effect("steers a deferred agent message on a pick made while it waited", () =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { started, steered, steeredSelections, layer, startFirstTurn, events } =
+        yield* nextTurnSelectionHarness("deferred-agent-steer-selection");
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const threadId = yield* startFirstTurn;
+        const turn = (yield* orchestrator.getThreadProjection(threadId)).providerTurns[0]!;
+        yield* (yield* EventSink.EventSinkV2).write({
+          events: [
+            {
+              id: EventId.make("turn-not-ready"),
+              type: "provider-turn.updated",
+              threadId,
+              occurredAt: yield* DateTime.now,
+              payload: { ...turn, status: "pending" },
+            },
+          ],
+        });
+        yield* orchestrator.dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make("agent-steer"),
+          threadId,
+          messageId: MessageId.make("message:agent-steer"),
+          text: "agent steer",
+          attachments: [],
+          dispatchMode: { type: "steer_active", targetRunId: started[0]!.runId },
+          createdBy: "agent",
+          creationSource: "mcp",
+        });
+        const deferred = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+          (run) => run.status === "queued",
+        )!;
+        assert.equal(deferred.steerWhenReadyRunId, started[0]!.runId);
+        yield* orchestrator.dispatch({
+          type: "thread.model-selection.set",
+          commandId: CommandId.make("select-composer"),
+          threadId,
+          modelSelection: composerSelection,
+        });
+        const promoted = yield* orchestrator.streamDomainEvents.pipe(
+          Stream.filter(
+            (event) =>
+              event.type === "run.updated" &&
+              event.payload.id === deferred.id &&
+              event.payload.status === "cancelled",
+          ),
+          Stream.take(1),
+          Stream.runDrain,
+          Effect.forkScoped,
+        );
+        yield* Queue.offer(events, { type: "provider_turn.updated", driver, providerTurn: turn });
+        yield* Fiber.join(promoted);
+        yield* worker.drain();
+
+        assert.lengthOf(steered, 1);
+        assert.deepEqual(steeredSelections, [composerSelection]);
+        assert.deepEqual(
+          (yield* orchestrator.getThreadProjection(threadId)).thread.modelSelection,
+          composerSelection,
+        );
+      }).pipe(Effect.provide(layer));
+    }),
+  ),
+);
+
 const claudeSelection = {
   instanceId: ProviderInstanceId.make("claudeAgent"),
   model: "claude-test",
@@ -3165,15 +3253,12 @@ it.effect.each([undefined, false, true])(
         const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
         const threadId = yield* startFirstTurn;
         yield* send("queued", "queued", "queue");
-        const sending = send("goal", "/goal all tests pass", "auto");
-        if (nativeGoals === false) {
-          yield* Effect.flip(sending);
-        } else yield* sending;
+        yield* send("goal", "/goal all tests pass", "auto");
         yield* worker.drain();
 
         assert.deepEqual(steered, []);
         assert.deepEqual(yield* read(threadId), {
-          queue: ["queued"],
+          queue: nativeGoals === false ? ["queued", "/goal all tests pass"] : ["queued"],
           started: nativeGoals === false ? ["first"] : ["first", "/goal all tests pass"],
           stopRequested: nativeGoals !== false,
         });
@@ -3472,6 +3557,70 @@ it.effect("queues a goal clear without stopping work when no goal drives it", ()
   }),
 );
 
+it.effect("promoting a queued /context moves it first and does not steer", () =>
+  Effect.gen(function* () {
+    const { started, steered, layer, startFirstTurn, send, read } =
+      yield* goalHarness("slash-promote");
+    yield* Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const threadId = yield* startFirstTurn;
+      yield* send("queued", "queued", "queue");
+      yield* send("context", "/context", "queue");
+      const queuedRun = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+        (run) => run.userMessageId === MessageId.make("message:context"),
+      )!;
+      yield* orchestrator.dispatch({
+        type: "queued-message.promote-to-steer",
+        commandId: CommandId.make("promote"),
+        threadId,
+        queuedRunId: queuedRun.id,
+        targetRunId: started[0]!.runId,
+      });
+      yield* worker.drain();
+
+      assert.deepEqual(steered, []);
+      assert.deepEqual(yield* read(threadId), {
+        queue: ["/context", "queued"],
+        started: ["first"],
+        stopRequested: false,
+      });
+    }).pipe(Effect.provide(layer));
+  }),
+);
+
+it.effect("restarts the turn for a slash command sent as an explicit restart", () =>
+  Effect.gen(function* () {
+    const { started, steered, interrupted, layer, startFirstTurn } =
+      yield* nextTurnSelectionHarness("slash-restart", true);
+    yield* Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const threadId = yield* startFirstTurn;
+      yield* orchestrator.dispatch({
+        type: "message.dispatch",
+        commandId: CommandId.make("restart-context"),
+        threadId,
+        messageId: MessageId.make("message:restart-context"),
+        text: "/context",
+        attachments: [],
+        modelSelection: runSelection,
+        dispatchMode: { type: "restart_active", targetRunId: started[0]!.runId },
+        createdBy: "user",
+        creationSource: "web",
+      });
+      yield* worker.drain();
+
+      assert.deepEqual(steered, []);
+      assert.lengthOf(interrupted, 1);
+      assert.deepEqual(
+        started.map((turn) => turn.message.text),
+        ["first", "/context"],
+      );
+    }).pipe(Effect.provide(layer));
+  }),
+);
+
 it.effect("promotes a queued goal by stopping the running turn", () =>
   Effect.gen(function* () {
     const { started, steered, layer, startFirstTurn, send, read } =
@@ -3497,6 +3646,38 @@ it.effect("promotes a queued goal by stopping the running turn", () =>
       assert.deepEqual(steered, []);
       assert.deepEqual(yield* read(threadId), {
         queue: ["queued"],
+        started: ["first", "/goal ship it"],
+        stopRequested: true,
+      });
+    }).pipe(Effect.provide(layer));
+  }),
+);
+
+it.effect("stops the running turn for a goal an agent steers into it", () =>
+  Effect.gen(function* () {
+    const { started, steered, layer, startFirstTurn, read } = yield* goalHarness("goal-raw-steer");
+    yield* Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const threadId = yield* startFirstTurn;
+      // Agent sends carry a raw steer target and no delivery intent.
+      yield* orchestrator.dispatch({
+        type: "message.dispatch",
+        commandId: CommandId.make("goal"),
+        threadId,
+        messageId: MessageId.make("message:goal"),
+        text: "/goal ship it",
+        attachments: [],
+        modelSelection: runSelection,
+        dispatchMode: { type: "steer_active", targetRunId: started[0]!.runId },
+        createdBy: "agent",
+        creationSource: "server",
+      });
+      yield* worker.drain();
+
+      assert.deepEqual(steered, []);
+      assert.deepEqual(yield* read(threadId), {
+        queue: [],
         started: ["first", "/goal ship it"],
         stopRequested: true,
       });
@@ -3760,4 +3941,283 @@ it.effect("a side chat that opens with /goal gets its context on the next questi
       assert.isTrue(question?.endsWith("What is the main thread doing?"));
     }).pipe(Effect.provide(layer));
   }),
+);
+
+type BeforeSendHook = AgentdPlugins.AgentdPluginsService["Service"]["checkBeforeSend"];
+
+/** One enabled hook over the replay harness, with the thread `thread:<name>` already created. */
+const beforeSendHarness = Effect.fn("beforeSendHarness")(function* (
+  name: string,
+  hook: BeforeSendHook,
+) {
+  const { started, layer: harness } = yield* nextTurnSelectionHarness(name);
+  const threadId = ThreadId.make(`thread:${name}`);
+  const plugins = Layer.mock(AgentdPlugins.AgentdPluginsService)({
+    hasBeforeSend: () => Effect.succeed(true),
+    checkBeforeSend: hook,
+  });
+  const services = ThreadManagementService.layer.pipe(
+    Layer.provideMerge(harness),
+    Layer.provide(ServerSettings.layerTest()),
+    Layer.provide(CommandReceiptStore.layer.pipe(Layer.provide(SqlitePersistence.layerMemory))),
+    Layer.provideMerge(plugins),
+    Layer.provideMerge(Layer.mock(ThreadLaunchService.ThreadLaunchService)({})),
+    Layer.provideMerge(
+      Layer.effect(
+        ServerConfig.ServerConfig,
+        ProviderReplayHarness.makeReplayServerConfig(name).pipe(Effect.orDie),
+      ),
+    ),
+    Layer.provideMerge(DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+  );
+  const createThread = Layer.effectDiscard(
+    Effect.gen(function* () {
+      yield* (yield* Orchestrator.OrchestratorV2).dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("create"),
+        threadId,
+        projectId: ProjectId.make(`project:${name}`),
+        title: "Before send",
+        modelSelection: runSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdBy: "user",
+        creationSource: "web",
+      });
+    }).pipe(Effect.orDie),
+  );
+  return { threadId, started, layer: createThread.pipe(Layer.provideMerge(services)) };
+});
+
+/** A hook that rewrites every message: held for review when it can be, otherwise blocked. */
+const rewritingHook =
+  (seen: Array<AgentdPlugins.BeforeSendRequest>): BeforeSendHook =>
+  (request) =>
+    Effect.sync(() => seen.push(request)).pipe(
+      Effect.andThen(
+        Effect.fail(
+          request.resend === undefined
+            ? new AgentdBeforeSendError({ reason: "blocked", message: "Redactor needs review" })
+            : new AgentdBeforeSendError({ reason: "review", message: "Review", reviewId: "r" }),
+        ),
+      ),
+    );
+
+const passingHook =
+  (seen: Array<AgentdPlugins.BeforeSendRequest>): BeforeSendHook =>
+  (request) =>
+    Effect.sync(() => {
+      seen.push(request);
+    });
+
+it.effect(
+  "a before-send block reaches no provider; a confirmed rewrite is what is stored and sent",
+  () =>
+    Effect.gen(function* () {
+      const hookRuns: string[] = [];
+      const { threadId, started, layer } = yield* beforeSendHarness("before-send", (request) =>
+        Effect.sync(() => hookRuns.push(request.text)).pipe(
+          Effect.andThen(
+            Effect.fail(new AgentdBeforeSendError({ reason: "blocked", message: "Redactor: no" })),
+          ),
+        ),
+      );
+      yield* Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const messageId = MessageId.make("message:secret");
+        const command = {
+          type: "message.dispatch",
+          commandId: CommandId.make("send-secret"),
+          threadId,
+          messageId,
+          text: "my password is hunter2",
+          attachments: [],
+          modelSelection: runSelection,
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        } as const;
+        const error = yield* ThreadMessageIntake.dispatchCommand(command, {
+          managesProviders: true,
+        }).pipe(Effect.flip);
+        yield* worker.drain();
+        assert.equal(error._tag, "AgentdBeforeSendError");
+        assert.equal(error.message, "Redactor: no");
+        assert.lengthOf(started, 0);
+        assert.isUndefined(
+          (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+            (message) => message.id === messageId,
+          ),
+        );
+
+        // The person confirmed an edited rewrite; its hooks ran already, so they do not run again.
+        yield* sendConfirmed(
+          { kind: "dispatch", command: { ...command, text: "my password is [redacted]" } },
+          { managesProviders: true },
+        );
+        yield* worker.drain();
+        assert.deepEqual(hookRuns, ["my password is hunter2"]);
+        assert.deepEqual(
+          started.map((turn) => turn.message.text),
+          ["my password is [redacted]"],
+        );
+        const stored = (yield* orchestrator.getThreadProjection(threadId)).messages.find(
+          (message) => message.id === messageId,
+        );
+        assert.equal(stored?.text, "my password is [redacted]");
+
+        // A retry of that commandId with other text replays the receipt: nothing new is stored or sent.
+        yield* (yield* ThreadManagementService.ThreadManagementService).dispatch({
+          ...command,
+          text: "my password is hunter2, again",
+        });
+        yield* ThreadMessageIntake.dispatchCommand(
+          { ...command, text: "my password is hunter2, again" },
+          { managesProviders: true },
+        );
+        yield* worker.drain();
+        assert.deepEqual(hookRuns, ["my password is hunter2"]);
+        assert.deepEqual(
+          started.map((turn) => turn.message.text),
+          ["my password is [redacted]"],
+        );
+        const projection = yield* orchestrator.getThreadProjection(threadId);
+        assert.deepEqual(
+          projection.messages.filter((message) => message.role === "user").map((m) => m.text),
+          ["my password is [redacted]"],
+        );
+      }).pipe(Effect.provide(layer));
+    }),
+);
+
+it.effect("a guest send runs the before-send hook; a block or a rewrite sends nothing", () =>
+  Effect.gen(function* () {
+    const seen: Array<AgentdPlugins.BeforeSendRequest> = [];
+    const { threadId, started, layer } = yield* beforeSendHarness(
+      "before-send-guest",
+      rewritingHook(seen),
+    );
+    yield* Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+      const shareId = GuestShareId.make("share:before-send");
+      const guestMessageId = GuestMessageId.make("guest-message:before-send");
+      yield* orchestrator.dispatch({
+        type: "thread.guest-share.open",
+        commandId: CommandId.make("open-share"),
+        threadId,
+        shareId,
+        host: "env.t3.test",
+        expiresAt: DateTime.formatIso(DateTime.add(yield* DateTime.now, { hours: 24 })),
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.guest-share.redeem",
+        commandId: CommandId.make("redeem-share"),
+        threadId,
+        shareId,
+        guestName: "Sam",
+      });
+      yield* orchestrator.dispatch({
+        type: "thread.guest-message.submit",
+        commandId: CommandId.make("submit-guest"),
+        threadId,
+        shareId,
+        guestMessageId,
+        text: "the guest's secret",
+      });
+      const error = yield* ThreadMessageIntake.dispatchCommand(
+        {
+          type: "message.dispatch",
+          commandId: CommandId.make("send-guest"),
+          threadId,
+          messageId: MessageId.make("message:guest"),
+          guestMessageId,
+          text: "ignored: the server sends the guest's own text",
+          attachments: [],
+          modelSelection: runSelection,
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        },
+        { managesProviders: true },
+      ).pipe(Effect.flip);
+      yield* worker.drain();
+      assert.deepEqual(
+        seen.map((request) => [request.text, request.resend === undefined]),
+        [["the guest's secret", true]],
+      );
+      // The backstop stops it; a rewrite there cannot be reviewed, so it blocks.
+      assert.equal(error._tag, "OrchestratorCommandRejectedError");
+      assert.deepInclude(error._tag === "OrchestratorCommandRejectedError" ? error.cause : null, {
+        _tag: "AgentdBeforeSendError",
+        reason: "blocked",
+      });
+      assert.lengthOf(started, 0);
+      const projection = yield* orchestrator.getThreadProjection(threadId);
+      assert.lengthOf(projection.runs, 0);
+      assert.deepEqual(
+        projection.thread.guestShare?.messages.map((message) => message.status),
+        ["pending"],
+      );
+    }).pipe(Effect.provide(layer));
+  }),
+);
+
+it.effect(
+  "the before-send backstop checks new text under a stored message id and on continuations",
+  () =>
+    Effect.gen(function* () {
+      const seen: Array<AgentdPlugins.BeforeSendRequest> = [];
+      const { threadId, layer } = yield* beforeSendHarness(
+        "before-send-backstop",
+        passingHook(seen),
+      );
+      yield* Effect.gen(function* () {
+        const service = yield* ThreadManagementService.ThreadManagementService;
+        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
+        const send = (
+          id: string,
+          text: string,
+          extra: Partial<{
+            readonly messageId: MessageId;
+            readonly manualContinuationOfRunId: RunId;
+            readonly createdBy: "user" | "agent" | "system";
+          }> = {},
+        ) =>
+          service.dispatch({
+            type: "message.dispatch",
+            commandId: CommandId.make(id),
+            threadId,
+            messageId: MessageId.make(`message:${id}`),
+            text,
+            attachments: [],
+            modelSelection: runSelection,
+            dispatchMode: { type: "defer_start" },
+            createdBy: "agent",
+            creationSource: "mcp",
+            ...extra,
+          });
+        yield* send("first", "first text");
+        const stored = MessageId.make("message:first");
+        // The same text under the stored id is a re-dispatch of what was checked.
+        yield* send("again-same", "first text", { messageId: stored }).pipe(Effect.ignore);
+        // New text under the stored id is new content.
+        yield* send("again-new", "swapped text", { messageId: stored }).pipe(Effect.ignore);
+        const run = (yield* service.getThreadRecords(threadId, ["runs"])).runs[0];
+        assert.isDefined(run);
+        yield* send("resume", "resume with new text", {
+          manualContinuationOfRunId: run!.id,
+          createdBy: "user",
+        }).pipe(Effect.ignore);
+        yield* send("system", "server note", { createdBy: "system" }).pipe(Effect.ignore);
+        yield* worker.drain();
+        assert.deepEqual(
+          seen.map((request) => request.text),
+          ["first text", "swapped text", "resume with new text"],
+        );
+      }).pipe(Effect.provide(layer));
+    }),
 );

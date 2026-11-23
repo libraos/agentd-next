@@ -1,4 +1,8 @@
-import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
+import {
+  AgentdBeforeSendError,
+  GitCommandError,
+  OrchestrationDispatchCommandError,
+} from "@t3tools/contracts";
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- A synchronous digest inside the pure provider mapping.
 import * as NodeCrypto from "node:crypto";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -6,8 +10,10 @@ import * as Context from "effect/Context";
 import * as NodeHttpServerRequest from "@effect/platform-node/NodeHttpServerRequest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
+import * as PeerClientPairing from "./peer/PeerClientPairing.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
+import * as PeerThreadRelay from "./peer/PeerThreadRelay.ts";
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -31,7 +37,10 @@ import {
   AuthAccessStreamError,
   type AuthAccessStreamEvent,
   AuthOrchestrationOperateScope,
+  AuthFilesystemReadScope,
   AuthProvidersManageScope,
+  isLibraosGatewayInstanceId,
+  customGatewayIdOfInstance,
   type AuthEnvironmentScope,
   type ScheduledTaskListResult,
   AuthSessionId,
@@ -85,6 +94,7 @@ import {
   RelayClientInstallFailedError,
   type RelayClientInstallProgressEvent,
   type ServerConfig as ClientServerConfig,
+  AgentdCommandError,
   type ServerConfigStreamEvent,
   type ServerLifecycleStreamEvent,
   type ServerProvider,
@@ -119,8 +129,10 @@ import * as EnvironmentTheme from "./environmentTheme.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as ThreadManagementService from "./orchestration-v2/ThreadManagementService.ts";
+import * as ThreadViewers from "./orchestration-v2/ThreadViewers.ts";
 import * as CommandOutputHub from "./orchestration-v2/CommandOutputHub.ts";
 import * as McpAppRequests from "./mcpApps/McpAppRequests.ts";
+import * as McpSignIn from "./mcpApps/McpSignIn.ts";
 import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts";
@@ -211,6 +223,8 @@ import { parseBase64DataUrl } from "./imageMime.ts";
 import { deletePendingAttachment, issueAttachmentUploadUrl } from "./assets/AttachmentUpload.ts";
 import * as PortScanner from "./preview/PortScanner.ts";
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
+import * as WorkspaceFolders from "./workspace/WorkspaceFolders.ts";
+import * as TaskFolders from "./workspace/TaskFolders.ts";
 import * as KnownWorkspaces from "./workspace/KnownWorkspaces.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
 import { readWorkflowScript } from "./orchestration-v2/workflowScriptQuery.ts";
@@ -241,10 +255,21 @@ import { requiredScopeForDeviceList, rpcAuthorizationError } from "./auth/RpcAut
 import * as RpcAuthorization from "./auth/RpcAuthorization.ts";
 import { RpcInstrumentation, rpcInstrumentationLayer } from "./observability/RpcInstrumentation.ts";
 import * as AgentdBridge from "./agentd/AgentdBridge.ts";
+import { agentdBackupsDir } from "./agentd/agentdBackup.ts";
 import * as AgentdTeamNode from "./agentd/AgentdTeamNode.ts";
 import * as AgentdInit from "./agentd/agentdInit.ts";
 import * as AgentdSkills from "./agentd/AgentdSkills.ts";
+import * as AgentdPlugins from "./agentd/AgentdPlugins.ts";
+import { sendConfirmed } from "./agentd/beforeSendConfirm.ts";
+import { enteredKeyFiles, startErrorFor } from "./agentd/cloudFailure.ts";
 import * as LibraosGateway from "./gateway/LibraosGateway.ts";
+import * as CustomGateway from "./gateway/CustomGateway.ts";
+import {
+  readWorkerGatewayRecord,
+  workerGatewayChoice,
+  workerGatewayRecordText,
+  workerGatewayKeyFile,
+} from "./agentd/workerGatewaySetting.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
@@ -1454,6 +1479,7 @@ export const layerWsRpc = (
         | ServerConfig.ServerConfig
         | ServerSettings.ServerSettingsService
         | DocumentText.DocumentText
+        | AgentdPlugins.AgentdPluginsService
       >();
       const applicationEvents = yield* OrchestrationEventStore.OrchestrationEventStore;
       const projectStore = yield* ProjectStore.ProjectStoreV2;
@@ -1465,6 +1491,7 @@ export const layerWsRpc = (
 
       const providerSessionsV2 = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const mcpAppRequests = yield* McpAppRequests.McpAppRequests;
+      const mcpSignIn = yield* McpSignIn.McpSignIn;
       const analytics = yield* AnalyticsService.AnalyticsService;
       const originProps = clientAnalyticsProps;
       const recordClientCommandAnalytics = (command: OrchestrationV2Command) => {
@@ -1486,6 +1513,7 @@ export const layerWsRpc = (
       };
       const threadLaunch = yield* ThreadLaunchService.ThreadLaunchService;
       const commandOutputHub = yield* CommandOutputHub.CommandOutputHub;
+      const threadViewers = yield* ThreadViewers.ThreadViewers;
       const providerSessionManager = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
       const secretRequests = yield* SecretRequests.SecretRequests;
@@ -1564,8 +1592,12 @@ export const layerWsRpc = (
       const secretResolver = yield* SecretResolver.SecretResolver;
       const peerLinks = yield* PeerLinks.PeerLinks;
       const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
+      const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
+      const peerClientPairing = yield* PeerClientPairing.PeerClientPairing;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
+      const workspaceFolders = yield* WorkspaceFolders.WorkspaceFolders;
+      const taskFolders = yield* TaskFolders.TaskFolders;
       const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
       const serverEnvironment = yield* ServerEnvironment.ServerEnvironment;
       const backgroundPolicy = yield* BackgroundPolicy.BackgroundPolicy;
@@ -1602,7 +1634,22 @@ export const layerWsRpc = (
       const teamNode = yield* AgentdTeamNode.AgentdTeamNode;
       const agentdInit = yield* AgentdInit.AgentdInit;
       const agentdSkills = yield* AgentdSkills.AgentdSkillsService;
+      const agentdPlugins = yield* AgentdPlugins.AgentdPluginsService;
       const libraosGateway = yield* LibraosGateway.LibraosGateway;
+      const customGateway = yield* CustomGateway.CustomGateway;
+      const secretPaths = yield* Path.Path;
+      const workerGatewayFiles = yield* FileSystem.FileSystem;
+      const workerGatewayRecordPath = secretPaths.join(
+        config.stateDir,
+        "agentd-worker-gateways.json",
+      );
+      const workerGatewayChosen = workerGatewayFiles.readFileString(workerGatewayRecordPath).pipe(
+        Effect.orElseSucceed(() => ""),
+        Effect.map(readWorkerGatewayRecord),
+      );
+      const workerGateway = Effect.all([agentd.workerGateway, workerGatewayChosen]).pipe(
+        Effect.map(([read, chosen]) => ({ ...read, chosen })),
+      );
       const triage = yield* TriageService.TriageService;
       const hostResources = yield* HostResources.HostResources;
       const processResourceMonitor = yield* ProcessResourceMonitor.ProcessResourceMonitor;
@@ -2276,6 +2323,13 @@ export const layerWsRpc = (
                         message: cause.message,
                         cause,
                       }),
+                    AgentdBeforeSendError: (cause) =>
+                      new OrchestrationV2ThreadLaunchError({
+                        commandId: input.commandId,
+                        projectId: input.projectId,
+                        message: cause.message,
+                        cause,
+                      }),
                     ThreadLaunchError: (cause) =>
                       new OrchestrationV2ThreadLaunchError({
                         commandId: input.commandId,
@@ -2325,6 +2379,13 @@ export const layerWsRpc = (
                         message: cause.message,
                         cause,
                       }),
+                    TaskFolderError: (cause) =>
+                      new OrchestrationV2ThreadLaunchError({
+                        commandId: input.commandId,
+                        projectId: input.projectId,
+                        message: cause.message,
+                        cause,
+                      }),
                   }),
                 ),
             ),
@@ -2334,6 +2395,7 @@ export const layerWsRpc = (
         [ORCHESTRATION_V2_WS_METHODS.subscribeThread]: (input) =>
           Stream.unwrap(
             Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
+              Effect.andThen(threadViewers.view(input.threadId)),
               Effect.andThen(subscribeOrchestrationV2Thread(input)),
             ),
           ),
@@ -2503,6 +2565,30 @@ export const layerWsRpc = (
               yield* providerRegistry.refreshModelCatalog;
               return { providers: [] };
             }
+            // It rewrites the Gateway agents' settings, which only a provider manager may change.
+            if (
+              input.refreshModels &&
+              currentSession.scopes.includes(AuthProvidersManageScope) &&
+              (input.instanceId === undefined || isLibraosGatewayInstanceId(input.instanceId))
+            ) {
+              yield* libraosGateway.refreshModels;
+            }
+            const customGatewayId =
+              input.instanceId === undefined ? null : customGatewayIdOfInstance(input.instanceId);
+            if (
+              input.refreshModels &&
+              customGatewayId !== null &&
+              currentSession.scopes.includes(AuthProvidersManageScope)
+            ) {
+              // An unreadable list keeps the last one; the provider's status shows the rest.
+              yield* customGateway.refreshModels(customGatewayId).pipe(
+                Effect.catch((error) =>
+                  Effect.logWarning("Custom gateway: could not refresh its models", {
+                    message: error.message,
+                  }),
+                ),
+              );
+            }
             if (input.refreshModels) {
               yield* providerRegistry.invalidateModelCaches({
                 instanceId: input.instanceId,
@@ -2597,6 +2683,8 @@ export const layerWsRpc = (
         [WS_METHODS.mcpAppsToolInfo]: (input) => mcpAppRequests.toolInfo(input),
         [WS_METHODS.mcpAppsUpdateModelContext]: (input) => mcpAppRequests.updateModelContext(input),
         [WS_METHODS.mcpAppsReadResource]: (input) => mcpAppRequests.readResource(input),
+        [WS_METHODS.providerMcpSignInStart]: (input) => mcpSignIn.start(input),
+        [WS_METHODS.providerMcpSignInComplete]: (input) => mcpSignIn.complete(input),
         [WS_METHODS.providerUploadFeedback]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(
@@ -2721,9 +2809,24 @@ export const layerWsRpc = (
         [WS_METHODS.serverReclaimDatabaseSpace]: () => databaseStorage.requestReclaim,
         [WS_METHODS.peerLinksList]: (_input) =>
           peerLinks.list.pipe(Effect.map((links) => ({ links }))),
+        [WS_METHODS.peerLinksNames]: (_input) =>
+          peerLinks.names.pipe(Effect.map((links) => ({ links }))),
         [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
         [WS_METHODS.peerLinksUnlink]: ({ environmentId }) =>
           peerLinks.unlink(environmentId).pipe(Effect.map((removed) => ({ removed }))),
+        [WS_METHODS.peerLinksSubscribeThread]: (input) => peerThreadRelay.subscribe(input),
+        [WS_METHODS.peerLinksThreadHistoryPage]: (input) =>
+          Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
+            Effect.andThen(peerThreadRelay.historyPage(input)),
+          ),
+        [WS_METHODS.peerLinksThreadItem]: (input) =>
+          Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
+            Effect.andThen(peerThreadRelay.item(input)),
+          ),
+        [WS_METHODS.peerLinksPairClient]: (input) =>
+          peerClientPairing.request(input, currentSession),
+        [WS_METHODS.peerLinksPairLink]: (input) =>
+          peerClientPairing.requestForLink(input, currentSession),
         [WS_METHODS.peerLinksAnswerRequest]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(peerLinkRequests.answer(input)),
@@ -3079,6 +3182,11 @@ export const layerWsRpc = (
                 }),
             ),
           ),
+        [WS_METHODS.workspaceListFolders]: (input) => workspaceFolders.list(input),
+        [WS_METHODS.workspaceScanFolders]: (input) => workspaceFolders.scan(input),
+        [WS_METHODS.workspaceTaskFolder]: (input) =>
+          taskFolders.find(input.worktreePath).pipe(Effect.map((taskFolder) => ({ taskFolder }))),
+        [WS_METHODS.workspaceAddTaskFolderRepository]: (input) => taskFolders.addRepository(input),
         [WS_METHODS.attachmentsCreateUploadUrl]: (input) => issueAttachmentUploadUrl(input),
         [WS_METHODS.attachmentsDelete]: (input) => deletePendingAttachment(input.attachmentId),
         [WS_METHODS.agentSessionsScan]: () => agentSessionScanner.scan,
@@ -3091,6 +3199,7 @@ export const layerWsRpc = (
             if (
               input.resource._tag === "attachment" ||
               input.resource._tag === "native-app-icon" ||
+              input.resource._tag === "agentd-backup" ||
               input.resource._tag === "environment-theme-background" ||
               input.resource._tag === "tool-output-image" ||
               input.resource._tag === SOURCE_CONTROL_MEDIA_ASSET ||
@@ -3206,11 +3315,16 @@ export const layerWsRpc = (
                       ? Effect.void
                       : linkCreatedPullRequest({
                           threadId: input.threadId,
+                          cwd: input.cwd,
                           result,
                           commandId: serverCommandId("pr-created-link"),
                         }).pipe(
                           Effect.provideService(Orchestrator.OrchestratorV2, orchestrationEngine),
                           Effect.provideService(ProjectService.ProjectService, projectService),
+                          Effect.provideService(
+                            RepositoryIdentityResolver.RepositoryIdentityResolver,
+                            repositoryIdentityResolver,
+                          ),
                         )
                     ).pipe(
                       Effect.andThen(
@@ -3236,10 +3350,40 @@ export const layerWsRpc = (
             .pipe(Effect.tap(() => refreshGitStatus(input.cwd))),
         [WS_METHODS.vcsListRefs]: (input) => gitWorkflow.listRefs(input),
         [WS_METHODS.vcsCreateWorktree]: (input) =>
-          gitWorkflow.createWorktree(input).pipe(Effect.tap(() => refreshGitStatus(input.cwd))),
-        [WS_METHODS.vcsRemoveWorktree]: (input) =>
-          gitWorkflow.removeWorktree(input).pipe(
+          // A project that tracks repositories gets a task folder, as its new worktree threads do.
+          taskFolders.createForProjectFolder(input).pipe(
+            Effect.mapError(
+              (cause) =>
+                new GitCommandError({
+                  operation: "TaskFolders.create",
+                  command: "git worktree add",
+                  cwd: input.cwd,
+                  detail: cause.detail,
+                }),
+            ),
+            Effect.filterOrElse(
+              (created) => created !== null,
+              () => gitWorkflow.createWorktree(input),
+            ),
             Effect.tap(() => refreshGitStatus(input.cwd)),
+          ),
+        [WS_METHODS.vcsRemoveWorktree]: (input) =>
+          // A thread's worktree may be a task folder: its repositories' worktrees go with it.
+          taskFolders.removeIfTaskFolder({ path: input.path, force: input.force === true }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new GitCommandError({
+                  operation: "TaskFolders.remove",
+                  command: "git worktree remove",
+                  cwd: input.cwd,
+                  detail: cause.detail,
+                }),
+            ),
+            Effect.flatMap((removed) =>
+              removed ? Effect.void : gitWorkflow.removeWorktree(input),
+            ),
+            // No project-root refresh here: the client awaits vcs.refreshStatus right after, and a
+            // second refresh would queue behind this one and reread an unchanged repository.
             // Subscribers of the removed checkout learn it is no longer a repository.
             Effect.tap(() =>
               vcsStatusBroadcaster
@@ -3611,29 +3755,123 @@ export const layerWsRpc = (
         [WS_METHODS.agentdTask]: (input) => agentd.task(input),
         [WS_METHODS.agentdSubscribeTaskOutput]: (input) => agentd.subscribeTaskOutput(input),
         [WS_METHODS.agentdStopTask]: (input) => agentd.stopTask(input),
-        [WS_METHODS.agentdStartTask]: (input) => agentd.startTask(input),
+        [WS_METHODS.agentdStartTask]: (input) =>
+          agentd
+            .startTask(input)
+            .pipe(
+              Effect.mapError((error) =>
+                startErrorFor(
+                  error,
+                  currentSession.scopes.includes(AuthFilesystemReadScope),
+                  enteredKeyFiles(input),
+                ),
+              ),
+            ),
+        [WS_METHODS.agentdRetryStart]: (input) => agentd.retryStart(input),
         [WS_METHODS.agentdApprovals]: (_input) => agentd.approvals,
         [WS_METHODS.agentdInbox]: (_input) => agentd.inbox,
         [WS_METHODS.agentdPeople]: (input) => agentd.people(input),
         [WS_METHODS.agentdConnectAgent]: (input) => agentd.connectAgent(input),
         [WS_METHODS.agentdJoinTeam]: (input) => agentd.joinTeam(input),
+        [WS_METHODS.agentdBackupCreate]: Effect.fnUntraced(function* (input) {
+          const path = yield* Path.Path;
+          const made = yield* agentd.backupCreate(input, agentdBackupsDir(path, config.stateDir));
+          const url = yield* issueAssetUrl({
+            resource: { _tag: "agentd-backup", fileName: made.fileName },
+          }).pipe(
+            Effect.mapError(
+              () =>
+                new AgentdCommandError({
+                  message: "The backup was made but no download link could be signed for it.",
+                  notSetUp: false,
+                }),
+            ),
+          );
+          return { ...made, relativeUrl: url.relativeUrl, expiresAt: url.expiresAt };
+        }),
         [WS_METHODS.agentdCloudSetup]: (input) => agentd.cloudSetup(input),
         [WS_METHODS.agentdCloudReview]: (input) => agentd.cloudReview(input),
         [WS_METHODS.agentdCloudConfigure]: (input) => agentd.cloudConfigure(input),
+        [WS_METHODS.agentdCloudKeyFile]: (input) => agentd.cloudKeyFile(input, false),
+        [WS_METHODS.agentdCloudKeyFileFix]: (input) => agentd.cloudKeyFile(input, true),
+        [WS_METHODS.agentdRepairServices]: (input) => agentd.repairServices(input),
         [WS_METHODS.agentdTaskDefaults]: (input) => agentd.taskDefaults(input),
         [WS_METHODS.agentdTaskOthers]: (input) => agentd.taskOthers(input),
         [WS_METHODS.agentdSubscribeTeamNode]: (_input) => teamNode.subscribe,
         [WS_METHODS.agentdSetTeamNode]: (input) => teamNode.set(input),
         [WS_METHODS.agentdTeamNodeForeground]: (_input) => teamNode.foreground,
         [WS_METHODS.agentdEula]: (_input) => agentd.eula,
+        [WS_METHODS.agentdWorkerGateway]: (_input) => workerGateway,
+        [WS_METHODS.agentdSetWorkerGateway]: Effect.fn("ws.agentd.setWorkerGateway")(
+          function* (input) {
+            const { gateway } = input;
+            let choice = null;
+            if (gateway !== null) {
+              const { gateways } = yield* customGateway.list.pipe(
+                Effect.mapError(
+                  (error) => new AgentdCommandError({ message: error.message, notSetUp: false }),
+                ),
+              );
+              const made = workerGatewayChoice({ tool: input.tool, gateway }, gateways, (id) =>
+                workerGatewayKeyFile(config.secretsDir, secretPaths.join, id),
+              );
+              if ("refused" in made) {
+                return yield* new AgentdCommandError({ message: made.refused, notSetUp: false });
+              }
+              choice = made;
+            }
+            yield* agentd.setWorkerGateway(input.tool, choice);
+            const chosen = { ...(yield* workerGatewayChosen), [input.tool]: gateway?.id ?? null };
+            yield* workerGatewayFiles
+              .writeFileString(workerGatewayRecordPath, workerGatewayRecordText(chosen))
+              .pipe(Effect.ignore);
+            return yield* workerGateway;
+          },
+        ),
         [WS_METHODS.agentdSetupStart]: (_input) => agentdInit.start,
         [WS_METHODS.agentdSubscribeSetup]: (_input) => agentdInit.subscribe,
         [WS_METHODS.agentdSkillsList]: (_input) => agentdSkills.list,
         [WS_METHODS.agentdSkillsInstall]: (input) => agentdSkills.install(input),
         [WS_METHODS.agentdSkillsRemove]: (input) => agentdSkills.remove(input),
+        [WS_METHODS.agentdPluginsList]: (input) => agentdPlugins.list(input),
+        [WS_METHODS.agentdPluginsInstall]: (input) => agentdPlugins.install(input),
+        [WS_METHODS.agentdPluginsRemove]: (input) => agentdPlugins.remove(input),
+        [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
+        [WS_METHODS.agentdBeforeSendReview]: (input) => agentdPlugins.review(input),
+        [WS_METHODS.agentdBeforeSendDiscard]: (input) =>
+          agentdPlugins.discard(input.reviewId).pipe(Effect.as({})),
+        // The held send goes again, as the person confirmed it, through the same intake.
+        [WS_METHODS.agentdBeforeSendConfirm]: (input) =>
+          agentdPlugins.confirm(input).pipe(
+            Effect.flatMap((resend) =>
+              startup.enqueueCommand(
+                sendConfirmed(resend, {
+                  managesProviders: currentSession.scopes.includes(AuthProvidersManageScope),
+                }).pipe(Effect.provide(intakeContext)),
+              ),
+            ),
+            Effect.as({}),
+            Effect.mapError((cause) =>
+              cause._tag === "EnvironmentAuthorizationError" ||
+              cause._tag === "AgentdBeforeSendError"
+                ? cause
+                : new AgentdBeforeSendError({
+                    reason: "blocked",
+                    message:
+                      userFacingDispatchErrorMessage(cause) ?? "The message could not be sent.",
+                  }),
+            ),
+          ),
         [WS_METHODS.libraosGatewayStatus]: (_input) => libraosGateway.status,
         [WS_METHODS.libraosGatewayConnect]: (input) => libraosGateway.connect(input.key),
         [WS_METHODS.libraosGatewayDisconnect]: (_input) => libraosGateway.disconnect,
+        [WS_METHODS.customGatewayList]: (_input) => customGateway.list,
+        [WS_METHODS.customGatewayAdd]: (input) => customGateway.add(input),
+        [WS_METHODS.customGatewayRename]: (input) => customGateway.rename(input.id, input.name),
+        [WS_METHODS.customGatewaySetHiddenModels]: (input) =>
+          customGateway.setHiddenModels(input.id, input.hiddenModels),
+        [WS_METHODS.customGatewayRemove]: (input) => customGateway.remove(input.id),
+        [WS_METHODS.customGatewayRefreshModels]: (input) => customGateway.refreshModels(input.id),
       });
       const splitHandlers: Pick<typeof handlers, SplitWsRpc["_tag"]> = handlers;
       const otherHandlers: Pick<typeof handlers, Exclude<ServerWsRpc, SplitWsRpc>["_tag"]> =
@@ -3663,6 +3901,8 @@ export const layer = Layer.unwrap(
     const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
     const peerLinks = yield* PeerLinks.PeerLinks;
     const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
+    const peerThreadRelay = yield* PeerThreadRelay.PeerThreadRelay;
+    const peerClientPairing = yield* PeerClientPairing.PeerClientPairing;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3763,6 +4003,8 @@ export const layer = Layer.unwrap(
               ),
               Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
               Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
+              Layer.provide(Layer.succeed(PeerThreadRelay.PeerThreadRelay, peerThreadRelay)),
+              Layer.provide(Layer.succeed(PeerClientPairing.PeerClientPairing, peerClientPairing)),
               Layer.provide(
                 SourceControlDiscovery.layer.pipe(
                   Layer.provide(

@@ -43,10 +43,7 @@ import {
 import { loadRepoEnv } from "./lib/public-config.ts";
 import { selectDesktopRuntimeExternalDependencies } from "./lib/desktop-external-packages.ts";
 import { resolveCatalogDependencies } from "./lib/resolve-catalog.ts";
-import {
-  resolveAgentdDesktopVersion,
-  resolveTaggedSourceVersion,
-} from "./lib/tagged-source-version.ts";
+import { resolveTaggedSourceVersion } from "./lib/tagged-source-version.ts";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -1000,6 +997,8 @@ export const DESKTOP_FILE_EXCLUSIONS = [
   "!apps/desktop/resources/browser-secret/**/*",
   "!apps/desktop/prod-resources/browser-secret",
   "!apps/desktop/prod-resources/browser-secret/**/*",
+  "!apps/desktop/prod-resources/apple-speech",
+  "!apps/desktop/prod-resources/apple-speech/**/*",
   "!apps/desktop/prod-resources/windows-server",
   "!apps/desktop/prod-resources/windows-server/**/*",
   "!apps/desktop/prod-resources/wsl-runtime.tar.gz",
@@ -1131,6 +1130,9 @@ export const LINUX_CAPTURE_EXTRA_RESOURCES = [
 ] as const;
 export const LINUX_BROWSER_SECRET_EXTRA_RESOURCES = [
   { from: "apps/desktop/prod-resources/browser-secret", to: "browser-secret" },
+] as const;
+export const MAC_APPLE_SPEECH_EXTRA_RESOURCES = [
+  { from: "apps/desktop/prod-resources/apple-speech", to: "apple-speech" },
 ] as const;
 
 export interface MacPasskeySigningConfiguration {
@@ -2268,41 +2270,58 @@ export const verifyPackagedBundleIsSelfContained = Effect.fn("verifyPackagedBund
       });
     }
 
-    yield* runCommand(
-      ChildProcess.make(
-        process.execPath,
-        // Clearing NODE_PATH leaves CommonJS global fallbacks; disable them so host packages cannot satisfy missing dependencies.
-        ["--no-global-search-paths", entryPoint, "--version"],
-        {
-          cwd: probeApp,
-          stdout: "pipe",
-          stderr: "pipe",
-          env: { ...process.env, NODE_PATH: "" },
-        },
-      ),
+    // The server spawns the shipped Pi rather than importing it, so Pi gets a check of its own.
+    const checks = [
       {
+        entry: entryPoint,
         label: "server sidecar self-containment check (node bin.mjs --version)",
-        verbose: input.verbose,
       },
-    ).pipe(
-      Effect.timeout(BUNDLE_SELF_CHECK_TIMEOUT),
-      Effect.catchTags({
-        TimeoutError: () =>
-          Effect.fail(
-            new BundleNotSelfContainedError({
-              exitCode: -1,
-              output: `The packaged bundle did not print its version within ${Duration.toSeconds(BUNDLE_SELF_CHECK_TIMEOUT)}s; it is hanging rather than failing to resolve.`,
-            }),
-          ),
-        BuildCommandFailedError: (error) =>
-          Effect.fail(
-            new BundleNotSelfContainedError({
-              exitCode: error.exitCode,
-              output: `${error.stderrTail ?? ""}${error.stdoutTail ?? ""}`.trim(),
-            }),
-          ),
-      }),
-    );
+      {
+        entry: path.join(
+          probeApp,
+          "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+        ),
+        label: "shipped Pi check (node pi-coding-agent cli.js --version)",
+      },
+    ];
+    for (const check of checks) {
+      yield* runCommand(
+        ChildProcess.make(
+          process.execPath,
+          // Clearing NODE_PATH leaves CommonJS global fallbacks; disable them so host packages cannot satisfy missing dependencies.
+          ["--no-global-search-paths", check.entry, "--version"],
+          {
+            cwd: probeApp,
+            stdout: "pipe",
+            stderr: "pipe",
+            env: {
+              ...process.env,
+              NODE_PATH: "",
+              PI_CODING_AGENT_DIR: path.join(probeRoot, "pi-agent"),
+            },
+          },
+        ),
+        { label: check.label, verbose: input.verbose },
+      ).pipe(
+        Effect.timeout(BUNDLE_SELF_CHECK_TIMEOUT),
+        Effect.catchTags({
+          TimeoutError: () =>
+            Effect.fail(
+              new BundleNotSelfContainedError({
+                exitCode: -1,
+                output: `The packaged bundle did not print its version within ${Duration.toSeconds(BUNDLE_SELF_CHECK_TIMEOUT)}s; it is hanging rather than failing to resolve.`,
+              }),
+            ),
+          BuildCommandFailedError: (error) =>
+            Effect.fail(
+              new BundleNotSelfContainedError({
+                exitCode: error.exitCode,
+                output: `${error.stderrTail ?? ""}${error.stdoutTail ?? ""}`.trim(),
+              }),
+            ),
+        }),
+      );
+    }
   },
 );
 
@@ -2615,6 +2634,31 @@ export const stageBrowserSecret = Effect.fn("stageBrowserSecret")(function* (inp
   );
 });
 
+export const stageAppleSpeech = Effect.fn("stageAppleSpeech")(function* (input: {
+  readonly repoRoot: string;
+  readonly stageResourcesDir: string;
+  readonly platform: typeof BuildPlatform.Type;
+  readonly arch: typeof BuildArch.Type;
+  readonly verbose: boolean;
+}) {
+  if (input.platform !== "mac") return;
+  const path = yield* Path.Path;
+  yield* runCommand(
+    ChildProcess.make(
+      "node",
+      [
+        path.join(input.repoRoot, "apps/desktop/scripts/build-apple-speech.mjs"),
+        "--arch",
+        input.arch,
+        "--output",
+        path.join(input.stageResourcesDir, "apple-speech", "t3-apple-speech"),
+      ],
+      { cwd: input.repoRoot },
+    ),
+    { label: "build macOS Apple Speech helper", verbose: input.verbose },
+  );
+});
+
 const generateMacIconSet = Effect.fn("build-desktop-artifact.generateMacIconSet")(function* (
   sourcePng: string,
   targetIcns: string,
@@ -2877,11 +2921,6 @@ export function isDesktopPreviewVersion(version: string): boolean {
   return /-pr\./.test(version) || /-preview\.\d{8}\.\d+$/.test(version);
 }
 
-/** `<upstream>-agentd.N`: on the stable channel, but AgentD has no update feed yet. */
-export function isAgentdDesktopVersion(version: string): boolean {
-  return /^\d+\.\d+\.\d+-agentd\.\d+$/.test(version);
-}
-
 export function resolveDesktopWebAssetBrand(version: string): WebAssetBrand {
   return resolveWebAssetBrandForChannel(resolveDesktopUpdateChannel(version));
 }
@@ -2951,6 +2990,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       author: { name: "LibraOS" },
       homepage: "https://github.com/libraos/agentd-next",
       ...(platform === "linux" ? { desktopName: `${DESKTOP_APP_ID}.desktop` } : {}),
+      // Squirrel.Mac refuses an update to an ad-hoc signed app; the updater links the release.
+      ...(platform === "mac" && !signed ? { agentdUpdateInstall: "release-page" } : {}),
     },
     electronLanguages: [...DESKTOP_ELECTRON_LANGUAGES],
     files: [
@@ -2972,6 +3013,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       ...DESKTOP_EXTRA_RESOURCES,
       ...(platform === "linux" ? LINUX_CAPTURE_EXTRA_RESOURCES : []),
       ...(platform === "linux" ? LINUX_BROWSER_SECRET_EXTRA_RESOURCES : []),
+      ...(platform === "mac" ? MAC_APPLE_SPEECH_EXTRA_RESOURCES : []),
       ...(platform === "win" ? WINDOWS_SERVER_EXTRA_RESOURCES : []),
       ...(platform === "win" && wslRuntimeBundled ? WSL_RUNTIME_EXTRA_RESOURCES : []),
     ],
@@ -2979,7 +3021,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   const updateChannel = resolveDesktopUpdateChannel(version);
   // Missing publish config infers a GitHub feed from tokens; staging has no repository, so manifest generation would crash.
   buildConfig.publish = null;
-  if (!isDesktopPreviewVersion(version) && !isAgentdDesktopVersion(version)) {
+  if (!isDesktopPreviewVersion(version)) {
     const publishConfig = yield* resolveGitHubPublishConfig(updateChannel);
     if (publishConfig) {
       buildConfig.publish = [publishConfig];
@@ -3017,6 +3059,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
           "AgentD Next lets commands run by terminals and coding agents use the camera.",
         NSMicrophoneUsageDescription:
           "AgentD Next lets commands run by terminals and coding agents use the microphone.",
+        NSSpeechRecognitionUsageDescription:
+          "AgentD Next transcribes your dictation on this Mac when you choose Apple Speech.",
         // macOS lists an app under Default web browser only when it opens web
         // pages as documents as well as http and https links (see protocols).
         CFBundleDocumentTypes: [
@@ -3864,8 +3908,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
   });
 
   const appVersion =
-    options.version ??
-    resolveAgentdDesktopVersion(resolveTaggedSourceVersion(repoRoot, serverPackageJson.version));
+    options.version ?? resolveTaggedSourceVersion(repoRoot, serverPackageJson.version);
   const iconAssets = resolveDesktopBuildIconAssets(appVersion);
   const commitHash = yield* resolveGitCommitHash(repoRoot);
   const mkdir = options.keepStage ? fs.makeTempDirectory : fs.makeTempDirectoryScoped;
@@ -4010,6 +4053,13 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
       });
   }
   yield* stageBrowserSecret({
+    repoRoot,
+    stageResourcesDir,
+    platform: options.platform,
+    arch: options.arch,
+    verbose: options.verbose,
+  });
+  yield* stageAppleSpeech({
     repoRoot,
     stageResourcesDir,
     platform: options.platform,
