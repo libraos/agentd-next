@@ -24,6 +24,7 @@ New files: `apps/server/src/orchestration-v2/AutoContinuationReactor.ts` (+ test
 - `apps/web/src/session-logic.ts`, `apps/mobile/src/lib/threadActivity.ts` — show assistant text without the status line.
 - `apps/web/src/components/settings/SettingsPanels.tsx`, `settingsSearch.ts` — the switch under Follow-ups.
 - `packages/provider-core/src/server/runtimeInstructions.ts` — ask every harness for the status line.
+- `packages/provider-pi/src/server/mcpExtensionSource.ts` (+ test) — Pi, which takes no runtime instructions, gets the status line through its system prompt hook.
 - `packages/provider-core/src/server/runtimeInstructions.test.ts` — assert the status line is asked for.
 - `apps/server/src/orchestration-v2/Orchestrator.ts` — copy the field onto runs, refuse a continuation that is stale or changes provider or model, let it carry its notice, and add `noteRunSystemNotice` for the "not continued" note.
 - `apps/server/src/server.ts` — start the reactor, with the plugin service its before-send check reads.
