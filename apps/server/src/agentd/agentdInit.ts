@@ -1,4 +1,9 @@
-import type { AgentdError, AgentdSetupState } from "@t3tools/contracts";
+import {
+  AgentdCommandError,
+  type AgentdError,
+  type AgentdSetupStartInput,
+  type AgentdSetupState,
+} from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as PtyAdapter from "@t3tools/shared/PtyAdapter";
 import * as Context from "effect/Context";
@@ -14,6 +19,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as ProcessRunner from "../processRunner.ts";
 import { AgentdBridge } from "./AgentdBridge.ts";
 import { agentdArgs } from "./agentdCommands.ts";
+import { initTakesPermissionMode } from "./permissionMode.ts";
 
 // `agentd init` for this environment, run when the person clicks Accept in the app. agentd v0.1.13
 // accepts its EULA only by `yes` typed at a terminal, so init runs in a pseudo-terminal; the app
@@ -23,7 +29,7 @@ export class AgentdInit extends Context.Service<
   AgentdInit,
   {
     /** Starts init unless it runs already; answers at once with the run's state. */
-    readonly start: Effect.Effect<AgentdSetupState, AgentdError>;
+    readonly start: (input: AgentdSetupStartInput) => Effect.Effect<AgentdSetupState, AgentdError>;
     readonly subscribe: Stream.Stream<AgentdSetupState>;
   }
 >()("t3/agentd/agentdInit") {}
@@ -73,6 +79,11 @@ function lastLine(text: string): string {
   return text.slice(text.lastIndexOf("\n") + 1);
 }
 
+interface InitFlags {
+  readonly acceptEula: boolean;
+  readonly permissionMode: boolean;
+}
+
 type PtyEvent =
   | { readonly type: "data"; readonly data: string }
   | { readonly type: "exit"; readonly exitCode: number };
@@ -85,8 +96,8 @@ const make = Effect.fn("AgentdInit.make")(function* () {
   const scope = yield* Effect.scope;
   const state = yield* SubscriptionRef.make<AgentdSetupState>(IDLE);
   const lock = yield* Semaphore.make(1);
-  // Whether an agentd version takes a non-interactive EULA flag, read from its `init --help` once.
-  const acceptFlag = new Map<string, boolean>();
+  // Which flags an agentd version's init takes, read from its `init --help` once.
+  const initFlags = new Map<string, InitFlags>();
 
   const read = (command: string, argv: ReadonlyArray<string>) =>
     runner.run({ command, args: argv, timeout: Duration.seconds(30) }).pipe(
@@ -94,21 +105,25 @@ const make = Effect.fn("AgentdInit.make")(function* () {
       Effect.orElseSucceed(() => ""),
     );
 
-  const hasAcceptFlag = Effect.fn("AgentdInit.hasAcceptFlag")(function* (command: string) {
+  const readInitFlags = Effect.fn("AgentdInit.initFlags")(function* (command: string) {
     const version = `${command}\n${(yield* read(command, agentdArgs.version())).trim()}`;
-    const known = acceptFlag.get(version);
+    const known = initFlags.get(version);
     if (known !== undefined) return known;
-    const found = (yield* read(command, agentdArgs.initHelp())).includes("--accept-eula");
-    acceptFlag.set(version, found);
+    const help = yield* read(command, agentdArgs.initHelp());
+    const found = {
+      acceptEula: help.includes("--accept-eula"),
+      permissionMode: initTakesPermissionMode(help),
+    };
+    initFlags.set(version, found);
     return found;
   });
 
-  const run = Effect.fn("AgentdInit.run")(function* (command: string, flag: boolean) {
+  const run = Effect.fn("AgentdInit.run")(function* (command: string, argv: ReadonlyArray<string>) {
     const home = yield* HostProcess.HomeDirectory;
     const spawned = yield* pty
       .spawn({
         shell: command,
-        args: [...agentdArgs.init(flag)],
+        args: [...argv],
         cwd: home,
         cols: 100,
         rows: 30,
@@ -200,34 +215,47 @@ const make = Effect.fn("AgentdInit.make")(function* () {
     }));
   });
 
-  const start: AgentdInit["Service"]["start"] = lock
-    .withPermits(1)(
-      Effect.gen(function* () {
-        const current = yield* SubscriptionRef.get(state);
-        if (current.phase === "running") return current;
-        const command = yield* bridge.setupBinary;
-        const flag = yield* hasAcceptFlag(command);
-        const running: AgentdSetupState = {
-          ...IDLE,
-          phase: "running",
-          attempt: current.attempt + 1,
-        };
-        yield* SubscriptionRef.set(state, running);
-        // The run outlives the request: init goes on if every client disconnects.
-        yield* Effect.forkIn(
-          Effect.scoped(run(command, flag)).pipe(
-            Effect.ensuring(
-              SubscriptionRef.update(state, (s): AgentdSetupState =>
-                s.phase === "running" ? { ...s, phase: "failed" } : s,
+  const start: AgentdInit["Service"]["start"] = (input) =>
+    lock
+      .withPermits(1)(
+        Effect.gen(function* () {
+          const current = yield* SubscriptionRef.get(state);
+          if (current.phase === "running") return current;
+          const command = yield* bridge.setupBinary;
+          const flags = yield* readInitFlags(command);
+          const choice = input.permissionMode ?? null;
+          if (flags.permissionMode && choice === null) {
+            const status = yield* bridge.status.pipe(Effect.option);
+            if (status._tag === "Some" && status.value.firstSetup === true) {
+              return yield* new AgentdCommandError({
+                message: "Choose how much workers may do without asking, then set up again.",
+                notSetUp: true,
+              });
+            }
+          }
+          const running: AgentdSetupState = {
+            ...IDLE,
+            phase: "running",
+            attempt: current.attempt + 1,
+            ...(choice !== null && !flags.permissionMode ? { permissionModeIgnored: true } : {}),
+          };
+          const argv = agentdArgs.init(flags.acceptEula, flags.permissionMode ? choice : null);
+          yield* SubscriptionRef.set(state, running);
+          // The run outlives the request: init goes on if every client disconnects.
+          yield* Effect.forkIn(
+            Effect.scoped(run(command, argv)).pipe(
+              Effect.ensuring(
+                SubscriptionRef.update(state, (s): AgentdSetupState =>
+                  s.phase === "running" ? { ...s, phase: "failed" } : s,
+                ),
               ),
             ),
-          ),
-          scope,
-        );
-        return running;
-      }),
-    )
-    .pipe(Effect.withSpan("AgentdInit.start"));
+            scope,
+          );
+          return running;
+        }),
+      )
+      .pipe(Effect.withSpan("AgentdInit.start"));
 
   return AgentdInit.of({ start, subscribe: SubscriptionRef.changes(state) });
 });

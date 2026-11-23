@@ -288,6 +288,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.agentdSetWorkerGateway]: "agentd",
   [WS_METHODS.agentdSetupStart]: "agentd",
   [WS_METHODS.agentdSubscribeSetup]: "agentd",
+  [WS_METHODS.agentdPermissionMode]: "agentd",
+  [WS_METHODS.agentdLowerPermissionMode]: "agentd",
   [WS_METHODS.agentdSkillsList]: "agentd",
   [WS_METHODS.agentdSkillsInstall]: "agentd",
   [WS_METHODS.agentdSkillsRemove]: "agentd",

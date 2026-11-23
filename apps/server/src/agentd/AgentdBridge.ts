@@ -34,6 +34,7 @@ import {
   type AgentdConnectAgentInput,
   type AgentdEula,
   type AgentdInboxItem,
+  type AgentdPermissionModeState,
   type AgentdJoinTeamInput,
   type AgentdPeople,
   type AgentdPeopleInput,
@@ -85,6 +86,7 @@ import {
   suggestCheck,
 } from "./taskDefaults.ts";
 import { joinedPerson, mergeTaskHolders, repositoryTargets } from "./taskOthers.ts";
+import { claudeAttachCommand, permissionModeState } from "./permissionMode.ts";
 
 export class AgentdBridge extends Context.Service<
   AgentdBridge,
@@ -157,6 +159,10 @@ export class AgentdBridge extends Context.Service<
       tool: AgentdWorkerTool,
       choice: WorkerGatewayChoice | null,
     ) => Effect.Effect<void, AgentdError>;
+    /** The worker permission mode as agentd holds it. */
+    readonly permissionMode: Effect.Effect<AgentdPermissionModeState, AgentdError>;
+    /** Sets it to guarded; the value is fixed, so the app can never raise the mode. */
+    readonly lowerPermissionMode: Effect.Effect<AgentdPermissionModeState, AgentdError>;
   }
 >()("t3/agentd/AgentdBridge") {}
 
@@ -853,11 +859,44 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return { estimate, check };
   });
 
+  const permissionMode = Effect.gen(function* () {
+    const read = (key: Parameters<typeof agentdArgs.configGet>[0]) =>
+      run(agentdArgs.configGet(key)).pipe(
+        Effect.map((stdout): string | null => stdout),
+        // An agentd from before the setting answers "setting is not exposed".
+        Effect.catchTags({
+          AgentdCommandError: (error) =>
+            error.notSetUp ? Effect.fail(error) : Effect.succeed(null),
+        }),
+      );
+    const [global, roles, repos] = yield* Effect.all(
+      [
+        read("dispatch.permission_mode"),
+        read("dispatch.permission_mode_roles"),
+        read("dispatch.permission_mode_repos"),
+      ],
+      { concurrency: 3 },
+    );
+    return permissionModeState(global, roles, repos);
+  }).pipe(Effect.withSpan("AgentdBridge.permissionMode"));
+
   return AgentdBridge.of({
     status,
     subscribeTasks,
     task: Effect.fn("AgentdBridge.task")(function* (input) {
-      return AgentdJson.agentdTask(yield* readShow(input.id));
+      const show = yield* readShow(input.id);
+      const task = AgentdJson.agentdTask(show);
+      const log = show.worker_log ?? "";
+      if (task.workerState !== "blocked" || task.workerTool !== "claude") return task;
+      const head =
+        log === ""
+          ? ""
+          : yield* logSize(log).pipe(
+              Effect.flatMap((size) => readLog(log, 0, Math.min(size, OUTPUT_TAIL_BYTES))),
+              Effect.map((bytes) => new TextDecoder().decode(bytes)),
+              Effect.orElseSucceed(() => ""),
+            );
+      return { ...task, attachCommand: claudeAttachCommand(head) };
     }),
     subscribeTaskOutput,
     stopTask: Effect.fn("AgentdBridge.stopTask")(function* (input) {
@@ -961,6 +1000,11 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       yield* run(gateway);
       yield* run(model);
     }),
+    permissionMode,
+    lowerPermissionMode: run(agentdArgs.lowerPermissionMode()).pipe(
+      Effect.andThen(permissionMode),
+      Effect.withSpan("AgentdBridge.lowerPermissionMode"),
+    ),
   });
 });
 

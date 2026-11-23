@@ -11,6 +11,7 @@ import {
 import type {
   AgentdCloudTaskInput,
   AgentdConnectAgentInput,
+  AgentdPermissionMode,
   AgentdStartTaskInput,
   AgentdWorkerTool,
 } from "@t3tools/contracts";
@@ -219,8 +220,16 @@ export const agentdArgs = {
   // The per-plan credential report; older agentd answers the config keys below.
   cloudSubscription: () => ["cloud", "subscription", "--json"],
   configGet: (
-    key: "cloud.claude_token_file" | "cloud.claude_token_expires_about" | "cloud.codex_auth_file",
+    key:
+      | "cloud.claude_token_file"
+      | "cloud.claude_token_expires_about"
+      | "cloud.codex_auth_file"
+      | "dispatch.permission_mode"
+      | "dispatch.permission_mode_roles"
+      | "dispatch.permission_mode_repos",
   ) => ["config", "get", key, "--json"],
+  // The value is fixed: the app may only lower the mode; raising is an owner's at a terminal.
+  lowerPermissionMode: () => ["config", "set", "dispatch.permission_mode", "guarded"],
   estimate: (type: "small" | "feature" | "complex" | "implement") => [
     "handoff",
     "estimate",
@@ -331,11 +340,12 @@ export const agentdArgs = {
   foreground: (minutes: number) => ["worker", "foreground", "on", "--for", `${minutes}m`],
   eula: () => ["eula"],
   initHelp: () => ["init", "--help"],
-  // Run in the home folder, so init registers no repository; the flag once agentd has one.
-  init: (acceptFlag: boolean) => [
+  // Run in the home folder, so init registers no repository; each flag once agentd has it.
+  init: (acceptFlag: boolean, permissionMode: AgentdPermissionMode | null = null) => [
     "init",
     "--route",
     "on",
     ...(acceptFlag ? ["--accept-eula"] : []),
+    ...(permissionMode === null ? [] : ["--permission-mode", permissionMode]),
   ],
 } as const;

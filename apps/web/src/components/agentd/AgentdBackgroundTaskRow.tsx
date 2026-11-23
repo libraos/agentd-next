@@ -14,6 +14,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { AgentdTaskOutput } from "./AgentdTaskOutput";
+import { TaskWaiting } from "./WorkerPermissionMode";
 import { BackgroundTaskCard } from "./BackgroundTaskCard";
 import { CloudTaskReviewActions } from "./CloudTaskReview";
 import {
@@ -508,6 +509,9 @@ export function AgentdBackgroundTaskRow(props: {
             Couldn&apos;t load task details: <Var>{error}</Var>
           </T>
         </p>
+      ) : null}
+      {task && !cloud && !finished && task.workerState === "blocked" ? (
+        <TaskWaiting task={task} />
       ) : null}
       {task && !cloud ? (
         <TaskBudgetDetails task={task} finished={finished} elapsedMs={elapsedMs} />

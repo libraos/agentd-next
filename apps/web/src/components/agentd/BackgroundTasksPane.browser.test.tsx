@@ -33,6 +33,7 @@ vi.mock("../../lib/agentdState", async () => {
       cloudReview: (target: unknown) => target,
     },
     useAgentdCommands: () => ({ stopTask: bridge.stopTask }),
+    useAgentdPermissionMode: () => ({ data: null, error: null }),
   };
 });
 

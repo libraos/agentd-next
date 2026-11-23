@@ -51,6 +51,12 @@ export function staleRegistrations(doctor: AgentdDoctorJson): AgentdWorkerTool[]
   );
 }
 
+/** doctor's config check says the root has no config.toml yet: init still takes a permission mode. */
+function firstSetup(doctor: AgentdDoctorJson): boolean {
+  const detail = doctor.checks.find((check) => check.id === "config")?.detail ?? "";
+  return /\bno config\.toml\b/.test(detail);
+}
+
 /** The EULA version doctor's activation check says is accepted; false: none is; null: it does not say. */
 export function acceptedEula(doctor: AgentdDoctorJson): string | false | null {
   const detail = doctor.checks.find((check) => check.id === "activation")?.detail ?? "";
@@ -90,6 +96,7 @@ export function agentdStatus(
       accepted !== false &&
       (accepted === null || sameEula(accepted, carriedEula)),
     ...(teamServer === undefined ? {} : { teamServer }),
+    firstSetup: firstSetup(doctor),
     checks: doctor.checks.map((check) => ({
       id: check.id,
       status: check.status,
@@ -126,6 +133,11 @@ export function agentdTaskRow(row: AgentdHandoffListJsonRow): AgentdTaskRow {
 function optionalReport(note: string | null | undefined): { report?: string } {
   const report = nonEmpty(note);
   return report === null ? {} : { report };
+}
+
+function optionalWait(show: AgentdHandoffShowJson): { waitingFor?: string } {
+  const wait = show.worker_state === "blocked" ? nonEmpty(show.worker_wait) : null;
+  return wait === null ? {} : { waitingFor: wait };
 }
 
 function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
@@ -168,6 +180,7 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
       nonEmpty(show.worker_note) ??
       nonEmpty(show.close_reason),
     ...optionalReport(show.report_note),
+    ...optionalWait(show),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
     started: nonEmpty(show.created),

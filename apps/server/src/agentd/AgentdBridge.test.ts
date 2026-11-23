@@ -202,6 +202,7 @@ describe("AgentdBridge", () => {
         defaultWorker: "opencode",
         dollarBudgets: false,
         teamServer: "https://team.example:8443/agentd",
+        firstSetup: false,
         checks: [
           { id: "binary", status: "pass", detail: "agentd v0.1.13 0d0b360a58c0", fix: null },
           {
@@ -294,6 +295,78 @@ describe("AgentdBridge", () => {
         started: "2026-11-18T06:24:58+00:00",
         updated: "2026-11-18T06:47:57+00:00",
       });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("says what a blocked Claude worker waits for and how to attach to it", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const log = `${yield* fs.makeTempDirectoryScoped()}/hof-a6e5f4e329.log`;
+      yield* fs.writeFileString(log, "backgrounded · 4f1e2d3c4b · claude attach 4f1e2d3c4b\n");
+      const blocked = JSON.stringify({
+        ...JSON.parse(SHOW_JSON),
+        state: "claimed",
+        worker_state: "blocked",
+        worker_wait: "permission prompt: Bash(npm install)",
+        worker_log: log,
+      });
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) =>
+        input.args.join(" ") === "handoff show hof-a6e5f4e329 --json"
+          ? Effect.succeed(output(blocked))
+          : Effect.die(`unexpected agentd ${input.args.join(" ")}`),
+      );
+      const task = yield* bridge.task({ id: "hof-a6e5f4e329" });
+      expect(task.waitingFor).toBe("permission prompt: Bash(npm install)");
+      expect(task.attachCommand).toBe("claude attach 4f1e2d3c4b");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("lowers the permission mode with the fixed guarded value and reads it back", () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      let mode = "yolo";
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const key = input.args.join(" ");
+        calls.push(key);
+        switch (key) {
+          case "config set dispatch.permission_mode guarded":
+            mode = "guarded";
+            return Effect.succeed(output('{"changed":true}\n'));
+          case "config get dispatch.permission_mode --json":
+            return Effect.succeed(output(`"${mode}"\n`));
+          case "config get dispatch.permission_mode_roles --json":
+            return Effect.succeed(output("{}\n"));
+          case "config get dispatch.permission_mode_repos --json":
+            return Effect.succeed(output('{"/src/app":"yolo"}\n'));
+          default:
+            return Effect.die(`unexpected agentd ${key}`);
+        }
+      });
+      expect(yield* bridge.permissionMode).toEqual({ mode: "yolo", scopedYolo: true });
+      expect(yield* bridge.lowerPermissionMode).toEqual({ mode: "guarded", scopedYolo: true });
+      expect(calls.filter((call) => call.startsWith("config set"))).toEqual([
+        "config set dispatch.permission_mode guarded",
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports agentd's refusal to lower the mode and an agentd without the setting", () =>
+    Effect.gen(function* () {
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const key = input.args.join(" ");
+        if (key === "config set dispatch.permission_mode guarded")
+          return Effect.succeed({
+            ...output("", 1),
+            stderr:
+              "agentd config set dispatch.permission_mode refused: CLAUDECODE is set, so this shell is an agent's\n",
+          });
+        if (key.startsWith("config get "))
+          return Effect.succeed({ ...output("", 1), stderr: "setting is not exposed\n" });
+        return Effect.die(`unexpected agentd ${key}`);
+      });
+      const error = yield* Effect.flip(bridge.lowerPermissionMode);
+      expect(error.message).toContain("CLAUDECODE is set");
+      expect(yield* bridge.permissionMode).toEqual({ mode: null, scopedYolo: false });
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

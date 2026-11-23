@@ -30,6 +30,7 @@ import { getAppModalReturnThreadTarget } from "../sidebar/mainAppLocation";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { AgentdNeedsYou, AgentdRead, AgentdSection, AgentdStatusDetails } from "./AgentdPageReads";
+import { TaskWaiting } from "./WorkerPermissionMode";
 import { AgentdPageCloud } from "./AgentdPageCloud";
 import { AgentdPagePlugins } from "./AgentdPagePlugins";
 import { AgentdPageWorkers } from "./AgentdPageWorkers";
@@ -135,6 +136,7 @@ export function AgentdPage() {
                       <p className="whitespace-pre-wrap break-words">{data.goal}</p>
                     ) : null}
                     <p className="text-muted-foreground">{data.workerState ?? data.state}</p>
+                    {data.workerState === "blocked" ? <TaskWaiting task={data} /> : null}
                     {data.note ? (
                       <p className="whitespace-pre-wrap break-words">{data.note}</p>
                     ) : null}
