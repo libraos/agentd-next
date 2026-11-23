@@ -1,13 +1,13 @@
-# Running AgentD Next in the background
+# Running LibraOS Next in the background
 
-On Linux, macOS, and Windows, AgentD Next can run as a service for your user so you
+On Linux, macOS, and Windows, LibraOS Next can run as a service for your user so you
 do not need to keep a terminal open.
 
 ## Manage the service
 
 Install the `agentd-next` command first, with its `t3` alias
-([Install AgentD Next](./install.md#the-agentd-next-command)), then run these commands on the
-machine that will host AgentD Next. Installing the service downloads a server runtime, so it needs
+([Install LibraOS Next](./install.md#the-agentd-next-command)), then run these commands on the
+machine that will host LibraOS Next. Installing the service downloads a server runtime, so it needs
 a release mirror: set `T3CODE_RELEASE_BASE_URL` to one, or use the managed policy's
 `updates.feedUrl`. Without one, the install stops at finding a release source for this build.
 
@@ -32,7 +32,7 @@ the old version until you run `t3 service restart`. Pass `--yes` from a
 script. A server you started by hand is left running; stop and start it again
 to pick up the new version. Wait for any remote update already in progress
 before updating; to match a remote client's version, follow
-[Updating AgentD Next](./updating.md).
+[Updating LibraOS Next](./updating.md).
 
 Pass an exact version (`t3 update 0.0.42`) to pin one, `--channel nightly` to
 switch trains, or `--allow-downgrade` to move backwards. `preview` is a
@@ -43,7 +43,7 @@ installing one.
 `t3 uninstall` removes the background service, the `t3` launcher, and the
 downloaded versions after showing you the list and asking once. Your projects,
 threads, and settings under `~/.t3/userdata` are kept, along with `service.env`
-under the AgentD Next home directory. Pass `--yes` from a script.
+under the LibraOS Next home directory. Pass `--yes` from a script.
 
 ## Local network access
 
@@ -61,7 +61,7 @@ network. `t3 status` says so, and `t3 up --no-lan` turns it off. Any
 
 ## Configure the service environment
 
-Put custom environment variables in `service.env` under the service's AgentD Next home directory
+Put custom environment variables in `service.env` under the service's LibraOS Next home directory
 directory, normally `~/.t3/service.env`. This file survives service installation
 and updates. For example:
 
@@ -81,11 +81,11 @@ For a service installed before env-file support, run `t3 service install` once
 with an up-to-date CLI.
 A missing file is ignored; other read failures stop service startup.
 If the file contains credentials, restrict access to that file with `chmod 600`
-(for the default AgentD Next home directory, `chmod 600 ~/.t3/service.env`).
+(for the default LibraOS Next home directory, `chmod 600 ~/.t3/service.env`).
 
 ## Platform support
 
-Linux needs systemd user services. Setup enables lingering so AgentD Next starts at
+Linux needs systemd user services. Setup enables lingering so LibraOS Next starts at
 boot and keeps running after logout. If this needs administrator permission,
 setup prints a recovery command before changing the service.
 
@@ -139,14 +139,14 @@ ssh -t your-server 'sudo loginctl enable-linger "$(id -un)"'
 ```
 
 Then retry service setup as your normal user. Run only the `loginctl` command
-with sudo; running AgentD Next as root creates a separate installation. Without administrator access, run `t3 serve` in a terminal and keep
+with sudo; running LibraOS Next as root creates a separate installation. Without administrator access, run `t3 serve` in a terminal and keep
 that session open.
 
 | Status problem                          | Next step                                                                                                                      |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `linger-unavailable`                    | Run `loginctl show-user "$(id -un)" --property=Linger` and check that systemd-logind is available.                             |
 | `user-manager-unavailable`              | Run `systemctl --user status` in a login session for the service user; check your distribution's systemd user-session support. |
-| `service-disabled` or `service-stopped` | Read the log and, on Linux, `systemctl --user status t3code.service`, then use the repair command printed by AgentD Next.      |
+| `service-disabled` or `service-stopped` | Read the log and, on Linux, `systemctl --user status t3code.service`, then use the repair command printed by LibraOS Next.     |
 | `restart-pending`                       | A newer version is installed but the service still runs the previous one. Run `t3 service restart`.                            |
 
 On macOS, check **System Settings → General → Login Items** if the service no
@@ -157,15 +157,15 @@ Downloads, it may need Full Disk Access for the `t3` executable listed in
 
 ## Reclaim database space
 
-AgentD Next removes internal history older than a day on its own while it runs;
+LibraOS Next removes internal history older than a day on its own while it runs;
 your conversations are kept. Databases created before this shrank automatically
 still hold the freed space on disk until a one-time offline repair returns it
 and turns on automatic shrinking. Settings > Maintenance (web and desktop) or
 Settings > Maintenance (mobile) suggests the repair when at least 1 GiB can be
 reclaimed.
 
-When the desktop app or the background service runs AgentD Next on that machine,
-select **Reclaim** in Settings on web or desktop. AgentD Next checks for free disk
+When the desktop app or the background service runs LibraOS Next on that machine,
+select **Reclaim** in Settings on web or desktop. LibraOS Next checks for free disk
 space, then stops, repairs the database, and starts again. It is offline while
 the repair runs, and running agents stop. If the repair fails, Settings shows
 why.

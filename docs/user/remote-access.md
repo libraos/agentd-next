@@ -1,9 +1,9 @@
 # Remote access
 
-Connect a phone, browser, or another desktop app to AgentD Next running on a different
+Connect a phone, browser, or another desktop app to LibraOS Next running on a different
 machine. That machine must stay running and reachable while you work.
 
-Upstream's hosted relay (T3 Connect) and its accounts are not part of AgentD Next; connect over a LAN, a private network such as Tailscale, or SSH.
+Upstream's hosted relay (T3 Connect) and its accounts are not part of LibraOS Next; connect over a LAN, a private network such as Tailscale, or SSH.
 
 ## Set up with `t3 up`
 
@@ -32,7 +32,7 @@ For a command-line host, choose the local network in `t3 up`, or run:
 t3 up --lan
 ```
 
-For a server in a terminal, run `t3 serve --lan`. Either way, AgentD Next then
+For a server in a terminal, run `t3 serve --lan`. Either way, LibraOS Next then
 accepts connections from your local network and tailnet, so a pairing code is
 all that keeps other devices on them out.
 
@@ -76,7 +76,7 @@ that machine does not have yet; add that address with **Add route** instead.
 Pairing again over an address the machine already has still works. A new route
 is placed by speed, in that order, and you can reorder routes at any time.
 
-While connected through a paired address, AgentD Next also learns the
+While connected through a paired address, LibraOS Next also learns the
 machine's current LAN and Tailscale addresses and adds them as routes. When the
 machine's LAN address changes, for example after it joins another Wi-Fi network,
 the learned route follows it. The machine must allow network access for its LAN
@@ -86,10 +86,10 @@ You can reorder a learned route, but not remove it; it
 goes away with the route it was learned through, or when the machine stops
 reporting that address.
 
-AgentD Next connects over the first route that answers. Away from home, a LAN
+LibraOS Next connects over the first route that answers. Away from home, a LAN
 address that does not answer is checked briefly and skipped. It is only tried
 again, after the other routes, if none of them connect. While connected over a
-later route, AgentD Next checks the earlier ones when your network changes, when you
+later route, LibraOS Next checks the earlier ones when your network changes, when you
 return to the app, and every minute, and moves back as soon as one works. A
 route whose machine refused this device's sign-in is marked **Sign-in
 refused**; pair that address again with **Add route** to use it.
@@ -130,9 +130,9 @@ HTTPS** in **Settings → Sharing & access**. Turn it off there to remove that r
 
 Your tailnet needs MagicDNS and HTTPS certificates enabled; see
 [Tailscale's HTTPS setup](https://tailscale.com/docs/how-to/set-up-https-certificates).
-On Linux, AgentD Next also needs permission to manage Tailscale; see
+On Linux, LibraOS Next also needs permission to manage Tailscale; see
 [operator permission](https://tailscale.com/docs/reference/troubleshooting/linux/linux-operator-permission)
-for non-root users. If any of these is missing, AgentD Next still starts but can't
+for non-root users. If any of these is missing, LibraOS Next still starts but can't
 add the HTTPS route.
 
 To start a command-line server with Tailscale HTTPS:
@@ -160,7 +160,7 @@ If that port is already in use, choose another with
 
 ### Hosted web app
 
-Upstream's hosted web app at app.t3.codes is not part of AgentD Next; open the server's own address instead.
+Upstream's hosted web app at app.t3.codes is not part of LibraOS Next; open the server's own address instead.
 
 For a plain HTTP LAN endpoint, use the direct pairing URL in a browser that can
 open it, or pair from the desktop app. On mobile, an IP address entered without a
@@ -169,13 +169,13 @@ scheme uses HTTP, so include `https://` when your server uses HTTPS.
 ## Desktop-managed SSH
 
 In the desktop app, open **Settings → Environments → Add environment**, choose
-**SSH**, and enter a host or SSH alias such as `user@example.com`. AgentD Next starts
+**SSH**, and enter a host or SSH alias such as `user@example.com`. LibraOS Next starts
 or reuses a server there and opens the port forward for you. Projects, provider
 credentials, and agent work stay on the remote machine.
 
 The remote host must be Linux or an Apple Silicon Mac with `curl` or `wget`,
 `tar`, `sha256sum` or `shasum`, and [provider setup](./install.md#providers).
-The first launch downloads AgentD Next's server to `~/.t3/runtime` on the host, so
+The first launch downloads LibraOS Next's server to `~/.t3/runtime` on the host, so
 it takes longer than later ones. That download needs a release mirror: set
 `T3CODE_RELEASE_BASE_URL` to one, or install the server on the host yourself.
 Without either, the launch stops and says the build has no release source.
@@ -186,7 +186,7 @@ check with:
 ssh user@example.com 'sh -lc "command -v claude codex"'
 ```
 
-AgentD Next cannot answer a second sign-in prompt such as a Duo code. On macOS and
+LibraOS Next cannot answer a second sign-in prompt such as a Duo code. On macOS and
 Linux it can reuse a connection you signed in to in a terminal instead: turn on
 connection sharing for the host in `~/.ssh/config`, run `ssh <alias>`, then
 connect. When that connection closes, sign in again in a terminal and retry.
@@ -199,7 +199,7 @@ Host <alias>
 ```
 
 If SSH reconnecting fails after an app update, retry the launch once. Removing
-the connection stops a server that AgentD Next launched; a server that was already
+the connection stops a server that LibraOS Next launched; a server that was already
 running is left alone.
 
 Each desktop app keeps one session on the host for its SSH connection and reuses
@@ -265,7 +265,7 @@ anyone who can use the host's browser tabs can still view its `localhost` pages
 there. An administrator can also turn it off with a
 [managed policy](./managed-policy.md#other-capabilities).
 
-The first tab downloads a headless Chrome, about 120 MB, into the AgentD Next home directory. It
+The first tab downloads a headless Chrome, about 120 MB, into the LibraOS Next home directory. It
 is the same browser [HTML renders](html-renders.md) use, so a host downloads it
 only once. Some Linux hosts need [setup](#browser-host-setup) before it can
 start.
@@ -286,13 +286,13 @@ apps.
 ### Local servers
 
 The browser lists ports held by processes your terminals and agents started.
-AgentD Next reads which process holds each port and never connects to it, so a
+LibraOS Next reads which process holds each port and never connects to it, so a
 listed port opens as `http://localhost:<port>` and might not be a web page. For
 an HTTPS server or a specific path, set the **Preview URL** on the project
-script that starts it; AgentD Next checks that address and opens it as written.
+script that starts it; LibraOS Next checks that address and opens it as written.
 
 To stop listing ports, set `T3CODE_PORT_DISCOVERY=0` in the environment that
-starts the AgentD Next server, such as
+starts the LibraOS Next server, such as
 [`service.env`](./background-service.md#configure-the-service-environment) for
 the background service, and restart it. Script preview URLs still appear.
 
@@ -318,11 +318,11 @@ host restored from an image or snapshot, where the profile can be on disk
 without being loaded. Without `sudo`, it only reports what it would change.
 
 The browser runs in Chrome's sandbox by default. Chrome cannot start that sandbox
-as root. If your AgentD Next server runs as root, run it as a nonroot user to keep
+as root. If your LibraOS Next server runs as root, run it as a nonroot user to keep
 sandboxing enabled. `t3 browser setup` does not fix this root restriction.
 
 If you need to run as root, or cannot enable the sandbox on your host, set
-`T3CODE_SERVER_BROWSER_SANDBOX=0` in the **AgentD Next server's environment** and restart
+`T3CODE_SERVER_BROWSER_SANDBOX=0` in the **LibraOS Next server's environment** and restart
 the server. This disables Chrome's sandbox. For a manual launch:
 
 ```sh
@@ -331,12 +331,12 @@ T3CODE_SERVER_BROWSER_SANDBOX=0 t3 serve
 
 For a systemd service, add `Environment=T3CODE_SERVER_BROWSER_SANDBOX=0` under
 `[Service]` in its configuration, run `sudo systemctl daemon-reload`, then restart
-your AgentD Next service. Setting the variable in an agent's terminal does not change the
-environment of an already running AgentD Next server.
+your LibraOS Next service. Setting the variable in an agent's terminal does not change the
+environment of an already running LibraOS Next server.
 
 ## Connect an outside agent
 
-Claude Code, Codex, ChatGPT and other agents AgentD Next did not start can drive
+Claude Code, Codex, ChatGPT and other agents LibraOS Next did not start can drive
 threads on an environment through its MCP server. See
 [outside agents](./outside-agents.md) for setup.
 
@@ -397,7 +397,7 @@ an address you trust: the code is sent there.
   outside agent. Revoke it there to end it. **Forget** on this machine only
   removes it here.
 - A link stays valid while agents use it. One unused for 30 days expires, as
-  does one to a machine on an older version of AgentD Next after 30 days; link again with a
+  does one to a machine on an older version of LibraOS Next after 30 days; link again with a
   new pairing code.
 
 On web and desktop, **Settings → Environments** opens as a map of your machines:
@@ -480,7 +480,7 @@ any other thread on web and desktop, and a shorter read-only list on mobile.
 - If this app is already connected to that machine, the thread opens there as
   usual instead.
 - You need permission to read threads on the machine you are connected to, and
-  Linked environments must be on there. Both machines need a version of AgentD Next
+  Linked environments must be on there. Both machines need a version of LibraOS Next
   that has this view.
 
 ## Manage or revoke access
@@ -555,10 +555,10 @@ screenshots, logs, or bug reports.
 
 If a computer should only drive work running elsewhere, turn off its local environment. In the
 desktop app, open **Settings → Environments** and switch off **Local
-environment**. AgentD Next restarts without a local server: no local agents or terminals run, WSL
+environment**. LibraOS Next restarts without a local server: no local agents or terminals run, WSL
 backends stay off, and other devices can no longer connect to this computer. Your projects,
 history, and saved connections are kept, and you keep working through pairing or SSH.
-If a [background service](./background-service.md) on this computer uses the same AgentD Next home directory, the
+If a [background service](./background-service.md) on this computer uses the same LibraOS Next home directory, the
 app still treats it as this computer: **Open in** and file reveal for its projects run here,
 whichever connection you reach it through.
 

@@ -1,6 +1,6 @@
 # Source control
 
-AgentD Next integrates with GitHub, GitLab, Forgejo, Gitea, Bitbucket, Azure DevOps, GitCafe, and Cursor
+LibraOS Next integrates with GitHub, GitLab, Forgejo, Gitea, Bitbucket, Azure DevOps, GitCafe, and Cursor
 Origin to clone and publish repositories, create pull requests, and review changes.
 
 ## Review turn changes
@@ -31,19 +31,19 @@ shows its changes against its first parent.
 
 A commit link from a supported code host opens in the Diff pane when the thread's repository has
 that commit locally, on any branch. Otherwise a pull request commit link opens the pull request. Other
-commit links follow your **Open links in** setting; on web, when that opens a new tab, AgentD Next first
-shows an **Open link** button. Command/Ctrl+Click always opens the link in your browser. Commit links follow the **Open pull requests in AgentD Desktop**
+commit links follow your **Open links in** setting; on web, when that opens a new tab, LibraOS Next first
+shows an **Open link** button. Command/Ctrl+Click always opens the link in your browser. Commit links follow the **Open pull requests in LibraOS Next**
 setting in **Settings → Diffs**.
 
 ## Connect an account
 
-Install Git and configure authentication on the machine running your AgentD Next server. For a remote
+Install Git and configure authentication on the machine running your LibraOS Next server. For a remote
 environment, do this on the remote machine. After signing in, open **Settings → Source control & issues**
 and choose **Rescan**.
 
 ### GitHub
 
-AgentD Next talks to GitHub's API directly and only needs a token. Any of these works, in this
+LibraOS Next talks to GitHub's API directly and only needs a token. Any of these works, in this
 order of precedence:
 
 1. A token saved in **Settings → Source control & issues → GitHub**. It is kept in the server's secret
@@ -56,17 +56,17 @@ If `gh` is signed in to several accounts or hosts, expand **GitHub** in the same
 the account each host uses or turn a host off. A saved token or `GH_TOKEN` takes precedence
 over that choice; a host turned off stays off either way.
 
-For GitHub Enterprise, sign in with `gh auth login --hostname YOUR_HOST`. AgentD Next treats a
+For GitHub Enterprise, sign in with `gh auth login --hostname YOUR_HOST`. LibraOS Next treats a
 custom server name as GitHub once it has a credential for that host.
 
 ### Forgejo and Gitea
 
 Install [Forgejo CLI (`fj`)](https://codeberg.org/forgejo-contrib/forgejo-cli) or
-[Gitea CLI (`tea`)](https://gitea.com/gitea/tea) 0.16 or later on your AgentD Next server.
+[Gitea CLI (`tea`)](https://gitea.com/gitea/tea) 0.16 or later on your LibraOS Next server.
 Sign in with `fj --host https://your-server auth add-token` or `tea login add`.
 Repeat for each server you use, including Codeberg.
 
-AgentD Next prefers a matching `fj` login and falls back to `tea` when `fj` is unavailable
+LibraOS Next prefers a matching `fj` login and falls back to `tea` when `fj` is unavailable
 or has no login for that server. Once an account is selected, failed actions stay on that
 account. Settings shows the detected CLI. Forgejo and Gitea share one integration entry.
 Servers hosted under a URL subpath, such as `https://example.com/forgejo`, use `tea` because
@@ -102,7 +102,7 @@ Credentials are saved on the environment's server, so select a remote environmen
 it. Saved tokens can't be viewed again; enter a new one to replace it, or choose **Remove** to clear
 everything saved for Bitbucket.
 
-If no credentials are saved, AgentD Next falls back to these variables in the server's environment.
+If no credentials are saved, LibraOS Next falls back to these variables in the server's environment.
 Restart the server after changing them:
 
 ```bash
@@ -114,7 +114,7 @@ export T3CODE_BITBUCKET_API_TOKEN="your-token"
 
 For a background service, put these `KEY=VALUE` entries in
 [`service.env`](./background-service.md#configure-the-service-environment)
-under the AgentD Next home directory, then run `t3 service restart`. Service installation and updates
+under the LibraOS Next home directory, then run `t3 service restart`. Service installation and updates
 preserve that file.
 
 ### Azure DevOps
@@ -179,8 +179,8 @@ from GitHub keep their pull requests on GitHub; open those from the GitHub remot
 ## Start, clone, or publish a project
 
 To start from nothing, choose **New project** in the command palette (`Cmd/Ctrl+K`), or
-**New project** under **Add Project** on any client, and type a name. AgentD Next makes a Git
-repository in `~/.t3/projects` (the `projects` folder of your AgentD Next data directory) with a README,
+**New project** under **Add Project** on any client, and type a name. LibraOS Next makes a Git
+repository in `~/.t3/projects` (the `projects` folder of your LibraOS Next data directory) with a README,
 an icon, and a first commit, then opens a new thread in it. Until the project has a thread, new
 threads work in its folder, even when your default is a new worktree. The folder is named after the project,
 like `pinball-stats` for "Pinball Stats". Turn on **Create private repository on GitHub** to also
@@ -191,11 +191,11 @@ Use **Add Project** in the command palette (`Cmd/Ctrl+K`) to clone a repository.
 provider or paste a Git URL, then choose where to save it. Only GitHub is listed at first. To list
 another provider here and in **Publish Repository**, turn on its switch under
 **Settings → Source control & issues**. A branch or file page copied from GitHub,
-GitLab, GitCafe, Codeberg or Bitbucket also works: AgentD Next clones that repository's default branch.
+GitLab, GitCafe, Codeberg or Bitbucket also works: LibraOS Next clones that repository's default branch.
 On other hosts, paste the repository's clone URL. The project opens right away while the
 clone runs in the background: you can write your first prompt, and sending waits until the files
 are in place. A toast tracks progress and lets you cancel; if the clone fails, retry it from the
-toast or from the banner above the composer. When the host refuses the machine's SSH key, AgentD Next
+toast or from the banner above the composer. When the host refuses the machine's SSH key, LibraOS Next
 clones over HTTPS with Git's credentials for that host instead, and the project's remote uses the
 HTTPS URL.
 
@@ -210,7 +210,7 @@ make your first commit before pushing.
 
 ## Create a pull request
 
-Use a thread's Git actions to commit, push, and create a pull request. AgentD Next can generate commit
+Use a thread's Git actions to commit, push, and create a pull request. LibraOS Next can generate commit
 messages, review titles, and descriptions from your changes. Descriptions also draw on the work in
 the thread, including the checks it ran.
 
@@ -323,10 +323,10 @@ Tick a file off in the **Code** tab once you have read it and it collapses; the 
 running count. A tick belongs to the pull request rather than to a commit, so scoping the tab to a
 single commit keeps them. A file pushed to after you cleared it comes back marked **Changed**.
 
-On GitHub these are GitHub's own viewed marks, so a review carries between AgentD Next and github.com
+On GitHub these are GitHub's own viewed marks, so a review carries between LibraOS Next and github.com
 in either direction. Forgejo, GitLab, Bitbucket, Azure DevOps, and Cursor Origin expose no record
-AgentD Next can read, so the server you are connected to keeps them instead: they follow you across the
-apps connected to that server, but the host's own site will not show them, and the count reads **viewed in AgentD Desktop**.
+LibraOS Next can read, so the server you are connected to keeps them instead: they follow you across the
+apps connected to that server, but the host's own site will not show them, and the count reads **viewed in LibraOS Next**.
 
 On mobile, open a changed file and mark it viewed from its header. Viewed files collapse,
 and their marks follow the same rules as on web and desktop.
@@ -351,7 +351,7 @@ and so does an agent creating one with `gh pr create` or `glab mr create`. Agent
 pull requests with the `link_pull_request` tool.
 
 Agents can also read, open, update, reply on, and merge pull requests in the thread's repository
-through AgentD Next's own tools, which use the same sign-in as the Pull requests page. An agent merges
+through LibraOS Next's own tools, which use the same sign-in as the Pull requests page. An agent merges
 only the commit it last read: if someone pushed since, the merge is refused. On github.com an
 agent can also land a GitHub stack in one merge, like **Merge stack** below.
 
