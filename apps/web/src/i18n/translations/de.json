@@ -3648,6 +3648,8 @@
       "v": "v"
     }
   ],
+  "decad7c0a5151baa": "Umgebung der ursprünglichen Sitzung",
+  "f1276edb3a3928b3": "Vom Agenten in der importierten Sitzung erzeugt. Diese Werte beschreiben jene Sitzung, nicht diese.",
   "5771ed9dc77641e2": "Hervorgehobene Werte werden hier wiederhergestellt angezeigt. Der Agent hat nur Platzhalter gesehen.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",

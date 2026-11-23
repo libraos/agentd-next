@@ -3784,6 +3784,96 @@ describe("parseAgentSessionTranscript", () => {
     ]);
   });
 
+  it("moves the environment context Codex generated out of the imported messages", () => {
+    const context =
+      "<environment_context>\n  <cwd>/tmp/project</cwd>\n  <shell>zsh</shell>\n</environment_context>";
+    const later =
+      "<environment_context>\n  <current_date>2026-08-26</current_date>\n</environment_context>";
+    const typed = "<environment_context>\n  <cwd>/typed</cwd>\n</environment_context>";
+    const user = (turnId: string, text: string, kinds?: ReadonlyArray<string>) =>
+      encodeTranscriptRecord({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          internal_chat_message_metadata_passthrough: {
+            turn_id: turnId,
+            ...(kinds ? { content_item_kinds: kinds } : {}),
+          },
+          content: [{ type: "input_text", text }],
+        },
+      });
+    const assistant = (text: string) =>
+      encodeTranscriptRecord({
+        type: "response_item",
+        payload: { type: "message", role: "assistant", content: [{ type: "output_text", text }] },
+      });
+    const parse = (contents: ReadonlyArray<string>) =>
+      AgentSessionScanner.parseAgentSessionTranscript({
+        contents: [
+          encodeTranscriptRecord({ type: "session_meta", payload: { id: "codex-session" } }),
+          ...contents,
+        ].join("\n"),
+        source: "codex",
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        fallbackSessionId: "fallback",
+        lastActiveAtMs: Date.parse("2026-08-25T08:00:00.000Z"),
+      });
+
+    // Current Codex names each content item's kind.
+    const current = parse([
+      encodeTranscriptRecord({
+        type: "response_item",
+        payload: {
+          type: "message",
+          role: "user",
+          internal_chat_message_metadata_passthrough: {
+            turn_id: "turn-1",
+            content_item_kinds: ["agents_md.instructions", "environments.environment_context"],
+          },
+          content: [
+            { type: "input_text", text: "# AGENTS.md instructions for /tmp/project" },
+            { type: "input_text", text: context },
+          ],
+        },
+      }),
+      user("turn-1", "Open the cloud worker", ["user.text"]),
+      assistant("Opened."),
+      user("turn-2", typed, ["user.text"]),
+      user("turn-2", "Why is that cwd wrong?", ["user.text"]),
+    ]);
+    expect(current?.title).toBe("Open the cloud worker");
+    expect(current?.messages.map((message) => [message.role, message.text])).toEqual([
+      ["user", "# AGENTS.md instructions for /tmp/project"],
+      ["user", "Open the cloud worker"],
+      ["assistant", "Opened."],
+      ["user", typed],
+      ["user", "Why is that cwd wrong?"],
+    ]);
+    expect(current?.environmentContext).toBe(context);
+
+    // Older Codex writes the context as its own item ahead of the user's in that turn.
+    const older = parse([
+      user("turn-1", context),
+      user("turn-1", "Open the cloud worker"),
+      assistant("Opened."),
+      user("turn-2", later),
+      user("turn-2", context),
+      user("turn-2", "Again"),
+      assistant("Done."),
+      user("turn-3", typed),
+    ]);
+    expect(older?.title).toBe("Open the cloud worker");
+    expect(older?.messages.map((message) => [message.role, message.text])).toEqual([
+      ["user", "Open the cloud worker"],
+      ["assistant", "Opened."],
+      ["user", "Again"],
+      ["assistant", "Done."],
+      ["user", typed],
+    ]);
+    expect(older?.environmentContext).toBe(`${context}\n\n${later}`);
+  });
+
   it("titles a Codex event after the request that follows injected setup blocks", () => {
     const prompt = [
       "<recommended_plugins>\nGitHub\n</recommended_plugins>",

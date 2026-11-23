@@ -1979,6 +1979,8 @@ export const OrchestrationV2TurnItem = Schema.Union([
     message: Schema.String,
     level: Schema.optional(OrchestrationV2SystemNoticeLevel),
     mcpSignIn: Schema.optional(OrchestrationV2McpSignIn),
+    /** The environment context an imported session's agent generated, shown as plain text. */
+    importedEnvironment: Schema.optional(Schema.String),
   }),
   Schema.Struct({
     ...OrchestrationV2TurnItemBaseFields,
@@ -2869,6 +2871,8 @@ export const OrchestrationV2TurnItemJson = Schema.Union([
     message: Schema.String,
     level: Schema.optional(OrchestrationV2SystemNoticeLevel),
     mcpSignIn: Schema.optional(OrchestrationV2McpSignIn),
+    /** The environment context an imported session's agent generated, shown as plain text. */
+    importedEnvironment: Schema.optional(Schema.String),
   }),
   Schema.Struct({
     ...OrchestrationV2TurnItemJsonBaseFields,

@@ -38,6 +38,7 @@ import { ChatMarkdownAssetImage } from "./ChatMarkdownMedia";
 import type { ExpandedImagePreview } from "./ExpandedImagePreview";
 import { workGroupImageGallery } from "./markdownImageGallery";
 import { McpSignInAction } from "./McpSignInAction";
+import { ImportedEnvironmentRow } from "../agentd/ImportedEnvironmentRow";
 import * as DateTime from "effect/DateTime";
 import { ChevronRightIcon, CircleAlertIcon, XIcon, RotateCcwIcon } from "lucide-react";
 import { Button, InlineButton } from "../ui/button";
@@ -336,6 +337,9 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       ? ctx.pendingApprovals.get(failureItem.requestId)
       : undefined;
   if (pendingApproval) return <TimelinePendingApprovalRow approval={pendingApproval} />;
+  if (failureItem?.type === "system_notice" && failureItem.importedEnvironment !== undefined) {
+    return <ImportedEnvironmentRow environment={failureItem.importedEnvironment} />;
+  }
   if (failureItem?.type === "error" && failureItem.status === "failed") {
     const warning = failureItem.failure.class === "usage_limit";
     const resetAt = failureItem.failure.resetAt;

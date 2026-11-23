@@ -459,6 +459,37 @@ const make = Effect.gen(function* () {
                     },
                   ]
                 : []),
+              ...(thread.environmentContext === null
+                ? []
+                : [
+                    {
+                      id: EventId.make(`${IMPORT_EVENT_PREFIX}:environment:${threadId}`),
+                      type: "turn-item.updated" as const,
+                      threadId,
+                      occurredAt: createdAt,
+                      payload: {
+                        id: TurnItemId.make(`${IMPORT_EVENT_PREFIX}:environment:${threadId}`),
+                        threadId,
+                        runId: null,
+                        nodeId: null,
+                        providerThreadId: null,
+                        providerTurnId: null,
+                        nativeItemRef: null,
+                        parentItemId: null,
+                        ordinal: 0,
+                        status: "completed" as const,
+                        title: null,
+                        startedAt: createdAt,
+                        completedAt: createdAt,
+                        updatedAt: createdAt,
+                        type: "system_notice" as const,
+                        level: "info" as const,
+                        // What clients that predate importedEnvironment show instead.
+                        message: "Original session environment",
+                        importedEnvironment: thread.environmentContext,
+                      },
+                    },
+                  ]),
               ...thread.messages.flatMap((message, index) =>
                 messageEvents({ threadId, index, message }),
               ),
