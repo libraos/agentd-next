@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 MODEL_REPO = "libraos/veil-detect"
@@ -138,9 +139,43 @@ def load_detector(folder):
 _B = r"(?<![0-9A-Za-z])"
 _E = r"(?![0-9A-Za-z])"
 _USCC_CHAR = "[0-9A-HJ-NPQRTUWXY]"
-# Each rule masks its named group "v" when it has one, else the whole match.
+_PROVINCE = "[京津沪渝冀晋辽吉黑苏浙皖闽赣鲁豫鄂湘粤琼川贵云陕甘青蒙桂藏宁新]"
+_PLATE_CHAR = "[A-HJ-NP-Z0-9]"
+_NUM = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+_CAPITAL = "[零壹贰叁肆伍陆柒捌玖拾佰仟万萬亿億]"
+_CUR_WORD = "(?:元|圆|美元|港元|港币|欧元|英镑|日元)"
+
+
+def _digits(value):
+    return re.sub(r"[\s-]", "", value)
+
+
+def _luhn(value):
+    digits = _digits(value)
+    total = 0
+    for i, char in enumerate(reversed(digits)):
+        n = int(char) * (2 if i % 2 else 1)
+        total += n - 9 if n > 9 else n
+    return total % 10 == 0
+
+
+def _iban(value):
+    code = _digits(value).upper()
+    if not 15 <= len(code) <= 34:
+        return False
+    moved = code[4:] + code[:4]
+    return int("".join(str(int(c, 36)) for c in moved)) % 97 == 1
+
+
+def _plate(value):
+    # A serial of letters only is a word, not a plate; real ones carry at least three digits.
+    return sum(c.isdigit() for c in value[2:]) >= 3
+
+
+# Each rule masks its named group "v" when it has one, else the whole match; a third element is a
+# check the matched value must pass.
 RULES = [
-    ("email", re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")),
+    ("email", re.compile(r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")),
     ("credential", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----")),
     ("credential", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}")),
     ("credential", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})")),
@@ -168,16 +203,67 @@ RULES = [
     ("phone", re.compile(r"(?<![\d+])(?:\+?86[\s-]?)?1[3-9]\d(?:[\s-]?\d{4}){2}(?!\d)")),
     ("phone", re.compile(r"(?<![\w+])\+\d{1,3}[\s.-]?(?:\(\d{1,4}\)[\s.-]?)?\d{2,4}(?:[\s.-]?\d{2,4}){1,4}(?!\d)")),
     ("phone", re.compile(r"(?<![\w(])\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\d)")),
+    # Court case number: (year), court code, case type, serial, such as （2024）京0105民初12345号.
+    (
+        "case_number",
+        re.compile(
+            r"[（(〔\[]\s*(?:19|20)\d{2}\s*[）)〕\]]\s*(?:最高法|" + _PROVINCE + r"\d{0,4})"
+            r"[\u4e00-\u9fa5]{1,6}?\d{1,7}(?:-\d+)?号(?:之[一二三四五六七八九十])?"
+        ),
+    ),
+    # A number after an account keyword, whatever its format; on its own, a card number passing Luhn.
+    (
+        "bank_account",
+        re.compile(
+            r"(?i)(?:账号|帐号|账户|帐户|卡号|account\s*(?:no\.?|number)|a/c\s*no\.?)[^\d\n。；;，,]{0,12}?"
+            r"(?<!\d)(?P<v>\d{4}(?:[ -]\d{4}){2,6}(?:[ -]\d{1,4})?|\d{8,30})" + _E
+        ),
+    ),
+    ("bank_account", re.compile(r"(?<![0-9A-Za-z-])(?<![A-Z]{2}\d{2} )(?:[2-6]\d{15,18}|[2-6]\d{3}(?:[ -]\d{4}){3}(?:[ -]?\d{1,3})?)" + _E), _luhn),
+    ("iban", re.compile(_B + r"[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?" + _E), _iban),
+    # Amounts with a currency, in figures or Chinese capital numerals.
+    (
+        "amount",
+        re.compile(
+            r"(?:(?<![A-Za-z])(?:人民币|RMB|CNY|USD|HKD|EUR|GBP|JPY|美元|港币|港元|欧元|英镑|日元)\s*|[¥￥€£]\s?"
+            # $ alone before one digit is a shell or regex reference, not money.
+            r"|(?<![\w$])(?:US|HK)?\$(?=\d{1,3},\d{3}|\d+\.\d|\d{2}))"
+            + _NUM + r"(?:\s*(?:千万|百万|万|亿))?(?:\s*" + _CUR_WORD + r")?(?:整)?"
+            r"|(?<![\d.,])" + _NUM + r"\s*(?:千万|百万|万|亿)?\s*" + _CUR_WORD + r"(?:整)?"
+            r"|(?:人民币\s*)?(?<!" + _CAPITAL + r")[零壹贰叁肆伍陆柒捌玖拾]" + _CAPITAL + r"{0,24}[元圆](?:[零壹贰叁肆伍陆柒捌玖]角)?"
+            r"(?:[零壹贰叁肆伍陆柒捌玖]分)?整?"
+        ),
+    ),
+    # Mainland plate: province, issuing letter, five-character serial or six for new energy.
+    (
+        "plate",
+        re.compile(
+            r"(?<![0-9A-Za-z])" + _PROVINCE + r"[A-HJ-NP-Z][·•]?"
+            r"(?:[DF]" + _PLATE_CHAR + r"\d{4}|\d{5}[DF]|" + _PLATE_CHAR + r"{4}[A-HJ-NP-Z0-9挂学警])" + _E
+        ),
+        _plate,
+    ),
+    # Lawyer licence: category, region code, year first licensed, type, sex, serial; 17 digits.
+    ("lawyer_licence", re.compile(r"(?<!\d)[1-9][1-6]\d{3}(?:19[89]\d|20[0-4]\d)\d{8}(?!\d)")),
+    # Real estate title certificates, such as 京（2020）朝阳区不动产权第0012345号 or 京房权证朝字第123456号.
+    (
+        "property_certificate",
+        re.compile(
+            _PROVINCE + r"\s*[（(]\s*(?:19|20)\d{2}\s*[）)][\u4e00-\u9fa5]{0,12}?不动产(?:权|证明)第\s*\d{4,10}\s*号"
+            r"|" + _PROVINCE + r"房(?:地产?|产?权证|产证)[\u4e00-\u9fa5]{0,6}?字?\s*"
+            r"(?:[（(]\s*(?:19|20)\d{2}\s*[）)])?\s*第\s*\d{4,10}\s*号"
+        ),
+    ),
 ]
 
 
 def rule_spans(text):
     spans = []
-    for label, pattern in RULES:
+    for label, pattern, *check in RULES:
         for match in pattern.finditer(text):
             group = "v" if "v" in pattern.groupindex else 0
             start, end = match.span(group)
-            if start < end:
+            if start < end and all(passes(text[start:end]) for passes in check):
                 spans.append({"start": start, "end": end, "label": label})
     return spans
 
@@ -281,18 +367,34 @@ class Placeholders:
         return dict(self._map)
 
 
+_CLOSERS = dict(zip(")）]】}」』》〉”’", "(（[【{「『《〈“‘"))
+_OPENERS = {opener: closer for closer, opener in _CLOSERS.items()}
+
+
+def _strippable(char, value):
+    """Whitespace or punctuation at a span's edge, but not a bracket the span also closes or opens."""
+    if char.isspace():
+        return True
+    if not unicodedata.category(char).startswith("P"):
+        return False
+    pair = _CLOSERS.get(char) or _OPENERS.get(char)
+    return pair is None or pair not in value
+
+
 def _trimmed(text, span):
+    # veil-detect tags a full-width bracket or comma after a number as part of it; keep it in the text.
     start, end = span["start"], span["end"]
-    # Keep surrounding whitespace out of the placeholder.
-    while start < end and text[start].isspace():
+    while start < end and _strippable(text[start], text[start:end]):
         start += 1
-    while end > start and text[end - 1].isspace():
+    while end > start and _strippable(text[end - 1], text[start:end]):
         end -= 1
     return {"start": start, "end": end, "label": span["label"]} if start < end else None
 
 
 def find_spans(text, detect, deadline):
-    spans = merge_spans(refine_spans(text, detect(text, deadline)) + rule_spans(text))
+    # Rules first: where a rule and the model find the same span, the rule's more exact label names it.
+    found = rule_spans(text) + refine_spans(text, detect(text, deadline))
+    spans = merge_spans([span for span in (_trimmed(text, s) for s in found) if span])
     return [span for span in (_trimmed(text, s) for s in spans) if span]
 
 
