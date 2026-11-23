@@ -135,6 +135,7 @@ export const AgentdHandoffShowJson = Schema.Struct({
   cloud_state: NullableString,
   worker_log: NullableString,
   worker_note: NullableString,
+  worker_wait: NullableString,
   report_note: NullableString,
   close_reason: NullableString,
   project: NullableString,
@@ -289,6 +290,8 @@ export const AgentdStatus = Schema.Struct({
   install: Schema.optionalKey(Schema.NullOr(AgentdInstallRecord)),
   /** agentd's services on a missing or old agentd, as last checked; null when none. */
   servicesProblem: Schema.optionalKey(Schema.NullOr(AgentdServicesProblem)),
+  /** No config.toml yet, so `agentd init` still takes a permission mode. */
+  firstSetup: Schema.optionalKey(Schema.Boolean),
 });
 export type AgentdStatus = typeof AgentdStatus.Type;
 
@@ -369,6 +372,10 @@ export const AgentdTask = Schema.Struct({
   note: Schema.NullOr(Schema.String),
   /** The worker's latest progress report, while it runs. */
   report: Schema.optionalKey(Schema.String),
+  /** What a blocked worker waits for, as agentd recorded it (a permission prompt, a question). */
+  waitingFor: Schema.optionalKey(Schema.String),
+  /** The terminal command that opens a blocked worker's own session to answer it. */
+  attachCommand: Schema.optionalKey(Schema.String),
   project: Schema.NullOr(Schema.String),
   hasLog: Schema.Boolean,
   started: Schema.NullOr(Schema.String),
@@ -801,5 +808,26 @@ export const AgentdSetupState = Schema.Struct({
   exitCode: Schema.NullOr(Schema.Number),
   /** Why the app ended init: it asked something besides the EULA, ran too long, or did not start. */
   stopped: Schema.NullOr(Schema.Literals(["prompt", "timeout", "spawn"])),
+  /** The person chose a permission mode but this agentd's init takes no `--permission-mode`. */
+  permissionModeIgnored: Schema.optionalKey(Schema.Boolean),
 });
 export type AgentdSetupState = typeof AgentdSetupState.Type;
+
+/** How much agentd's workers may do without asking (`[dispatch] permission_mode`). */
+export const AgentdPermissionMode = Schema.Literals(["guarded", "yolo"]);
+export type AgentdPermissionMode = typeof AgentdPermissionMode.Type;
+
+export const AgentdSetupStartInput = Schema.Struct({
+  /** Asked at first setup only; agentd refuses the flag once a config exists. */
+  permissionMode: Schema.optionalKey(AgentdPermissionMode),
+});
+export type AgentdSetupStartInput = typeof AgentdSetupStartInput.Type;
+
+/** The mode as agentd holds it; the app keeps no copy. */
+export const AgentdPermissionModeState = Schema.Struct({
+  /** The global mode; null when this agentd does not report one. */
+  mode: Schema.NullOr(AgentdPermissionMode),
+  /** A role or repository set to yolo runs its workers without asking whatever the global mode. */
+  scopedYolo: Schema.Boolean,
+});
+export type AgentdPermissionModeState = typeof AgentdPermissionModeState.Type;

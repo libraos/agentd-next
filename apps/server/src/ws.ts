@@ -3828,8 +3828,10 @@ export const layerWsRpc = (
             return yield* workerGateway;
           },
         ),
-        [WS_METHODS.agentdSetupStart]: (_input) => agentdInit.start,
+        [WS_METHODS.agentdSetupStart]: (input) => agentdInit.start(input),
         [WS_METHODS.agentdSubscribeSetup]: (_input) => agentdInit.subscribe,
+        [WS_METHODS.agentdPermissionMode]: (_input) => agentd.permissionMode,
+        [WS_METHODS.agentdLowerPermissionMode]: (_input) => agentd.lowerPermissionMode,
         [WS_METHODS.agentdSkillsList]: (_input) => agentdSkills.list,
         [WS_METHODS.agentdSkillsInstall]: (input) => agentdSkills.install(input),
         [WS_METHODS.agentdSkillsRemove]: (input) => agentdSkills.remove(input),

@@ -262,6 +262,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentdEula]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdWorkerGateway]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdSubscribeSetup]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentdPermissionMode]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdSkillsList]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdPluginsList]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdBeforeSendReview]: AuthOrchestrationReadScope,

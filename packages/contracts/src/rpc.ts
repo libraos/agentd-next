@@ -429,6 +429,8 @@ import {
   AgentdWorkerGateway,
   AgentdWorkerGatewayInput,
   AgentdSetupState,
+  AgentdSetupStartInput,
+  AgentdPermissionModeState,
   AgentdCloudSetup,
   AgentdCloudSetupInput,
   AgentdCloudConfigureInput,
@@ -813,6 +815,8 @@ export const WS_METHODS = {
   agentdSetWorkerGateway: "agentd.setWorkerGateway",
   agentdSetupStart: "agentd.setupStart",
   agentdSubscribeSetup: "agentd.subscribeSetup",
+  agentdPermissionMode: "agentd.permissionMode",
+  agentdLowerPermissionMode: "agentd.lowerPermissionMode",
   agentdSkillsList: "agentd.skillsList",
   agentdSkillsInstall: "agentd.skillsInstall",
   agentdSkillsRemove: "agentd.skillsRemove",
@@ -2657,7 +2661,7 @@ const WsAgentdSetWorkerGatewayRpc = Rpc.make(WS_METHODS.agentdSetWorkerGateway, 
 });
 
 const WsAgentdSetupStartRpc = Rpc.make(WS_METHODS.agentdSetupStart, {
-  payload: Schema.Struct({}),
+  payload: AgentdSetupStartInput,
   success: AgentdSetupState,
   error: AgentdRpcError,
 });
@@ -2667,6 +2671,19 @@ const WsAgentdSubscribeSetupRpc = Rpc.make(WS_METHODS.agentdSubscribeSetup, {
   success: AgentdSetupState,
   error: AgentdRpcError,
   stream: true,
+});
+
+const WsAgentdPermissionModeRpc = Rpc.make(WS_METHODS.agentdPermissionMode, {
+  payload: Schema.Struct({}),
+  success: AgentdPermissionModeState,
+  error: AgentdRpcError,
+});
+
+// Only ever to guarded: raising is an owner's at their own terminal.
+const WsAgentdLowerPermissionModeRpc = Rpc.make(WS_METHODS.agentdLowerPermissionMode, {
+  payload: Schema.Struct({}),
+  success: AgentdPermissionModeState,
+  error: AgentdRpcError,
 });
 
 const AgentdSkillsRpcError = Schema.Union([AgentdSkillError, EnvironmentAuthorizationError]);
@@ -3049,6 +3066,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdWorkerGatewayRpc,
   WsAgentdSetWorkerGatewayRpc,
   WsAgentdSetupStartRpc,
+  WsAgentdPermissionModeRpc,
+  WsAgentdLowerPermissionModeRpc,
   WsAgentdSkillsListRpc,
   WsAgentdSkillsInstallRpc,
   WsAgentdSkillsRemoveRpc,
