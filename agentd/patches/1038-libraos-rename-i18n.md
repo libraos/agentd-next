@@ -1,19 +1,22 @@
 # 1038: LibraOS Next and LibraOS Core in the app's text
 
-Part of the LibraOS rebrand (libraos/agentd-core#1038). The app is now called LibraOS Next and the orchestration component it talks to (agentd) is LibraOS Core. This patch changes the text people read in `apps/web`, `apps/mobile` and the shared `packages/client-runtime` and `packages/shared` sentences that land in their catalogs. The desktop shell, build scripts and docs are other tasks of the same rebrand.
+Part of the LibraOS rebrand (libraos/agentd-core#1038). The app is now called LibraOS Next and the orchestration component it talks to (agentd) is LibraOS Core. This patch changes the text people read in `apps/web`, `apps/mobile` and the shared `packages/client-runtime` and `packages/shared` sentences that land in their catalogs, and the translated (`msg()`) strings of `apps/desktop`. The rest of the desktop shell, build scripts and docs are other tasks of the same rebrand.
 
 ## Renamed
 
 - **Text.** "AgentD Next" became "LibraOS Next" and "AgentD" became "LibraOS Core" in every string a person reads, with the article fixed ("an AgentD Next" is now "a LibraOS Next"). Lower-case `agentd` in prose ("agentd was not found", "Agentd tasks are unavailable") is LibraOS Core too.
 - **Commands.** Command examples and copyable commands say `libraos-core` (`libraos-core init`, `install`, `dash install`, `upgrade`, `config set`, `approval answer`); `agentd` stays a working alias of the same binary.
+- **The app's command.** Printed and copyable commands say `libraos-next` (`libraos-next connect`, `pair`, `auth pairing create`, `update`, `service uninstall`, `triage`), as does the Settings CLI row, which also names `agentd-next` and `t3` as the aliases it installs (dec-03bf28162a; the command itself is renamed in `1038-cli-libraos-next.md`).
+- **Desktop.** Every translated desktop string says LibraOS Next: startup and recovery errors, update dialogs, the home-ownership and WSL messages, the WSL fallback notices and the preview approval error.
 - **Wordmark.** The sidebar wordmark reads LibraOS + Next; the "by LibraOS" line after it would now repeat the brand, so it is gone.
 - **Mobile.** App display names (`LibraOS Next`, `LibraOS Next Dev`, `LibraOS Next Preview`), widget descriptions, iOS usage strings, native save-photo errors and the Android Pictures folder for saved images. Bundle identifiers and schemes are unchanged.
-- **i18n.** The catalogs in `apps/web` and `apps/mobile` were regenerated. Every renamed string gets a new key, so each locale's earlier translation was carried over to its new key with the brand replaced (270 web and 57 mobile strings, all matched; none lost). Brand names stay in Latin script. Grammar around the brand was adjusted where the old form no longer fits: French `l’AgentD`/`d’AgentD`/`à l’AgentD` became `le`/`de`/`au LibraOS Core`, German compounds `AgentD-Seite` became `LibraOS-Core-Seite`, Swedish `AgentD:s` became `LibraOS Cores` and `AgentD-sidan` `LibraOS Core-sidan`. Korean particles after the brand still fit (both names end in a vowel sound).
+- **i18n.** The catalogs in `apps/web`, `apps/mobile` and `apps/desktop` were regenerated. Every renamed string gets a new key, so each locale's earlier translation was carried over to its new key with the brand replaced (290 web, 60 mobile and 25 desktop strings, all matched; none lost). Brand names stay in Latin script. Grammar around the brand was adjusted where the old form no longer fits: French `l’AgentD`/`d’AgentD`/`à l’AgentD` became `le`/`de`/`au LibraOS Core`, German compounds `AgentD-Seite` became `LibraOS-Core-Seite`, Swedish `AgentD:s` became `LibraOS Cores` and `AgentD-sidan` `LibraOS Core-sidan`. Korean particles after the brand still fit (both names end in a vowel sound).
 
 ## Kept, and why
 
 - "the old AgentD Desktop": the name of the earlier app whose background services the repair flow detects; it explains the old name.
-- `agentd-next` in commands and messages (`agentd-next connect`, `agentd-next auth pairing create`, the Settings CLI row): that is the app's own CLI, which no task of this rebrand renames yet. Renaming the text without the command would print commands that do not exist.
+- `t3` in commands (`t3 doctor`, "restart t3") and search terms: `t3` stays a working alias of `libraos-next`.
+- Untranslated desktop text (log messages, snapshot and SSH errors outside `msg()`, `APP_BASE_NAME`): the desktop shell task renames those.
 - `AGENTD_ROOT`, `AGENTD_DB` (still read by Core), `agentd-watchdog.timer` (unit names are kept), `mcp__agentd__*` and `mcp__agentd-next__*` tool names, storage keys and atom labels such as `agentd:path-notice-dismissed`, `agentd.backup.age-identity`.
 - The Workers settings search terms keep `agentd` beside `libraos core`, so someone searching the old name still finds the page.
 - Repository URLs (`github.com/libraos/agentd-next`): the repositories are renamed only after these changes merge.
@@ -21,8 +24,16 @@ Part of the LibraOS rebrand (libraos/agentd-core#1038). The app is now called Li
 
 ## Files
 
-The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regenerated as above. Files under `apps/web/src/components/agentd/` are ours and not listed. Every other file:
+The i18n catalogs (`apps/{web,mobile,desktop}/src/i18n/translations/*.json`) were regenerated as above. Files under `apps/web/src/components/agentd/` are ours and not listed. Every other file:
 
+- `apps/desktop/src/app/DesktopApp.ts` — app name LibraOS Next.
+- `apps/desktop/src/app/DesktopStartupRecovery.ts` — app name LibraOS Next.
+- `apps/desktop/src/backend/DesktopBackendPool.ts` — app name LibraOS Next.
+- `apps/desktop/src/backend/DesktopHomeOwner.ts` — app name LibraOS Next; command libraos-next.
+- `apps/desktop/src/preview/BrowserSession.ts` — app name LibraOS Next.
+- `apps/desktop/src/window/DesktopApplicationMenu.ts` — app name LibraOS Next.
+- `apps/desktop/src/wsl/DesktopWslBackend.test.ts` — app name LibraOS Next.
+- `apps/desktop/src/wsl/DesktopWslBackend.ts` — app name LibraOS Next; command libraos-next.
 - `apps/mobile/app.config.ts` — app name LibraOS Next.
 - `apps/mobile/modules/t3-composer-editor/android/src/main/java/expo/modules/t3composereditor/T3ComposerEditorModule.kt` — app name LibraOS Next.
 - `apps/mobile/modules/t3-native-controls/android/src/main/java/expo/modules/t3nativecontrols/T3NativeControlsModule.kt` — app name LibraOS Next.
@@ -33,6 +44,7 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/mobile/src/components/CompactBrandTitle.tsx` — app name LibraOS Next.
 - `apps/mobile/src/features/agent-awareness/remoteRegistration.ts` — app name LibraOS Next.
 - `apps/mobile/src/features/browser/LocalPreviewRouteScreen.tsx` — app name LibraOS Next.
+- `apps/mobile/src/features/connection/ConnectionsNewRouteScreen.tsx` — command libraos-next.
 - `apps/mobile/src/features/diagnostics/SettingsDiagnosticsRouteScreen.tsx` — app name LibraOS Next.
 - `apps/mobile/src/features/diagnostics/crash-log-model.ts` — app name LibraOS Next.
 - `apps/mobile/src/features/home/HomeRouteScreen.tsx` — app name LibraOS Next.
@@ -71,7 +83,7 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/CommandPalette.logic.test.ts` — app name LibraOS Next.
 - `apps/web/src/components/CommandPalette.tsx` — app name LibraOS Next; component name LibraOS Core.
 - `apps/web/src/components/EnvironmentContextChip.tsx` — app name LibraOS Next.
-- `apps/web/src/components/HostedEmptyState.tsx` — app name LibraOS Next.
+- `apps/web/src/components/HostedEmptyState.tsx` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/RightPanelTabs.tsx` — app name LibraOS Next.
 - `apps/web/src/components/ServerUpdateAction.tsx` — app name LibraOS Next.
 - `apps/web/src/components/T3Wordmark.tsx` — wordmark reads LibraOS + Next, without the redundant "by LibraOS".
@@ -93,11 +105,12 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/chat/useSystemComposerBanners.tsx` — app name LibraOS Next.
 - `apps/web/src/components/clerk/MobileClientsUserProfilePage.logic.ts` — app name LibraOS Next.
 - `apps/web/src/components/clerk/MobileClientsUserProfilePage.tsx` — app name LibraOS Next.
+- `apps/web/src/components/cloud/ConnectCliAuthSurface.tsx` — command libraos-next.
 - `apps/web/src/components/cloud/RelayClientInstallDialog.tsx` — app name LibraOS Next.
 - `apps/web/src/components/desktop/SshPasswordPromptDialog.tsx` — app name LibraOS Next.
 - `apps/web/src/components/desktopUpdate.logic.ts` — app name LibraOS Next.
 - `apps/web/src/components/issue/IssuesPage.tsx` — app name LibraOS Next.
-- `apps/web/src/components/mcp/UseInAnotherAppDialog.tsx` — app name LibraOS Next.
+- `apps/web/src/components/mcp/UseInAnotherAppDialog.tsx` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/mcp/mcpApps.test.ts` — app name LibraOS Next.
 - `apps/web/src/components/mcp/mcpApps.ts` — app name LibraOS Next in the add-connector links (and their `%20`-encoded form).
 - `apps/web/src/components/mcp/mcpGate.test.ts` — app name LibraOS Next.
@@ -106,7 +119,7 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/onboarding/JoinTeamScreen.browser.test.tsx` — component name LibraOS Core.
 - `apps/web/src/components/onboarding/JoinTeamScreen.tsx` — component name LibraOS Core.
 - `apps/web/src/components/onboarding/WelcomePage.import.browser.test.tsx` — app name LibraOS Next.
-- `apps/web/src/components/onboarding/WelcomePage.tsx` — app name LibraOS Next.
+- `apps/web/src/components/onboarding/WelcomePage.tsx` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/preview/PreviewPanel.tsx` — app name LibraOS Next.
 - `apps/web/src/components/preview/PreviewView.tsx` — app name LibraOS Next.
 - `apps/web/src/components/promptLinks/HostedPromptLinkLanding.tsx` — app name LibraOS Next.
@@ -115,11 +128,12 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/pullRequest/PullRequestsPage.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/AcpRegistrySearchStep.browser.test.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/AcpSessionManagementSection.tsx` — app name LibraOS Next.
+- `apps/web/src/components/settings/AddEnvironmentDialog.tsx` — command libraos-next.
 - `apps/web/src/components/settings/BranchNamingSettings.tsx` — branch prefix example.
 - `apps/web/src/components/settings/BrowserImportWizard.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/CaptureShortcutConfig.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/ChatGptWelcomeCoordinator.tsx` — app name LibraOS Next.
-- `apps/web/src/components/settings/CliCommandSettingsRow.tsx` — app name LibraOS Next.
+- `apps/web/src/components/settings/CliCommandSettingsRow.tsx` — app name LibraOS Next; command libraos-next, with `agentd-next` and `t3` as aliases.
 - `apps/web/src/components/settings/CodexSetupSection.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/ConnectionsSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/DatabaseStorageNotice.tsx` — app name LibraOS Next.
@@ -127,14 +141,14 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/settings/IntegrationsSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/KeybindingsSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/LabsSettingsPanel.tsx` — app name LibraOS Next.
-- `apps/web/src/components/settings/LinkedEnvironmentsSettings.tsx` — app name LibraOS Next.
+- `apps/web/src/components/settings/LinkedEnvironmentsSettings.tsx` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/settings/LocalEnvironmentSetting.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/MultipleAccountsNote.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/NotificationSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/ProjectSettingsPanel.logic.test.ts` — app name LibraOS Next.
 - `apps/web/src/components/settings/ProviderSettingsForm.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/ResourceTelemetryDiagnostics.tsx` — app name LibraOS Next.
-- `apps/web/src/components/settings/SavedEnvironmentRows.tsx` — app name LibraOS Next.
+- `apps/web/src/components/settings/SavedEnvironmentRows.tsx` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/settings/ScheduledTasksSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/SecretsSettings.tsx` — app name LibraOS Next.
 - `apps/web/src/components/settings/SettingsPanels.logic.ts` — app name LibraOS Next.
@@ -151,11 +165,12 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/components/settings/scopedSettings.ts` — app name LibraOS Next.
 - `apps/web/src/components/settings/settingsScope.test.ts` — app name LibraOS Next.
 - `apps/web/src/components/settings/settingsScopeNavigation.test.ts` — app name LibraOS Next.
-- `apps/web/src/components/settings/settingsSearch.ts` — app name LibraOS Next.
+- `apps/web/src/components/settings/settingsSearch.ts` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/components/sidebar/SidebarChrome.tsx` — component name LibraOS Core.
 - `apps/web/src/components/sidebar/SidebarFolderDrop.tsx` — app name LibraOS Next.
 - `apps/web/src/components/sidebar/SidebarUpdatePill.browser.test.tsx` — app name LibraOS Next.
-- `apps/web/src/components/sidebar/updateEverything.logic.test.ts` — app name LibraOS Next.
+- `apps/web/src/components/sidebar/updateEverything.logic.test.ts` — app name LibraOS Next; command libraos-next.
+- `apps/web/src/components/sidebar/updateEverything.logic.ts` — command libraos-next.
 - `apps/web/src/components/sidebar/updateEverythingRun.tsx` — app name LibraOS Next.
 - `apps/web/src/connection/clientMetadata.ts` — app name LibraOS Next.
 - `apps/web/src/connection/platform.ts` — app name LibraOS Next.
@@ -163,14 +178,17 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `apps/web/src/hooks/useOpenLocalWorkspace.ts` — app name LibraOS Next.
 - `apps/web/src/hooks/useStartTriage.ts` — app name LibraOS Next.
 - `apps/web/src/lib/assistantTextSelection.test.ts` — app name LibraOS Next.
-- `apps/web/src/lib/bootError.ts` — app name LibraOS Next.
+- `apps/web/src/lib/bootError.test.ts` — command libraos-next.
+- `apps/web/src/lib/bootError.ts` — app name LibraOS Next; command libraos-next.
 - `apps/web/src/shortcuts/chatRouteCommands.ts` — app name LibraOS Next.
+- `apps/web/src/state/desktopCliCommand.ts` — command libraos-next.
 - `apps/web/src/versionSkew.test.ts` — app name LibraOS Next.
 - `apps/web/src/versionSkew.ts` — app name LibraOS Next.
+- `oxlint-plugin-t3code/rules/no-untranslated-copy.ts` — brand allowlist names LibraOS Next and LibraOS Core instead of AgentD Next and AgentD.
 - `packages/client-runtime/src/authorization/layer.test.ts` — app name LibraOS Next.
 - `packages/client-runtime/src/connection/compatibility.ts` — app name LibraOS Next.
-- `packages/client-runtime/src/connection/diagnosis.test.ts` — app name LibraOS Next.
-- `packages/client-runtime/src/connection/diagnosis.ts` — app name LibraOS Next.
+- `packages/client-runtime/src/connection/diagnosis.test.ts` — app name LibraOS Next; command libraos-next.
+- `packages/client-runtime/src/connection/diagnosis.ts` — app name LibraOS Next; command libraos-next.
 - `packages/client-runtime/src/connection/hostFreeze.ts` — app name LibraOS Next.
 - `packages/client-runtime/src/connection/onboarding.test.ts` — app name LibraOS Next.
 - `packages/client-runtime/src/connection/outdatedHostUpdate.ts` — app name LibraOS Next.
@@ -200,4 +218,3 @@ The i18n catalogs (`apps/{web,mobile}/src/i18n/translations/*.json`) were regene
 - `packages/shared/src/t3McpToolPresentationCopy.ts` — app name LibraOS Next.
 - `packages/shared/src/themeCss.ts` — app name LibraOS Next.
 - `packages/shared/src/usageLimits.ts` — app name LibraOS Next.
-- `oxlint-plugin-t3code/rules/no-untranslated-copy.ts` — brand allowlist names LibraOS Next and LibraOS Core instead of AgentD Next and AgentD.

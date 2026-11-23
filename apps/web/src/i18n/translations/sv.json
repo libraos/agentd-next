@@ -410,13 +410,13 @@
   "663d7b465a461e5b": "The hosted relay could not reach {host}'s tunnel",
   "305ebc835c97d9f8": "LibraOS Next on {host} did not accept this device",
   "0997b810795eda2e": "LibraOS Next on {host} did not answer",
-  "e14561fa6cbbb70d": "On {host}, check Settings > Sharing & access or run `agentd-next connect status`.",
+  "8f077503e6af5b6e": "On {host}, check Settings > Sharing & access or run `libraos-next connect status`.",
   "a2242ae6ad65f6da": "Connect this device to the internet. LibraOS Next reconnects on its own.",
   "f764da9d29d6abe8": "Wait a moment. LibraOS Next retries on its own.",
   "8af1b6d0bc9eabdd": "If it keeps waiting, reload or restart LibraOS Next on this device.",
   "570aaeb32dc600a7": "Öppna Inställningar > Delning och åtkomst på en enhet som redan är ansluten till {host} och godkänn enheten som visar {code}.",
   "08a2d57d02f30799": "Öppna Inställningar > Delning och åtkomst på en enhet som redan är ansluten till {host} och godkänn den här enheten.",
-  "d396eed71131e5d9": "Or run `agentd-next auth connect-device approve {code}` on {host}.",
+  "561786212380d67d": "Or run `libraos-next auth connect-device approve {code}` on {host}.",
   "f17928c8ecc808d3": "Update LibraOS Next on {host}.",
   "3c35e0980e06bfa6": "Aktivera automatiskt datum och tid på den här enheten och på {host} och försök sedan igen.",
   "dccd0cf31464a5d8": "Check that this device is signed in to the same hosted relay account as the host.",
@@ -3034,8 +3034,8 @@
   "62450481c00d2ef3": "Utkastets miljö är inte tillgänglig för att städa transkriptionen.",
   "0674544195fcdc39": "Den ursprungliga transkriptionen lades till.",
   "c64cb58d9cecbcd2": "Det gick inte att städa transkriptionen",
-  "76ea6921e4db754a": "The agentd-next command is unavailable.",
-  "c0e1ac5030fdfbea": "Failed to load the agentd-next command state.",
+  "0c97a06f4ff33d85": "The libraos-next command is unavailable.",
+  "b4fe019cbbeed6ae": "Failed to load the libraos-next command state.",
   "1bf6910332426e62": "Skrivbordsappens nätverksåtkomst är inte tillgänglig.",
   "453d2f1825d6e763": "Det gick inte att läsa in skrivbordsserverns exponeringsstatus.",
   "2f388f3d76869c03": "Det gick inte att läsa in skrivbordsappens annonserade slutpunkter.",
@@ -5962,7 +5962,7 @@
   "c246e33dafd359cc": "Lägg till",
   "b0c1beb79a87d97b": "Auktoriseringsbegäran",
   "0311d7ed2b7eb2f6": "Den här anslutningslänken är ofullständig",
-  "f84c7a475b74ba00": "The link is missing its authorization request. Re-run `agentd-next connect` in your terminal and open the freshly printed URL.",
+  "e7e7c60467265928": "The link is missing its authorization request. Re-run `libraos-next connect` in your terminal and open the freshly printed URL.",
   "55ee748307f0cd6a": "Auktorisering i webbläsaren",
   "1ccae6b48df9cf15": "Ansluter din terminal",
   "87c993fe8b1958e3": "Redirecting to authorize the hosted relay for your CLI…",
@@ -7153,7 +7153,7 @@
     "i den här terminalen."
   ],
   "9d9b9624c7bd95df": "Andra mappar",
-  "01de3a3b48bfeef1": [
+  "0723511350242b54": [
     "Added to ",
     {
       "i": 1,
@@ -7165,16 +7165,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     "."
   ],
-  "977e59d788d4eba3": [
+  "a19264f78bd15564": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     " from any terminal. Adds one line to ",
     {
@@ -8301,7 +8301,7 @@
   "8a333daf9b7fd03f": "Anslut till {environment}",
   "7662025844bf543f": "Lägg till miljö",
   "65b1d784a5e84254": "Parkoppla den här datorn igen via en annan adress, till exempel dess Tailscale-namn. Den ansluter till de befintliga rutterna i stället för att lägga till en andra dator.",
-  "f9d3cfe21f3d8364": "Skapa en parkopplingskod på {environment}, i dess Inställningar → Delning och åtkomst eller med `agentd-next auth pairing create`, och ange den här.",
+  "fd6c196a293780a4": "Skapa en parkopplingskod på {environment}, i dess Inställningar → Delning och åtkomst eller med `libraos-next auth pairing create`, och ange den här.",
   "1bea4864d46d70d0": "Parkoppla en annan miljö med den här klienten.",
   "9b24ef052b321e57": "Ange en backend-värd och en parkopplingskod.",
   "3e20f17f71edf0ad": "Använd lokal SSH-konfiguration, agent och tunnlar för backenden.",
@@ -8746,17 +8746,17 @@
       "v": "v"
     }
   ],
-  "60d17bdf76dd9799": "Could not install agentd-next",
-  "703a2b7751c2704f": "Could not remove agentd-next",
-  "1ef13ef87bda2a1b": "Could not add agentd-next to PATH",
-  "e3767d267a927df3": "Another agentd-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
-  "db2abef7acf5b0be": "Run LibraOS Next's CLI as `agentd-next` from any terminal. Also installs `t3` as an alias.",
+  "86c6983e9247421c": "Could not install libraos-next",
+  "648d7ec0387002ee": "Could not remove libraos-next",
+  "7cfbcce96dca6ffe": "Could not add libraos-next to PATH",
+  "0983579b46a2a633": "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+  "9e380157af2ee859": "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
   "4f6e93011ef2da6f": "Installerad i {path}. Öppna en ny terminal för att använda den.",
   "371ca438cf467125": "Installerad i {path} och tillagd i PATH i {file}. Öppna en ny terminal för att använda den.",
   "fd3eece9d1a7ea38": "Installerad i {path}, som inte finns i din PATH än.",
-  "2cac69a4d4081c8f": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `agentd-next`.",
-  "62fd8d22e310fae1": "Remove",
-  "ea9ffdd62dbfd92f": "Installera",
+  "095337793fe19f6c": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
+  "e71863bfeee3f2ac": "Remove",
+  "ab8c2907b24f28e1": "Installera",
   "9a284b5893dc04a2": "OpenRouter-modell",
   "c8361c16c47d5fb5": "Sök transkriberingsmodeller",
   "d72eccdd92d4f989": "Kunde inte spara ändringen. Kontrollera anslutningen och försök igen.",
@@ -9830,7 +9830,7 @@
   "ca4e4015b89ed9a8": "Kunde inte länka {target} tillbaka till {source}",
   "64ac3d1579ca9f5b": "Länka {source} till {target}",
   "5f2e20c62a4fece3": "{via} är länkad till {target} med full åtkomst och hämtar därför parkopplingskoden. Ingen kod att klistra in.",
-  "50276146dce4ff04": "From Sharing & access there, or agentd-next pair",
+  "77f045c893ab298c": "From Sharing & access there, or libraos-next pair",
   "1e3fee7084791773": "Länka även {target} tillbaka till {source}",
   "ea34a190b0bd804c": "Agenter på {target} kan då också arbeta på {source}.",
   "7ed59e8ccd27c51b": "Forget {label}? Agents here stop working there. Revoke \"LibraOS Next · …\" in {label}''s Sharing & access to end the session there too.",
@@ -10591,8 +10591,8 @@
   "fb47a2a9a37656f1": "The hosted relay is on, but other devices cannot reach this environment.",
   "8001b7817caee889": "The hosted relay is on. Reachability has not been checked yet.",
   "621691786b1ce9f2": "The hosted relay is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn the hosted relay on to repair it.",
-  "4c3aef8c2b4b76db": "This environment was removed from the hosted relay. Run `agentd-next connect link` on the host to link it again.",
-  "34a328f17d326706": "Run `agentd-next connect link` on the host, then restart LibraOS Next there.",
+  "96403aa33398dcdd": "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
+  "f9ccb2b4359b6de4": "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
   "0a3123a6ce981075": "Logga in för att skicka aktivitet till mobilaviseringar och liveaktiviteter.",
   "80a3aef9dfe51459": "Send activity to mobile notifications and Live Activities without the hosted relay.",
   "5f8ca828eca1ce1a": "Publicera agentaktivitet till mobilklienter",
@@ -12765,7 +12765,7 @@
   "0c5fc3b5e41e1956": "genererade trådtitlar prompt anpassad stil namngivning byt namn generera om",
   "a83570bcb45d8fa1": "om sök efter uppdateringar ladda ner installera uppgradera version",
   "d65bdf6748801734": "versionskanal stabil latest nightly förhandsversion",
-  "ff3affe5fea0c551": "agentd-next command",
+  "27ae62d2e5badca4": "libraos-next command",
   "46dd4dc08c1e552f": "cli terminal skal sökväg installera kommandorad",
   "86479042bae0e2db": "Mobilapp",
   "dc2a999ca67ccf31": "telefon surfplatta iPhone iPad iOS Android App Store Google Play QR",

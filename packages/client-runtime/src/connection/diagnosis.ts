@@ -169,7 +169,7 @@ function steps(
   resolve: MFunctionType,
 ): string[] {
   const checkHost = resolve(
-    msg("On {host}, check Settings > Sharing & access or run `agentd-next connect status`.", {
+    msg("On {host}, check Settings > Sharing & access or run `libraos-next connect status`.", {
       host,
     }),
   );
@@ -201,7 +201,7 @@ function steps(
               ),
             ),
         resolve(
-          msg("Or run `agentd-next auth connect-device approve {code}` on {host}.", {
+          msg("Or run `libraos-next auth connect-device approve {code}` on {host}.", {
             code: code ?? "<code>",
             host,
           }),

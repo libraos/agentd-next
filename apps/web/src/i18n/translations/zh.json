@@ -410,13 +410,13 @@
   "663d7b465a461e5b": "托管中继 无法访问 {host} 的隧道",
   "305ebc835c97d9f8": "{host} 上的 LibraOS Next 未接受此设备",
   "0997b810795eda2e": "{host} 上的 LibraOS Next 没有响应",
-  "e14561fa6cbbb70d": "在 {host} 上，查看“设置 > 共享与访问”，或运行 `agentd-next connect status`。",
+  "8f077503e6af5b6e": "在 {host} 上，查看“设置 > 共享与访问”，或运行 `libraos-next connect status`。",
   "a2242ae6ad65f6da": "请将此设备连接到互联网。LibraOS Next 会自动重新连接。",
   "f764da9d29d6abe8": "请稍等。LibraOS Next 会自动重试。",
   "8af1b6d0bc9eabdd": "如果一直没有进展，请在此设备上重新加载或重启 LibraOS Next。",
   "570aaeb32dc600a7": "在已连接到 {host} 的设备上，打开“设置 > 共享与访问”，批准显示 {code} 的设备。",
   "08a2d57d02f30799": "在已连接到 {host} 的设备上，打开“设置 > 共享与访问”，批准此设备。",
-  "d396eed71131e5d9": "或在 {host} 上运行 `agentd-next auth connect-device approve {code}`。",
+  "561786212380d67d": "或在 {host} 上运行 `libraos-next auth connect-device approve {code}`。",
   "f17928c8ecc808d3": "请更新 {host} 上的 LibraOS Next。",
   "3c35e0980e06bfa6": "请在此设备和 {host} 上开启自动日期与时间，然后重试。",
   "dccd0cf31464a5d8": "请确认此设备与主机登录了同一个 托管中继 账户。",
@@ -3038,8 +3038,8 @@
   "62450481c00d2ef3": "草稿所在环境不可用，无法整理转写内容。",
   "0674544195fcdc39": "已添加原始转写文本。",
   "c64cb58d9cecbcd2": "转写文本整理失败",
-  "76ea6921e4db754a": "agentd-next 命令不可用。",
-  "c0e1ac5030fdfbea": "无法加载 agentd-next 命令状态。",
+  "0c97a06f4ff33d85": "libraos-next 命令不可用。",
+  "b4fe019cbbeed6ae": "无法加载 libraos-next 命令状态。",
   "1bf6910332426e62": "桌面网络访问不可用。",
   "453d2f1825d6e763": "无法加载桌面服务器开放状态。",
   "2f388f3d76869c03": "无法加载桌面应用公布的端点。",
@@ -5965,7 +5965,7 @@
   "c246e33dafd359cc": "添加",
   "b0c1beb79a87d97b": "授权请求",
   "0311d7ed2b7eb2f6": "此连接链接不完整",
-  "f84c7a475b74ba00": "链接缺少授权请求。请在终端中重新运行 `agentd-next connect`，并打开新打印出的网址。",
+  "e7e7c60467265928": "链接缺少授权请求。请在终端中重新运行 `libraos-next connect`，并打开新打印出的网址。",
   "55ee748307f0cd6a": "浏览器授权",
   "1ccae6b48df9cf15": "正在连接你的终端",
   "87c993fe8b1958e3": "正在跳转，为你的 CLI 授权 托管中继…",
@@ -7156,7 +7156,7 @@
     "。"
   ],
   "9d9b9624c7bd95df": "其他文件夹",
-  "01de3a3b48bfeef1": [
+  "0723511350242b54": [
     "已添加到 ",
     {
       "i": 1,
@@ -7168,16 +7168,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     "。"
   ],
-  "977e59d788d4eba3": [
+  "a19264f78bd15564": [
     "在任意终端中使用 ",
     {
       "t": "code",
       "i": 1,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     "。会在 ",
     {
@@ -8307,7 +8307,7 @@
   "8a333daf9b7fd03f": "连接到 {environment}",
   "7662025844bf543f": "添加环境",
   "65b1d784a5e84254": "使用其他地址（例如 Tailscale 名称）再次配对此机器。该地址将加入现有线路，不会重复添加机器。",
-  "f9d3cfe21f3d8364": "在 {environment} 的设置 → 共享与访问中或使用 `agentd-next auth pairing create` 创建配对码，然后在此输入。",
+  "fd6c196a293780a4": "在 {environment} 的设置 → 共享与访问中或使用 `libraos-next auth pairing create` 创建配对码，然后在此输入。",
   "1bea4864d46d70d0": "将其他环境与此客户端配对。",
   "9b24ef052b321e57": "输入后端主机和配对码。",
   "3e20f17f71edf0ad": "使用本地 SSH 配置、认证代理和隧道连接后端。",
@@ -8754,17 +8754,17 @@
       "v": "v"
     }
   ],
-  "60d17bdf76dd9799": "无法安装 agentd-next",
-  "703a2b7751c2704f": "无法移除 agentd-next",
-  "1ef13ef87bda2a1b": "无法将 agentd-next 添加到 PATH",
-  "e3767d267a927df3": "在新终端中，位于 {path} 的另一个 agentd-next 会优先运行。请将其移除以使用 LibraOS Next 的版本。",
-  "db2abef7acf5b0be": "在任意终端中以 `agentd-next` 运行 LibraOS Next 的 CLI。同时安装 `t3` 作为别名。",
+  "86c6983e9247421c": "无法安装 libraos-next",
+  "648d7ec0387002ee": "无法移除 libraos-next",
+  "7cfbcce96dca6ffe": "无法将 libraos-next 添加到 PATH",
+  "0983579b46a2a633": "在新终端中，位于 {path} 的另一个 libraos-next 会优先运行。请将其移除以使用 LibraOS Next 的版本。",
+  "9e380157af2ee859": "在任意终端中以 `libraos-next` 运行 LibraOS Next 的 CLI。同时安装 `agentd-next` 和 `t3` 作为别名。",
   "4f6e93011ef2da6f": "已安装在 {path}。打开新终端即可使用。",
   "371ca438cf467125": "已安装在 {path}，并已在 {file} 中添加到 PATH。打开新终端即可使用。",
   "fd3eece9d1a7ea38": "已安装在 {path}，但它尚未在你的 PATH 中。",
-  "2cac69a4d4081c8f": "已安装在 {path}，但它尚未在你的 PATH 中。请将其所在文件夹添加到 PATH 以运行 `agentd-next`。",
-  "62fd8d22e310fae1": "移除",
-  "ea9ffdd62dbfd92f": "安装",
+  "095337793fe19f6c": "已安装在 {path}，但它尚未在你的 PATH 中。请将其所在文件夹添加到 PATH 以运行 `libraos-next`。",
+  "e71863bfeee3f2ac": "移除",
+  "ab8c2907b24f28e1": "安装",
   "9a284b5893dc04a2": "OpenRouter 模型",
   "c8361c16c47d5fb5": "搜索转写模型",
   "d72eccdd92d4f989": "无法保存此更改，请检查连接后重试。",
@@ -9836,7 +9836,7 @@
   "ca4e4015b89ed9a8": "无法将 {target} 反向关联到 {source}",
   "64ac3d1579ca9f5b": "将 {source} 关联到 {target}",
   "5f2e20c62a4fece3": "{via} 以完全访问权限链接到 {target}，因此由它获取配对码。无需粘贴配对码。",
-  "50276146dce4ff04": "在那边的“共享与访问”中，或运行 agentd-next pair",
+  "77f045c893ab298c": "在那边的“共享与访问”中，或运行 libraos-next pair",
   "1e3fee7084791773": "同时将 {target} 反向关联到 {source}",
   "ea34a190b0bd804c": "之后 {target} 上的智能体也能在 {source} 上工作。",
   "7ed59e8ccd27c51b": "忘记 {label}？此处的智能体将停止在那里工作。在 {label} 的“共享与访问”中撤销“LibraOS Next · …”，以同时结束那里的连接。",
@@ -10596,8 +10596,8 @@
   "fb47a2a9a37656f1": "托管中继 已开启，但其他设备无法访问此环境。",
   "8001b7817caee889": "托管中继 已开启，尚未检查能否访问。",
   "621691786b1ce9f2": "托管中继 状态不同步。此环境的关联仅用于发布智能体活动，其他设备无法连接。请开启 托管中继 修复。",
-  "4c3aef8c2b4b76db": "此环境已从 托管中继 移除。请在主机上运行 `agentd-next connect link` 重新关联。",
-  "34a328f17d326706": "在主机上运行 `agentd-next connect link`，然后在那边重启 LibraOS Next。",
+  "96403aa33398dcdd": "此环境已从 托管中继 移除。请在主机上运行 `libraos-next connect link` 重新关联。",
+  "f9ccb2b4359b6de4": "在主机上运行 `libraos-next connect link`，然后在那边重启 LibraOS Next。",
   "0a3123a6ce981075": "登录后即可向手机通知和实时活动发送活动信息。",
   "80a3aef9dfe51459": "无需 托管中继，即可将活动发送到手机通知和实时活动。",
   "5f8ca828eca1ce1a": "向移动客户端发布智能体活动",
@@ -12778,7 +12778,7 @@
   "0c5fc3b5e41e1956": "生成 会话标题 提示词 自定义 风格 命名 重命名 重新生成",
   "a83570bcb45d8fa1": "关于 检查更新 下载 安装 升级 发布",
   "d65bdf6748801734": "发布渠道 稳定版 latest nightly 预发布",
-  "ff3affe5fea0c551": "agentd-next 命令",
+  "27ae62d2e5badca4": "libraos-next 命令",
   "46dd4dc08c1e552f": "cli 终端 shell 路径 安装 命令行",
   "86479042bae0e2db": "移动应用",
   "dc2a999ca67ccf31": "手机 平板 iPhone iPad iOS Android App Store Google Play 二维码 QR",

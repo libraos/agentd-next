@@ -162,7 +162,7 @@ describe("presentConnectionDiagnosis", () => {
     );
     expect(diagnosis?.headline).toBe("Mac mini is waiting for someone to approve this device");
     expect(diagnosis?.steps.join(" ")).toContain(
-      "agentd-next auth connect-device approve K7QM-2XFD",
+      "libraos-next auth connect-device approve K7QM-2XFD",
     );
   });
 

@@ -410,13 +410,13 @@
   "663d7b465a461e5b": "The hosted relay could not reach {host}'s tunnel",
   "305ebc835c97d9f8": "LibraOS Next on {host} did not accept this device",
   "0997b810795eda2e": "LibraOS Next on {host} did not answer",
-  "e14561fa6cbbb70d": "On {host}, check Settings > Sharing & access or run `agentd-next connect status`.",
+  "8f077503e6af5b6e": "On {host}, check Settings > Sharing & access or run `libraos-next connect status`.",
   "a2242ae6ad65f6da": "Connect this device to the internet. LibraOS Next reconnects on its own.",
   "f764da9d29d6abe8": "Wait a moment. LibraOS Next retries on its own.",
   "8af1b6d0bc9eabdd": "If it keeps waiting, reload or restart LibraOS Next on this device.",
   "570aaeb32dc600a7": "En un dispositivo ya conectado a {host}, abre Ajustes > Compartir y acceso y aprueba el dispositivo que muestra {code}.",
   "08a2d57d02f30799": "En un dispositivo ya conectado a {host}, abre Ajustes > Compartir y acceso y aprueba este dispositivo.",
-  "d396eed71131e5d9": "Or run `agentd-next auth connect-device approve {code}` on {host}.",
+  "561786212380d67d": "Or run `libraos-next auth connect-device approve {code}` on {host}.",
   "f17928c8ecc808d3": "Update LibraOS Next on {host}.",
   "3c35e0980e06bfa6": "Activa la fecha y hora automáticas en este dispositivo y en {host}, y vuelve a intentarlo.",
   "dccd0cf31464a5d8": "Check that this device is signed in to the same hosted relay account as the host.",
@@ -3034,8 +3034,8 @@
   "62450481c00d2ef3": "El entorno del borrador no está disponible para limpiar la transcripción.",
   "0674544195fcdc39": "Se añadió la transcripción original.",
   "c64cb58d9cecbcd2": "Falló la limpieza de la transcripción",
-  "76ea6921e4db754a": "The agentd-next command is unavailable.",
-  "c0e1ac5030fdfbea": "Failed to load the agentd-next command state.",
+  "0c97a06f4ff33d85": "The libraos-next command is unavailable.",
+  "b4fe019cbbeed6ae": "Failed to load the libraos-next command state.",
   "1bf6910332426e62": "El acceso a la red del escritorio no está disponible.",
   "453d2f1825d6e763": "No se pudo cargar el estado de exposición del servidor de escritorio.",
   "2f388f3d76869c03": "No se pudieron cargar los endpoints anunciados del escritorio.",
@@ -5961,7 +5961,7 @@
   "c246e33dafd359cc": "Añadir",
   "b0c1beb79a87d97b": "Solicitud de autorización",
   "0311d7ed2b7eb2f6": "Este enlace de conexión está incompleto",
-  "f84c7a475b74ba00": "The link is missing its authorization request. Re-run `agentd-next connect` in your terminal and open the freshly printed URL.",
+  "e7e7c60467265928": "The link is missing its authorization request. Re-run `libraos-next connect` in your terminal and open the freshly printed URL.",
   "55ee748307f0cd6a": "Autorización del navegador",
   "1ccae6b48df9cf15": "Conectando tu terminal",
   "87c993fe8b1958e3": "Redirecting to authorize the hosted relay for your CLI…",
@@ -7152,7 +7152,7 @@
     "en esta terminal."
   ],
   "9d9b9624c7bd95df": "Otras carpetas",
-  "01de3a3b48bfeef1": [
+  "0723511350242b54": [
     "Added to ",
     {
       "i": 1,
@@ -7164,16 +7164,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     "."
   ],
-  "977e59d788d4eba3": [
+  "a19264f78bd15564": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "agentd-next"
+      "c": "libraos-next"
     },
     " from any terminal. Adds one line to ",
     {
@@ -8296,7 +8296,7 @@
   "8a333daf9b7fd03f": "Conectar con {environment}",
   "7662025844bf543f": "Añadir entorno",
   "65b1d784a5e84254": "Vuelve a emparejar esta máquina con otra dirección, como su nombre de Tailscale. Se une a las rutas existentes en lugar de añadir una segunda máquina.",
-  "f9d3cfe21f3d8364": "Crea un código de emparejamiento en {environment}, en sus Ajustes → Compartir y acceso o con `agentd-next auth pairing create`, e introdúcelo aquí.",
+  "fd6c196a293780a4": "Crea un código de emparejamiento en {environment}, en sus Ajustes → Compartir y acceso o con `libraos-next auth pairing create`, e introdúcelo aquí.",
   "1bea4864d46d70d0": "Empareja otro entorno con este cliente.",
   "9b24ef052b321e57": "Introduce un host de backend y un código de emparejamiento.",
   "3e20f17f71edf0ad": "Usa la configuración SSH local, el agente y los túneles para el backend.",
@@ -8741,17 +8741,17 @@
       "v": "v"
     }
   ],
-  "60d17bdf76dd9799": "Could not install agentd-next",
-  "703a2b7751c2704f": "Could not remove agentd-next",
-  "1ef13ef87bda2a1b": "Could not add agentd-next to PATH",
-  "e3767d267a927df3": "Another agentd-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
-  "db2abef7acf5b0be": "Run LibraOS Next's CLI as `agentd-next` from any terminal. Also installs `t3` as an alias.",
+  "86c6983e9247421c": "Could not install libraos-next",
+  "648d7ec0387002ee": "Could not remove libraos-next",
+  "7cfbcce96dca6ffe": "Could not add libraos-next to PATH",
+  "0983579b46a2a633": "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+  "9e380157af2ee859": "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
   "4f6e93011ef2da6f": "Instalado en {path}. Abre una terminal nueva para usarlo.",
   "371ca438cf467125": "Instalado en {path} y añadido al PATH en {file}. Abre una terminal nueva para usarlo.",
   "fd3eece9d1a7ea38": "Instalado en {path}, que aún no está en tu PATH.",
-  "2cac69a4d4081c8f": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `agentd-next`.",
-  "62fd8d22e310fae1": "Remove",
-  "ea9ffdd62dbfd92f": "Instalar",
+  "095337793fe19f6c": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
+  "e71863bfeee3f2ac": "Remove",
+  "ab8c2907b24f28e1": "Instalar",
   "9a284b5893dc04a2": "Modelo de OpenRouter",
   "c8361c16c47d5fb5": "Buscar modelos de transcripción",
   "d72eccdd92d4f989": "No se pudo guardar este cambio. Comprueba tu conexión y vuelve a intentarlo.",
@@ -9823,7 +9823,7 @@
   "ca4e4015b89ed9a8": "No se pudo vincular {target} de vuelta a {source}",
   "64ac3d1579ca9f5b": "Vincular {source} con {target}",
   "5f2e20c62a4fece3": "{via} está vinculado a {target} con acceso total, así que obtiene el código de emparejamiento. No hay que pegar ningún código.",
-  "50276146dce4ff04": "From Sharing & access there, or agentd-next pair",
+  "77f045c893ab298c": "From Sharing & access there, or libraos-next pair",
   "1e3fee7084791773": "Vincular también {target} de vuelta a {source}",
   "ea34a190b0bd804c": "Los agentes de {target} podrán trabajar también en {source}.",
   "7ed59e8ccd27c51b": "Forget {label}? Agents here stop working there. Revoke \"LibraOS Next · …\" in {label}''s Sharing & access to end the session there too.",
@@ -10582,8 +10582,8 @@
   "fb47a2a9a37656f1": "The hosted relay is on, but other devices cannot reach this environment.",
   "8001b7817caee889": "The hosted relay is on. Reachability has not been checked yet.",
   "621691786b1ce9f2": "The hosted relay is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn the hosted relay on to repair it.",
-  "4c3aef8c2b4b76db": "This environment was removed from the hosted relay. Run `agentd-next connect link` on the host to link it again.",
-  "34a328f17d326706": "Run `agentd-next connect link` on the host, then restart LibraOS Next there.",
+  "96403aa33398dcdd": "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
+  "f9ccb2b4359b6de4": "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
   "0a3123a6ce981075": "Inicia sesión para enviar la actividad a las notificaciones móviles y a las Actividades en directo.",
   "80a3aef9dfe51459": "Send activity to mobile notifications and Live Activities without the hosted relay.",
   "5f8ca828eca1ce1a": "Publicar la actividad de agentes en los clientes móviles",
@@ -12753,7 +12753,7 @@
   "0c5fc3b5e41e1956": "títulos de hilos generados prompt estilo personalizado nombres renombrar regenerar",
   "a83570bcb45d8fa1": "acerca de buscar actualizaciones descargar instalar actualizar versión",
   "d65bdf6748801734": "canal de versiones estable latest nightly preliminar",
-  "ff3affe5fea0c551": "agentd-next command",
+  "27ae62d2e5badca4": "libraos-next command",
   "46dd4dc08c1e552f": "cli terminal shell ruta instalar línea de comandos",
   "86479042bae0e2db": "App móvil",
   "dc2a999ca67ccf31": "teléfono tableta iPhone iPad iOS Android App Store Google Play QR",
