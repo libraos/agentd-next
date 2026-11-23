@@ -2270,41 +2270,58 @@ export const verifyPackagedBundleIsSelfContained = Effect.fn("verifyPackagedBund
       });
     }
 
-    yield* runCommand(
-      ChildProcess.make(
-        process.execPath,
-        // Clearing NODE_PATH leaves CommonJS global fallbacks; disable them so host packages cannot satisfy missing dependencies.
-        ["--no-global-search-paths", entryPoint, "--version"],
-        {
-          cwd: probeApp,
-          stdout: "pipe",
-          stderr: "pipe",
-          env: { ...process.env, NODE_PATH: "" },
-        },
-      ),
+    // The server spawns the shipped Pi rather than importing it, so Pi gets a check of its own.
+    const checks = [
       {
+        entry: entryPoint,
         label: "server sidecar self-containment check (node bin.mjs --version)",
-        verbose: input.verbose,
       },
-    ).pipe(
-      Effect.timeout(BUNDLE_SELF_CHECK_TIMEOUT),
-      Effect.catchTags({
-        TimeoutError: () =>
-          Effect.fail(
-            new BundleNotSelfContainedError({
-              exitCode: -1,
-              output: `The packaged bundle did not print its version within ${Duration.toSeconds(BUNDLE_SELF_CHECK_TIMEOUT)}s; it is hanging rather than failing to resolve.`,
-            }),
-          ),
-        BuildCommandFailedError: (error) =>
-          Effect.fail(
-            new BundleNotSelfContainedError({
-              exitCode: error.exitCode,
-              output: `${error.stderrTail ?? ""}${error.stdoutTail ?? ""}`.trim(),
-            }),
-          ),
-      }),
-    );
+      {
+        entry: path.join(
+          probeApp,
+          "node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js",
+        ),
+        label: "shipped Pi check (node pi-coding-agent cli.js --version)",
+      },
+    ];
+    for (const check of checks) {
+      yield* runCommand(
+        ChildProcess.make(
+          process.execPath,
+          // Clearing NODE_PATH leaves CommonJS global fallbacks; disable them so host packages cannot satisfy missing dependencies.
+          ["--no-global-search-paths", check.entry, "--version"],
+          {
+            cwd: probeApp,
+            stdout: "pipe",
+            stderr: "pipe",
+            env: {
+              ...process.env,
+              NODE_PATH: "",
+              PI_CODING_AGENT_DIR: path.join(probeRoot, "pi-agent"),
+            },
+          },
+        ),
+        { label: check.label, verbose: input.verbose },
+      ).pipe(
+        Effect.timeout(BUNDLE_SELF_CHECK_TIMEOUT),
+        Effect.catchTags({
+          TimeoutError: () =>
+            Effect.fail(
+              new BundleNotSelfContainedError({
+                exitCode: -1,
+                output: `The packaged bundle did not print its version within ${Duration.toSeconds(BUNDLE_SELF_CHECK_TIMEOUT)}s; it is hanging rather than failing to resolve.`,
+              }),
+            ),
+          BuildCommandFailedError: (error) =>
+            Effect.fail(
+              new BundleNotSelfContainedError({
+                exitCode: error.exitCode,
+                output: `${error.stderrTail ?? ""}${error.stdoutTail ?? ""}`.trim(),
+              }),
+            ),
+        }),
+      );
+    }
   },
 );
 

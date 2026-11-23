@@ -33,8 +33,10 @@ import {
   withGatewayModels,
 } from "./gatewaySetup.ts";
 import {
+  backfillPiOnce,
   choosePiFirstRunDefault,
   clearPiDefault,
+  hadPiGatewayAgent,
   piGatewayAgentDir,
   removePiGatewayAgentDir,
   writePiGatewayAgentDir,
@@ -53,6 +55,8 @@ export class LibraosGateway extends Context.Service<
      * refused key leaves them none. An unreachable Gateway leaves the last list.
      */
     readonly refreshModels: Effect.Effect<void>;
+    /** Gives a key connected before the Gateway had a Pi agent that agent, once; runs at start. */
+    readonly backfillPi: Effect.Effect<void>;
   }
 >()("t3/gateway/LibraosGateway") {}
 
@@ -340,17 +344,55 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       Effect.withSpan("LibraosGateway.refreshModels"),
     );
 
+  // After a refresh, which leaves the key's models; an unreachable Gateway leaves it for the next start.
+  const backfillPi: LibraosGateway["Service"]["backfillPi"] = lock
+    .withPermits(1)(
+      withFiles(
+        backfillPiOnce(
+          stateDir,
+          "libraos",
+          Effect.gen(function* () {
+            const key = yield* readKey;
+            if (Option.isNone(key)) return true;
+            const list = yield* Ref.get(models);
+            if (list === null) return false;
+            const current = yield* settings.getSettings;
+            const present = current.providerInstances[GATEWAY_INSTANCE_IDS.pi] !== undefined;
+            if (yield* hadPiGatewayAgent(present, piDir)) return true;
+            yield* writePiGatewayAgentDir(piDir, LIBRAOS_PI_TARGET, list);
+            for (const { instanceId, instance } of gatewayProviderInstances(
+              key.value,
+              list,
+              piDir,
+            )) {
+              if (instanceId !== GATEWAY_INSTANCE_IDS.pi) continue;
+              yield* settings.updateProviderInstance({ operation: "upsert", instanceId, instance });
+            }
+            yield* choosePiFirstRunDefault(settings, GATEWAY_INSTANCE_IDS.pi);
+            return true;
+          }),
+        ),
+      ),
+    )
+    .pipe(
+      Effect.catch((cause) =>
+        Effect.logWarning("LibraOS Gateway: could not add the Pi agent", { cause }),
+      ),
+      Effect.withSpan("LibraosGateway.backfillPi"),
+    );
+
   // Agents added by an older build listed the agent's whole catalog; a key changed in Console since the
   // last start shows without waiting for a manual refresh.
   yield* settings.ready.pipe(
     Effect.andThen(refreshModels),
+    Effect.andThen(backfillPi),
     Effect.catch((cause) =>
       Effect.logWarning("LibraOS Gateway: startup refresh failed", { cause }),
     ),
     Effect.forkScoped,
   );
 
-  return LibraosGateway.of({ status, connect, disconnect, refreshModels });
+  return LibraosGateway.of({ status, connect, disconnect, refreshModels, backfillPi });
 });
 
 export const layer = Layer.effect(LibraosGateway, make()).pipe(

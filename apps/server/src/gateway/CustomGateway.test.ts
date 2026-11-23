@@ -1,6 +1,10 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { ProviderInstanceId, type ServerSettings } from "@t3tools/contracts";
+import {
+  type ProviderInstanceConfig,
+  ProviderInstanceId,
+  type ServerSettings,
+} from "@t3tools/contracts";
 import { CommandAvailability } from "@t3tools/shared/shell";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -13,14 +17,20 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as CustomGateway from "./CustomGateway.ts";
-import { gatewayProviderInstances } from "./gatewaySetup.ts";
+import { customGatewayInstances, gatewayProviderInstances } from "./gatewaySetup.ts";
 
 const URL = "https://gw.example.com";
 
 const instance = (settings: ServerSettings, id: string) =>
   settings.providerInstances[ProviderInstanceId.make(id)];
 
-function setup(answer: () => Response) {
+function setup(
+  answer: () => Response,
+  options: {
+    /** Settings beside the user's own agents; the startup backfill then waits for the test. */
+    readonly before?: Pick<ServerSettings, "customGateways" | "providerInstances">;
+  } = {},
+) {
   const secrets = new Map<string, Uint8Array>();
   const asked: Array<{ readonly url: string; readonly authorization: string | undefined }> = [];
   const secretStore = ServerSecretStore.ServerSecretStore.of({
@@ -50,7 +60,21 @@ function setup(answer: () => Response) {
       Layer.mergeAll(
         Layer.succeed(ServerSecretStore.ServerSecretStore, secretStore),
         Layer.succeed(HttpClient.HttpClient, http),
-        ServerSettingsService.layerTest({ providerInstances: own as never }),
+        options.before === undefined
+          ? ServerSettingsService.layerTest({ providerInstances: own as never })
+          : Layer.effect(
+              ServerSettingsService,
+              Effect.map(Effect.service(ServerSettingsService), (service) =>
+                ServerSettingsService.of({ ...service, ready: Effect.never }),
+              ),
+            ).pipe(
+              Layer.provide(
+                ServerSettingsService.layerTest({
+                  customGateways: options.before.customGateways,
+                  providerInstances: { ...own, ...options.before.providerInstances } as never,
+                }),
+              ),
+            ),
         ServerConfig.layerTest(process.cwd(), { prefix: "t3-custom-gateway-test-" }),
         // No other agent on the host, so a gateway's Pi agent becomes the first-run default.
         Layer.succeed(CommandAvailability, () => Effect.succeed(false)),
@@ -388,3 +412,73 @@ it.effect("remove leaves the other gateway and the user's instances", () => {
     assert.isNull((yield* (yield* ServerSettingsService).getSettings).defaultModelSelection);
   }).pipe(Effect.provide(layer));
 });
+
+it.effect(
+  "gateways added before they had Pi get it once at start, unless it was removed or turned off",
+  () => {
+    // Three OpenAI-format gateways from before Pi shipped: one never had it, one has it turned off, and
+    // one had it removed (its directory is left).
+    const old = (id: string) => ({ id, name: `Old ${id}`, url: URL, format: "openai" as const });
+    const instancesOf = (id: string, pi: "none" | "off") =>
+      customGatewayInstances({
+        ...old(id),
+        key: "k1",
+        models: [{ id: "m1" }],
+        piAgentDir: "/elsewhere",
+      }).flatMap(({ instanceId, instance }): Array<[string, ProviderInstanceConfig]> =>
+        instanceId === `gw-${id}-pi`
+          ? pi === "off"
+            ? [[instanceId, { ...instance, enabled: false }]]
+            : []
+          : [[instanceId, { ...instance, accentColor: "#123456" }]],
+      );
+    const { secrets, layer } = setup(served, {
+      before: {
+        customGateways: [old("never"), old("off"), old("removed")],
+        providerInstances: Object.fromEntries([
+          ...instancesOf("never", "none"),
+          ...instancesOf("off", "off"),
+          ...instancesOf("removed", "none"),
+        ]) as ServerSettings["providerInstances"],
+      },
+    });
+    secrets.set("custom-gateway-key-never", new TextEncoder().encode("k1"));
+    return Effect.gen(function* () {
+      const gateways = yield* CustomGateway.CustomGateway;
+      const settings = yield* ServerSettingsService;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const stateDir = (yield* ServerConfig.ServerConfig).stateDir;
+      yield* fs.makeDirectory(path.join(stateDir, "pi-gateway", "gw-removed-pi"), {
+        recursive: true,
+      });
+
+      yield* gateways.backfillPi;
+      let current = yield* settings.getSettings;
+      const piDir = path.join(stateDir, "pi-gateway", "gw-never-pi");
+      const pi = instance(current, "gw-never-pi");
+      assert.strictEqual(pi?.accentColor, "#123456");
+      assert.deepStrictEqual(pi?.environment, [
+        { name: "CUSTOM_GATEWAY_API_KEY", value: "k1", sensitive: true },
+        { name: "PI_CODING_AGENT_DIR", value: piDir, sensitive: false },
+      ]);
+      const modelsJson = yield* fs.readFileString(path.join(piDir, "models.json"));
+      assert.notInclude(modelsJson, "k1");
+      assert.deepStrictEqual(JSON.parse(modelsJson).providers.gw_never.models, [{ id: "m1" }]);
+      assert.isFalse(instance(current, "gw-off-pi")?.enabled);
+      assert.isUndefined(instance(current, "gw-removed-pi"));
+
+      // Once: a gateway added later without Pi stays without it.
+      const added = yield* gateways.add({
+        url: URL,
+        format: "openai",
+        key: "k2",
+        agents: ["codex"],
+      });
+      if (added.kind !== "added") return assert.fail(added.message);
+      yield* gateways.backfillPi;
+      current = yield* settings.getSettings;
+      assert.isUndefined(instance(current, `gw-${added.gateway.id}-pi`));
+    }).pipe(Effect.provide(layer));
+  },
+);

@@ -42,6 +42,8 @@ function setup(
     readonly settings?: Parameters<typeof ServerSettingsService.layerTest>[0];
     /** Agent commands on this host's PATH. */
     readonly found?: ReadonlyArray<string>;
+    /** Settings never ready, so the startup refresh and backfill wait for the test to run them. */
+    readonly holdStartup?: boolean;
   } = {},
 ) {
   // What Console says of the key now: served, revoked, or the Gateway is down.
@@ -105,7 +107,14 @@ function setup(
         Layer.succeed(CommandAvailability, (command: string) =>
           Effect.succeed(options.found?.includes(command) ?? false),
         ),
-        ServerSettingsService.layerTest(options.settings),
+        options.holdStartup
+          ? Layer.effect(
+              ServerSettingsService,
+              Effect.map(Effect.service(ServerSettingsService), (service) =>
+                ServerSettingsService.of({ ...service, ready: Effect.never }),
+              ),
+            ).pipe(Layer.provide(ServerSettingsService.layerTest(options.settings)))
+          : ServerSettingsService.layerTest(options.settings),
         ServerConfig.layerTest(process.cwd(), { prefix: "t3-gateway-test-" }),
       ),
     ),
@@ -418,4 +427,98 @@ it.effect(
       });
     }).pipe(Effect.provide(layer));
   },
+);
+
+// A key connected before Pi shipped has Claude Code, Codex and opencode agents but no Pi.
+const beforePi = (pi?: { readonly enabled: boolean }) =>
+  Object.fromEntries(
+    gatewayProviderInstances(GOOD_KEY, [{ id: "openai/gpt-5.5" }], "/pi").flatMap(
+      ({ instanceId, instance }) =>
+        instanceId !== GATEWAY_INSTANCE_IDS.pi
+          ? [[instanceId, instance]]
+          : pi === undefined
+            ? []
+            : [[instanceId, { ...instance, enabled: pi.enabled }]],
+    ),
+  );
+
+it.effect("a key connected before the Gateway had Pi gets the Pi agent at start, once", () => {
+  const { secrets, layer } = setup({
+    settings: { providerInstances: beforePi() },
+    holdStartup: true,
+  });
+  secrets.set("libraos-gateway-key", new TextEncoder().encode(GOOD_KEY));
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    const settings = yield* ServerSettingsService;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const piDir = path.join((yield* ServerConfig.ServerConfig).stateDir, "pi-gateway", "libraosPi");
+    yield* gateway.refreshModels;
+    yield* gateway.backfillPi;
+    const instances = (yield* settings.getSettings).providerInstances;
+    assert.deepStrictEqual(instances[GATEWAY_INSTANCE_IDS.pi]?.environment, [
+      { name: "LIBRAOS_API_KEY", value: GOOD_KEY, sensitive: true },
+      { name: "PI_CODING_AGENT_DIR", value: piDir, sensitive: false },
+    ]);
+    const modelsJson = yield* fs.readFileString(path.join(piDir, "models.json"));
+    assert.notInclude(modelsJson, GOOD_KEY);
+    assert.deepStrictEqual(
+      JSON.parse(modelsJson).providers.libraos.models.map((model: { id: string }) => model.id),
+      ["anthropic/claude-opus-5-5", "openai/gpt-5.5"],
+    );
+
+    // Removed afterwards, it stays removed through later starts.
+    yield* settings.updateProviderInstance({
+      operation: "remove",
+      instanceId: GATEWAY_INSTANCE_IDS.pi,
+    });
+    yield* gateway.backfillPi;
+    assert.notProperty((yield* settings.getSettings).providerInstances, GATEWAY_INSTANCE_IDS.pi);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("a Pi agent the user removed or turned off is not given back at start", () =>
+  Effect.gen(function* () {
+    // Turned off: the instance stays as it is.
+    {
+      const { secrets, layer } = setup({
+        settings: { providerInstances: beforePi({ enabled: false }) },
+        holdStartup: true,
+      });
+      secrets.set("libraos-gateway-key", new TextEncoder().encode(GOOD_KEY));
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        const settings = yield* ServerSettingsService;
+        yield* gateway.refreshModels;
+        yield* gateway.backfillPi;
+        const pi = (yield* settings.getSettings).providerInstances[GATEWAY_INSTANCE_IDS.pi];
+        assert.isFalse(pi?.enabled);
+      }).pipe(Effect.provide(layer));
+    }
+    // Removed under a build that had Pi: its directory is left, and no agent comes back.
+    {
+      const { secrets, layer } = setup({
+        settings: { providerInstances: beforePi() },
+        holdStartup: true,
+      });
+      secrets.set("libraos-gateway-key", new TextEncoder().encode(GOOD_KEY));
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        const settings = yield* ServerSettingsService;
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const stateDir = (yield* ServerConfig.ServerConfig).stateDir;
+        yield* fs.makeDirectory(path.join(stateDir, "pi-gateway", "libraosPi"), {
+          recursive: true,
+        });
+        yield* gateway.refreshModels;
+        yield* gateway.backfillPi;
+        assert.notProperty(
+          (yield* settings.getSettings).providerInstances,
+          GATEWAY_INSTANCE_IDS.pi,
+        );
+      }).pipe(Effect.provide(layer));
+    }
+  }),
 );
