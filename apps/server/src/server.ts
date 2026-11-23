@@ -210,6 +210,7 @@ import * as AgentdTeamNode from "./agentd/AgentdTeamNode.ts";
 import * as AgentdInit from "./agentd/agentdInit.ts";
 import * as AgentdSkills from "./agentd/AgentdSkills.ts";
 import * as AgentdPlugins from "./agentd/AgentdPlugins.ts";
+import * as PlaceholderCleanup from "./agentd/placeholderCleanup.ts";
 import * as LibraosGateway from "./gateway/LibraosGateway.ts";
 import * as CustomGateway from "./gateway/CustomGateway.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
@@ -787,6 +788,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   ProviderInstallation.layer,
   ReplayMarkers.layer,
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
+  PlaceholderCleanup.layer.pipe(Layer.provide(AgentdPlugins.layerLive)),
 ).pipe(
   Layer.provideMerge(layerOrchestrationApplication),
   Layer.provideMerge(layerTaskFolders),

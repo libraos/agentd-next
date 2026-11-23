@@ -23,16 +23,17 @@ API_KEY = "sk-ant-api03-Zq7XvB2mN9pL4kR8tY1wE6uI3oA5sD0f"
 SECRETS = (NAME, "Holloway", EMAIL, API_KEY)
 
 
-def hook_input(text, attachments=(), unshown=()):
-    return json.dumps(
-        {
-            "version": 1,
-            "event": "before-send",
-            "message": {"text": text, "attachments": list(attachments)},
-            "unshownAttachments": list(unshown),
-            "context": {"projectId": "p", "threadId": "t", "source": "web"},
-        }
-    )
+def hook_input(text, attachments=(), unshown=(), placeholders=None):
+    request = {
+        "version": 1,
+        "event": "before-send",
+        "message": {"text": text, "attachments": list(attachments)},
+        "unshownAttachments": list(unshown),
+        "context": {"projectId": "p", "threadId": "t", "source": "web"},
+    }
+    if placeholders is not None:
+        request["placeholders"] = placeholders
+    return json.dumps(request)
 
 
 DRAFT = f"Please review the lease for {NAME}. Reach her at {EMAIL}; the deploy key is {API_KEY}."
@@ -64,7 +65,8 @@ class DecideTest(unittest.TestCase):
     def test_rewrites_name_email_and_key_in_draft_and_attachment(self):
         answer = redact.decide(hook_input(DRAFT, [ATTACHMENT]), ready_folder(self), load=fake_hook.fake_load)
         self.assertEqual(answer["decision"], "rewrite")
-        out = json.dumps(answer)
+        # The map goes back to the host only; the message is what the agent gets.
+        out = json.dumps(answer["message"])
         for secret in SECRETS:
             self.assertNotIn(secret, out)
         text = answer["message"]["text"]
@@ -77,6 +79,49 @@ class DecideTest(unittest.TestCase):
         self.assertIn("Client: [PERSON_1]", attachment["text"])
         self.assertIn("[PERSON_2] signed on Monday.", attachment["text"])
         self.assertIn("OPENAI_API_KEY=[CREDENTIAL_1]", attachment["text"])
+
+    def test_rewrite_returns_the_map_of_every_placeholder(self):
+        answer = redact.decide(hook_input(DRAFT), ready_folder(self), load=fake_hook.fake_load)
+        self.assertEqual(
+            answer["placeholders"],
+            {"[PERSON_1]": NAME, "[EMAIL_1]": EMAIL, "[CREDENTIAL_1]": API_KEY},
+        )
+
+    def test_a_second_send_reuses_the_threads_placeholders_and_numbers_new_ones_after(self):
+        folder = ready_folder(self)
+        first = redact.decide(hook_input(f"Lease for {NAME}."), folder, load=fake_hook.fake_load)
+        self.assertEqual(first["message"]["text"], "Lease for [PERSON_1].")
+        detect = tagging(NAME, "Jonas Brekke")
+        second = redact.decide(
+            hook_input(f"Jonas Brekke owes {NAME}.", placeholders=first["placeholders"]),
+            folder,
+            load=lambda _folder: detect,
+        )
+        self.assertEqual(second["message"]["text"], "[PERSON_2] owes [PERSON_1].")
+        self.assertEqual(second["placeholders"]["[PERSON_1]"], NAME)
+        self.assertEqual(second["placeholders"]["[PERSON_2]"], "Jonas Brekke")
+
+    def test_a_known_value_is_replaced_even_when_the_detector_misses_it_this_time(self):
+        answer = redact.decide(
+            hook_input(f"Ask {NAME} and Holloway again.", placeholders={"[PERSON_1]": NAME, "[PERSON_2]": "Holloway"}),
+            ready_folder(self),
+            load=lambda _folder: tagging(),
+        )
+        self.assertEqual(answer["message"]["text"], "Ask [PERSON_1] and [PERSON_2] again.")
+        self.assertNotIn(NAME, json.dumps(answer["message"]))
+
+    def test_a_placeholder_already_in_the_text_stays(self):
+        answer = redact.decide(
+            hook_input("Tell [PERSON_1] that Holloway called.", placeholders={"[PERSON_1]": NAME}),
+            ready_folder(self),
+            load=lambda _folder: tagging("PERSON", "Holloway"),
+        )
+        self.assertEqual(answer["message"]["text"], "Tell [PERSON_1] that [PERSON_2] called.")
+
+    def test_a_bad_map_blocks(self):
+        for bad in ({"[PERSON_1]": 3}, ["x"], {"[PERSON_1]": ""}):
+            answer = redact.decide(hook_input(DRAFT, placeholders=bad), ready_folder(self), load=fake_hook.fake_load)
+            self.assertBlocks(answer, "could not read")
 
     def test_nothing_found_passes(self):
         answer = redact.decide(
@@ -284,8 +329,9 @@ class ProcessTest(unittest.TestCase):
         self.assertEqual(result.stderr, b"")
         self.assertEqual(json.loads(result.stdout)["decision"], "rewrite")
         self.assertEqual(files_under(home, PLUGIN), before)
+        message = json.dumps(json.loads(result.stdout)["message"])
         for secret in SECRETS:
-            self.assertNotIn(secret.encode(), result.stdout)
+            self.assertNotIn(secret, message)
 
     def test_hook_without_its_environment_blocks_with_setup_command(self):
         _home, env = self.isolated_env()

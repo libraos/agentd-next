@@ -1,7 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 
 import {
+  hookInput,
+  mergePlaceholders,
   parseHookOutput,
+  placeholdersIn,
   pluginEnabled,
   readPluginSettings,
   resolveHookCommand,
@@ -24,11 +27,12 @@ describe("parseHookOutput", () => {
       {
         _tag: "Rewrite",
         content: { text: "hi", attachments: [{ id: "a", name: "a.txt", text: "two" }] },
+        placeholders: {},
       },
     ],
     [
       '{"decision":"rewrite","message":{"text":"hi"}}',
-      { _tag: "Rewrite", content: { ...INPUT, text: "hi" } },
+      { _tag: "Rewrite", content: { ...INPUT, text: "hi" }, placeholders: {} },
     ],
     [
       '{"decision":"rewrite","message":{"text":"hi","attachments":[{"id":"b","text":"x"}]}}',
@@ -43,6 +47,61 @@ describe("parseHookOutput", () => {
     ["", { _tag: "Invalid" }],
   ])("%s", (stdout, expected) => {
     expect(parseHookOutput(stdout, INPUT)).toEqual(expected);
+  });
+});
+
+describe("the thread's placeholder map", () => {
+  const MAP = { "[PERSON_1]": "Maren Holloway" };
+  const rewrite = (placeholders?: object) =>
+    JSON.stringify({
+      decision: "rewrite",
+      message: { text: "[PERSON_2] and [PERSON_1]" },
+      placeholders,
+    });
+
+  it("goes to the hook, and a rewrite adds to it", () => {
+    expect(
+      JSON.parse(
+        hookInput({
+          content: INPUT,
+          unshown: [],
+          projectId: "p",
+          threadId: "t",
+          source: "web",
+          placeholders: MAP,
+        }),
+      ).placeholders,
+    ).toEqual(MAP);
+    expect(
+      parseHookOutput(rewrite({ ...MAP, "[PERSON_2]": "Jonas Brekke" }), INPUT, MAP),
+    ).toMatchObject({
+      placeholders: { "[PERSON_1]": "Maren Holloway", "[PERSON_2]": "Jonas Brekke" },
+    });
+  });
+
+  it("stays as it was for a hook that returns none or only part of it", () => {
+    expect(parseHookOutput(rewrite(), INPUT, MAP)).toMatchObject({ placeholders: MAP });
+    expect(parseHookOutput(rewrite({ "[PERSON_2]": "J" }), INPUT, MAP)).toMatchObject({
+      placeholders: { ...MAP, "[PERSON_2]": "J" },
+    });
+  });
+
+  it.each([
+    ["a known placeholder given another value", { "[PERSON_1]": "Someone Else" }],
+    ["a placeholder that is a word", { PERSON_2: "x" }],
+    ["an empty value", { "[PERSON_2]": "" }],
+  ])("makes the answer invalid for %s", (_case, placeholders) => {
+    expect(parseHookOutput(rewrite(placeholders), INPUT, MAP)).toEqual({ _tag: "Invalid" });
+    expect(mergePlaceholders(MAP, placeholders)).toBeNull();
+  });
+
+  it("lists the placeholders a message uses in order", () => {
+    const map = { "[A_1]": "a", "[B_1]": "b", "[C_1]": "c" };
+    const content = {
+      text: "see [B_1] then [A_1]",
+      attachments: [{ id: "x", name: "x", text: "[C_1] [A_1]" }],
+    };
+    expect(placeholdersIn(content, map)).toEqual(["[B_1]", "[A_1]", "[C_1]"]);
   });
 });
 

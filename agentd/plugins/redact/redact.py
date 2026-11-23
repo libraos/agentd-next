@@ -235,19 +235,50 @@ def refine_spans(text, spans):
     return joined
 
 
-class Placeholders:
-    """One placeholder per distinct value and label across the whole message; held in memory only."""
+_PLACEHOLDER = re.compile(r"\[([A-Z][A-Z0-9_]*)_([1-9][0-9]*)\]")
 
-    def __init__(self):
+
+class Placeholders:
+    """One placeholder per distinct value across the conversation; held in memory only.
+
+    `known` is the thread's map from the host, placeholder to value: its values keep their
+    placeholders and new ones are numbered after the highest of each label.
+    """
+
+    def __init__(self, known=None):
         self._by_value = {}
         self._counts = {}
+        self._map = {}
+        for placeholder, value in (known or {}).items():
+            self._map[placeholder] = value
+            self._by_value.setdefault(value, placeholder)
+            match = _PLACEHOLDER.fullmatch(placeholder)
+            if match:
+                label = match[1].lower()
+                self._counts[label] = max(self._counts.get(label, 0), int(match[2]))
+
+    def known_values(self):
+        """Each known value with its label, as a detector would tag it."""
+        values = {}
+        for placeholder, value in self._map.items():
+            match = _PLACEHOLDER.fullmatch(placeholder)
+            values.setdefault(value, match[1].lower() if match else "known")
+        return values
 
     def for_value(self, label, value):
-        key = (label, value)
-        if key not in self._by_value:
-            self._counts[label] = self._counts.get(label, 0) + 1
-            self._by_value[key] = f"[{label.upper()}_{self._counts[label]}]"
-        return self._by_value[key]
+        if value not in self._by_value:
+            count = self._counts.get(label, 0) + 1
+            placeholder = f"[{label.upper()}_{count}]"
+            while placeholder in self._map:
+                count += 1
+                placeholder = f"[{label.upper()}_{count}]"
+            self._counts[label] = count
+            self._by_value[value] = placeholder
+            self._map[placeholder] = value
+        return self._by_value[value]
+
+    def mapping(self):
+        return dict(self._map)
 
 
 def _trimmed(text, span):
@@ -278,10 +309,12 @@ def _value_pattern(values):
 def redact_all(texts, detect, deadline, placeholders):
     """Redact every text, replacing each value found in any of them everywhere it occurs.
 
-    A person's name parts of three or more letters are replaced on their own too.
+    A person's name parts of three or more letters are replaced on their own too. Values already
+    in the conversation's map are replaced wherever they occur, found again or not, and text that
+    is already a placeholder stays as it is.
     """
-    found = [find_spans(text, detect, deadline) for text in texts]
-    label_of = {}
+    found = [_outside_placeholders(text, find_spans(text, detect, deadline)) for text in texts]
+    label_of = dict(placeholders.known_values())
     for text, spans in zip(texts, found):
         for span in spans:
             label_of.setdefault(text[span["start"] : span["end"]], span["label"])
@@ -295,7 +328,9 @@ def redact_all(texts, detect, deadline, placeholders):
     pattern = _value_pattern(label_of)
     out = []
     for text, spans in zip(texts, found):
-        matches = [{"start": m.start(), "end": m.end(), "label": label_of[m[0]]} for m in pattern.finditer(text)]
+        matches = _outside_placeholders(
+            text, [{"start": m.start(), "end": m.end(), "label": label_of[m[0]]} for m in pattern.finditer(text)]
+        )
         pieces = []
         cursor = 0
         for span in merge_spans(spans + matches):
@@ -307,6 +342,11 @@ def redact_all(texts, detect, deadline, placeholders):
         pieces.append(text[cursor:])
         out.append("".join(pieces))
     return out
+
+
+def _outside_placeholders(text, spans):
+    taken = [m.span() for m in _PLACEHOLDER.finditer(text)]
+    return [s for s in spans if not any(s["start"] < end and start < s["end"] for start, end in taken)]
 
 
 def redact_text(text, detect, deadline, placeholders):
@@ -333,14 +373,20 @@ def _read_message(raw):
     unshown = request.get("unshownAttachments", [])
     if not isinstance(unshown, list):
         raise ValueError
-    return text, attachments, unshown
+    # The thread's placeholder map; a host without one sends none.
+    known = request.get("placeholders") or {}
+    if not isinstance(known, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) and value for key, value in known.items()
+    ):
+        raise ValueError
+    return text, attachments, unshown, known
 
 
 def decide(raw, folder, load=load_detector, clock=time.monotonic):
     """The hook's answer for one stdin payload: pass, rewrite or block. Never raises."""
     started = clock()
     try:
-        text, attachments, unshown = _read_message(raw)
+        text, attachments, unshown, known = _read_message(raw)
     except Exception:
         return _block("Local redaction could not read this message, so it was not sent. Update AgentD Next and the plugin, then send again.")
     if unshown:
@@ -359,7 +405,7 @@ def decide(raw, folder, load=load_detector, clock=time.monotonic):
         verify_weights(folder)
         detect = load(folder)
         deadline = started + DETECT_DEADLINE_SECONDS
-        placeholders = Placeholders()
+        placeholders = Placeholders(known)
         new_text, *redacted = redact_all(
             [text] + [attachment["text"] for attachment in attachments], detect, deadline, placeholders
         )
@@ -386,7 +432,7 @@ def decide(raw, folder, load=load_detector, clock=time.monotonic):
     message = {"text": new_text}
     if changed:
         message["attachments"] = changed
-    return {"decision": "rewrite", "message": message}
+    return {"decision": "rewrite", "message": message, "placeholders": placeholders.mapping()}
 
 
 def main(load=load_detector):

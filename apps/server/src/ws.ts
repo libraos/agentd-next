@@ -3838,6 +3838,7 @@ export const layerWsRpc = (
         [WS_METHODS.agentdPluginsRemove]: (input) => agentdPlugins.remove(input),
         [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
         [WS_METHODS.agentdBeforeSendReview]: (input) => agentdPlugins.review(input),
+        [WS_METHODS.agentdPlaceholders]: (input) => agentdPlugins.placeholders(input.threadId),
         [WS_METHODS.agentdBeforeSendDiscard]: (input) =>
           agentdPlugins.discard(input.reviewId).pipe(Effect.as({})),
         // The held send goes again, as the person confirmed it, through the same intake.

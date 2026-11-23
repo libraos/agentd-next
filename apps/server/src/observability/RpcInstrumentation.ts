@@ -298,6 +298,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.agentdBeforeSendReview]: "agentd",
   [WS_METHODS.agentdBeforeSendConfirm]: "agentd",
   [WS_METHODS.agentdBeforeSendDiscard]: "agentd",
+  [WS_METHODS.agentdPlaceholders]: "agentd",
   [WS_METHODS.libraosGatewayStatus]: "libraosGateway",
   [WS_METHODS.libraosGatewayConnect]: "libraosGateway",
   [WS_METHODS.libraosGatewayDisconnect]: "libraosGateway",
