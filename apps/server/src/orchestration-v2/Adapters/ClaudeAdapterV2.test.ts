@@ -966,7 +966,7 @@ describe("ClaudeAdapterV2 device instructions", () => {
     assert.include(withoutTaskTools, "call `background_wait`");
   });
 
-  it("leaves the device block out without device access or without T3 tools", () => {
+  it("leaves the device block out without device access or without AgentD tools", () => {
     assert.notInclude(append({ mcp: true, deviceToolsAvailable: false }), "## T3 Code devices");
     assert.notInclude(append({ mcp: false, deviceToolsAvailable: true }), "## T3 Code devices");
   });

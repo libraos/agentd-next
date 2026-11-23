@@ -50,7 +50,7 @@ import * as PeerLinkRequests from "../peer/PeerLinkRequests.ts";
 import * as PeerLinks from "../peer/PeerLinks.ts";
 
 // A linked environment's session drives this one's real orchestrator through
-// its real T3 tools. What the link starts carries its origin, and the link
+// its real AgentD tools. What the link starts carries its origin, and the link
 // changes only that.
 
 const instanceId = ProviderInstanceId.make("codex");

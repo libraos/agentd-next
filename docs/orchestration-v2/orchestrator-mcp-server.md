@@ -154,7 +154,7 @@ provider-specific extensions; those remain in flavors such as Grok.
 
 T3 keeps a provider-session HTTP bridge even when Pi supports native MCP.
 `mcp.json` entries override native registrations, and native MCP's default
-60-second request timeout can interrupt long-running T3 tools. The bridge owns
+60-second request timeout can interrupt long-running AgentD tools. The bridge owns
 the injected endpoint and credential and forwards Pi's cancellation signal.
 
 When a provider session credential exists, the adapter writes a T3-owned

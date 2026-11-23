@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @effect-diagnostics nodeBuiltinImport:off
 /**
- * Replays small fake threads on a Claude or Codex model to check T3's MCP tool use. A trimmed
+ * Replays small fake threads on a Claude or Codex model to check AgentD MCP tool use. A trimmed
  * harness capture supplies the prompt and native tools; a cheap model plays the shell. See
  * README.md for how to run it and add cases.
  */
@@ -458,7 +458,7 @@ const isT3Name = (name: string) => t3NamePrefix(name) !== undefined;
 const hasTool = (tools: ReadonlyArray<ApiTool>, name: string) =>
   tools.some((tool) => tool.name === name);
 
-/** Grading name: T3 tools lose their MCP prefix, native tools keep the part after the last `_`. */
+/** Grading name: AgentD tools lose their MCP prefix, native tools keep the part after the last `_`. */
 const CODEX_NAMES: Readonly<Record<string, string>> = {
   exec_command: "Bash",
   shell_command: "Bash",
@@ -773,7 +773,7 @@ export const buildBase = (
       ...template.tools.filter((tool) => !isT3Name(tool.name)),
       ...t3.filter((tool) => alwaysLoaded.has(tool.name)),
     ],
-    /** Tools ToolSearch loads: T3 tools from source, and native tools the template only names. */
+    /** Tools ToolSearch loads: AgentD tools from source, and native tools the template only names. */
     t3,
     deferred: [...t3, ...nativeDeferred.map((name) => ({ name, ...nativeSchema(name) }))],
   };
@@ -973,7 +973,7 @@ type Sample = {
   openedPullRequest: number | undefined;
   /** PRs pull_request_create opened from branches other than the world's, by branch. */
   readonly openedByBranch: Map<string, number>;
-  /** PR changes the agent made through T3's tools, which gh and the host show from then on. */
+  /** PR changes the agent made through AgentD tools, which gh and the host show from then on. */
   readonly forgeChanges: Array<string>;
   /** PRs pull_request_merge merged, as `repo#number`, which reads show as merged from then on. */
   readonly merged: Set<string>;
@@ -1239,7 +1239,7 @@ export const buildMessages = (sample: Sample) => {
   return messages;
 };
 
-// Results for T3 tools a case does not mock. The model ids are public in this repo's catalog.
+// Results for AgentD tools a case does not mock. The model ids are public in this repo's catalog.
 const claudeModel = (id: string) => ({ id, options: [{ id: "effort", values: EFFORTS }] });
 const codexModel = (id: string) => ({ id, options: [{ id: "reasoningEffort", values: EFFORTS }] });
 // Mirrors the real catalog's main models, so a case's named model is not missing by accident.
@@ -1324,7 +1324,7 @@ const worldState = (pr: Readonly<Record<string, unknown>> | undefined) => {
 
 /**
  * The PR for the sample's branch: the world's, else the one a create would open. A case that
- * mocks `gh pr create` names that URL, so the T3 tool opens the same number.
+ * mocks `gh pr create` names that URL, so the AgentD tool opens the same number.
  */
 const worldBranchPullRequest = (sample: Sample) => {
   const branch = sample.testCase.setup.world?.branch;
@@ -1974,7 +1974,7 @@ export const shellRequest = (sample: Sample, call: Omit<ShellEntry, "output">, m
       : []),
     ...(sample.forgeChanges.length > 0
       ? [
-          `The agent made these changes through T3's tools; gh, git fetch and the host show them: ${sample.forgeChanges.join("; ")}`,
+          `The agent made these changes through AgentD tools; gh, git fetch and the host show them: ${sample.forgeChanges.join("; ")}`,
         ]
       : []),
     ...(context ? [`The agent was told: ${context}`] : []),

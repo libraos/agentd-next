@@ -5975,7 +5975,7 @@ describe("AcpAdapterV2", () => {
       }).pipe(Effect.provide(layerTest)),
   );
 
-  it.effect("ends a running T3 MCP tool call when its session closes mid-prompt", () =>
+  it.effect("ends a running AgentD tool call when its session closes mid-prompt", () =>
     Effect.gen(function* () {
       const sessionScope = yield* Scope.make();
       const harness = yield* makePromptInactivityHarness({
