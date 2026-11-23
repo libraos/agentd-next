@@ -252,7 +252,7 @@ export const listen: Effect.Effect<
         const failure = yield* Ref.get(failureRef);
         if (Option.isNone(failure)) return;
         yield* electronShell.copyText(
-          `AgentD Next ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
+          `LibraOS Next ${environment.appVersion} (${environment.platform} ${environment.processArch}) could not start.\n${failure.value.reason}\n\n${failure.value.output}`,
         );
         return;
       }

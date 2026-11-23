@@ -114,7 +114,7 @@ function createWindow(
     resizable: false,
     show: false,
     skipTaskbar: true,
-    title: "AgentD Next Snapshot Animation",
+    title: "LibraOS Next Snapshot Animation",
     transparent: true,
     webPreferences: {
       backgroundThrottling: false,

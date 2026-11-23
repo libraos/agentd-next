@@ -1401,7 +1401,7 @@ describe("describeUpdateErrorCause", () => {
 });
 
 describe("DesktopUpdates under a managed policy", () => {
-  const message = "Example Corp manages AgentD Next updates.";
+  const message = "Example Corp manages LibraOS Next updates.";
   const managed = (
     policy: Partial<DesktopUpdatePolicy.UpdatePolicy>,
   ): DesktopUpdatePolicy.UpdatePolicy => ({

@@ -21,7 +21,7 @@ export class DesktopLegacyLocalStorage extends Context.Service<
 >()("@t3tools/desktop/app/DesktopLegacyLocalStorage") {}
 
 const MARKER_FILE_NAME = "v1-local-storage-imported";
-// Those profiles are AgentD Next's, not ours: AgentD Next imports nothing from them.
+// Those profiles are AgentD Next's, not ours: LibraOS Next imports nothing from them.
 const V1_PROFILE_NAMES: ReadonlyArray<string> = [];
 
 const make = Effect.gen(function* () {

@@ -106,7 +106,7 @@ export const make = Effect.gen(function* () {
           httpBaseUrl: config.httpBaseUrl.href,
           credential,
           clientMetadata: {
-            label: "AgentD Next",
+            label: "LibraOS Next",
             deviceType: "desktop",
           },
         }).pipe(
