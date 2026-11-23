@@ -3647,6 +3647,8 @@
       "v": "v"
     }
   ],
+  "decad7c0a5151baa": "Entorno de la sesión original",
+  "f1276edb3a3928b3": "Generado por el agente en la sesión importada. Estos valores describen esa sesión, no esta.",
   "5771ed9dc77641e2": "Los valores resaltados se muestran aquí restaurados. El agente solo vio marcadores.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",

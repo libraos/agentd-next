@@ -91,6 +91,7 @@ function candidate(
       createdAt: timestamp,
       updatedAt: timestamp,
       omittedMessageCount: 0,
+      environmentContext: null as string | null,
       messages: [
         { role: "user" as const, text: "Fix it", createdAt: timestamp },
         { role: "assistant" as const, text: "Fixed", createdAt: timestamp },
@@ -315,6 +316,8 @@ it.effect(
       );
       const unowned = candidate(CODEX_MODEL_SELECTION, "unowned");
       unowned.thread.omittedMessageCount = 1;
+      unowned.thread.environmentContext =
+        "<environment_context>\n  <cwd>/old</cwd>\n</environment_context>";
       unowned.worktree = { path: "/workspace/project/.claude/worktrees/feat", branch: "feat" };
       const unownedPi = candidate(PI_MODEL_SELECTION, "unowned-pi", "pi");
       const importer = yield* makeImporter([
@@ -363,7 +366,14 @@ it.effect(
               runId: null,
               message: expect.stringContaining("1 earlier message was not imported"),
             },
+            {
+              ordinal: 2,
+              level: "info",
+              importedEnvironment:
+                "<environment_context>\n  <cwd>/old</cwd>\n</environment_context>",
+            },
           ]);
+          expect(records.turnItems[1]).toBe(notices[1]);
         } else {
           expect(notices).toEqual([]);
         }

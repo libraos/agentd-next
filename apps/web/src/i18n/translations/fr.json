@@ -3647,6 +3647,8 @@
       "v": "v"
     }
   ],
+  "decad7c0a5151baa": "Environnement de la session d’origine",
+  "f1276edb3a3928b3": "Généré par l’agent dans la session importée. Ces valeurs décrivent cette session-là, pas celle-ci.",
   "5771ed9dc77641e2": "Les valeurs surlignées sont affichées ici restaurées. L’agent n’a vu que des espaces réservés.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",

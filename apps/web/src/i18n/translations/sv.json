@@ -3647,6 +3647,8 @@
       "v": "v"
     }
   ],
+  "decad7c0a5151baa": "Ursprungliga sessionens miljö",
+  "f1276edb3a3928b3": "Skapat av agenten i den importerade sessionen. Värdena beskriver den sessionen, inte den här.",
   "5771ed9dc77641e2": "Markerade värden visas här återställda. Agenten såg bara platshållare.",
   "668e353261860b41": "Background work",
   "65328c7f8bf4cd56": "Waiting for an AgentD worker",

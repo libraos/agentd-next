@@ -121,6 +121,11 @@ const CodexTurnMetadata = Schema.Struct({
   turn_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
 });
 
+// One kind per content item, such as "user.text" or "environments.environment_context".
+const CodexContentItemKinds = Schema.Struct({
+  content_item_kinds: Schema.Array(Schema.Unknown),
+});
+
 const TranscriptRecord = Schema.Struct({
   type: Schema.optional(Schema.String),
   // Pi entries form a tree through id/parentId; session_info entries carry its name.
@@ -170,6 +175,7 @@ const decodePiEntryLinks = Schema.decodeUnknownOption(
 );
 const selectTranscriptPath = createTranscriptJsonSelector(TranscriptRecord);
 const decodeCodexTurnMetadata = Schema.decodeUnknownOption(CodexTurnMetadata);
+const decodeCodexContentItemKinds = Schema.decodeUnknownOption(CodexContentItemKinds);
 export const decodeImportedTranscriptPayload = Schema.decodeUnknownOption(
   Schema.Struct({
     cwd: Schema.optional(Schema.String),
@@ -217,6 +223,8 @@ export interface AgentSessionThread {
   readonly updatedAt: string;
   readonly messages: ReadonlyArray<AgentSessionThreadMessage>;
   readonly omittedMessageCount: number;
+  /** The environment the agent generated for the original session, never a message. */
+  readonly environmentContext: string | null;
 }
 
 export type AgentSessionRecentThread =
@@ -338,6 +346,43 @@ function codexTurnId(metadata: unknown): string | null {
     return null;
   }
   return decoded.value.turn_id;
+}
+
+const CODEX_ENVIRONMENT_CONTEXT_KIND = "environments.environment_context";
+// The whole item as Codex generates it: one element holding only child elements.
+const CODEX_ENVIRONMENT_CONTEXT =
+  /^<environment_context>(?:\s*<([a-z_]+)(?:\s[^>]*)?>[\s\S]*?<\/\1>)+\s*<\/environment_context>$/;
+
+function isCodexEnvironmentContext(text: string): boolean {
+  return CODEX_ENVIRONMENT_CONTEXT.test(text);
+}
+
+/**
+ * Splits a Codex user response item into what the user sent and the environment
+ * context Codex generated into it, going by the kind Codex records per item.
+ */
+function splitCodexUserContent(payload: NonNullable<DecodedTranscriptRecord["payload"]>): {
+  readonly text: string;
+  readonly environment: ReadonlyArray<string>;
+} {
+  const content = payload.content ?? [];
+  const kinds = Option.getOrUndefined(
+    decodeCodexContentItemKinds(payload.internal_chat_message_metadata_passthrough),
+  )?.content_item_kinds;
+  if (kinds === undefined || kinds.length !== content.length) {
+    return { text: extractText(content), environment: [] };
+  }
+  const environment: Array<string> = [];
+  const sent: Array<typeof TranscriptContentBlock.Type> = [];
+  content.forEach((block, index) => {
+    const text = block.text?.trim() ?? "";
+    if (kinds[index] === CODEX_ENVIRONMENT_CONTEXT_KIND && isTextContentBlock(block)) {
+      if (text.length > 0) environment.push(text);
+    } else {
+      sent.push(block);
+    }
+  });
+  return { text: extractText(sent), environment };
 }
 
 function isHiddenClaudeRecord(record: DecodedTranscriptRecord): boolean {
@@ -542,6 +587,9 @@ function parseAgentSessionRecords(
     | (AgentSessionThreadMessage & { readonly codexResponseUser: boolean })
     | undefined;
   const canonicalCodexResponseUserIndices = new Set<number>();
+  // Older Codex records the generated context as its own item ahead of the user's in that turn.
+  const codexEnvironmentIndices = new Set<number>();
+  const environmentContexts: Array<string> = [];
   let canonicalUserTextsInTurn = new Set<string>();
   let responseUsersInTurn: Array<{
     readonly index: number;
@@ -564,6 +612,7 @@ function parseAgentSessionRecords(
   };
   if (input.source === "codex") {
     let recordIndex = -1;
+    const turnEnvironmentIndices = new Map<string, number>();
     for (const record of records) {
       recordIndex += 1;
       if (
@@ -588,6 +637,16 @@ function parseAgentSessionRecords(
         const text = extractText(record.payload.content);
         if (turnId !== null && text.length > 0) {
           responseUsersInTurn.push({ index: recordIndex, turnId, text });
+          const environmentIndex = turnEnvironmentIndices.get(turnId);
+          if (environmentIndex !== undefined) codexEnvironmentIndices.add(environmentIndex);
+          turnEnvironmentIndices.delete(turnId);
+          // Items with recorded kinds say for themselves which part Codex generated.
+          const hasKinds = Option.isSome(
+            decodeCodexContentItemKinds(record.payload.internal_chat_message_metadata_passthrough),
+          );
+          if (!hasKinds && isCodexEnvironmentContext(text)) {
+            turnEnvironmentIndices.set(turnId, recordIndex);
+          }
         }
       }
     }
@@ -707,7 +766,16 @@ function parseAgentSessionRecords(
       continue;
     }
 
-    const extractedText = extractText(record.payload.content);
+    let extractedText = extractText(record.payload.content);
+    if (record.payload.role === "user") {
+      if (codexEnvironmentIndices.has(recordIndex)) {
+        environmentContexts.push(extractedText);
+        continue;
+      }
+      const split = splitCodexUserContent(record.payload);
+      environmentContexts.push(...split.environment);
+      extractedText = split.text;
+    }
     if (extractedText.length === 0) continue;
     if (record.payload.role === "user" && canonicalCodexResponseUserIndices.has(recordIndex)) {
       continue;
@@ -757,6 +825,8 @@ function parseAgentSessionRecords(
     updatedAt: fallbackTimestamp,
     messages: retainedMessages,
     omittedMessageCount: conversationMessageCount + droppedMessageCount - retainedMessages.length,
+    environmentContext:
+      environmentContexts.length === 0 ? null : [...new Set(environmentContexts)].join("\n\n"),
   };
 }
 
