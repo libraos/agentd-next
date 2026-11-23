@@ -233,7 +233,7 @@ export const updateCommand = Command.make("update", {
   version: versionArgument,
 }).pipe(
   Command.withDescription(
-    "Download a newer agentd-next and switch this machine to it, including the background service when one is installed.",
+    "Download a newer libraos-next and switch this machine to it, including the background service when one is installed.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
@@ -366,7 +366,7 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
         `t3@${targetVersion} is a preview build.`,
         "  Preview builds are cut by maintainers from unreleased branches to exercise the release",
         "  pipeline. They can be broken, receive no fixes, and are never offered as updates; you",
-        `  will have to switch back to ${currentChannel} yourself with \`agentd-next update --channel ${currentChannel} --allow-downgrade\`.`,
+        `  will have to switch back to ${currentChannel} yourself with \`libraos-next update --channel ${currentChannel} --allow-downgrade\`.`,
       ].join("\n"),
     );
     if (!(process.stdin.isTTY && process.stdout.isTTY)) {
@@ -409,8 +409,8 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
   if (executableCurrent && serviceCurrent) {
     yield* Console.log(
       serviceVersion !== undefined
-        ? `agentd-next and its background service are already on ${targetVersion} (${targetChannel}).`
-        : `agentd-next is already on ${targetVersion} (${targetChannel}).`,
+        ? `libraos-next and its background service are already on ${targetVersion} (${targetChannel}).`
+        : `libraos-next is already on ${targetVersion} (${targetChannel}).`,
     );
     return;
   }
@@ -455,7 +455,7 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
       ).pipe(Effect.catchTags({ QuitError: () => Effect.succeed(false) }));
     } else {
       yield* Console.log(
-        "  Not a terminal, so the service keeps running its current version. Rerun with --yes to restart it now, or run `agentd-next service restart` later.",
+        "  Not a terminal, so the service keeps running its current version. Rerun with --yes to restart it now, or run `libraos-next service restart` later.",
       );
     }
   }
@@ -492,7 +492,7 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
                 ? error
                 : new PinnedRuntimePreflightBlockedError({
                     version: targetVersion,
-                    reason: `t3@${targetVersion} could not confirm it supports this database (its check exited with code ${error.exitCode}), so agentd-next did not switch to it.`,
+                    reason: `t3@${targetVersion} could not confirm it supports this database (its check exited with code ${error.exitCode}), so libraos-next did not switch to it.`,
                   }),
             ),
         }),
@@ -587,7 +587,7 @@ export const runUpdate = Effect.fn("cli.update.run")(function* (input: {
           ? `the version before ${serviceVersion}`
           : serviceVersion;
     yield* Console.log(
-      `  Background service still running ${running}. Run \`agentd-next service restart\` when you are ready to switch it to ${targetVersion}.`,
+      `  Background service still running ${running}. Run \`libraos-next service restart\` when you are ready to switch it to ${targetVersion}.`,
     );
   } else if (status.installed && !servesThisHome) {
     yield* Console.log(

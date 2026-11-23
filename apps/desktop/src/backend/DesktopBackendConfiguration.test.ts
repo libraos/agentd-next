@@ -246,6 +246,9 @@ describe("DesktopBackendConfiguration", () => {
         assert.isUndefined(first.env.T3CODE_PORT);
         assert.isUndefined(first.env.T3CODE_MODE);
         assert.isUndefined(first.env.T3CODE_DESKTOP_LAN_HOST);
+        // Cleared, not merely unset here: the server reads it over T3CODE_PORT.
+        assert.property(first.env, "LIBRAOS_NEXT_PORT");
+        assert.isUndefined(first.env.LIBRAOS_NEXT_PORT);
 
         assert.equal(first.bootstrap.mode, "desktop");
         assert.equal(first.bootstrap.noBrowser, true);

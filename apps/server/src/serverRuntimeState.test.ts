@@ -370,8 +370,8 @@ describe("server ownership", () => {
           assert.equal(result.failure._tag, "OlderBootServiceError");
           assert.equal(Runtime.getErrorExitCode(result.failure), 78);
           assert.include(result.failure.message, t3Home);
-          assert.include(result.failure.message, "agentd-next update");
-          assert.include(result.failure.message, "agentd-next service restart");
+          assert.include(result.failure.message, "libraos-next update");
+          assert.include(result.failure.message, "libraos-next service restart");
           assert.include(result.failure.message, "No server was stopped");
         }
       }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),

@@ -2631,6 +2631,7 @@ it.layer(
         env: {
           PORT: "5173",
           T3CODE_PORT: "3773",
+          LIBRAOS_NEXT_PORT: "3773",
           T3CODE_THREAD_ID: "server-thread",
           VITE_DEV_SERVER_URL: "http://localhost:5173",
           TEST_TERMINAL_KEEP: "keep-me",
@@ -2653,6 +2654,7 @@ it.layer(
 
       expect(spawnInput.env.PORT).toBeUndefined();
       expect(spawnInput.env.T3CODE_PORT).toBeUndefined();
+      expect(spawnInput.env.LIBRAOS_NEXT_PORT).toBeUndefined();
       expect(spawnInput.env.T3CODE_THREAD_ID).toBe("thread-1");
       expect(ptyAdapter.spawnInputs[1]?.env.T3CODE_THREAD_ID).toBe("thread-1");
       expect(spawnInput.env.VITE_DEV_SERVER_URL).toBeUndefined();

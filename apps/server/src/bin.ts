@@ -3,6 +3,7 @@ import * as NodeModule from "node:module";
 import * as NodeSea from "node:sea";
 import * as NodeURL from "node:url";
 
+import { applyCommandEnvAliases } from "./agentd/commandEnvAliases.ts";
 import { isEntrypoint } from "./entrypoint.ts";
 
 // Loads the CLI outside the launcher's module graph. Packaged builds embed it as a raw asset.
@@ -44,6 +45,8 @@ if (
   // and skips shutdown, so drop the line instead.
   process.stdout.on("error", ignoreOutputError);
   process.stderr.on("error", ignoreOutputError);
+  // oxlint-disable-next-line t3code/no-global-process-runtime -- Runs before the CLI's Effect runtime loads.
+  applyCommandEnvAliases(process.env, process.platform);
 
   // The launcher owns shutdown until its child exits, so it bypasses the Effect CLI runtime.
   // A service unit passes nothing, or on Windows the launcher's own flags; help and anything

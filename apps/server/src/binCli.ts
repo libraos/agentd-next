@@ -62,7 +62,7 @@ const connectUnavailableCommand = Command.make("connect", {
   Command.withHandler(() =>
     Effect.fail(
       new CliError.ShowHelp({
-        commandPath: ["agentd-next", "connect"],
+        commandPath: ["libraos-next", "connect"],
         errors: [new ConnectPublicConfigMissingError({ cause: connectPublicConfigMissingMessage })],
       }),
     ),
@@ -70,16 +70,16 @@ const connectUnavailableCommand = Command.make("connect", {
 );
 
 export const makeCli = ({ cloudEnabled = hasCloudPublicConfig } = {}) =>
-  Command.make("agentd-next", { ...sharedServerCommandFlags }).pipe(
+  Command.make("libraos-next", { ...sharedServerCommandFlags }).pipe(
     Command.withDescription(
-      "Run AgentD Next in this terminal and open it in your browser. To use it from your other devices, run `agentd-next up`.",
+      "Run AgentD Next in this terminal and open it in your browser. To use it from your other devices, run `libraos-next up`. The earlier names `agentd-next` and `t3` run this same command.",
     ),
     Command.withHandler(runDefaultServerCommand),
     Command.withSubcommands([
       Command.make("help").pipe(
         Command.withDescription("Show command help."),
         Command.withHandler(() =>
-          Effect.fail(new CliError.ShowHelp({ commandPath: ["agentd-next"], errors: [] })),
+          Effect.fail(new CliError.ShowHelp({ commandPath: ["libraos-next"], errors: [] })),
         ),
       ),
       acpMcpBridgeCommand,

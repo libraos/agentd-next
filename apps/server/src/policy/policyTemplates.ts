@@ -176,7 +176,7 @@ const policies = (): ReadonlyArray<Policy> => [
   {
     id: "Settings",
     title: "Managed settings (JSON)",
-    help: 'Defaults and locks for server settings, as the "settings" object of an AgentD Next policy. Each key is a setting path; each value is {"value": ..., "locked": true|false}.\n\nExample: {"enableAgentBrowserAccess": {"value": false, "locked": true}}\n\nRun "agentd-next policy check" on a policy file with the same object to validate it first.',
+    help: 'Defaults and locks for server settings, as the "settings" object of an AgentD Next policy. Each key is a setting path; each value is {"value": ..., "locked": true|false}.\n\nExample: {"enableAgentBrowserAccess": {"value": false, "locked": true}}\n\nRun "libraos-next policy check" on a policy file with the same object to validate it first.',
     elements: [{ kind: "text", name: "Settings", label: "Settings JSON", json: true }],
   },
   {

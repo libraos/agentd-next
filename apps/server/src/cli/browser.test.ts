@@ -128,7 +128,7 @@ it.effect.each([
     written: CUSTOMIZED_PROFILE,
     said: "Reloaded the AppArmor profile",
   },
-])("agentd-next browser setup as root $label", (input) =>
+])("libraos-next browser setup as root $label", (input) =>
   Effect.gen(function* () {
     const result = yield* runSetupAsRoot({ profile: input.profile });
     expect(result.loads).toEqual([LOAD]);
