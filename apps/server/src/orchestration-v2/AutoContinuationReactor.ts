@@ -90,7 +90,7 @@ const make = Effect.gen(function* () {
       const runId = event.payload.id;
       const projection = yield* projections.getThreadRecords(
         event.threadId,
-        ["runs", "turnItems", "runtimeRequests"],
+        ["runs", "turnItems", "runtimeRequests", "nodes"],
         { turnItemRunIds: [runId] },
       );
       const { thread, runs } = projection;
@@ -112,13 +112,23 @@ const make = Effect.gen(function* () {
       )
         return;
       const items = projection.turnItems.filter((item) => item.runId === run.id);
+      // Some harnesses put each reply in its own node under the root; a subagent's stays under its own node.
+      const rootLevel = new Set([
+        run.rootNodeId,
+        ...projection.nodes
+          .filter(
+            (node) => node.parentNodeId === run.rootNodeId && node.kind === "assistant_message",
+          )
+          .map((node) => node.id),
+      ]);
       // A stopped chain stays stopped: a repeat of this run's end does not ask the hooks again.
       if (items.some((item) => item.type === "system_notice" && item.title === STOP_TITLE)) return;
       const finalMessage = items
         .filter(
           (item): item is Extract<OrchestrationV2TurnItem, { type: "assistant_message" }> =>
             item.type === "assistant_message" &&
-            item.nodeId === run.rootNodeId &&
+            item.nodeId !== null &&
+            rootLevel.has(item.nodeId) &&
             item.phase !== "commentary",
         )
         .reduce<Extract<OrchestrationV2TurnItem, { type: "assistant_message" }> | undefined>(

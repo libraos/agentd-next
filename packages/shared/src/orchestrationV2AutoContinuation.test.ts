@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 
 import {
+  withoutCompletionStatus,
   type AutoContinuationInput,
   autoContinuationStopMessage,
   decideAutoContinuation,
@@ -62,13 +63,18 @@ describe("decideAutoContinuation", () => {
   });
 
   it.each([
-    ["the user pressed stop", { userStopped: true }, "stopped"],
-    ["the run was interrupted", { runStatus: "interrupted" }, "stopped"],
-    ["the turn waits for an approval or question", { awaitingUser: true }, "awaiting_user"],
-    ["the run waits", { runStatus: "waiting" }, "awaiting_user"],
-    ["the run failed", { runStatus: "failed" }, "failed"],
-    ["a usage limit was reached", { usageLimited: true, runStatus: "failed" }, "usage_limit"],
-    ["the agent says blocked", { finalMessage: "x\nStatus: blocked: need a token" }, "blocked"],
+    ["the user pressed stop", { userStopped: true }],
+    ["the run was interrupted", { runStatus: "interrupted" }],
+    ["the turn waits for an approval or question", { awaitingUser: true }],
+    ["the run waits", { runStatus: "waiting" }],
+    ["the run failed", { runStatus: "failed" }],
+    ["a usage limit was reached", { usageLimited: true, runStatus: "failed" }],
+    ["the agent says blocked", { finalMessage: "x\nStatus: blocked: need a token" }],
+  ] as const)("neither continues nor adds a notice when %s", (_case, patch) => {
+    expect(decideAutoContinuation({ ...base, ...patch })).toEqual({ type: "none" });
+  });
+
+  it.each([
     [
       "a continuation made no progress",
       { continuationsSoFar: 1, madeProgress: false },
@@ -97,5 +103,17 @@ describe("decideAutoContinuation", () => {
     expect(autoContinuationStopMessage("limit_reached", "wire the reader")).toContain(
       "What remains: wire the reader",
     );
+  });
+
+  it("hides the status line people do not need to read", () => {
+    expect(withoutCompletionStatus("Pushed the fix.\n\nStatus: done\n")).toBe("Pushed the fix.");
+    expect(withoutCompletionStatus("Half done.\n**Status: remaining: wire the reader**")).toBe(
+      "Half done.",
+    );
+    expect(withoutCompletionStatus("Writing it.\nStatus: rem", true)).toBe("Writing it.");
+    expect(withoutCompletionStatus("Build status:\nStatus: green")).toBe(
+      "Build status:\nStatus: green",
+    );
+    expect(withoutCompletionStatus("Writing it.\nStatus: rem")).toBe("Writing it.\nStatus: rem");
   });
 });
