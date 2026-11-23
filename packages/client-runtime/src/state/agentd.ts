@@ -228,6 +228,16 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdSetupStart,
       scheduler,
     }),
+    permissionMode: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:permission-mode",
+      tag: WS_METHODS.agentdPermissionMode,
+      staleTimeMs: 30_000,
+    }),
+    lowerPermissionMode: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:lower-permission-mode",
+      tag: WS_METHODS.agentdLowerPermissionMode,
+      scheduler,
+    }),
     // A backup of this computer's agentd memory, encrypted to the asking device's public key.
     backupCreate: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:backup-create",

@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { AgentdSetupState, EnvironmentId } from "@t3tools/contracts";
+import type { AgentdPermissionMode, AgentdSetupState, EnvironmentId } from "@t3tools/contracts";
 import { Atom } from "effect/reactivity";
 import { T, useGT, Var } from "gt-react";
 import { ChevronRightIcon } from "lucide-react";
@@ -28,6 +28,7 @@ import {
 } from "../ui/dialog";
 import { offerAccountLink } from "./agentdVisibility.logic";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
+import { PermissionModeChoice } from "./WorkerPermissionMode";
 
 const EULA_URL = "https://libraos.com/eula";
 
@@ -110,6 +111,9 @@ function AgentdSetupDialog({
   // The run this dialog's Accept started; "starting" until the server names it.
   const [attempt, setAttempt] = useState<number | "starting" | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  // Asked at first setup only, with neither choice made; agentd keeps the answer, the app does not.
+  const [permissionMode, setPermissionMode] = useState<AgentdPermissionMode | null>(null);
+  const askPermissionMode = status.data?.firstSetup === true;
   const run = setup.data;
   const ours = run !== null && run.attempt === attempt ? run : null;
   // A run another client started is shown too; an old finished one only if it failed.
@@ -161,6 +165,14 @@ function AgentdSetupDialog({
               </p>
             ) : (
               <div className="space-y-3">
+                {ours?.permissionModeIgnored === true ? (
+                  <p className="text-muted-foreground text-sm">
+                    <T>
+                      This version of agentd could not take your choice about background workers, so
+                      they ask first. See Settings → Workers.
+                    </T>
+                  </p>
+                ) : null}
                 <p className="text-sm">
                   <T>Optional: link your LibraOS account to run tasks on Cloud Workers.</T>
                 </p>
@@ -191,7 +203,10 @@ function AgentdSetupDialog({
     appAtomRegistry.set(openedFor, environmentId);
     setAttempt("starting");
     setStartError(null);
-    const result = await startSetup({ environmentId, input: {} });
+    const result = await startSetup({
+      environmentId,
+      input: askPermissionMode && permissionMode !== null ? { permissionMode } : {},
+    });
     if (result._tag === "Success") {
       setAttempt(result.value.attempt);
     } else {
@@ -302,6 +317,13 @@ function AgentdSetupDialog({
                     </div>
                   </CollapsiblePanel>
                 </Collapsible>
+                {askPermissionMode ? (
+                  <PermissionModeChoice
+                    value={permissionMode}
+                    onChange={setPermissionMode}
+                    disabled={!canSetUp}
+                  />
+                ) : null}
                 <p className="text-muted-foreground text-xs">
                   <T>
                     Accept records that you accept the AgentD End User Agreement and runs{" "}
@@ -353,7 +375,12 @@ function AgentdSetupDialog({
           </Button>
           <Button
             type="button"
-            disabled={running || !canSetUp || (shown === null && eula.data === null)}
+            disabled={
+              running ||
+              !canSetUp ||
+              (shown === null && eula.data === null) ||
+              (askPermissionMode && permissionMode === null)
+            }
             onClick={() => void accept()}
           >
             {running ? (

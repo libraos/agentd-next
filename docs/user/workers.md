@@ -37,3 +37,16 @@ flagged before **Start**. Cloud Workers are priced by the service and always tak
 
 The default comes from agentd's estimate for similar tasks, else from **Settings →
 Workers → Default budget**.
+
+## What workers may do without asking
+
+When you set up agentd, you choose how much its workers may do without asking:
+
+- **Ask first.** A worker stops and waits when a command needs permission. The task then says
+  it is waiting and shows the command to answer it in a terminal, such as `claude attach`.
+- **Run without asking.** Workers run any command in their own worktree, with network. They
+  still cannot push, merge or open a pull request, and budgets and checks still apply.
+
+**Settings → Workers** shows the current choice. You can switch to **Ask first** there at any
+time. Going back to **Run without asking** is done in a terminal, with the command Settings
+shows.

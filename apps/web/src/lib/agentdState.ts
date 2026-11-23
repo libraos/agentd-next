@@ -123,6 +123,15 @@ export function useAgentdSetup(target: EnvironmentId | null) {
   );
 }
 
+/** The worker permission mode as agentd holds it; the app keeps no copy. */
+export function useAgentdPermissionMode(target: EnvironmentId | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null ? null : agentdEnvironment.permissionMode({ environmentId, input: {} }),
+    useMessages(),
+  );
+}
+
 /** Each takes `{ environmentId, input }`; failures are reported like any other command's. */
 export function useAgentdCommands() {
   return {
@@ -135,6 +144,9 @@ export function useAgentdCommands() {
     cloudKeyFileFix: useAtomCommand(agentdEnvironment.cloudKeyFileFix),
     repairServices: useAtomCommand(agentdEnvironment.repairServices),
     setWorkerGateway: useAtomCommand(agentdEnvironment.setWorkerGateway, { reportFailure: false }),
+    lowerPermissionMode: useAtomCommand(agentdEnvironment.lowerPermissionMode, {
+      reportFailure: false,
+    }),
   };
 }
 

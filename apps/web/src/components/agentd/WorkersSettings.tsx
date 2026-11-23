@@ -18,6 +18,7 @@ import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings
 import { AgentdStatusLines, useAgentdState, useCloudWorkersLinked } from "./AgentdIndicator";
 import { openAgentdSetupDialog, useCanSetUpAgentd } from "./AgentdSetupDialog";
 import { WorkerGatewaySettings } from "./WorkerGatewaySettings";
+import { WorkerPermissionModeRow } from "./WorkerPermissionMode";
 import { parseDefaultBudget } from "./agentdVisibility.logic";
 import { budgetDollars } from "./startTask.logic";
 
@@ -59,6 +60,9 @@ export function WorkersSettings() {
             </Button>
           )}
         </div>
+        {status?.setUp === true && environmentId !== null ? (
+          <WorkerPermissionModeRow environmentId={environmentId} />
+        ) : null}
       </SettingsSection>
       <SettingsSection id="workers" title={gt("Workers")}>
         <SettingsRow
