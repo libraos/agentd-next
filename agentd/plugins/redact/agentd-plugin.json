@@ -9,5 +9,9 @@
       "timeoutSeconds": 60,
       "attachmentFiles": true
     }
+  },
+  "setup": {
+    "command": ["python3", "setup_env.py"],
+    "description": "Downloads a Python environment with CPU torch, transformers and a PDF reader and the veil-detect model, about 2 GB of disk; it needs Python 3.10 or newer."
   }
 }

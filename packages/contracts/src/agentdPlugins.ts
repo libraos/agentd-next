@@ -10,10 +10,27 @@ export type AgentdPluginHookEvent = typeof AgentdPluginHookEvent.Type;
 
 /**
  * on: installed, enabled here and its hook command found; missing: enabled but its command is
- * not there, so sends stop; off: installed and not enabled; absent: not installed.
+ * not there or its setup has not succeeded, so sends stop; off: installed and not enabled;
+ * absent: not installed.
  */
 export const AgentdPluginState = Schema.Literals(["on", "missing", "off", "absent"]);
 export type AgentdPluginState = typeof AgentdPluginState.Type;
+
+/** needed: never run or interrupted for the installed version; running; ready: exit 0; failed. */
+export const AgentdPluginSetupStatus = Schema.Literals(["needed", "running", "ready", "failed"]);
+export type AgentdPluginSetupStatus = typeof AgentdPluginSetupStatus.Type;
+
+/** A plugin whose manifest declares a setup step, run on the server before it can be turned on. */
+export const AgentdPluginSetup = Schema.Struct({
+  /** The manifest's sentence: what setup downloads and how much disk it needs. */
+  description: Schema.String,
+  status: AgentdPluginSetupStatus,
+  /** While running: the last line setup printed. */
+  progress: Schema.optionalKey(Schema.String),
+  /** When failed: why. */
+  reason: Schema.optionalKey(Schema.String),
+});
+export type AgentdPluginSetup = typeof AgentdPluginSetup.Type;
 
 export const AgentdPluginListing = Schema.Struct({
   id: Schema.String,
@@ -31,6 +48,8 @@ export const AgentdPluginListing = Schema.Struct({
   projectEnabled: Schema.optionalKey(Schema.Boolean),
   /** For the project asked for, or the environment. */
   state: AgentdPluginState,
+  /** Present when the installed version declares setup. */
+  setup: Schema.optionalKey(AgentdPluginSetup),
 });
 export type AgentdPluginListing = typeof AgentdPluginListing.Type;
 
@@ -51,6 +70,13 @@ export type AgentdPluginsListInput = typeof AgentdPluginsListInput.Type;
 export const AgentdPluginInput = Schema.Struct({ id: Schema.String });
 export type AgentdPluginInput = typeof AgentdPluginInput.Type;
 
+export const AgentdPluginRemoveInput = Schema.Struct({
+  id: Schema.String,
+  /** Also delete the plugin's data folder (what its setup downloaded). */
+  deleteData: Schema.optionalKey(Schema.Boolean),
+});
+export type AgentdPluginRemoveInput = typeof AgentdPluginRemoveInput.Type;
+
 export const AgentdPluginEnableInput = Schema.Struct({
   id: Schema.String,
   /** null clears a project's override. */
@@ -66,6 +92,7 @@ export const AgentdPluginErrorReason = Schema.Literals([
   "unsafe",
   "filesystem",
   "invalid",
+  "setup",
 ]);
 export type AgentdPluginErrorReason = typeof AgentdPluginErrorReason.Type;
 

@@ -12,6 +12,8 @@ import {
   ThreadId,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as Context from "effect/Context";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import { HttpClient, HttpClientResponse } from "effect/http";
@@ -50,12 +52,33 @@ const manifest = (id: string) =>
       },
     },
   });
-const REPO_FILES: Record<string, Uint8Array> = Object.fromEntries(
-  Object.entries(HOOKS).flatMap(([id, script]) => [
-    [`plugins/${id}/agentd-plugin.json`, text(manifest(id))],
-    [`plugins/${id}/hook.sh`, text(script)],
-  ]),
-);
+// Its setup runs in the plugin's folder: it writes to the plugin's data folder what it saw, and
+// fails while the test has put a `fail` file there.
+const SETUP_SCRIPT = `#!/bin/sh
+data=../../../../data/setup
+mkdir -p "$data"
+cat > "$data/stdin"
+echo "Step 1 of 1: writing the marker"
+if [ -f "$data/fail" ]; then echo "error: told to fail" >&2; exit 4; fi
+pwd > "$data/marker"
+`;
+const SETUP_DESCRIPTION = "Downloads nothing and needs no disk.";
+const REPO_FILES: Record<string, Uint8Array> = {
+  ...Object.fromEntries(
+    Object.entries(HOOKS).flatMap(([id, script]) => [
+      [`plugins/${id}/agentd-plugin.json`, text(manifest(id))],
+      [`plugins/${id}/hook.sh`, text(script)],
+    ]),
+  ),
+  "plugins/setup/agentd-plugin.json": text(
+    JSON.stringify({
+      ...JSON.parse(manifest("setup")),
+      setup: { command: ["./setup.sh"], description: SETUP_DESCRIPTION },
+    }),
+  ),
+  "plugins/setup/hook.sh": text(HOOKS.pass!),
+  "plugins/setup/setup.sh": text(SETUP_SCRIPT),
+};
 const entry = (id: string) => ({
   id,
   name: `Plugin ${id}`,
@@ -66,7 +89,10 @@ const entry = (id: string) => ({
   version: "1.0.0",
   source: { url: "https://github.com/owner/repo", path: `plugins/${id}`, sha: COMMIT },
 });
-const CATALOG = JSON.stringify({ version: 1, plugins: Object.keys(HOOKS).map(entry) });
+const CATALOG = JSON.stringify({
+  version: 1,
+  plugins: [...Object.keys(HOOKS), "setup"].map(entry),
+});
 const TREE_URL = `https://api.github.com/repos/owner/repo/git/trees/${COMMIT}?recursive=1`;
 const rawUrl = (path: string) => `https://raw.githubusercontent.com/owner/repo/${COMMIT}/${path}`;
 const TREE = JSON.stringify({
@@ -85,18 +111,18 @@ const PROJECT = ProjectId.make("project-1");
 const THREAD = ThreadId.make("thread-1");
 const MESSAGE = MessageId.make("message-1");
 
+const TIMED_OUT: ProcessRunner.ProcessRunOutput = {
+  stdout: "",
+  stderr: "",
+  code: null,
+  timedOut: true,
+  stdoutTruncated: false,
+  stderrTruncated: false,
+  stdoutInvalidUtf8: false,
+  stderrInvalidUtf8: false,
+};
 const timedOutRunner = Layer.succeed(ProcessRunner.ProcessRunner, {
-  run: () =>
-    Effect.succeed({
-      stdout: "",
-      stderr: "",
-      code: null,
-      timedOut: true,
-      stdoutTruncated: false,
-      stderrTruncated: false,
-      stdoutInvalidUtf8: false,
-      stderrInvalidUtf8: false,
-    }),
+  run: () => Effect.succeed(TIMED_OUT),
 });
 
 const harness = (
@@ -127,20 +153,20 @@ const harness = (
         );
       }),
     );
-    const service = yield* AgentdPlugins.AgentdPluginsService.pipe(
-      Effect.provide(
-        AgentdPlugins.layer.pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              Layer.succeed(HttpClient.HttpClient, client),
-              Layer.succeed(HostProcess.HomeDirectory, config.baseDir),
-              Layer.succeed(HostProcess.Environment, {}),
-              runner,
-            ),
+    // Built in the test's scope, so a setup it forks runs until the test ends.
+    const context = yield* Layer.build(
+      AgentdPlugins.layer.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(HttpClient.HttpClient, client),
+            Layer.succeed(HostProcess.HomeDirectory, config.baseDir),
+            Layer.succeed(HostProcess.Environment, {}),
+            runner,
           ),
         ),
       ),
     );
+    const service = Context.get(context, AgentdPlugins.AgentdPluginsService);
     const cache = path.join(config.stateDir, "plugins", "cache", "libraos");
     const enable = (id: string) =>
       service
@@ -186,6 +212,7 @@ it.effect("installs per version with a record, and remove deletes only what it w
       enabled: false,
       state: "off",
     });
+    expect(listed.plugins.find((plugin) => plugin.id === "pass")).not.toHaveProperty("setup");
     expect(listed.beforeSend).toBe(false);
     const folder = h.path.join(h.cache, "pass", "1.0.0");
     expect((yield* h.fs.readDirectory(folder)).toSorted()).toEqual([
@@ -410,6 +437,132 @@ it.live("discard drops the held review", () =>
     const error = yield* h.send({ resend: { kind: "dispatch", command: dispatch } });
     yield* h.service.discard(error.reviewId!);
     expect(yield* h.service.review({ threadId: THREAD, messageId: MESSAGE })).toBeNull();
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.live(
+  "a plugin with setup is not ready until its setup exits 0, and cannot be turned on before",
+  () =>
+    Effect.gen(function* () {
+      const h = yield* harness();
+      const folder = h.path.join(h.cache, "setup", "1.0.0");
+      const data = h.path.join(h.config.stateDir, "plugins", "data", "setup");
+      const setupOf = (listed: { plugins: ReadonlyArray<{ id: string; setup?: unknown }> }) =>
+        listed.plugins.find((plugin) => plugin.id === "setup")?.setup;
+
+      const installed = yield* h.service.install({ id: "setup" });
+      expect(setupOf(installed)).toEqual({ description: SETUP_DESCRIPTION, status: "needed" });
+      expect(
+        yield* h.service.setEnabled({ id: "setup", enabled: true }).pipe(Effect.flip),
+      ).toMatchObject({ reason: "setup" });
+      expect(
+        (yield* h.service
+          .setEnabled({ id: "setup", enabled: true, projectId: PROJECT })
+          .pipe(Effect.flip)).reason,
+      ).toBe("setup");
+
+      yield* h.fs.makeDirectory(data, { recursive: true });
+      yield* h.fs.writeFileString(h.path.join(data, "fail"), "");
+      yield* h.service.setup({ id: "setup" });
+      yield* h.service.setupDone("setup");
+      expect(setupOf(yield* h.service.list({}))).toEqual({
+        description: SETUP_DESCRIPTION,
+        status: "failed",
+        reason: "Plugin setup's setup failed (exit 4): error: told to fail",
+      });
+      expect(
+        (yield* h.service.setEnabled({ id: "setup", enabled: true }).pipe(Effect.flip)).reason,
+      ).toBe("setup");
+
+      yield* h.fs.remove(h.path.join(data, "fail"));
+      yield* h.service.setup({ id: "setup" });
+      yield* h.service.setupDone("setup");
+      expect(setupOf(yield* h.service.list({}))).toEqual({
+        description: SETUP_DESCRIPTION,
+        status: "ready",
+      });
+      expect((yield* h.fs.readFileString(h.path.join(data, "marker"))).trim()).toBe(
+        yield* h.fs.realPath(folder),
+      );
+      expect(yield* h.fs.readFileString(h.path.join(data, "stdin"))).toBe("");
+      const enabled = yield* h.service.setEnabled({ id: "setup", enabled: true });
+      expect(enabled.plugins.find((plugin) => plugin.id === "setup")?.state).toBe("on");
+      yield* h.service.checkBeforeSend({
+        projectId: PROJECT,
+        threadId: THREAD,
+        messageId: MESSAGE,
+        text: "hello",
+        attachments: [],
+        source: "web",
+      });
+
+      const other = h.path.join(h.config.stateDir, "plugins", "data", "other");
+      yield* h.fs.makeDirectory(other, { recursive: true });
+      yield* h.service.remove({ id: "setup", deleteData: true });
+      expect(yield* h.fs.exists(data)).toBe(false);
+      expect(yield* h.fs.exists(other)).toBe(true);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.live("removing keeps the data folder unless asked, and a reinstall needs setup again", () =>
+  Effect.gen(function* () {
+    const h = yield* harness();
+    const data = h.path.join(h.config.stateDir, "plugins", "data", "setup");
+    yield* h.service.install({ id: "setup" });
+    yield* h.service.setup({ id: "setup" });
+    yield* h.service.setupDone("setup");
+    yield* h.service.remove({ id: "setup" });
+    expect(yield* h.fs.exists(h.path.join(data, "marker"))).toBe(true);
+    const again = yield* h.service.install({ id: "setup" });
+    expect(again.plugins.find((plugin) => plugin.id === "setup")?.setup).toMatchObject({
+      status: "needed",
+    });
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("setup runs like a hook but without the message, and a timeout leaves it not ready", () =>
+  Effect.gen(function* () {
+    const inputs: ProcessRunner.ProcessRunInput[] = [];
+    const h = yield* harness(
+      Layer.succeed(ProcessRunner.ProcessRunner, {
+        run: (input) => {
+          inputs.push(input);
+          return Effect.succeed(TIMED_OUT);
+        },
+      }),
+    );
+    yield* h.service.install({ id: "setup" });
+    yield* h.service.setup({ id: "setup" });
+    yield* h.service.setupDone("setup");
+    const listed = yield* h.service.list({});
+    expect(listed.plugins.find((plugin) => plugin.id === "setup")?.setup).toMatchObject({
+      status: "failed",
+      reason: "Plugin setup's setup did not finish within 60 minutes. Set it up again to continue.",
+    });
+    const folder = h.path.join(h.cache, "setup", "1.0.0");
+    expect(inputs[0]).toMatchObject({ cwd: folder, stdin: "", timeout: Duration.minutes(60) });
+    expect(inputs[0]?.env).toBeUndefined();
+    expect(
+      (yield* h.service.setEnabled({ id: "setup", enabled: true }).pipe(Effect.flip)).reason,
+    ).toBe("setup");
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("a plugin turned on before it declared setup stops sends until it is set up", () =>
+  Effect.gen(function* () {
+    const h = yield* harness(
+      Layer.succeed(ProcessRunner.ProcessRunner, { run: () => Effect.die("no hook should run") }),
+    );
+    yield* h.service.install({ id: "setup" });
+    yield* h.fs.writeFileString(
+      h.path.join(h.config.stateDir, "plugins", "settings.json"),
+      JSON.stringify({ enabled: { setup: true }, projects: {} }),
+    );
+    const listed = yield* h.service.list({});
+    expect(listed.plugins.find((plugin) => plugin.id === "setup")?.state).toBe("missing");
+    expect((yield* h.send()).message).toBe(
+      "Plugin setup is turned on but not set up, so the message was not sent. Set it up in Settings, Plugins.",
+    );
   }).pipe(Effect.provide(dependencies)),
 );
 

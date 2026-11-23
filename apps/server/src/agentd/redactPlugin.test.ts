@@ -92,7 +92,7 @@ const pdfFile = (text: boolean) =>
 afterAll(() => NodeFS.rmSync(FIXTURES, { recursive: true, force: true }));
 
 describe("redaction plugin hook", () => {
-  it("declares a before-send hook the host can run", () => {
+  it("declares a before-send hook and a setup step the host can run", () => {
     const manifest = decodePluginManifest(
       NodeFS.readFileSync(NodePath.join(PLUGIN, "agentd-plugin.json"), "utf8"),
     );
@@ -101,6 +101,10 @@ describe("redaction plugin hook", () => {
       timeoutSeconds: 60,
       attachmentFiles: true,
     });
+    expect(manifest._tag === "Some" && manifest.value.setup?.command).toEqual([
+      "python3",
+      "setup_env.py",
+    ]);
   });
 
   it("rewrites the name, email and key out of the text and the attachment", () => {

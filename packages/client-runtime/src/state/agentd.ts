@@ -59,6 +59,11 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdPluginsRemove,
       scheduler,
     }),
+    pluginsSetup: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-setup",
+      tag: WS_METHODS.agentdPluginsSetup,
+      scheduler,
+    }),
     pluginsSetEnabled: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:plugins-set-enabled",
       tag: WS_METHODS.agentdPluginsSetEnabled,

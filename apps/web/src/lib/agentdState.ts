@@ -172,6 +172,7 @@ export function useAgentdPluginCommands() {
     install: useAtomCommand(agentdEnvironment.pluginsInstall, quiet),
     remove: useAtomCommand(agentdEnvironment.pluginsRemove, quiet),
     setEnabled: useAtomCommand(agentdEnvironment.pluginsSetEnabled, quiet),
+    setup: useAtomCommand(agentdEnvironment.pluginsSetup, quiet),
     review: useAtomCommand(agentdEnvironment.beforeSendReview, quiet),
     confirm: useAtomCommand(agentdEnvironment.beforeSendConfirm, quiet),
     discard: useAtomCommand(agentdEnvironment.beforeSendDiscard, quiet),
