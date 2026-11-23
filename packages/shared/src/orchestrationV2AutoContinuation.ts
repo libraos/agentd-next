@@ -37,14 +37,27 @@ export function parseCompletionStatus(finalMessage: string): CompletionStatus | 
   return { type: kind === "remaining" ? "remaining" : "blocked", detail };
 }
 
-export type AutoContinuationStopReason =
-  | "blocked"
-  | "awaiting_user"
-  | "stopped"
-  | "failed"
-  | "usage_limit"
-  | "limit_reached"
-  | "no_progress";
+const STATUS_KINDS = ["done", "remaining", "blocked"] as const;
+
+/**
+ * The message as people read it: the agent's trailing status line is for AgentD, so it is left
+ * out, and so is a line that is still streaming toward one.
+ */
+export function withoutCompletionStatus(text: string, streaming = false): string {
+  const end = text.trimEnd();
+  const start = end.lastIndexOf("\n") + 1;
+  const last = end.slice(start).trim();
+  const partial = last.replace(/\*/g, "").toLowerCase();
+  const hide =
+    STATUS_LINE.test(last) ||
+    (streaming &&
+      partial.length > 0 &&
+      STATUS_KINDS.some((kind) => `status: ${kind}`.startsWith(partial)));
+  return hide ? end.slice(0, start).trimEnd() : text;
+}
+
+/** Only these get a notice; a stop, error, limit, question or blocker already shows in the thread. */
+export type AutoContinuationStopReason = "limit_reached" | "no_progress";
 
 export type AutoContinuationDecision =
   | { readonly type: "none" }
@@ -75,16 +88,19 @@ export interface AutoContinuationInput {
 export function decideAutoContinuation(input: AutoContinuationInput): AutoContinuationDecision {
   const status =
     input.finalMessage === undefined ? undefined : parseCompletionStatus(input.finalMessage);
-  if (!input.enabled || status === undefined || status.type === "done") return { type: "none" };
+  if (
+    !input.enabled ||
+    status === undefined ||
+    status.type !== "remaining" ||
+    input.userStopped ||
+    input.runStatus !== "completed" ||
+    input.usageLimited ||
+    input.awaitingUser
+  )
+    return { type: "none" };
   const remaining = status.detail;
   const stop = (reason: AutoContinuationStopReason) =>
     ({ type: "stop", reason, remaining }) as const;
-  if (input.userStopped || input.runStatus === "interrupted" || input.runStatus === "cancelled")
-    return stop("stopped");
-  if (input.usageLimited) return stop("usage_limit");
-  if (input.runStatus === "failed") return stop("failed");
-  if (input.awaitingUser || input.runStatus === "waiting") return stop("awaiting_user");
-  if (status.type === "blocked") return stop("blocked");
   if (input.continuationsSoFar > 0 && !input.madeProgress) return stop("no_progress");
   if (input.continuationsSoFar >= input.maxContinuations) return stop("limit_reached");
   return { type: "continue", remaining, continuation: input.continuationsSoFar + 1 };
@@ -100,11 +116,6 @@ export const AUTO_CONTINUATION_PROMPT =
   "Continue toward the user's original request without waiting for them. Do the remaining work your last message named that you can do yourself, within the permissions you already have.";
 
 const STOP_EXPLANATIONS: Record<AutoContinuationStopReason, string> = {
-  blocked: "The agent says it is blocked.",
-  awaiting_user: "The agent is waiting for your answer, approval or input.",
-  stopped: "The run was stopped.",
-  failed: "The run ended with an error.",
-  usage_limit: "A usage limit was reached.",
   limit_reached: "The limit of automatic continuations for your last message was reached.",
   no_progress: "The last automatic continuation made no progress (no tool call or file change).",
 };

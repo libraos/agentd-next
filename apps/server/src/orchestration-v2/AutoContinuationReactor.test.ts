@@ -3,6 +3,7 @@ import {
   CommandId,
   EventId,
   MessageId,
+  NodeId,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2Run,
   type OrchestrationV2TurnItem,
@@ -61,7 +62,7 @@ const layerWith = (
   ) => Effect.Effect<void, AgentdBeforeSendError>,
 ) =>
   AutoContinuationReactor.layer.pipe(
-    Layer.provide(ServerSettings.layerTest(settings)),
+    Layer.provide(ServerSettings.layerTest({ continueWhileWorkRemains: true, ...settings })),
     Layer.provide(
       beforeSend === undefined
         ? Layer.empty
@@ -77,7 +78,13 @@ const threadId = ThreadId.make("thread:auto-continuation");
 const REMAINING = "Wired the reader.\n\nStatus: remaining: run chapter 1 end to end";
 
 type ItemInput =
-  | { readonly type: "assistant"; readonly text: string; readonly subagentNode?: true }
+  | {
+      readonly type: "assistant";
+      readonly text: string;
+      readonly subagentNode?: true;
+      /** In its own assistant-message node under the root, as Pi records a reply. */
+      readonly replyNode?: true;
+    }
   | { readonly type: "tool"; readonly output?: string }
   | { readonly type: "stop" }
   | { readonly type: "question" }
@@ -136,6 +143,19 @@ const endLatestRun = (
         ? yield* latestRun
         : (yield* records).runs.find((candidate) => candidate.id === runId)!;
     const now = yield* DateTime.now;
+    const projections = yield* ProjectionStore.ProjectionStoreV2;
+    const root = (yield* projections.getThreadRecords(threadId, ["nodes"])).nodes.find(
+      (node) => node.id === run.rootNodeId,
+    );
+    const replyNode =
+      root === undefined || !items.some((input) => input.type === "assistant" && input.replyNode)
+        ? undefined
+        : {
+            ...root,
+            id: NodeId.make(`${root.id}:reply`),
+            parentNodeId: root.id,
+            kind: "assistant_message" as const,
+          };
     const base = (index: number, nodeId = run.rootNodeId) => ({
       id: TurnItemId.make(`item:${run.id}:${index}`),
       threadId,
@@ -155,7 +175,14 @@ const endLatestRun = (
       switch (input.type) {
         case "assistant":
           return {
-            ...base(index, input.subagentNode ? null : run.rootNodeId),
+            ...base(
+              index,
+              input.subagentNode
+                ? null
+                : input.replyNode && replyNode !== undefined
+                  ? replyNode.id
+                  : run.rootNodeId,
+            ),
             status: "completed",
             type: "assistant_message",
             messageId: MessageId.make(`message:assistant:${run.id}:${index}`),
@@ -219,6 +246,18 @@ const endLatestRun = (
     } satisfies OrchestrationV2DomainEvent;
     yield* eventSink.write({
       events: [
+        ...(replyNode === undefined
+          ? []
+          : [
+              {
+                id: EventId.make(`event:node:${run.id}`),
+                type: "node.updated",
+                threadId,
+                runId: run.id,
+                occurredAt: now,
+                payload: replyNode,
+              } satisfies OrchestrationV2DomainEvent,
+            ]),
         ...turnItems.map(
           (payload, index) =>
             ({
@@ -268,6 +307,14 @@ it.effect("continues once when the agent's final message says work remains", () 
     // Fixed text: the agent's own remaining words stay in its context and are not sent again.
     assert.equal(prompt?.text, AUTO_CONTINUATION_PROMPT);
     assert.equal(prompt?.notification?.summary, "Continuing automatically (1 of 3)");
+  }).pipe(Effect.provide(layerWith())),
+);
+
+it.effect("continues when the reply is in its own node under the root", () =>
+  Effect.gen(function* () {
+    yield* setup;
+    yield* handle(yield* endLatestRun([{ type: "assistant", text: REMAINING, replyNode: true }]));
+    assert.equal((yield* records).runs.length, 2);
   }).pipe(Effect.provide(layerWith())),
 );
 
@@ -389,53 +436,44 @@ it.effect.each([
     name: "the user pressed stop",
     items: [{ type: "stop" }, { type: "assistant", text: REMAINING }],
     status: "interrupted",
-    says: "The run was stopped.",
   },
   {
     name: "the user pressed stop and the turn still completed",
     items: [{ type: "stop" }, { type: "assistant", text: REMAINING }],
     status: "completed",
-    says: "The run was stopped.",
   },
   {
     name: "the turn waits for a question",
     items: [{ type: "question" }, { type: "assistant", text: REMAINING }],
     status: "completed",
-    says: "waiting for your answer",
   },
   {
     name: "the turn waits for an approval",
     items: [{ type: "approval" }, { type: "assistant", text: REMAINING }],
     status: "completed",
-    says: "waiting for your answer, approval or input",
   },
   {
     name: "the agent names a blocker",
     items: [{ type: "assistant", text: "x\nStatus: blocked: needs the game's data files" }],
     status: "completed",
-    says: "needs the game's data files",
   },
   {
     name: "a usage limit was reached",
     items: [{ type: "assistant", text: REMAINING }, { type: "usage_limit" }],
     status: "failed",
-    says: "A usage limit was reached.",
   },
 ] satisfies ReadonlyArray<{
   name: string;
   items: ReadonlyArray<ItemInput>;
   status: OrchestrationV2Run["status"];
-  says: string;
-}>)("does not continue when $name, and says why", ({ items, status, says }) =>
+}>)("neither continues nor adds a notice when $name", ({ items, status }) =>
   Effect.gen(function* () {
     yield* setup;
     const end = yield* endLatestRun(items, status);
     yield* handle(end);
     yield* handle(end);
     assert.equal((yield* records).runs.length, 1);
-    const shown = yield* notices;
-    assert.equal(shown.length, 1);
-    assert.include(shown[0], says);
+    assert.deepEqual(yield* notices, []);
   }).pipe(Effect.provide(layerWith())),
 );
 

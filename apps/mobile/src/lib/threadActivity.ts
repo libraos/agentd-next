@@ -45,6 +45,7 @@ import {
   type T3McpToolPresentation,
 } from "@t3tools/shared/t3McpToolPresentation";
 import { resolveT3McpToolPresentation } from "@t3tools/shared/t3McpToolPresentationCopy";
+import { withoutCompletionStatus } from "@t3tools/shared/orchestrationV2AutoContinuation";
 import type {
   ChatAttachment,
   MessageId,
@@ -2693,7 +2694,10 @@ export function buildThreadFeed(
         message: {
           id: item.messageId,
           role: item.type === "user_message" ? "user" : "assistant",
-          text: item.text,
+          text:
+            item.type === "assistant_message"
+              ? withoutCompletionStatus(item.text, item.streaming)
+              : item.text,
           ...(item.type === "user_message" && item.context ? { context: item.context } : {}),
           attachments: item.attachments ?? [],
           runId: item.runId,

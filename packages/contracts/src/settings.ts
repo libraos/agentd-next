@@ -1450,7 +1450,7 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(true)),
   ),
   /** Starts another turn when the agent's final status line says work it can do remains. */
-  continueWhileWorkRemains: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  continueWhileWorkRemains: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   maxAutomaticContinuations: AutomaticContinuationLimit.pipe(
     Schema.withDecodingDefault(Effect.succeed(3)),
   ),

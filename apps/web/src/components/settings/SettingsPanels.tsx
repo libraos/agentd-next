@@ -581,6 +581,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.sendShortcut !== DEFAULT_UNIFIED_SETTINGS.sendShortcut
       ? [gt("Send shortcut")]
       : []),
+    ...(settings.continueWhileWorkRemains !== DEFAULT_UNIFIED_SETTINGS.continueWhileWorkRemains
+      ? [gt("Continue while work remains")]
+      : []),
     ...(settings.followUpBehavior !== DEFAULT_UNIFIED_SETTINGS.followUpBehavior
       ? [gt("Follow-up behavior")]
       : []),
@@ -719,6 +722,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       composerRichTextEnabled: DEFAULT_UNIFIED_SETTINGS.composerRichTextEnabled,
       sendShortcut: DEFAULT_UNIFIED_SETTINGS.sendShortcut,
       followUpBehavior: DEFAULT_UNIFIED_SETTINGS.followUpBehavior,
+      continueWhileWorkRemains: DEFAULT_UNIFIED_SETTINGS.continueWhileWorkRemains,
       sideThreadOpenTarget: DEFAULT_UNIFIED_SETTINGS.sideThreadOpenTarget,
       toolCallVisibility: DEFAULT_UNIFIED_SETTINGS.toolCallVisibility,
       screenReaderAnnouncements: DEFAULT_UNIFIED_SETTINGS.screenReaderAnnouncements,
@@ -1399,6 +1403,38 @@ export function ChatSettingsPanel() {
                 </SelectItem>
               </SelectPopup>
             </Select>
+          }
+        />
+        <SettingsRow
+          {...setting("continue-while-work-remains")}
+          serverScoped
+          settingKeys={["continueWhileWorkRemains"]}
+          description={gt(
+            "When the agent ends a reply saying work it can do remains, start another turn without waiting for you, up to {count} times per message. Each turn uses your model plan.",
+            { count: settings.maxAutomaticContinuations },
+          )}
+          resetAction={
+            settings.continueWhileWorkRemains !==
+            DEFAULT_UNIFIED_SETTINGS.continueWhileWorkRemains ? (
+              <SettingResetButton
+                ariaLabel={gt("Reset continue while work remains to default")}
+                onClick={() =>
+                  updateSettings({
+                    continueWhileWorkRemains: DEFAULT_UNIFIED_SETTINGS.continueWhileWorkRemains,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <ScopedSwitch
+              settingKeys={["continueWhileWorkRemains"]}
+              checked={settings.continueWhileWorkRemains}
+              onCheckedChange={(checked) =>
+                updateSettings({ continueWhileWorkRemains: Boolean(checked) })
+              }
+              aria-label={gt("Continue while work remains")}
+            />
           }
         />
       </SettingsSection>

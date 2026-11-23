@@ -815,6 +815,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [msg("enter return command ctrl multiline prompt new line composer")],
   },
   {
+    id: "continue-while-work-remains",
+    title: msg("Continue while work remains"),
+    to: "/settings/chat",
+    scope: "project-defaults",
+    searchTerms: [msg("automatic continue keep going unfinished remaining work stops early turn")],
+  },
+  {
     id: "follow-up-behavior",
     title: msg("Follow-up behavior"),
     to: "/settings/chat",

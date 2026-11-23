@@ -18,6 +18,7 @@ import {
   type TurnItemId,
 } from "@t3tools/contracts";
 import { extractToolActivityPresentation } from "@t3tools/client-runtime/work-log/tool-presentation";
+import { withoutCompletionStatus } from "@t3tools/shared/orchestrationV2AutoContinuation";
 import { classifyToolActivity, collectToolFilePaths } from "@t3tools/shared/toolActivity";
 import { formatReadToolLabel, formatSearchToolLabel } from "@t3tools/shared/toolActivityCopy";
 import type { HtmlRenderReference } from "@t3tools/shared/htmlRender";
@@ -631,7 +632,10 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
       const message: ChatMessage = {
         id: item.messageId,
         role: item.type === "user_message" ? "user" : "assistant",
-        text: item.text,
+        text:
+          item.type === "assistant_message"
+            ? withoutCompletionStatus(item.text, item.streaming)
+            : item.text,
         ...(item.type === "user_message" && item.context ? { context: item.context } : {}),
         ...((item.attachments?.length ?? 0) > 0
           ? {
