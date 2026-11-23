@@ -63,7 +63,7 @@ import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
-const DESKTOP_APP_ID = "ai.libraos.next";
+const DESKTOP_APP_ID = "com.libraos.next";
 const DESKTOP_PACKAGE_NAME = "libraos-next";
 // AgentD Next's scheme still opens the app (packages/shared/src/desktopIdentity.ts).
 const DESKTOP_LINK_SCHEMES = [

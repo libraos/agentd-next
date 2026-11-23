@@ -87,9 +87,9 @@ describe("DesktopEnvironment", () => {
         stageLabel: "Beta",
         displayName: "LibraOS Next (Beta)",
       });
-      assert.equal(stable.appUserModelId, "ai.libraos.next");
+      assert.equal(stable.appUserModelId, "com.libraos.next");
       assert.equal(nightly.displayName, "LibraOS Next (Nightly)");
-      assert.equal(nightly.linuxDesktopEntryName, "ai.libraos.next.desktop");
+      assert.equal(nightly.linuxDesktopEntryName, "com.libraos.next.desktop");
     }),
   );
 });

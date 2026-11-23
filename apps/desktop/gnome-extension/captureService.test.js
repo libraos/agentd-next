@@ -10,7 +10,7 @@ it("supports GNOME 50 without the removed X11 API, rejecting older X11 sessions"
 function fixture(overrides = {}) {
   let snapshots = 0;
   const options = {
-    getNameOwner: async (name) => (name === "ai.libraos.next.SnapShot" ? ":1.23" : null),
+    getNameOwner: async (name) => (name === "com.libraos.next.SnapShot" ? ":1.23" : null),
     isAvailable: () => true,
     takeSnapshot: async () => {
       snapshots++;

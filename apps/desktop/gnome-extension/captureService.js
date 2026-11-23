@@ -1,7 +1,7 @@
 // AgentD Next's names stay for an earlier app that still runs beside this extension.
 const CLIENT_NAMES = [
-  "ai.libraos.next.SnapShot",
-  "ai.libraos.next.dev.SnapShot",
+  "com.libraos.next.SnapShot",
+  "com.libraos.next.dev.SnapShot",
   "ai.libraos.agentd-desktop.SnapShot",
   "ai.libraos.agentd-desktop.dev.SnapShot",
 ];

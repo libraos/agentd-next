@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>ai.libraos.next</id>
+  <id>com.libraos.next</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>LibraOS Next</name>
@@ -18,7 +18,7 @@
       Connect from desktop, web, or mobile to continue working remotely.
     </p>
   </description>
-  <launchable type="desktop-id">ai.libraos.next.desktop</launchable>
+  <launchable type="desktop-id">com.libraos.next.desktop</launchable>
   <replaces>
     <id>ai.libraos.agentd-desktop</id>
   </replaces>

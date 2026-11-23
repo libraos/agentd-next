@@ -230,7 +230,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     branding,
     displayName,
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
-      isDevelopment ? "ai.libraos.next.dev" : "ai.libraos.next",
+      isDevelopment ? "com.libraos.next.dev" : "com.libraos.next",
     ),
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxApplicationsDir,

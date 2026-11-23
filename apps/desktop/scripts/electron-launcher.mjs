@@ -15,8 +15,8 @@ const devBundleIdSuffix = NodePath.basename(repoRoot)
   .replaceAll(/[^a-z0-9]+/g, "");
 const APP_DISPLAY_NAME = isDevelopment ? "LibraOS Next (Dev)" : "LibraOS Next";
 const APP_BUNDLE_ID = isDevelopment
-  ? `ai.libraos.next.dev.${devBundleIdSuffix || "local"}`
-  : "ai.libraos.next";
+  ? `com.libraos.next.dev.${devBundleIdSuffix || "local"}`
+  : "com.libraos.next";
 // AgentD Next's scheme still opens the app.
 const APP_PROTOCOL_SCHEMES = isDevelopment
   ? ["libraos-next-dev", "agentd-desktop-dev"]

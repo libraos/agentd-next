@@ -600,13 +600,13 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         undefined,
       );
 
-      assert.propertyVal(linux, "appId", "ai.libraos.next");
+      assert.propertyVal(linux, "appId", "com.libraos.next");
       assert.propertyVal(linux, "productName", "LibraOS Next");
       assert.propertyVal(linux, "artifactName", "LibraOS-Next-${version}-${arch}.${ext}");
       assert.nestedPropertyVal(linux, "linux.executableName", "libraos-next");
       assert.nestedPropertyVal(linux, "linux.syncDesktopName", true);
-      assert.nestedPropertyVal(linux, "extraMetadata.desktopName", "ai.libraos.next.desktop");
-      assert.nestedPropertyVal(linux, "linux.desktop.entry.StartupWMClass", "ai.libraos.next");
+      assert.nestedPropertyVal(linux, "extraMetadata.desktopName", "com.libraos.next.desktop");
+      assert.nestedPropertyVal(linux, "linux.desktop.entry.StartupWMClass", "com.libraos.next");
       assert.nestedPropertyVal(linux, "deb.packageName", "libraos-next");
       assert.nestedPropertyVal(linux, "extraMetadata.name", "libraos-next");
       // AgentD Next's links keep opening the app.
@@ -1676,7 +1676,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     });
 
     assert.deepStrictEqual(configuration, {
-      appId: "ai.libraos.next",
+      appId: "com.libraos.next",
       teamId: "ABC1234567",
       rpDomains: ["example.clerk.accounts.dev"],
       provisioningProfilePath: "/tmp/t3code.provisionprofile",
@@ -1699,7 +1699,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "clerk.example.com",
       "example.clerk.accounts.dev",
     ]);
-    assert.include(entitlements, "<string>ABC1234567.ai.libraos.next</string>");
+    assert.include(entitlements, "<string>ABC1234567.com.libraos.next</string>");
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");

@@ -1,6 +1,6 @@
 # LibraOS Next app identity (libraos/agentd-core#1038)
 
-The desktop app becomes LibraOS Next: app id `ai.libraos.next`, product name `LibraOS Next`, files `LibraOS-Next-*`, deb package and executable `libraos-next`, links `libraos-next://`, and profile folder `libraos-next`. On first start, if only AgentD Next's `agentd-desktop` folder exists, it is copied into the new folder. The copy skips links, special files, the profile lock and caches, is staged in a private folder and renamed into place, and never changes the old folder. The app bundles LibraOS Core as `libraos-core` when the Core release publishes that asset, otherwise as `agentd`, and looks for either name.
+The desktop app becomes LibraOS Next: app id `com.libraos.next`, product name `LibraOS Next`, files `LibraOS-Next-*`, deb package and executable `libraos-next`, links `libraos-next://`, and profile folder `libraos-next`. On first start, if only AgentD Next's `agentd-desktop` folder exists, it is copied into the new folder. The copy skips links, special files, the profile lock and caches, is staged in a private folder and renamed into place, and never changes the old folder. The app bundles LibraOS Core as `libraos-core` when the Core release publishes that asset, otherwise as `agentd`, and looks for either name.
 
 Kept for compatibility:
 
@@ -15,7 +15,7 @@ Upstream files changed:
 - `apps/desktop/package.json`: `productName`.
 - `apps/desktop/scripts/electron-launcher.mjs`: dev bundle name and id, both link schemes, usage strings.
 - `apps/desktop/resources/installer.nsh`: the running-app check also names AgentD Next.
-- `apps/desktop/resources/linux/ai.libraos.next.metainfo.xml` (renamed from `ai.libraos.agentd-desktop.metainfo.xml`): new id, name, launchable and binary, plus `<replaces>` for the old id.
+- `apps/desktop/resources/linux/com.libraos.next.metainfo.xml` (renamed from `ai.libraos.agentd-desktop.metainfo.xml`): new id, name, launchable and binary, plus `<replaces>` for the old id.
 - `apps/desktop/gnome-extension/{captureService,captureFeedback}.js`, `metadata.json`: new D-Bus client names, with AgentD Next's still served; product name; version 4.
 - `apps/desktop/gnome-extension/captureService.test.js`, `src/snapShot/GnomeCaptureSetup.test.ts`: new names and extension version.
 - `apps/desktop/src/app/DesktopEnvironment.ts`: display name, `ELECTRON_APP_NAME_BASE`, AppUserModelID.
