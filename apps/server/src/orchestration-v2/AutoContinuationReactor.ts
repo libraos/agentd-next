@@ -9,6 +9,7 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
@@ -21,6 +22,8 @@ import {
 import { latestRootProviderFailure } from "@t3tools/shared/orchestrationV2ThreadError";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
+import * as BeforeSendGate from "../agentd/beforeSendGate.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -50,6 +53,8 @@ const PROGRESS_ITEM_TYPES: ReadonlySet<OrchestrationV2TurnItem["type"]> = new Se
   "subagent",
 ]);
 
+const STOP_TITLE = "Not continued automatically";
+
 const autoContinuationIds = (runId: OrchestrationV2Run["id"]) => ({
   commandId: CommandId.make(`command:auto-continuation:${runId}`),
   messageId: MessageId.make(`message:auto-continuation:${runId}`),
@@ -59,6 +64,25 @@ const make = Effect.gen(function* () {
   const engine = yield* Orchestrator.OrchestratorV2;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const settings = yield* ServerSettings.ServerSettingsService;
+  // Optional, so a runtime without plugins dispatches as before.
+  const beforeSendContext = Option.match(
+    yield* Effect.serviceOption(AgentdPlugins.AgentdPluginsService),
+    {
+      onNone: () => Context.empty(),
+      onSome: (plugins) => Context.make(AgentdPlugins.AgentdPluginsService, plugins),
+    },
+  );
+  // The continuation's command is made once per run, after which that run is no longer the
+  // latest and nothing here dispatches again, so there is never a receipt to replay.
+  const beforeSendReads = BeforeSendGate.gateReads(engine, () => Effect.succeed(false));
+  const noteStop = (threadId: ThreadId, runId: OrchestrationV2Run["id"], message: string) =>
+    engine.noteRunSystemNotice({
+      threadId,
+      runId,
+      signal: "auto-continuation-stop",
+      title: STOP_TITLE,
+      message,
+    });
 
   const handle: AutoContinuationReactor["Service"]["handle"] = Effect.fnUntraced(
     function* (event) {
@@ -88,6 +112,8 @@ const make = Effect.gen(function* () {
       )
         return;
       const items = projection.turnItems.filter((item) => item.runId === run.id);
+      // A stopped chain stays stopped: a repeat of this run's end does not ask the hooks again.
+      if (items.some((item) => item.type === "system_notice" && item.title === STOP_TITLE)) return;
       const finalMessage = items
         .filter(
           (item): item is Extract<OrchestrationV2TurnItem, { type: "assistant_message" }> =>
@@ -140,18 +166,16 @@ const make = Effect.gen(function* () {
       });
       if (decision.type === "none") return;
       if (decision.type === "stop") {
-        yield* engine.noteRunSystemNotice({
-          threadId: thread.id,
-          runId: run.id,
-          signal: "auto-continuation-stop",
-          title: "Not continued automatically",
-          message: autoContinuationStopMessage(decision.reason, decision.remaining),
-        });
+        yield* noteStop(
+          thread.id,
+          run.id,
+          autoContinuationStopMessage(decision.reason, decision.remaining),
+        );
         return;
       }
       const { commandId, messageId } = autoContinuationIds(run.id);
       const text = autoContinuationPrompt(decision.remaining);
-      yield* engine.dispatch({
+      const command = {
         type: "message.dispatch",
         commandId,
         threadId: thread.id,
@@ -170,7 +194,20 @@ const make = Effect.gen(function* () {
         createdBy: "agent",
         creationSource: "server",
         autoContinuationOfRunId: run.id,
-      });
+      } as const;
+      // The before-send hooks see a continuation like any other send: its text carries the
+      // agent's "remaining" words, model output that can quote files or tool results, so it is
+      // not the system's own message the gate lets through. A block or a rewrite (which cannot
+      // be reviewed here) stops the chain with the hook's reason; nothing retries it.
+      const gate = yield* BeforeSendGate.checkDispatch(command, beforeSendReads).pipe(
+        Effect.provide(beforeSendContext),
+        Effect.result,
+      );
+      if (gate._tag === "Failure") {
+        yield* noteStop(thread.id, run.id, gate.failure.message);
+        return;
+      }
+      yield* engine.dispatch(command);
     },
     (effect, event) =>
       effect.pipe(

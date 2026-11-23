@@ -788,7 +788,12 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
       const service = yield* AutoContinuationReactor.AutoContinuationReactor;
       yield* service.start();
     }),
-  ).pipe(Layer.provide(AutoContinuationReactor.layer), Layer.provide(ProjectionStoreV2.layer)),
+  ).pipe(
+    Layer.provide(AutoContinuationReactor.layer),
+    Layer.provide(ProjectionStoreV2.layer),
+    // Read optionally by the continuation's before-send check; the same service as dispatch's.
+    Layer.provide(AgentdPlugins.layerLive),
+  ),
   ProviderUsageLimitsIngestion.layer,
   layerProviderInstallationRefresh,
   ProviderInstallation.layer,

@@ -18,6 +18,9 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
+import { AgentdBeforeSendError } from "@t3tools/contracts";
+
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
@@ -50,9 +53,22 @@ const layerBase = Layer.mergeAll(
     { databaseLayer: layerDatabase, runEffectWorker: false },
   ),
 );
-const layerWith = (settings: Parameters<typeof ServerSettings.layerTest>[0] = {}) =>
+const layerWith = (
+  settings: Parameters<typeof ServerSettings.layerTest>[0] = {},
+  beforeSend?: (
+    request: AgentdPlugins.BeforeSendRequest,
+  ) => Effect.Effect<void, AgentdBeforeSendError>,
+) =>
   AutoContinuationReactor.layer.pipe(
     Layer.provide(ServerSettings.layerTest(settings)),
+    Layer.provide(
+      beforeSend === undefined
+        ? Layer.empty
+        : Layer.mock(AgentdPlugins.AgentdPluginsService)({
+            hasBeforeSend: () => Effect.succeed(true),
+            checkBeforeSend: beforeSend,
+          }),
+    ),
     Layer.provideMerge(layerBase),
   );
 
@@ -110,10 +126,14 @@ const latestRun = Effect.map(
 const endLatestRun = (
   items: ReadonlyArray<ItemInput>,
   status: OrchestrationV2Run["status"] = "completed",
+  runId?: OrchestrationV2Run["id"],
 ) =>
   Effect.gen(function* () {
     const eventSink = yield* EventSink.EventSinkV2;
-    const run = yield* latestRun;
+    const run =
+      runId === undefined
+        ? yield* latestRun
+        : (yield* records).runs.find((candidate) => candidate.id === runId)!;
     const now = yield* DateTime.now;
     const base = (index: number, nodeId = run.rootNodeId) => ({
       id: TurnItemId.make(`item:${run.id}:${index}`),
@@ -425,3 +445,109 @@ it.effect("keeps today's behaviour when turned off", () =>
     assert.deepEqual(yield* notices, []);
   }).pipe(Effect.provide(layerWith({ continueWhileWorkRemains: false }))),
 );
+
+it.effect("asks the before-send hooks about a continuation like any other send", () => {
+  const seen: Array<AgentdPlugins.BeforeSendRequest> = [];
+  return Effect.gen(function* () {
+    yield* setup;
+    yield* handle(yield* endLatestRun([{ type: "tool" }, { type: "assistant", text: REMAINING }]));
+    assert.equal((yield* records).runs.length, 2);
+    assert.equal(seen.length, 1);
+    assert.include(seen[0]!.text, "run chapter 1 end to end");
+    assert.equal(seen[0]!.source, "server");
+    // A rewrite here has no one to review it, so it is not offered as one.
+    assert.isUndefined(seen[0]!.resend);
+  }).pipe(
+    Effect.provide(
+      layerWith({}, (request) =>
+        Effect.sync(() => {
+          seen.push(request);
+        }),
+      ),
+    ),
+  );
+});
+
+it.effect.each([
+  {
+    name: "blocks",
+    error: new AgentdBeforeSendError({ reason: "blocked", message: "secret-scan blocked this." }),
+    says: "secret-scan blocked this.",
+  },
+  {
+    name: "would change",
+    error: new AgentdBeforeSendError({
+      reason: "blocked",
+      message:
+        "redact would change this message, and a change needs review in the app, so it was not sent.",
+    }),
+    says: "redact would change this message",
+  },
+])(
+  "stops the chain once, with the reason, when a hook $name the continuation",
+  ({ error, says }) => {
+    let calls = 0;
+    return Effect.gen(function* () {
+      yield* setup;
+      const end = yield* endLatestRun([{ type: "tool" }, { type: "assistant", text: REMAINING }]);
+      // A repeat of the same turn end neither asks the hooks again nor retries.
+      yield* handle(end);
+      yield* handle(end);
+      assert.equal((yield* records).runs.length, 1);
+      assert.equal(calls, 1);
+      const shown = yield* notices;
+      assert.equal(shown.length, 1);
+      assert.include(shown[0], says);
+    }).pipe(
+      Effect.provide(
+        layerWith({}, () =>
+          Effect.suspend(() => {
+            calls += 1;
+            return Effect.fail(error);
+          }),
+        ),
+      ),
+    );
+  },
+);
+
+it.effect("does not continue past a message the user queued, so it never rides along", () => {
+  const seen: Array<string> = [];
+  return Effect.gen(function* () {
+    yield* setup;
+    const orchestrator = yield* Orchestrator.OrchestratorV2;
+    yield* orchestrator.dispatch({
+      type: "message.dispatch",
+      commandId: CommandId.make("queued-user-message"),
+      threadId,
+      messageId: MessageId.make("message:queued-user"),
+      text: "Also rename the chapter",
+      attachments: [],
+      dispatchMode: { type: "queue_after_active" },
+      createdBy: "user",
+      creationSource: "web",
+    });
+    const before = (yield* records).runs.length;
+    const runs = (yield* records).runs.toSorted((a, b) => a.ordinal - b.ordinal);
+    const source = runs[0]!;
+    yield* handle(
+      yield* endLatestRun(
+        [{ type: "tool" }, { type: "assistant", text: REMAINING }],
+        "completed",
+        source.id,
+      ),
+    );
+    const after = yield* records;
+    assert.equal(after.runs.length, before);
+    assert.isFalse(after.runs.some((run) => run.autoContinuationOfRunId !== undefined));
+    assert.deepEqual(seen, []);
+  }).pipe(
+    Effect.provide(
+      layerWith({}, (request) =>
+        Effect.sync(() => {
+          seen.push(request.text);
+        }),
+      ),
+    ),
+  );
+});
