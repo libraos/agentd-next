@@ -89,8 +89,6 @@ No paths, shells or commands were added to product code; URLs are built with `UR
 - `apps/server/src/provider/ModelManifest.ts`, `telemetry/AnalyticsService.ts`,
   `triage/*`, `cloud/publicConfig.ts`, `web/.../GitHubStarPrompt.tsx` (task 03).
 - `docs/user/telemetry.md` names `ingest.t3.codes` (task 03).
-- `packages/contracts/src/environmentHttp.ts:526` links upstream's T3 Connect troubleshooting
-  doc (outside the Accept grep; T3 Connect only).
 - `apps/mobile/app.config.ts` still lists `app.t3.codes` for associated domains; its test pins
   that host by name.
 - `apps/web/src/components/cloud/TunnelUsage.tsx`: `t3.chat` subscription link, shown only

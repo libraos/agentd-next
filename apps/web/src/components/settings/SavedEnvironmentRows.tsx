@@ -11,7 +11,6 @@ import { useEffect, useEffectEvent, useState } from "react";
 import {
   AuthRelayWriteScope,
   type EnvironmentId,
-  connectReachabilityHelpUrl,
   formatConnectReachable,
   resolveEnvironmentMachineKind,
 } from "@t3tools/contracts";
@@ -647,15 +646,7 @@ function ConfiguredCloudLinkRow({
       <span className="block text-destructive">
         {[reachability.reason, reachability.hint, gt("Fix: {fix}", { fix: reachability.fix })]
           .filter(Boolean)
-          .join(" ")}{" "}
-        <a
-          href={connectReachabilityHelpUrl(reachability.cause)}
-          target="_blank"
-          rel="noreferrer"
-          className="underline underline-offset-2"
-        >
-          <T>More info</T>
-        </a>
+          .join(" ")}
       </span>
     ) : null;
 

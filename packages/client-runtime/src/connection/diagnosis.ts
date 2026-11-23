@@ -1,7 +1,3 @@
-import {
-  t3ConnectTroubleshootingUrl,
-  type T3ConnectTroubleshootingSection,
-} from "@t3tools/contracts";
 import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
 import * as DateTime from "effect/DateTime";
 
@@ -28,8 +24,6 @@ export interface ConnectionDiagnosis {
   readonly hops: ReadonlyArray<ConnectionDiagnosisHop>;
   readonly steps: ReadonlyArray<string>;
   readonly facts: ReadonlyArray<readonly [label: string, value: string]>;
-  /** The troubleshooting guide section for this failure. Null for direct routes, except a pending the hosted relay sign-in. */
-  readonly moreInfoUrl: string | null;
 }
 
 export interface ConnectionDiagnosisInput {
@@ -312,60 +306,6 @@ function steps(
   }
 }
 
-function helpSection(
-  located: Located,
-  failure: ConnectionAttemptError | null,
-): T3ConnectTroubleshootingSection {
-  switch (located.cause) {
-    case "offline":
-      return "this-device-cant-reach-t3-connect";
-    case "outdated":
-      return "the-host-runs-an-older-t3-code";
-    case "clock_skew":
-      return "the-clock-is-off";
-    case "session_pending":
-    case "approval_pending":
-    case "not_linked":
-    case "tunnel_not_enabled":
-      return "sign-in-account-or-link-problems";
-    case "relay_error":
-      return "t3-connect-returned-an-error";
-    case "released":
-    case "tunnel_down":
-    case "tunnel_pending":
-      return "the-hosts-tunnel-is-offline";
-    case "origin_unreachable":
-    case "invalid_response":
-      return "the-tunnel-works-but-t3-code-does-not-answer";
-    case "dns":
-    case "tls":
-    case "refused":
-    case "timeout":
-    case "unknown":
-      return "the-t3-connect-address-does-not-resolve-or-answer";
-    case null:
-      break;
-  }
-  const onThisDevice =
-    failure?.reason === "network" ||
-    failure?.reason === "transport" ||
-    failure?.reason === "timeout";
-  switch (located.hop) {
-    case "device":
-      return "this-device-cant-reach-t3-connect";
-    case "relay":
-      return failure?.reason === "authentication"
-        ? "sign-in-account-or-link-problems"
-        : "this-device-cant-reach-t3-connect";
-    case "tunnel":
-      return onThisDevice ? "this-device-cant-reach-t3-connect" : "the-hosts-tunnel-is-offline";
-    case "server":
-      return failure?.reason === "authentication" || failure?.reason === "permission"
-        ? "sign-in-account-or-link-problems"
-        : "the-tunnel-works-but-t3-code-does-not-answer";
-  }
-}
-
 const T3_CONNECT_NAME = "Hosted relay";
 
 const HOP_ORDER = {
@@ -451,10 +391,6 @@ export function presentConnectionDiagnosis(
     hops,
     steps: steps(host, located, failure, resolve),
     facts,
-    moreInfoUrl:
-      relayPath || located.cause === "session_pending"
-        ? t3ConnectTroubleshootingUrl(helpSection(located, failure))
-        : null,
   };
 }
 
@@ -468,6 +404,5 @@ export function connectionDiagnosisText(hostLabel: string, diagnosis: Connection
     ...diagnosis.hops.map((hop) => `${hop.label}: ${HOP_MARK[hop.result]}`),
     "",
     ...diagnosis.facts.map(([label, value]) => `${label}: ${value}`),
-    ...(diagnosis.moreInfoUrl ? ["", `More info: ${diagnosis.moreInfoUrl}`] : []),
   ].join("\n");
 }
