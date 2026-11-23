@@ -154,6 +154,7 @@ function ReviewDialog({
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const plugins = review.plugins.join(", ");
+  const replacedName = (id: string) => review.replacedFiles.find((file) => file.id === id)?.name;
 
   async function confirm() {
     setSending(true);
@@ -196,6 +197,14 @@ function ReviewDialog({
             {content.attachments.map((attachment, index) => (
               <label key={attachment.id} className="flex flex-col gap-1 text-sm">
                 <span className="wrap-anywhere">{attachment.name}</span>
+                {replacedName(attachment.id) === undefined ? null : (
+                  <span className="text-muted-foreground text-xs wrap-anywhere">
+                    {gt(
+                      "The text read from {name}, sent in its place. The file is not sent; its layout, comments, tracked changes and images are left out.",
+                      { name: replacedName(attachment.id) },
+                    )}
+                  </span>
+                )}
                 <Textarea
                   value={attachment.text}
                   disabled={sending}

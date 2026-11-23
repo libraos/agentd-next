@@ -3565,6 +3565,7 @@
   "65af218e3466e202": "{names} verifica cada mensagem antes do envio.",
   "57dbcc229103c3f4": "A mensagem não foi enviada.",
   "02625b0732accc36": "{plugins} alterou esta mensagem. Envie como mostrado, edite antes ou feche para manter seu rascunho sem enviar.",
+  "24a845d831ae1a1e": "O texto lido de {name}, enviado no lugar dele. O arquivo não é enviado; layout, comentários, alterações controladas e imagens ficam de fora.",
   "36e4f4cdd218f92e": "Revise a mensagem alterada",
   "6b3e8bc1f3ded083": "Mensagem",
   "d6ac23cbf781e583": "Marcadores",

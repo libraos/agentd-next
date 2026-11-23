@@ -3565,6 +3565,7 @@
   "65af218e3466e202": "{names} vérifie chaque message avant son envoi.",
   "57dbcc229103c3f4": "Le message n’a pas été envoyé.",
   "02625b0732accc36": "{plugins} a modifié ce message. Envoyez-le tel quel, modifiez-le d’abord, ou fermez pour garder votre brouillon non envoyé.",
+  "24a845d831ae1a1e": "Le texte lu dans {name}, envoyé à sa place. Le fichier n’est pas envoyé ; sa mise en page, ses commentaires, ses modifications suivies et ses images sont perdus.",
   "36e4f4cdd218f92e": "Vérifier le message modifié",
   "6b3e8bc1f3ded083": "Message",
   "d6ac23cbf781e583": "Espaces réservés",

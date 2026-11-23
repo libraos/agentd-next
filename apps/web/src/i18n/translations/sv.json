@@ -3565,6 +3565,7 @@
   "65af218e3466e202": "{names} kontrollerar varje meddelande innan det skickas.",
   "57dbcc229103c3f4": "Meddelandet skickades inte.",
   "02625b0732accc36": "{plugins} ändrade det här meddelandet. Skicka det som det visas, redigera det först eller stäng för att behålla ditt utkast oskickat.",
+  "24a845d831ae1a1e": "Texten som lästs från {name}, skickad i dess ställe. Själva filen skickas inte; layout, kommentarer, spårade ändringar och bilder försvinner.",
   "36e4f4cdd218f92e": "Granska det ändrade meddelandet",
   "6b3e8bc1f3ded083": "Meddelande",
   "d6ac23cbf781e583": "Platshållare",

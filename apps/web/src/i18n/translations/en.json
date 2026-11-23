@@ -3565,6 +3565,7 @@
   "65af218e3466e202": "{names} checks each message before it is sent.",
   "57dbcc229103c3f4": "The message was not sent.",
   "02625b0732accc36": "{plugins} changed this message. Send it as shown, edit it first, or close to keep your draft unsent.",
+  "24a845d831ae1a1e": "The text read from {name}, sent in its place. The file is not sent; its layout, comments, tracked changes and images are left out.",
   "36e4f4cdd218f92e": "Review the changed message",
   "6b3e8bc1f3ded083": "Message",
   "d6ac23cbf781e583": "Placeholders",

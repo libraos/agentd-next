@@ -3566,6 +3566,7 @@
   "65af218e3466e202": "{names} prüft jede Nachricht, bevor sie gesendet wird.",
   "57dbcc229103c3f4": "Die Nachricht wurde nicht gesendet.",
   "02625b0732accc36": "{plugins} hat diese Nachricht geändert. Sende sie wie gezeigt, bearbeite sie vorher oder schließe, um deinen Entwurf ungesendet zu behalten.",
+  "24a845d831ae1a1e": "Der aus {name} gelesene Text, an seiner Stelle gesendet. Die Datei selbst wird nicht gesendet; Layout, Kommentare, nachverfolgte Änderungen und Bilder fallen weg.",
   "36e4f4cdd218f92e": "Geänderte Nachricht prüfen",
   "6b3e8bc1f3ded083": "Nachricht",
   "d6ac23cbf781e583": "Platzhalter",
