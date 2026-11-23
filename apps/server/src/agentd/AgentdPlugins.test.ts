@@ -1,3 +1,6 @@
+// @effect-diagnostics nodeBuiltinImport:off - the scripted hook reads its file as a hook process would.
+import * as NodeFS from "node:fs";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import {
@@ -32,6 +35,7 @@ const HOOKS: Record<string, string> = {
   block: reply({ decision: "block", reason: "  contains a secret  " }),
   fails: "#!/bin/sh\ncat >/dev/null\nexit 3\n",
   junk: "#!/bin/sh\ncat >/dev/null\necho 'not json'\n",
+  files: reply({ decision: "pass" }),
 };
 const manifest = (id: string) =>
   JSON.stringify({
@@ -39,7 +43,12 @@ const manifest = (id: string) =>
     id,
     name: `Plugin ${id}`,
     version: "1.0.0",
-    hooks: { "before-send": { command: ["./hook.sh"] } },
+    hooks: {
+      "before-send": {
+        command: ["./hook.sh"],
+        ...(id === "files" ? { attachmentFiles: true } : {}),
+      },
+    },
   });
 const REPO_FILES: Record<string, Uint8Array> = Object.fromEntries(
   Object.entries(HOOKS).flatMap(([id, script]) => [
@@ -289,8 +298,9 @@ it.live("the hook reads text attachments and is told which attachments it cannot
     });
     expect(JSON.parse(stdin[0]!)).toMatchObject({
       message: { text: "hello", attachments: [{ id: textId, name: "notes.txt", text: "notes" }] },
-      unshownAttachments: [{ id: binaryId, name: "scan.pdf" }],
     });
+    // A hook that does not declare attachmentFiles gets the name only, as before.
+    expect(JSON.parse(stdin[0]!).unshownAttachments).toEqual([{ id: binaryId, name: "scan.pdf" }]);
   }).pipe(Effect.provide(dependencies)),
 );
 
@@ -513,5 +523,158 @@ it.live("a review numbered before another confirm took its placeholder must be s
       .pipe(Effect.flip);
     expect(error.message).toContain("Send this message again");
     expect(yield* h.service.placeholders(THREAD)).toEqual({ "[PERSON_1]": "Maren Holloway" });
+  }).pipe(Effect.provide(dependencies)),
+);
+
+// Reads the file the host points it at and answers with its text redacted, as redact does.
+const SECRETS = ["Maren Holloway", "110105194912310021"];
+const fileHook = (stdin: Record<string, unknown>) => {
+  const placeholders = { "[PERSON_1]": SECRETS[0]!, "[ID_1]": SECRETS[1]! };
+  const redact = (value: string) =>
+    value.replaceAll(SECRETS[0]!, "[PERSON_1]").replaceAll(SECRETS[1]!, "[ID_1]");
+  const unshown = stdin.unshownAttachments as Array<{ id: string; name: string; path?: string }>;
+  return {
+    decision: "rewrite",
+    message: {
+      text: redact((stdin.message as { text: string }).text),
+      attachments: unshown.map((file) => ({
+        id: file.id,
+        name: `${file.name}.txt`,
+        // A hook told no path still tries to answer with some text for the file.
+        text:
+          file.path === undefined
+            ? "unread"
+            : redact(NodeFS.readFileSync(file.path, "utf8").replace("\u0000", "")),
+      })),
+    },
+    placeholders,
+  };
+};
+
+it.live(
+  "a file a hook replaced goes on as a new text upload and the file itself is deleted, not sent",
+  () =>
+    Effect.gen(function* () {
+      const seen: Array<Record<string, unknown>> = [];
+      const h = yield* harness(scriptedRunner(fileHook, seen));
+      yield* h.enable("files");
+      const cases = [
+        ["lease.docx", "docx", "application/octet-stream"],
+        ["intake.pdf", "pdf", "application/pdf"],
+      ] as const;
+      const attachments: ChatAttachment[] = [];
+      const files: string[] = [];
+      for (const [name, extension, mimeType] of cases) {
+        const body = `Tenant ${SECRETS[0]}, ID ${SECRETS[1]}.`;
+        const attachment = {
+          type: "file",
+          id: createPendingAttachmentId(extension),
+          name,
+          mimeType,
+          sizeBytes: body.length,
+        } as unknown as ChatAttachment;
+        const file = resolveAttachmentPath({
+          attachmentsDir: h.config.attachmentsDir,
+          attachment,
+        })!;
+        yield* h.fs.makeDirectory(h.path.dirname(file), { recursive: true });
+        // Stands for a binary file; the NUL keeps it from being shown as text.
+        yield* h.fs.writeFileString(file, `${body}\u0000`);
+        // Text the server extracted beside the upload must go too.
+        yield* h.fs.writeFileString(`${file}.txt`, body);
+        attachments.push(attachment);
+        files.push(file);
+      }
+      const error = yield* h.send({
+        text: `Summarise these for ${SECRETS[0]}.`,
+        attachments,
+        resend: { kind: "dispatch", command: dispatch },
+      });
+      expect(error.reason).toBe("review");
+      expect((seen[0]!.unshownAttachments as unknown[])[0]).toEqual({
+        id: attachments[0]!.id,
+        name: "lease.docx",
+        mimeType: "application/octet-stream",
+        sizeBytes: attachments[0]!.sizeBytes,
+        path: files[0],
+      });
+
+      const review = (yield* h.service.review({ threadId: THREAD, messageId: MESSAGE }))!;
+      expect(review.original.attachments).toEqual([]);
+      expect(review.replacedFiles).toEqual([
+        { id: attachments[0]!.id, name: "lease.docx" },
+        { id: attachments[1]!.id, name: "intake.pdf" },
+      ]);
+      expect(review.proposed).toEqual({
+        text: "Summarise these for [PERSON_1].",
+        attachments: [
+          { id: attachments[0]!.id, name: "lease.docx.txt", text: "Tenant [PERSON_1], ID [ID_1]." },
+          { id: attachments[1]!.id, name: "intake.pdf.txt", text: "Tenant [PERSON_1], ID [ID_1]." },
+        ],
+      });
+      expect(review.placeholders.map((item) => item.placeholder)).toEqual(["[PERSON_1]", "[ID_1]"]);
+
+      // The person edits the first file's text and leaves the second as proposed.
+      const resend = yield* h.service.confirm({
+        reviewId: review.reviewId,
+        content: {
+          text: review.proposed.text,
+          attachments: [{ ...review.proposed.attachments[0]!, text: "Tenant [PERSON_1]." }],
+        },
+      });
+      const sent =
+        resend.kind === "dispatch" && resend.command.type === "message.dispatch"
+          ? (resend.command.attachments ?? [])
+          : [];
+      expect(sent.map(({ type, name, mimeType }) => ({ type, name, mimeType }))).toEqual([
+        { type: "file", name: "lease.docx.txt", mimeType: "text/plain" },
+        { type: "file", name: "intake.pdf.txt", mimeType: "text/plain" },
+      ]);
+      const texts = [];
+      for (const attachment of sent) {
+        expect(attachment.id).toMatch(/^pending-[0-9a-f-]+-txt$/);
+        const file = resolveAttachmentPath({
+          attachmentsDir: h.config.attachmentsDir,
+          attachment,
+        })!;
+        texts.push(yield* h.fs.readFileString(file));
+        expect(attachment.sizeBytes).toBe(texts.at(-1)!.length);
+      }
+      expect(texts).toEqual(["Tenant [PERSON_1].", "Tenant [PERSON_1], ID [ID_1]."]);
+      const out = JSON.stringify(resend) + texts.join("");
+      for (const secret of SECRETS) expect(out).not.toContain(secret);
+      for (const file of files) {
+        expect(yield* h.fs.exists(file)).toBe(false);
+        expect(yield* h.fs.exists(`${file}.txt`)).toBe(false);
+      }
+      expect(yield* h.service.placeholders(THREAD)).toEqual({
+        "[PERSON_1]": SECRETS[0],
+        "[ID_1]": SECRETS[1],
+      });
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.live("a hook that does not read files cannot replace one, and the send stops", () =>
+  Effect.gen(function* () {
+    const h = yield* harness(scriptedRunner(fileHook, []));
+    yield* h.enable("rewrite");
+    const attachment = {
+      type: "file",
+      id: createPendingAttachmentId("docx"),
+      name: "lease.docx",
+      mimeType: "application/octet-stream",
+      sizeBytes: 3,
+    } as unknown as ChatAttachment;
+    const file = resolveAttachmentPath({ attachmentsDir: h.config.attachmentsDir, attachment })!;
+    yield* h.fs.makeDirectory(h.path.dirname(file), { recursive: true });
+    yield* h.fs.writeFile(file, new Uint8Array([0, 1, 2]));
+    const error = yield* h.send({
+      attachments: [attachment],
+      resend: { kind: "dispatch", command: dispatch },
+    });
+    expect(error).toMatchObject({
+      reason: "blocked",
+      message: expect.stringContaining("no usable answer"),
+    });
   }).pipe(Effect.provide(dependencies)),
 );

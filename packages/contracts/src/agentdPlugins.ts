@@ -120,6 +120,11 @@ export const AgentdBeforeSendReview = Schema.Struct({
   proposed: AgentdBeforeSendContent,
   /** The placeholders the proposed message uses, in the order they first appear. */
   placeholders: Schema.Array(AgentdBeforeSendPlaceholder),
+  /**
+   * Files a hook replaced with text: the proposed attachment with the same id is their text, and
+   * the file itself is not sent. `name` is the file's own name.
+   */
+  replacedFiles: Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
 });
 export type AgentdBeforeSendReview = typeof AgentdBeforeSendReview.Type;
 
@@ -131,7 +136,7 @@ export type AgentdBeforeSendReviewInput = typeof AgentdBeforeSendReviewInput.Typ
 
 export const AgentdBeforeSendConfirmInput = Schema.Struct({
   reviewId: Schema.String,
-  /** The content the person confirmed, edited or not; attachments by id, text ones only. */
+  /** The content the person confirmed, edited or not; attachments by id, text ones only. A replaced file left out goes as its proposed text. */
   content: AgentdBeforeSendContent,
 });
 export type AgentdBeforeSendConfirmInput = typeof AgentdBeforeSendConfirmInput.Type;

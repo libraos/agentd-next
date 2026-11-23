@@ -74,6 +74,8 @@ const HookCommand = Schema.Struct({
   timeoutSeconds: Schema.optionalKey(
     Schema.Number.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(60)),
   ),
+  /** The hook reads files it is not shown as text from their local path and may replace them. */
+  attachmentFiles: Schema.optionalKey(Schema.Boolean),
 });
 export type HookCommand = typeof HookCommand.Type;
 
@@ -175,7 +177,12 @@ export function resolveHookCommand(
     : { _tag: "Unsafe" };
 }
 
-const HookAttachmentOut = Schema.Struct({ id: Schema.String, text: Schema.String });
+const HookAttachmentOut = Schema.Struct({
+  id: Schema.String,
+  text: Schema.String,
+  /** For a file the hook replaced with text: the text attachment's name. */
+  name: Schema.optionalKey(Schema.String),
+});
 const HookOutput = Schema.Union([
   Schema.Struct({ decision: Schema.Literal("pass") }),
   Schema.Struct({
@@ -245,16 +252,31 @@ export function placeholdersIn(
   return seen;
 }
 
+const ATTACHMENT_NAME_MAX = 255;
+
+/** A replacement's name: the hook's, as one file name ending in .txt, else the original's + .txt. */
+export function replacementName(requested: string | undefined, original: string): string {
+  const base = (requested ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .split(/[\\/]/)
+    .at(-1)!
+    .trim();
+  const name = base.length > 0 && base !== "." && base !== ".." ? base : original;
+  const stem = /\.txt$/i.test(name) ? name.slice(0, -4) : name;
+  return `${stem.slice(0, ATTACHMENT_NAME_MAX - 4).trim() || "attachment"}.txt`;
+}
+
 /**
- * What a hook printed, against what it was given. A rewrite may replace the text and the text of
- * attachments it was shown, and add to the thread's placeholder map; one naming any other
- * attachment or changing a known placeholder is invalid, as is anything that is not exactly one
- * decision. A rewrite to the same content is a pass.
+ * What a hook printed, against what it was given. A rewrite may change shown text, replace a
+ * `replaceable` file with non-empty text (put after the shown attachments) and add to the map;
+ * naming another attachment, changing a known placeholder or not being exactly one decision is
+ * invalid. A rewrite to the same content is a pass.
  */
 export function parseHookOutput(
   stdout: string,
   input: AgentdBeforeSendContent,
   map: AgentdPlaceholderMap = {},
+  replaceable: ReadonlyArray<{ readonly id: string; readonly name: string }> = [],
 ): HookDecision {
   const decoded = decodeHookOutput(stdout.trim());
   if (decoded._tag === "None") return { _tag: "Invalid" };
@@ -264,20 +286,36 @@ export function parseHookOutput(
     const reason = output.reason.trim().slice(0, 500);
     return { _tag: "Block", reason };
   }
-  const replaced = new Map<string, string>();
+  const replaced = new Map<string, { readonly text: string; readonly name?: string }>();
   for (const attachment of output.message.attachments ?? []) {
     if (replaced.has(attachment.id)) return { _tag: "Invalid" };
-    replaced.set(attachment.id, attachment.text);
+    replaced.set(attachment.id, attachment);
   }
-  if ([...replaced.keys()].some((id) => !input.attachments.some((known) => known.id === id))) {
-    return { _tag: "Invalid" };
+  for (const [id, attachment] of replaced) {
+    if (input.attachments.some((known) => known.id === id)) continue;
+    const file = replaceable.find((known) => known.id === id);
+    if (file === undefined || attachment.text.length === 0) return { _tag: "Invalid" };
   }
   const content: AgentdBeforeSendContent = {
     text: output.message.text,
-    attachments: input.attachments.map((attachment) => ({
-      ...attachment,
-      text: replaced.get(attachment.id) ?? attachment.text,
-    })),
+    attachments: [
+      ...input.attachments.map((attachment) => ({
+        ...attachment,
+        text: replaced.get(attachment.id)?.text ?? attachment.text,
+      })),
+      ...replaceable.flatMap((file) => {
+        const replacement = replaced.get(file.id);
+        return replacement === undefined
+          ? []
+          : [
+              {
+                id: file.id,
+                name: replacementName(replacement.name, file.name),
+                text: replacement.text,
+              },
+            ];
+      }),
+    ],
   };
   if (sameContent(content, input)) return { _tag: "Pass" };
   const placeholders = mergePlaceholders(map, output.placeholders);
@@ -307,12 +345,24 @@ export const placeholderFileName = (threadId: string) =>
   `${NodeCrypto.createHash("sha256").update(threadId).digest("hex")}.json`;
 
 /**
- * What a hook reads on stdin; `unshownAttachments` go with the message but the hook cannot read
- * them, and `placeholders` is the thread's map so far.
+ * An attachment that goes with the message but is not shown as text. A hook that declares
+ * `attachmentFiles` also gets its type, size and, when the file is on this computer, its path.
+ */
+export interface HookUnshownAttachment {
+  readonly id: string;
+  readonly name: string;
+  readonly mimeType?: string;
+  readonly sizeBytes?: number;
+  readonly path?: string;
+}
+
+/**
+ * What a hook reads on stdin; `unshownAttachments` go with the message but are not shown as text,
+ * and `placeholders` is the thread's map so far.
  */
 export const hookInput = (input: {
   readonly content: AgentdBeforeSendContent;
-  readonly unshown: ReadonlyArray<{ readonly id: string; readonly name: string }>;
+  readonly unshown: ReadonlyArray<HookUnshownAttachment>;
   readonly projectId: string;
   readonly threadId: string;
   readonly source: string;
