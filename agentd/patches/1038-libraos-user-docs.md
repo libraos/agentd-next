@@ -31,6 +31,6 @@ agentd, the component it reads tasks, approvals and workers from, is LibraOS Cor
   service install, `t3.json`, and the ids `com.t3tools.t3code` (macOS policy profile, service
   plist). The docs give no desktop app id, so `com.libraos.next` appears nowhere.
 - `docs/user/t3-connect-troubleshooting.md`, upstream's page for T3 Connect, which is not part of
-  LibraOS Next and is linked from nowhere.
+  LibraOS Next; it was later deleted (`233-remove-t3-connect-troubleshooting.md`).
 - The `agentd/` directory, `AGENTD_RELEASE`, release version strings such as `0.1.10-agentd.6`,
   environment variables and paths.
