@@ -1,4 +1,4 @@
-import { APP_LINK_SCHEME } from "@t3tools/shared/desktopIdentity";
+import { LEGACY_APP_LINK_SCHEME } from "@t3tools/shared/desktopIdentity";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -14,8 +14,9 @@ import * as Scope from "effect/Scope";
 import * as Electron from "electron";
 
 export const DESKTOP_HOST = "app";
-const DESKTOP_PRODUCTION_SCHEME = APP_LINK_SCHEME;
-const DESKTOP_DEVELOPMENT_SCHEME = `${APP_LINK_SCHEME}-dev`;
+// The renderer's origin keeps AgentD Next's scheme: its browser storage, sign-in and older servers' CORS key on it.
+const DESKTOP_PRODUCTION_SCHEME = LEGACY_APP_LINK_SCHEME;
+const DESKTOP_DEVELOPMENT_SCHEME = `${LEGACY_APP_LINK_SCHEME}-dev`;
 
 export function getDesktopScheme(isDevelopment: boolean): string {
   return isDevelopment ? DESKTOP_DEVELOPMENT_SCHEME : DESKTOP_PRODUCTION_SCHEME;

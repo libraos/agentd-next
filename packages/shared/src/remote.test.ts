@@ -147,11 +147,11 @@ describe("remote", () => {
   it("round-trips pairing urls through app links on every channel scheme", () => {
     const pairingUrl = "https://vps.example.com/pair#token=ABC123";
     const appLink = buildPairingAppLink(pairingUrl);
-    expect(appLink.startsWith("agentd-desktop://pair?")).toBe(true);
+    expect(appLink.startsWith("libraos-next://pair?")).toBe(true);
     expect(readPairingAppLink(appLink)).toBe(pairingUrl);
-    expect(readPairingAppLink(appLink.replace("agentd-desktop:", "agentd-desktop-dev:"))).toBe(
-      pairingUrl,
-    );
+    for (const scheme of ["libraos-next-dev:", "agentd-desktop:", "agentd-desktop-dev:"]) {
+      expect(readPairingAppLink(appLink.replace("libraos-next:", scheme))).toBe(pairingUrl);
+    }
     expect(readPairingAppLink("agentd-desktop://pair")).toBeNull();
     expect(readPairingAppLink(appLink.replace("//pair?", "//pair/other?"))).toBeNull();
     expect(

@@ -368,7 +368,7 @@ export const make = Effect.gen(function* () {
       // PATH would split the folder at the `;`, leaving two wrong entries behind.
       if (binDirectory.includes(";")) {
         return yield* fail(
-          `AgentD Next cannot put ${binDirectory} on PATH because it has a ";". Run ${launcher} directly.`,
+          `LibraOS Next cannot put ${binDirectory} on PATH because it has a ";". Run ${launcher} directly.`,
         );
       }
       const entries = pathEntries(yield* readUserPath, ";");
@@ -480,17 +480,17 @@ export const make = Effect.gen(function* () {
     }
     const setup = startupLine(installed.value);
     if (setup === undefined)
-      return yield* fail("AgentD Next cannot add libraos-next to this shell's PATH.");
+      return yield* fail("LibraOS Next cannot add libraos-next to this shell's PATH.");
     const shadowedBy = yield* foreignFirstOnPath;
     if (Option.isSome(shadowedBy)) {
       return yield* fail(
-        `Another libraos-next at ${shadowedBy.value} runs first; AgentD Next leaves it in place.`,
+        `Another libraos-next at ${shadowedBy.value} runs first; LibraOS Next leaves it in place.`,
       );
     }
     if (!(yield* folderOnPath(installed.value)) && !(yield* hasLine(setup))) {
       yield* fs.makeDirectory(path.dirname(setup.path), { recursive: true }).pipe(
         Effect.andThen(
-          fs.writeFileString(setup.path, `\n# Added by AgentD Next\n${setup.line}\n`, {
+          fs.writeFileString(setup.path, `\n# Added by LibraOS Next\n${setup.line}\n`, {
             flag: "a",
           }),
         ),
@@ -513,7 +513,7 @@ export const make = Effect.gen(function* () {
       if (existing !== undefined) {
         const target = yield* fs.readLink(existing).pipe(Effect.option);
         if (Option.getOrUndefined(target) !== launcher) {
-          return yield* logInfo("left another AgentD Next app's libraos-next command in place", {
+          return yield* logInfo("left another LibraOS Next app's libraos-next command in place", {
             existing,
           });
         }

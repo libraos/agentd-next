@@ -21,9 +21,9 @@ const defaultEnvironmentInput = {
   platform: "darwin",
   processArch: "arm64",
   appVersion: "1.2.3",
-  appPath: "/Applications/AgentD Next.app/Contents/Resources/app.asar",
+  appPath: "/Applications/LibraOS Next.app/Contents/Resources/app.asar",
   isPackaged: true,
-  resourcesPath: "/Applications/AgentD Next.app/Contents/Resources",
+  resourcesPath: "/Applications/LibraOS Next.app/Contents/Resources",
   runningUnderArm64Translation: false,
 } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
 
@@ -40,7 +40,7 @@ interface ElectronAppCalls {
 const layerElectronApp = (calls: ElectronAppCalls) =>
   Layer.succeed(ElectronApp.ElectronApp, {
     metadata: Effect.die("unexpected metadata read"),
-    name: Effect.succeed("AgentD Next"),
+    name: Effect.succeed("LibraOS Next"),
     systemLocale: Effect.succeed("en-US"),
     preferredSystemLanguages: Effect.succeed(["en-US"]),
     whenReady: Effect.void,
@@ -154,7 +154,7 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         const userDataPath = yield* identity.resolveUserDataPath;
 
-        assert.equal(userDataPath, "/Users/alice/Library/Application Support/agentd-desktop");
+        assert.equal(userDataPath, "/Users/alice/Library/Application Support/libraos-next");
       }),
       { legacyPathExists: true },
     ),
@@ -166,7 +166,7 @@ describe("DesktopAppIdentity", () => {
         const identity = yield* DesktopAppIdentity.DesktopAppIdentity;
         assert.equal(
           yield* identity.resolveUserDataPath,
-          "/Users/alice/Library/Application Support/agentd-desktop-dev",
+          "/Users/alice/Library/Application Support/libraos-next-dev",
         );
       }),
       {
@@ -200,9 +200,10 @@ describe("DesktopAppIdentity", () => {
 
         const runtimeName = calls.setName[0];
         assert.isDefined(runtimeName);
+        // AgentD Next's name, which keys the safeStorage secrets an earlier version saved.
         assert.equal(runtimeName, `AgentD Next ${stage}`);
         assert.match(runtimeName.replaceAll(" ", ""), /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/);
-        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, `AgentD Next (${stage})`);
+        assert.equal(calls.setAboutPanelOptions[0]?.applicationName, `LibraOS Next (${stage})`);
       }),
       { calls, environment },
     );

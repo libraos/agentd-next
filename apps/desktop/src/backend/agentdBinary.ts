@@ -15,12 +15,22 @@ export const AGENTD_BUNDLED_ENV = "AGENTD_DESKTOP_BUNDLED";
 const VERSION_TIMEOUT = Duration.seconds(5);
 const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 
-export const agentdBinaryName = (platform: NodeJS.Platform): string =>
-  platform === "win32" ? "agentd.exe" : "agentd";
+const executableFile = (name: string, platform: NodeJS.Platform): string =>
+  platform === "win32" ? `${name}.exe` : name;
 
-/** The version in `agentd version` output ("agentd v0.1.11 547cf3a6616b"), else null. */
+/** The name the terminal command is installed under; every Core release answers to it. */
+export const agentdBinaryName = (platform: NodeJS.Platform): string =>
+  executableFile("agentd", platform);
+
+/** LibraOS Core's executable first, then `agentd`, its earlier name. */
+const coreBinaryNames = (platform: NodeJS.Platform): readonly string[] =>
+  ["libraos-core", "agentd"].map((name) => executableFile(name, platform));
+
+/** The version in `agentd version` output ("agentd v0.1.11 547cf3a6616b", or "libraos-core v…"), else null. */
 export const parseAgentdVersion = (output: string): string | null => {
-  const match = /^\s*agentd\s+(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(output);
+  const match = /^\s*(?:libraos-core|agentd)\s+(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(
+    output,
+  );
   return match ? match[1]! : null;
 };
 
@@ -71,12 +81,14 @@ export const resolveBundledAgentdPath = Effect.fn("desktop.agentdBinary.resolveB
   function* () {
     const environment = yield* DesktopEnvironment.DesktopEnvironment;
     const fileSystem = yield* FileSystem.FileSystem;
-    const relative = environment.path.join("agentd", agentdBinaryName(environment.platform));
     const candidates = environment.isDevelopment
       ? []
-      : environment.isPackaged
-        ? [environment.path.join(environment.resourcesPath, relative)]
-        : environment.resolveResourcePathCandidates(relative);
+      : coreBinaryNames(environment.platform).flatMap((name) => {
+          const relative = environment.path.join("agentd", name);
+          return environment.isPackaged
+            ? [environment.path.join(environment.resourcesPath, relative)]
+            : environment.resolveResourcePathCandidates(relative);
+        });
     for (const candidate of candidates) {
       if (yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
         return Option.some(candidate);
@@ -95,13 +107,15 @@ const findAgentdOnPath = Effect.fn("desktop.agentdBinary.findOnPath")(function* 
   const pathKey = windows
     ? (Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH")
     : "PATH";
-  const name = agentdBinaryName(environment.platform);
+  const names = coreBinaryNames(environment.platform);
   for (const dir of (env[pathKey] ?? "").split(windows ? ";" : ":")) {
     // A relative PATH entry would resolve against the app's working directory.
     if (!environment.path.isAbsolute(dir)) continue;
-    const candidate = environment.path.join(dir, name);
-    if (yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
-      return Option.some(candidate);
+    for (const name of names) {
+      const candidate = environment.path.join(dir, name);
+      if (yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
+        return Option.some(candidate);
+      }
     }
   }
   return Option.none<string>();

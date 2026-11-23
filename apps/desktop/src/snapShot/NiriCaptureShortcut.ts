@@ -54,7 +54,7 @@ export async function startNiriCaptureShortcut(
       }),
     ]);
     if (result !== RequestNameReply.PRIMARY_OWNER)
-      throw new Error("Another AgentD Next instance already owns the capture shortcut.");
+      throw new Error("Another LibraOS Next instance already owns the capture shortcut.");
     return close;
   } catch (error) {
     close();

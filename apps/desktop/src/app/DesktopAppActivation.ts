@@ -164,7 +164,7 @@ export async function startDesktopAppControlServer(input: {
         finish(
           invalidResponse(
             parsed.requestId,
-            "AgentD Next could not process the desktop app request.",
+            "LibraOS Next could not process the desktop app request.",
           ),
         );
       });

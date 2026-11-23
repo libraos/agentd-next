@@ -588,7 +588,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
-  it.effect("uses the AgentD Next identity in the Linux package and launcher", () =>
+  it.effect("uses the LibraOS Next identity in the Linux package and launcher", () =>
     Effect.gen(function* () {
       const linux = yield* createBuildConfig(
         "linux",
@@ -600,22 +600,22 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         undefined,
       );
 
-      assert.propertyVal(linux, "appId", "ai.libraos.agentd-desktop");
-      assert.propertyVal(linux, "productName", "AgentD Next");
-      assert.propertyVal(linux, "artifactName", "AgentD-Next-${version}-${arch}.${ext}");
-      assert.nestedPropertyVal(linux, "linux.executableName", "agentd-desktop");
+      assert.propertyVal(linux, "appId", "com.libraos.next");
+      assert.propertyVal(linux, "productName", "LibraOS Next");
+      assert.propertyVal(linux, "artifactName", "LibraOS-Next-${version}-${arch}.${ext}");
+      assert.nestedPropertyVal(linux, "linux.executableName", "libraos-next");
       assert.nestedPropertyVal(linux, "linux.syncDesktopName", true);
-      assert.nestedPropertyVal(
-        linux,
-        "extraMetadata.desktopName",
-        "ai.libraos.agentd-desktop.desktop",
-      );
-      assert.nestedPropertyVal(
-        linux,
-        "linux.desktop.entry.StartupWMClass",
-        "ai.libraos.agentd-desktop",
-      );
-      assert.nestedPropertyVal(linux, "deb.packageName", "agentd-desktop");
+      assert.nestedPropertyVal(linux, "extraMetadata.desktopName", "com.libraos.next.desktop");
+      assert.nestedPropertyVal(linux, "linux.desktop.entry.StartupWMClass", "com.libraos.next");
+      assert.nestedPropertyVal(linux, "deb.packageName", "libraos-next");
+      assert.nestedPropertyVal(linux, "extraMetadata.name", "libraos-next");
+      // AgentD Next's links keep opening the app.
+      assert.deepNestedPropertyVal(linux, "linux.protocols[0].schemes", [
+        "libraos-next",
+        "libraos-next-dev",
+        "agentd-desktop",
+        "agentd-desktop-dev",
+      ]);
     }),
   );
 
@@ -629,8 +629,8 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       const stable = yield* appImageName("0.0.37");
       const nightly = yield* appImageName("0.0.38-nightly.20261026.3740");
 
-      assert.equal(stable, "AgentD-Next-${arch}.${ext}");
-      assert.equal(nightly, "AgentD-Next-Nightly-${arch}.${ext}");
+      assert.equal(stable, "LibraOS-Next-${arch}.${ext}");
+      assert.equal(nightly, "LibraOS-Next-Nightly-${arch}.${ext}");
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
@@ -819,7 +819,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }
   });
 
-  it.effect("bundles the target's agentd from AGENTD_DIST_DIR only when its sha256 matches", () =>
+  it.effect("bundles the target's Core from AGENTD_DIST_DIR only when its sha256 matches", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -870,6 +870,20 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       const skillError = yield* stage({ AGENTD_DIST_DIR: distDir }, "win").pipe(Effect.flip);
       assert.instanceOf(skillError, AgentdCliStageError);
       assert.equal(skillError.asset, "SKILL-agentd.md");
+
+      // A release that publishes libraos-core assets is bundled under that name.
+      yield* sums("agentd skill");
+      yield* fs.writeFileString(path.join(distDir, "libraos-core-windows-arm64.exe"), "core");
+      yield* fs.writeFileString(
+        path.join(distDir, "SHA256SUMS"),
+        `${yield* fs.readFileString(path.join(distDir, "SHA256SUMS"))}${sha("core")}  libraos-core-windows-arm64.exe\n`,
+      );
+      yield* stage({ AGENTD_DIST_DIR: distDir }, "win");
+      assert.equal(
+        yield* fs.readFileString(path.join(stageResourcesDir, "agentd/libraos-core.exe")),
+        "core",
+      );
+      assert.isFalse(yield* fs.exists(path.join(stageResourcesDir, "agentd/agentd.exe")));
     }),
   );
 
@@ -1662,7 +1676,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     });
 
     assert.deepStrictEqual(configuration, {
-      appId: "ai.libraos.agentd-desktop",
+      appId: "com.libraos.next",
       teamId: "ABC1234567",
       rpDomains: ["example.clerk.accounts.dev"],
       provisioningProfilePath: "/tmp/t3code.provisionprofile",
@@ -1685,7 +1699,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "clerk.example.com",
       "example.clerk.accounts.dev",
     ]);
-    assert.include(entitlements, "<string>ABC1234567.ai.libraos.agentd-desktop</string>");
+    assert.include(entitlements, "<string>ABC1234567.com.libraos.next</string>");
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");

@@ -134,7 +134,7 @@ describe("DesktopPreReadyPlatform", () => {
     let desktopEntry = previousEntry;
     let iconInstalled = false;
     const iconSource = "/tmp/.mount_T3/resources/app.asar/apps/desktop/prod-resources/icon.png";
-    const iconPath = "/xdg/icons/ai.libraos.agentd-desktop.desktop.png";
+    const iconPath = "/xdg/icons/com.libraos.next.desktop.png";
     const iconBytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
     readFileSyncMock.mockImplementation((path: string) => {
       if (path === iconSource) return iconBytes;
@@ -144,8 +144,7 @@ describe("DesktopPreReadyPlatform", () => {
       desktopName = name;
     });
     writeFileSyncMock.mockImplementation((path: string, contents: string | Buffer) => {
-      if (path === "/xdg/applications/ai.libraos.agentd-desktop.desktop")
-        desktopEntry = String(contents);
+      if (path === "/xdg/applications/com.libraos.next.desktop") desktopEntry = String(contents);
       if (path === iconPath) iconInstalled = Buffer.compare(Buffer.from(contents), iconBytes) === 0;
     });
 
@@ -168,14 +167,14 @@ describe("DesktopPreReadyPlatform", () => {
           ),
         );
         const identity = yield* Effect.promise(() => portalIdentity);
-        assert.equal(identity.desktopName, "ai.libraos.agentd-desktop.desktop");
+        assert.equal(identity.desktopName, "com.libraos.next.desktop");
         assert.include(identity.desktopEntry ?? "", "Exec=/Applications/current.AppImage %U");
-        assert.include(identity.desktopEntry ?? "", "Name=AgentD Next (Beta)");
-        assert.include(identity.desktopEntry ?? "", "MimeType=x-scheme-handler/agentd-desktop;");
+        assert.include(identity.desktopEntry ?? "", "Name=LibraOS Next (Beta)");
         assert.include(
           identity.desktopEntry ?? "",
-          "Icon=/xdg/icons/ai.libraos.agentd-desktop.desktop.png",
+          "MimeType=x-scheme-handler/libraos-next;x-scheme-handler/agentd-desktop;",
         );
+        assert.include(identity.desktopEntry ?? "", "Icon=/xdg/icons/com.libraos.next.desktop.png");
         assert.equal(
           copyFileSyncMock.mock.calls.length,
           0,
@@ -194,7 +193,7 @@ describe("DesktopPreReadyPlatform", () => {
     ({ relaunchedByUpdater, restored }) => {
       vi.stubEnv("VITE_DEV_SERVER_URL", "");
       getSwitchValueMock.mockReturnValue("");
-      const entryPath = "/xdg/applications/ai.libraos.agentd-desktop.desktop";
+      const entryPath = "/xdg/applications/com.libraos.next.desktop";
       const files = new Map([[entryPath, "Exec=/Applications/T3-Code-0.1.8-x86_64.AppImage %U\n"]]);
       readFileSyncMock.mockImplementation((path: string) => files.get(path) ?? "{}");
       writeFileSyncMock.mockImplementation((path: string, contents: string | Buffer) => {
@@ -246,7 +245,7 @@ describe("DesktopPreReadyPlatform", () => {
           ),
         );
         const entry = writeFileSyncMock.mock.calls.find(
-          ([path]) => path === "/xdg/applications/ai.libraos.agentd-desktop.desktop",
+          ([path]) => path === "/xdg/applications/com.libraos.next.desktop",
         )?.[1];
         assert.include(entry, 'Exec="/opt/AgentD Next/t3code" %U');
       }),

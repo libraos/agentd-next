@@ -4,6 +4,8 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
+import { userDataDirectoryName } from "./libraosUserDataMigration.ts";
+
 export class DesktopUserDataInitializationError extends Schema.TaggedError<DesktopUserDataInitializationError>()(
   "DesktopUserDataInitializationError",
   {
@@ -35,10 +37,7 @@ export class DesktopUserDataInitializationError extends Schema.TaggedError<Deskt
 export const resolveUserDataPath = Effect.fn("desktop.userData.resolveUserDataPath")(
   function* (input: { readonly appDataDirectory: string; readonly isDevelopment: boolean }) {
     const path = yield* Path.Path;
-    return path.join(
-      input.appDataDirectory,
-      input.isDevelopment ? "agentd-desktop-dev" : "agentd-desktop",
-    );
+    return path.join(input.appDataDirectory, userDataDirectoryName(input.isDevelopment));
   },
 );
 

@@ -8,8 +8,8 @@ import * as PlatformError from "effect/PlatformError";
 import { clearStaleGpuCaches, resolveUserDataPath } from "./DesktopUserData.ts";
 
 it.effect.each([
-  { isDevelopment: false, profile: "agentd-desktop" },
-  { isDevelopment: true, profile: "agentd-desktop-dev" },
+  { isDevelopment: false, profile: "libraos-next" },
+  { isDevelopment: true, profile: "libraos-next-dev" },
 ])(
   "uses its own $profile profile and copies nothing from T3 Code's",
   ({ isDevelopment, profile }) =>

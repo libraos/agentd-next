@@ -1,3 +1,4 @@
+import { appLinkSchemes } from "@t3tools/shared/desktopIdentity";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -7,7 +8,6 @@ import * as Schema from "effect/Schema";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as DesktopAssets from "./DesktopAssets.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import { makeComponentLogger } from "./DesktopObservability.ts";
@@ -79,7 +79,7 @@ const escapeUrlHandlerExecTarget = (value: string): string =>
 export function renderUrlHandlerDesktopEntry(input: {
   readonly displayName: string;
   readonly execTarget: string;
-  readonly scheme: string;
+  readonly schemes: readonly string[];
   readonly iconPath?: string;
 }): string {
   return [
@@ -91,7 +91,7 @@ export function renderUrlHandlerDesktopEntry(input: {
     "Terminal=false",
     "NoDisplay=true",
     "StartupNotify=false",
-    `MimeType=x-scheme-handler/${input.scheme};`,
+    `MimeType=${input.schemes.map((scheme) => `x-scheme-handler/${scheme};`).join("")}`,
     "",
   ].join("\n");
 }
@@ -153,7 +153,8 @@ export const make = Effect.gen(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const assets = yield* DesktopAssets.DesktopAssets;
 
-  const scheme = ElectronProtocol.getDesktopScheme(environment.isDevelopment);
+  const schemes = appLinkSchemes(environment.isDevelopment);
+  const scheme = schemes.join(",");
   const desktopEntryPath = environment.path.join(
     environment.linuxApplicationsDir,
     environment.linuxDesktopEntryName,
@@ -175,7 +176,7 @@ export const make = Effect.gen(function* () {
     const content = renderUrlHandlerDesktopEntry({
       displayName: environment.displayName,
       execTarget,
-      scheme,
+      schemes,
       ...(environment.isPackaged ? { iconPath } : {}),
     });
     // Avoid truncating the pre-ready entry while the portal may be reading it.
@@ -288,7 +289,11 @@ export const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const command = ChildProcess.make(
         "xdg-mime",
-        ["default", environment.linuxDesktopEntryName, `x-scheme-handler/${scheme}`],
+        [
+          "default",
+          environment.linuxDesktopEntryName,
+          ...schemes.map((linkScheme) => `x-scheme-handler/${linkScheme}`),
+        ],
         {
           stdin: "ignore",
           stdout: "ignore",

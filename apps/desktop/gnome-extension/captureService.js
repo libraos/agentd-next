@@ -1,4 +1,7 @@
+// AgentD Next's names stay for an earlier app that still runs beside this extension.
 const CLIENT_NAMES = [
+  "com.libraos.next.SnapShot",
+  "com.libraos.next.dev.SnapShot",
   "ai.libraos.agentd-desktop.SnapShot",
   "ai.libraos.agentd-desktop.dev.SnapShot",
 ];
@@ -42,7 +45,7 @@ export class CaptureService {
           break;
         }
       }
-      if (!allowed) throw new Error("Only AgentD Next may request a snapshot.");
+      if (!allowed) throw new Error("Only LibraOS Next may request a snapshot.");
       const pid = options ? await this._getProcessId(sender) : undefined;
       this._checkSession();
       const snapshot = await this._takeSnapshot(options?.animate ?? false);

@@ -260,16 +260,17 @@ describe("DesktopLifecycle", () => {
         return yield* Deferred.await(relaunched);
       }).pipe(
         Effect.provide(layer),
-        Effect.provideService(HostProcess.ExecutablePath, "/opt/AgentD Next/t3code"),
+        Effect.provideService(HostProcess.ExecutablePath, "/opt/LibraOS Next/t3code"),
         Effect.provideService(HostProcess.Arguments, [
-          "/opt/AgentD Next/t3code",
+          "/opt/LibraOS Next/t3code",
           "--no-sandbox",
           "AGENTD-DESKTOP://pair?token=spent",
           "agentd-desktop://new?prompt=hello",
+          "libraos-next://new?prompt=again",
         ]),
       );
 
-      assert.deepEqual(options, { execPath: "/opt/AgentD Next/t3code", args: ["--no-sandbox"] });
+      assert.deepEqual(options, { execPath: "/opt/LibraOS Next/t3code", args: ["--no-sandbox"] });
     }),
   );
 

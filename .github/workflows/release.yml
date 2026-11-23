@@ -131,12 +131,12 @@ jobs:
         with:
           name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
-            release/AgentD-Next-x86_64.AppImage
-            release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.deb
-            release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.exe
-            release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.dmg
-            release/AgentD-Next-${{ needs.prepare.outputs.version }}-*.zip
-            release/AgentD-Next-*.blockmap
+            release/LibraOS-Next-x86_64.AppImage
+            release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.deb
+            release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.exe
+            release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.dmg
+            release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.zip
+            release/LibraOS-Next-*.blockmap
             release/latest*.yml
           if-no-files-found: error
           compression-level: 0
@@ -170,22 +170,22 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           cd dist
-          for f in AgentD-Next-x86_64.AppImage "AgentD-Next-$VERSION-amd64.deb" \
-            "AgentD-Next-$VERSION-x64.exe" "AgentD-Next-$VERSION-arm64.dmg" \
-            "AgentD-Next-$VERSION-x64.dmg" "AgentD-Next-$VERSION-arm64.zip" \
-            "AgentD-Next-$VERSION-x64.zip" latest.yml latest-linux.yml latest-mac.yml; do
+          for f in LibraOS-Next-x86_64.AppImage "LibraOS-Next-$VERSION-amd64.deb" \
+            "LibraOS-Next-$VERSION-x64.exe" "LibraOS-Next-$VERSION-arm64.dmg" \
+            "LibraOS-Next-$VERSION-x64.dmg" "LibraOS-Next-$VERSION-arm64.zip" \
+            "LibraOS-Next-$VERSION-x64.zip" latest.yml latest-linux.yml latest-mac.yml; do
             test -s "$f" || { echo "::error::missing $f"; ls -l; exit 1; }
           done
           for m in latest.yml latest-linux.yml latest-mac.yml; do
             grep -Eq "^version: '?$VERSION'?\$" "$m" || { echo "::error::$m is not $VERSION"; cat "$m"; exit 1; }
           done
-          sha256sum AgentD-Next-* > SHA256SUMS
+          sha256sum LibraOS-Next-* > SHA256SUMS
           cat SHA256SUMS latest-mac.yml
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-files
           path: |
-            dist/AgentD-Next-*
+            dist/LibraOS-Next-*
             dist/latest*.yml
             dist/SHA256SUMS
           if-no-files-found: error
@@ -215,29 +215,29 @@ jobs:
           cd dist
           sha256sum -c SHA256SUMS
           cat > notes.md <<EOF
-          AgentD Next $VERSION, with agentd $AGENTD_RELEASE and its Skills inside.
+          LibraOS Next $VERSION, with LibraOS Core (agentd) $AGENTD_RELEASE and its Skills inside.
 
           **Which file to download**
 
-          - macOS, Apple silicon (M1 or later): \`AgentD-Next-$VERSION-arm64.dmg\`
-          - macOS, Intel: \`AgentD-Next-$VERSION-x64.dmg\`
-          - Windows: \`AgentD-Next-$VERSION-x64.exe\`
-          - Linux: \`AgentD-Next-x86_64.AppImage\`, or \`AgentD-Next-$VERSION-amd64.deb\` on Debian and Ubuntu
+          - macOS, Apple silicon (M1 or later): \`LibraOS-Next-$VERSION-arm64.dmg\`
+          - macOS, Intel: \`LibraOS-Next-$VERSION-x64.dmg\`
+          - Windows: \`LibraOS-Next-$VERSION-x64.exe\`
+          - Linux: \`LibraOS-Next-x86_64.AppImage\`, or \`LibraOS-Next-$VERSION-amd64.deb\` on Debian and Ubuntu
 
           Not sure which Mac you have? Apple menu → About This Mac: "Chip: Apple M…" is Apple silicon, "Processor: Intel" is Intel.
           The \`.zip\`, \`.blockmap\` and \`latest*.yml\` files are for automatic updates; you don't need them.
 
           These builds are not signed yet:
 
-          - **macOS:** the app is not notarized. The first time, right-click AgentD Next in Applications and choose Open, or open System Settings → Privacy & Security and click Open Anyway.
+          - **macOS:** the app is not notarized. The first time, right-click LibraOS Next in Applications and choose Open, or open System Settings → Privacy & Security and click Open Anyway.
           - **Windows:** SmartScreen may warn. Click More info, then Run anyway.
 
           The app checks for updates at launch and every four hours and asks before installing. On macOS it opens this page instead; install the new version by hand. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
 
-          Coming from AgentD Desktop (the earlier name)? Settings, threads and the background service carry over. On macOS, delete the old AgentD Desktop app from Applications after installing AgentD Next.
+          Coming from AgentD Next (the earlier name)? LibraOS Next is a new app beside it: the first start copies its window settings and sign-in, and threads, settings and the background service carry over. Once LibraOS Next works, uninstall AgentD Next (on macOS, delete it from Applications); its data is left in place.
 
           Check a download against \`SHA256SUMS\`.
           EOF
           gh release create "$TAG" -R "$REPO" --draft --verify-tag \
-            --title "AgentD Next $VERSION" --notes-file notes.md \
-            AgentD-Next-* latest*.yml SHA256SUMS
+            --title "LibraOS Next $VERSION" --notes-file notes.md \
+            LibraOS-Next-* latest*.yml SHA256SUMS

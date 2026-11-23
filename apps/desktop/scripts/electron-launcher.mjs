@@ -13,11 +13,14 @@ const repoRoot = NodePath.resolve(desktopDir, "..", "..");
 const devBundleIdSuffix = NodePath.basename(repoRoot)
   .toLowerCase()
   .replaceAll(/[^a-z0-9]+/g, "");
-const APP_DISPLAY_NAME = isDevelopment ? "AgentD Next (Dev)" : "AgentD Next";
+const APP_DISPLAY_NAME = isDevelopment ? "LibraOS Next (Dev)" : "LibraOS Next";
 const APP_BUNDLE_ID = isDevelopment
-  ? `ai.libraos.agentd-desktop.dev.${devBundleIdSuffix || "local"}`
-  : "ai.libraos.agentd-desktop";
-const APP_PROTOCOL_SCHEMES = isDevelopment ? ["agentd-desktop-dev"] : ["agentd-desktop"];
+  ? `com.libraos.next.dev.${devBundleIdSuffix || "local"}`
+  : "com.libraos.next";
+// AgentD Next's scheme still opens the app.
+const APP_PROTOCOL_SCHEMES = isDevelopment
+  ? ["libraos-next-dev", "agentd-desktop-dev"]
+  : ["libraos-next", "agentd-desktop"];
 const LAUNCHER_VERSION = 20;
 const developmentMacIconPngPath = NodePath.join(
   repoRoot,
@@ -269,9 +272,9 @@ function resolveMacBundleInfoPlistStrings(executableName) {
     CFBundleExecutable: executableName,
     CFBundleIconFile: "icon.icns",
     NSScreenCaptureUsageDescription:
-      "AgentD Next captures the active window when you use the snapshot shortcut.",
+      "LibraOS Next captures the active window when you use the snapshot shortcut.",
     NSDocumentsFolderUsageDescription:
-      "AgentD Next reads project files you open in the desktop app.",
+      "LibraOS Next reads project files you open in the desktop app.",
   };
 }
 

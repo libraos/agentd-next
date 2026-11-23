@@ -20,6 +20,7 @@ import * as ElectronApp from "../electron/ElectronApp.ts";
 import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopUserData from "./DesktopUserData.ts";
+import { migrateLegacyUserData } from "./libraosUserDataMigration.ts";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 import { openClerkTokenStorage } from "./ClerkTokenStore.ts";
 import * as DesktopWebLinks from "./DesktopWebLinks.ts";
@@ -108,6 +109,7 @@ export const make = Effect.gen(function* () {
   const shell = yield* ElectronShell.ElectronShell;
 
   // Must not yield: the bridge registers a scheme Electron rejects once ready.
+  yield* migrateLegacyUserData(environment);
   const userDataPath = yield* DesktopUserData.resolveUserDataPath(environment);
   yield* electronApp.setPath("userData", userDataPath);
 
