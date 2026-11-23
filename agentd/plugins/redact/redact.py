@@ -55,7 +55,10 @@ def venv_python(data):
 
 def setup_hint():
     script = PLUGIN_DIR / "setup_env.py"
-    return f'run "python3 {script}" on the computer that runs AgentD Next, then send again'
+    return (
+        'choose "Set up again" for Local redaction in Settings, Plugins '
+        f'(or run "python3 {script}" on the computer that runs AgentD Next), then send again'
+    )
 
 
 def sha256_file(path):

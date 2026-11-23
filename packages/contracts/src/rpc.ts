@@ -460,6 +460,7 @@ import {
   AgentdPluginEnableInput,
   AgentdPluginError,
   AgentdPluginInput,
+  AgentdPluginRemoveInput,
   AgentdPlugins,
   AgentdPluginsListInput,
 } from "./agentdPlugins.ts";
@@ -820,6 +821,7 @@ export const WS_METHODS = {
   agentdPluginsInstall: "agentd.pluginsInstall",
   agentdPluginsRemove: "agentd.pluginsRemove",
   agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
+  agentdPluginsSetup: "agentd.pluginsSetup",
   agentdBeforeSendReview: "agentd.beforeSendReview",
   agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
   agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
@@ -2704,13 +2706,20 @@ const WsAgentdPluginsInstallRpc = Rpc.make(WS_METHODS.agentdPluginsInstall, {
 });
 
 const WsAgentdPluginsRemoveRpc = Rpc.make(WS_METHODS.agentdPluginsRemove, {
-  payload: AgentdPluginInput,
+  payload: AgentdPluginRemoveInput,
   success: AgentdPlugins,
   error: AgentdPluginsRpcError,
 });
 
 const WsAgentdPluginsSetEnabledRpc = Rpc.make(WS_METHODS.agentdPluginsSetEnabled, {
   payload: AgentdPluginEnableInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+/** Starts the plugin's setup on the server and returns at once; the listing shows its progress. */
+const WsAgentdPluginsSetupRpc = Rpc.make(WS_METHODS.agentdPluginsSetup, {
+  payload: AgentdPluginInput,
   success: AgentdPlugins,
   error: AgentdPluginsRpcError,
 });
@@ -3056,6 +3065,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdPluginsInstallRpc,
   WsAgentdPluginsRemoveRpc,
   WsAgentdPluginsSetEnabledRpc,
+  WsAgentdPluginsSetupRpc,
   WsAgentdBeforeSendReviewRpc,
   WsAgentdBeforeSendConfirmRpc,
   WsAgentdBeforeSendDiscardRpc,
