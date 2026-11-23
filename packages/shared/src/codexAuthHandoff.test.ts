@@ -32,7 +32,13 @@ const callbackUrl = `http://127.0.0.1:54213/auth/callback?state=${"a".repeat(43)
 
 describe("Codex desktop handoff", () => {
   it("keeps the web return route, account, and environment with the code in a fragment", () => {
-    expect(readCodexAuthHandoff(codexAuthHandoffUrl(input), false)).toEqual(input);
+    const link = codexAuthHandoffUrl(input);
+    expect(link.startsWith("libraos-next://auth/codex?")).toBe(true);
+    expect(readCodexAuthHandoff(link, false)).toEqual(input);
+    // A hand-off from a web client that still builds AgentD Next's link.
+    expect(readCodexAuthHandoff(link.replace("libraos-next:", "agentd-desktop:"), false)).toEqual(
+      input,
+    );
     const delivery = codexAuthDeliveryUrl(input, callbackUrl);
     expect(new URL(delivery).search).toBe("");
     expect(readCodexAuthDelivery(delivery)).toEqual({

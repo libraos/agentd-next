@@ -103,7 +103,7 @@ describe("link round trips", () => {
       model: "opus",
     });
     // Without a hosted app the link opens the desktop app.
-    expect(link.startsWith("agentd-desktop://new?")).toBe(true);
+    expect(link.startsWith("libraos-next://new?")).toBe(true);
     const path = promptLinkAppPath(link);
     expect(path).toBe(`/new${new URL(link).search}`);
     const parsed = parseNewThreadLink(new URL(link).search);
@@ -123,12 +123,15 @@ describe("link round trips", () => {
     const path = promptLinkAppPath(link, HOSTED);
     expect(path).toBe("/env-1/mcp%3A1");
     const deepLink = promptLinkDeepLink(path!);
-    expect(deepLink).toBe("agentd-desktop://threads/env-1/mcp%3A1");
+    expect(deepLink).toBe("libraos-next://threads/env-1/mcp%3A1");
     expect(promptLinkAppPath(deepLink)).toBe(path);
   });
 
   it("maps app scheme and hosted links to in-app paths, and nothing else", () => {
+    expect(promptLinkAppPath("libraos-next://new?prompt=hi")).toBe("/new?prompt=hi");
+    // AgentD Next's links keep opening the app.
     expect(promptLinkAppPath("agentd-desktop://new?prompt=hi")).toBe("/new?prompt=hi");
+    expect(promptLinkAppPath("libraos-next-dev://threads/env-1/thread-1")).toBe("/env-1/thread-1");
     expect(promptLinkAppPath("agentd-desktop-dev://threads/env-1/thread-1")).toBe(
       "/env-1/thread-1",
     );
@@ -149,6 +152,7 @@ describe("link round trips", () => {
     // This build has no hosted app, so no https link maps by default.
     expect(promptLinkAppPath("https://app.t3.codes/new?prompt=hi")).toBeNull();
     expect(promptLinkAppPath("agentd-desktop://app/index.html")).toBeNull();
+    expect(promptLinkAppPath("libraos-nextx://new?prompt=hi")).toBeNull();
   });
 
   it("maps links in browsers without URL.canParse, such as Safari before 17", () => {

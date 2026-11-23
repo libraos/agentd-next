@@ -10,6 +10,7 @@ import * as Scope from "effect/Scope";
 
 import type * as Electron from "electron";
 
+import { appLinkSchemes } from "@t3tools/shared/desktopIdentity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
@@ -17,7 +18,6 @@ import { stopChildProcessesBeforeExit, stopZygotesBeforeExit } from "./DesktopEx
 import { makeComponentLogger } from "./DesktopObservability.ts";
 import * as DesktopShutdown from "./DesktopShutdown.ts";
 import * as ElectronApp from "../electron/ElectronApp.ts";
-import * as ElectronProtocol from "../electron/ElectronProtocol.ts";
 import * as ElectronTheme from "../electron/ElectronTheme.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as DesktopState from "./DesktopState.ts";
@@ -232,11 +232,15 @@ export const make = DesktopLifecycle.of({
         return;
       }
       // Startup already acted on the app link that launched it; passing it on replays it.
-      const appLinkPrefix = `${ElectronProtocol.getDesktopScheme(environment.isDevelopment)}:`;
+      const appLinkPrefixes = appLinkSchemes(environment.isDevelopment).map(
+        (scheme) => `${scheme}:`,
+      );
       const args = yield* HostProcess.Arguments;
       yield* electronApp.relaunch({
         execPath: yield* HostProcess.ExecutablePath,
-        args: args.slice(1).filter((arg) => !arg.toLowerCase().startsWith(appLinkPrefix)),
+        args: args
+          .slice(1)
+          .filter((arg) => !appLinkPrefixes.some((prefix) => arg.toLowerCase().startsWith(prefix))),
       });
       yield* electronApp.exit(0);
     }).pipe(

@@ -1,6 +1,6 @@
 import { EnvironmentId, ProviderInstanceId } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
-import { APP_LINK_SCHEME } from "./desktopIdentity.ts";
+import { APP_LINK_SCHEME, appLinkSchemes } from "./desktopIdentity.ts";
 import { oauthCallbackUrl } from "./oauthCallback.ts";
 import { providerAuthReturnUrl } from "./providerAuthReturnUrl.ts";
 
@@ -76,7 +76,7 @@ export function readCodexAuthHandoff(value: string, development: boolean) {
     const url = new URL(value);
     if (
       value.length > 32_768 ||
-      url.protocol !== `${APP_LINK_SCHEME}${development ? "-dev" : ""}:` ||
+      !appLinkSchemes(development).some((scheme) => url.protocol === `${scheme}:`) ||
       url.host !== "auth" ||
       url.pathname !== "/codex" ||
       url.username ||

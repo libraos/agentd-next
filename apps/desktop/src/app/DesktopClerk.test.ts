@@ -122,25 +122,25 @@ describe("DesktopClerk", () => {
       name: "packaged macOS",
       isDevelopment: false,
       platform: "darwin" as const,
-      userData: "/tmp/app-data/agentd-desktop",
+      userData: "/tmp/app-data/libraos-next",
     },
     {
       name: "packaged Linux",
       isDevelopment: false,
       platform: "linux" as const,
-      userData: "/tmp/app-data/agentd-desktop",
+      userData: "/tmp/app-data/libraos-next",
     },
     {
       name: "packaged Windows",
       isDevelopment: false,
       platform: "win32" as const,
-      userData: "/tmp/app-data/agentd-desktop",
+      userData: "/tmp/app-data/libraos-next",
     },
     {
       name: "development",
       isDevelopment: true,
       platform: "win32" as const,
-      userData: "/tmp/app-data/agentd-desktop-dev",
+      userData: "/tmp/app-data/libraos-next-dev",
     },
   ])(
     "creates the bridge before startup can yield to the event loop ($name)",
@@ -218,7 +218,7 @@ describe("DesktopClerk", () => {
     createClerkBridgeMock.mockReturnValue({ cleanup: vi.fn(), isPrimaryInstance: true });
     const listeners = new Map<string, (...args: unknown[]) => void>();
     const received: string[] = [];
-    const first = "agentd-desktop://new?prompt=first";
+    const first = "libraos-next://new?prompt=first";
     const second = "agentd-desktop://threads/env-1/thread-1";
     const later = "agentd-desktop://new?prompt=later";
     const launchPair =
@@ -285,7 +285,7 @@ describe("DesktopClerk", () => {
 
         assert.isTrue(Exit.hasInterrupts(exit));
         assert.deepEqual(events, [
-          "setPath:userData:/tmp/app-data/agentd-desktop",
+          "setPath:userData:/tmp/app-data/libraos-next",
           "requestSingleInstanceLock",
           "quit",
         ]);
@@ -453,16 +453,23 @@ it.effect("hands web and app links to the renderer and leaves other links alone"
       };
       assert.strictEqual(open("https://example.com/page"), 1);
       assert.strictEqual(open("http://localhost:3000/"), 1);
+      assert.strictEqual(open("libraos-next://new?prompt=hi"), 1);
+      assert.strictEqual(open("libraos-next://threads/env-1/thread-1"), 1);
+      // AgentD Next's links keep opening the app.
       assert.strictEqual(open("agentd-desktop://new?prompt=hi"), 1);
       assert.strictEqual(open("agentd-desktop://threads/env-1/thread-1"), 1);
       assert.strictEqual(open(pairLink), 1);
+      assert.strictEqual(open("libraos-next://pair"), 0);
       assert.strictEqual(open("agentd-desktop://pair"), 0);
       assert.strictEqual(open("mailto:hello@example.com"), 0);
+      assert.strictEqual(open("libraos-next://somewhere-else"), 0);
       assert.strictEqual(open("agentd-desktop://somewhere-else"), 0);
       yield* Effect.yieldNow;
       assert.deepStrictEqual(received, [
         "https://example.com/page",
         "http://localhost:3000/",
+        "libraos-next://new?prompt=hi",
+        "libraos-next://threads/env-1/thread-1",
         "agentd-desktop://new?prompt=hi",
         "agentd-desktop://threads/env-1/thread-1",
         pairLink,

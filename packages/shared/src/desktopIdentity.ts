@@ -1,14 +1,24 @@
 /**
- * AgentD Next's own data folder, link scheme and command, apart from the upstream app on the same machine.
- * Folder, scheme and service names keep the legacy `agentd-desktop` so installs update in place.
+ * LibraOS Next's own data folder, link scheme and command, apart from the upstream app on the same machine.
+ * Folder and service names keep the legacy `agentd-desktop` so installs update in place.
  */
 
 import * as Config from "effect/Config";
 import * as Option from "effect/Option";
 
-/** Production scheme; other channels add a suffix, such as `agentd-desktop-dev`. */
-export const APP_LINK_SCHEME = "agentd-desktop";
-export const APP_LINK_PROTOCOL = /^agentd-desktop(?:-[a-z]+)?:$/;
+/** Scheme of the links the app builds; other channels add a suffix, such as `libraos-next-dev`. */
+export const APP_LINK_SCHEME = "libraos-next";
+/**
+ * AgentD Next's scheme. Its links still open the app, and it stays the renderer's origin
+ * (`agentd-desktop://app`) so stored browser data, sign-in and older servers' CORS keep working.
+ */
+export const LEGACY_APP_LINK_SCHEME = "agentd-desktop";
+export const APP_LINK_PROTOCOL = /^(?:libraos-next|agentd-desktop)(?:-[a-z]+)?:$/;
+/** Every scheme the OS hands to the app on one channel, the current one first. */
+export const appLinkSchemes = (development: boolean): readonly [string, string] => {
+  const suffix = development ? "-dev" : "";
+  return [`${APP_LINK_SCHEME}${suffix}`, `${LEGACY_APP_LINK_SCHEME}${suffix}`];
+};
 /** The command the app puts on PATH (`.cmd` on Windows). */
 export const CLI_COMMAND_NAME = "agentd-next";
 /** The legacy command name, from agentd.4 to agentd.6; an installed one is kept working and removed with the new one. */

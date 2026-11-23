@@ -188,7 +188,7 @@ describe("DesktopLinuxUrlHandler", () => {
     const entry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
       displayName: "T3 Code (Nightly)",
       execTarget: '/home/al ice/Apps/T3 "100%" $HOME\\x.AppImage',
-      scheme: "t3code",
+      schemes: ["t3code"],
       iconPath: "/home/al ice/icons/T3\\x.png",
     });
 
@@ -221,7 +221,7 @@ describe("DesktopLinuxUrlHandler", () => {
       const previousEntry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
         displayName: "T3 Code (Beta)",
         execTarget: previous,
-        scheme: "t3code",
+        schemes: ["t3code"],
       });
       assert.equal(
         DesktopLinuxUrlHandler.replacedVersionedAppImagePath({
@@ -251,7 +251,11 @@ describe("DesktopLinuxUrlHandler", () => {
           recorded.files[0]?.content,
           "Exec=/home/alice/Applications/T3-Code.AppImage %U",
         );
-        assert.include(recorded.files[0]?.content, "MimeType=x-scheme-handler/agentd-desktop;");
+        // AgentD Next's links keep opening the app.
+        assert.include(
+          recorded.files[0]?.content,
+          "MimeType=x-scheme-handler/libraos-next;x-scheme-handler/agentd-desktop;",
+        );
         assert.deepEqual(recorded.commands, [
           {
             command: "update-desktop-database",
@@ -259,7 +263,12 @@ describe("DesktopLinuxUrlHandler", () => {
           },
           {
             command: "xdg-mime",
-            args: ["default", "com.t3tools.T3Code.desktop", "x-scheme-handler/agentd-desktop"],
+            args: [
+              "default",
+              "com.t3tools.T3Code.desktop",
+              "x-scheme-handler/libraos-next",
+              "x-scheme-handler/agentd-desktop",
+            ],
           },
         ]);
       });
@@ -277,7 +286,7 @@ describe("DesktopLinuxUrlHandler", () => {
         DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
           displayName: "T3 Code (Alpha)",
           execTarget: process.execPath,
-          scheme: "agentd-desktop",
+          schemes: ["libraos-next", "agentd-desktop"],
           iconPath: "/home/alice/.local/share/icons/com.t3tools.T3Code.desktop.png",
         }),
       );
@@ -289,10 +298,10 @@ describe("DesktopLinuxUrlHandler", () => {
 
     return Effect.gen(function* () {
       yield* runRegister(recorded, {
-        environment: { desktopLauncherPath: Option.some("/opt/AgentD Next/t3code") },
+        environment: { desktopLauncherPath: Option.some("/opt/LibraOS Next/t3code") },
       });
 
-      assert.include(recorded.files[0]?.content, 'Exec="/opt/AgentD Next/t3code" %U');
+      assert.include(recorded.files[0]?.content, 'Exec="/opt/LibraOS Next/t3code" %U');
     });
   });
 
@@ -304,7 +313,7 @@ describe("DesktopLinuxUrlHandler", () => {
         existingEntry: DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
           displayName: "T3 Code (Alpha)",
           execTarget: "/home/alice/Applications/T3-Code.AppImage",
-          scheme: "agentd-desktop",
+          schemes: ["libraos-next", "agentd-desktop"],
           iconPath: "/home/alice/.local/share/icons/com.t3tools.T3Code.desktop.png",
         }),
       });
@@ -318,7 +327,12 @@ describe("DesktopLinuxUrlHandler", () => {
         },
         {
           command: "xdg-mime",
-          args: ["default", "com.t3tools.T3Code.desktop", "x-scheme-handler/agentd-desktop"],
+          args: [
+            "default",
+            "com.t3tools.T3Code.desktop",
+            "x-scheme-handler/libraos-next",
+            "x-scheme-handler/agentd-desktop",
+          ],
         },
       ]);
     });
@@ -333,7 +347,7 @@ describe("DesktopLinuxUrlHandler", () => {
         existingEntry: DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
           displayName: "T3 Code (Alpha)",
           execTarget: "/home/alice/Applications/T3-Code.AppImage",
-          scheme: "agentd-desktop",
+          schemes: ["libraos-next", "agentd-desktop"],
           iconPath,
         }),
       });
