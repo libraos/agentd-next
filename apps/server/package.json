@@ -8,6 +8,8 @@
     "directory": "apps/server"
   },
   "bin": {
+    "agentd-next": "./dist/bin.mjs",
+    "libraos-next": "./dist/bin.mjs",
     "t3": "./dist/bin.mjs"
   },
   "files": [

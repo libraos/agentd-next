@@ -129,8 +129,14 @@ const nodeBinDirOf = (nodePath: string): string => {
   return lastSlash > 0 ? nodePath.slice(0, lastSlash) : "/usr/bin";
 };
 
+// The server reads `LIBRAOS_NEXT_<NAME>` over `T3CODE_<NAME>`, so both spellings are cleared.
 const backendChildEnvPatch = (): Record<string, string | undefined> =>
-  Object.fromEntries(DESKTOP_BACKEND_ENV_NAMES.map((name) => [name, undefined]));
+  Object.fromEntries(
+    DESKTOP_BACKEND_ENV_NAMES.flatMap((name) => [
+      [name, undefined],
+      [name.replace(/^T3CODE_/, "LIBRAOS_NEXT_"), undefined],
+    ]),
+  );
 
 const getWslEnvEntryName = (entry: string): string => {
   const slashIndex = entry.indexOf("/");

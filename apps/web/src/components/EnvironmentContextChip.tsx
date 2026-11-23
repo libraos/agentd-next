@@ -36,7 +36,7 @@ export function EnvironmentContextChip(props: {
         }
       />
       <TooltipPopup side="top">
-        {environment ? gt("AgentD Next environment") : gt("Machine not in this app")}
+        {environment ? gt("LibraOS Next environment") : gt("Machine not in this app")}
       </TooltipPopup>
     </Tooltip>
   );

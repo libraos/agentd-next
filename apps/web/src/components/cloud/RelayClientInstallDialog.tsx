@@ -74,10 +74,10 @@ export function RelayClientInstallDialog() {
           <DialogDescription>
             {isInstalling
               ? gt(
-                  "AgentD Next is preparing this environment for secure access through the hosted relay.",
+                  "LibraOS Next is preparing this environment for secure access through the hosted relay.",
                 )
               : gt(
-                  "AgentD Next needs the relay client to make this environment available through the hosted relay.",
+                  "LibraOS Next needs the relay client to make this environment available through the hosted relay.",
                 )}
           </DialogDescription>
         </DialogHeader>
@@ -102,7 +102,7 @@ export function RelayClientInstallDialog() {
                 value={activeStepIndex + 1}
               />
               <p className="text-xs leading-relaxed text-muted-foreground">
-                <T>Keep AgentD Next open while the relay client is installed.</T>
+                <T>Keep LibraOS Next open while the relay client is installed.</T>
               </p>
             </div>
           ) : (
@@ -112,7 +112,7 @@ export function RelayClientInstallDialog() {
               </p>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 <T>
-                  AgentD Next will download and install version{" "}
+                  LibraOS Next will download and install version{" "}
                   <Var>{view.status === "confirming" ? view.version : ""}</Var> locally.
                 </T>
               </p>

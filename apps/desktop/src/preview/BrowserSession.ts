@@ -502,7 +502,7 @@ export const make = Effect.gen(function* BrowserSessionMake() {
                           m(msg("Could not trust the certificate for {host}"), { host }),
                           m(
                             msg(
-                              "AgentD Next could not save this approval, so the page stays blocked. Check that the disk is not full and its data folder is writable, then try again.",
+                              "LibraOS Next could not save this approval, so the page stays blocked. Check that the disk is not full and its data folder is writable, then try again.",
                             ),
                           ),
                         ),

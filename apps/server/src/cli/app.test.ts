@@ -238,7 +238,7 @@ describe("t3 server command safety", () => {
   );
 });
 
-describe("agentd-next app", () => {
+describe("libraos-next app", () => {
   it.live.each(["permissions", "owner", "symlink", "missing owner"] as const)(
     "rejects unsafe %s on the socket directory before sending",
     (unsafe) =>

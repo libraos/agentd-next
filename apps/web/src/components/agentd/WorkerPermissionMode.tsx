@@ -10,7 +10,7 @@ import { Radio, RadioGroup } from "../ui/radio-group";
 import { SettingsRow } from "../settings/settingsLayout";
 
 // agentd takes raising only from a person at their own terminal; the app shows this, never runs it.
-export const RAISE_PERMISSION_COMMAND = "agentd config set dispatch.permission_mode yolo";
+export const RAISE_PERMISSION_COMMAND = "libraos-core config set dispatch.permission_mode yolo";
 
 function ModeText({ mode }: { readonly mode: AgentdPermissionMode }) {
   return mode === "guarded" ? (
@@ -99,7 +99,9 @@ export function WorkerPermissionModeRow({ environmentId }: { environmentId: Envi
     setSaving(false);
     if (result._tag === "Failure") {
       const error = squashAtomCommandFailure(result);
-      setFailure(error instanceof Error ? error.message : gt("AgentD did not change the setting."));
+      setFailure(
+        error instanceof Error ? error.message : gt("LibraOS Core did not change the setting."),
+      );
     }
     setting.refresh();
   }
@@ -114,14 +116,17 @@ export function WorkerPermissionModeRow({ environmentId }: { environmentId: Envi
           {current.scopedYolo ? (
             <span className="text-muted-foreground">
               <T>
-                Some roles or repositories run their workers without asking; change those at a
-                terminal with agentd config set.
+                Some roles or repositories run their workers without asking; change those with
+                libraos-core config set.
               </T>
             </span>
           ) : null}
           {showRaise ? (
             <span role="status" className="flex flex-col gap-1">
-              <T>AgentD lets workers run without asking only when you set it in a terminal. Run:</T>
+              <T>
+                LibraOS Core lets workers run without asking only when you set it in a terminal.
+                Run:
+              </T>
               <code className="w-fit select-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
                 {RAISE_PERMISSION_COMMAND}
               </code>
@@ -185,7 +190,7 @@ export function TaskWaiting({
         </>
       ) : (
         <p className="text-muted-foreground">
-          <T>Answer it in the worker&apos;s own session, or in AgentD&apos;s Inbox.</T>
+          <T>Answer it in the worker&apos;s own session, or in LibraOS Core&apos;s Inbox.</T>
         </p>
       )}
     </div>

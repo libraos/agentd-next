@@ -167,7 +167,7 @@ export class ThemeTargetMissingError extends Schema.TaggedError<ThemeTargetMissi
   {},
 ) {
   override get message(): string {
-    return "Provide a theme id or file, or run `agentd-next theme clear` to remove the theme.";
+    return "Provide a theme id or file, or run `libraos-next theme clear` to remove the theme.";
   }
 }
 

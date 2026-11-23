@@ -149,7 +149,7 @@ describe("DesktopWslBackend", () => {
 
       yield* recordOwnershipFailure();
       const refusal = yield* backend.lastPreflightError;
-      assert.include(Option.getOrThrow(refusal), "Another AgentD Next server");
+      assert.include(Option.getOrThrow(refusal), "Another LibraOS Next server");
       yield* backend.reconcile;
       assert.equal(startCount, 1);
       assert.deepEqual(yield* backend.lastPreflightError, refusal);

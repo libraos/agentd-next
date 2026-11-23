@@ -351,7 +351,7 @@ export function McpConsent({
             />
             <p className="text-xs text-muted-foreground">
               <T>
-                Get one from Use AgentD Next in another app (MCP), Settings → Sharing & access, or{" "}
+                Get one from Use LibraOS Next in another app (MCP), Settings → Sharing & access, or{" "}
                 <code>t3 auth pairing create</code> on this machine.
               </T>
             </p>

@@ -675,7 +675,7 @@ async function persistScopedSettingsPlan(
         {
           ...environment,
           message: m(
-            msg("This environment does not support this setting. Update AgentD Next on it."),
+            msg("This environment does not support this setting. Update LibraOS Next on it."),
           ),
         },
       ];

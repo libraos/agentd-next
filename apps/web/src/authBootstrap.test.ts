@@ -72,7 +72,7 @@ function installTestBrowser(url: string) {
   };
 
   vi.stubGlobal("window", testWindow);
-  vi.stubGlobal("document", { title: "AgentD Next" });
+  vi.stubGlobal("document", { title: "LibraOS Next" });
 
   return testWindow;
 }

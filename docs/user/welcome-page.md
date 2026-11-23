@@ -1,6 +1,6 @@
 # Welcome page
 
-AgentD Next shows a Welcome page, **Connect an agent you already use**, when you
+LibraOS Next shows a Welcome page, **Connect an agent you already use**, when you
 open a new installation. Existing workspaces skip it. You can check your agents,
 connect a key or gateway, join a team, and import projects you have used before.
 You do not need an account to open the page.
@@ -8,10 +8,10 @@ You do not need an account to open the page.
 To see the page again, go to **Settings → About → Welcome page** and select
 **Open**. Direct links, such as Settings, open normally before setup is done.
 
-If AgentD Next cannot confirm the workspace during startup, it shows
+If LibraOS Next cannot confirm the workspace during startup, it shows
 **Still connecting** instead of opening the app. Select **Reload** to try again.
 
-If AgentD Next cannot read your saved settings, it shows **Could not read settings**.
+If LibraOS Next cannot read your saved settings, it shows **Could not read settings**.
 Select **Retry** after storage becomes available. Setup does not replace
 unreadable settings with defaults.
 
@@ -23,11 +23,11 @@ need to set up all three; **Continue** is available once any agent is ready.
 Checked projects are imported when you continue.
 
 - **Turn on** enables an agent that is off on this computer, including one only
-  some projects use. AgentD Next then checks whether it is installed and signed in.
+  some projects use. LibraOS Next then checks whether it is installed and signed in.
 - For Claude Code, Codex, and opencode, **Install** or **Sign in** opens a setup
   terminal. Review the command and press Enter to run it. Installing opencode
   from this page requires npm on the computer running the agent.
-- When AgentD Next knows an installed version does not work with it, **Update** opens
+- When LibraOS Next knows an installed version does not work with it, **Update** opens
   the agent in **Settings → Providers**, which shows the version to use and updates it
   when it can.
 - Other agents, and agents that could not load, open their page in
@@ -55,7 +55,7 @@ it would run as another model, such as `best`, `default` or a name ending in
 `[1m]`; Codex still lists them.
 
 Connecting also adds **Pi · LibraOS Gateway**, which needs nothing else installed:
-AgentD Next ships Pi and uses it when no `pi` is on your `PATH` (your own
+LibraOS Next ships Pi and uses it when no `pi` is on your `PATH` (your own
 install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
 If no default model is chosen yet and neither Claude Code, Codex nor opencode
 is installed, it becomes the default.
@@ -70,24 +70,24 @@ use a provider instance's environment variables for those
 ([Providers](./install.md#providers)).
 
 **Join a team** takes a **Team invitation link** from your team and enrolls this
-device with its agentd server. Joining needs maintenance access to the
+device with its LibraOS Core server. Joining needs maintenance access to the
 environment.
 
-## The `agentd-next` command
+## The `libraos-next` command
 
-In the desktop app, when the `agentd-next` command is installed but its folder is
+In the desktop app, when the `libraos-next` command is installed but its folder is
 not on your `PATH`, the page offers **Add to PATH**, which adds one line to your
-shell's startup file ([Install](./install.md#the-agentd-next-command)).
+shell's startup file ([Install](./install.md#the-libraos-next-command)).
 
 ## Projects
 
-AgentD Next finds directories that Claude Code, Codex or Pi has used. Git repositories
+LibraOS Next finds directories that Claude Code, Codex or Pi has used. Git repositories
 are listed first, newest activity on top. When the remote is on GitHub, the
 group shows the repository as `owner/name`. Clones with the same remote share
 one group. Directories that are not git repositories sit under "Other folders".
 
 The page offers git repositories active within the last 30 days with at least
-three conversations, already checked. Projects already in AgentD Next are not checked
+three conversations, already checked. Projects already in LibraOS Next are not checked
 again. Uncheck the box to start without them, or
 select **Review all** to pick from everything found, with "Select all" and
 "Select none". Linked worktrees of bare repositories
@@ -96,23 +96,23 @@ count toward their main checkout, so a repository is offered even if you only
 worked in its worktrees. Codex scratch directories under `Documents/Codex`, and
 anything under `Downloads` are not offered.
 
-A large or malformed history can reach the scan limit. AgentD Next keeps the
+A large or malformed history can reach the scan limit. LibraOS Next keeps the
 projects it found and warns when projects or conversations may be missing.
 
 Imported projects include Claude, Codex and Pi conversations active within the last
-30 days. You can continue those conversations in AgentD Next. Pi is off by default:
+30 days. You can continue those conversations in LibraOS Next. Pi is off by default:
 open **More agents** and select **Turn on** next to Pi, and the page looks for
 its sessions too. Pi sessions
 are read from each enabled Pi provider's session directory, which follows
 `PI_CODING_AGENT_SESSION_DIR` and `PI_CODING_AGENT_DIR` in its environment. A
 Pi conversation imports its active branch, the one Pi reopens.
 
-Conversation import is best effort. AgentD Next keeps the first user prompt and the
+Conversation import is best effort. LibraOS Next keeps the first user prompt and the
 newest remaining visible user and assistant messages, with 200 messages total.
 It omits tool activity and attachments. For Codex, it omits generated setup
 context only when a canonical user event and a valid shared turn ID identify the
 same user turn. Ambiguous legacy or response-only context stays in the imported
-conversation so AgentD Next does not remove user text. For Claude, slash commands
+conversation so LibraOS Next does not remove user text. For Claude, slash commands
 and `!` shell commands appear as you typed them; their output, background task
 notifications and interruption markers are left out, and a conversation that
 only ran commands such as `/clear`, with no reply, is skipped. It reads one
@@ -129,6 +129,6 @@ continue a large batch, open the Welcome page again and pick the project in
 **Review all**. Completed conversations are not imported again. You can continue
 without the remaining history.
 
-You can start without importing. While an import runs, AgentD Next stays on the
+You can start without importing. While an import runs, LibraOS Next stays on the
 Welcome page. If you quit, open the Welcome page again from **Settings → About**; the
 projects you started stay checked.

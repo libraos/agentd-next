@@ -511,7 +511,7 @@ export function IssuesScreen(
                     : capable.length > 0
                       ? gt("Reconnect to load issues.")
                       : environments.length > 0
-                        ? gt("Update the environment's AgentD Next server to browse issues.")
+                        ? gt("Update the environment's LibraOS Next server to browse issues.")
                         : gt("Add an environment in Settings to browse its issues."))
                 }
                 variant="plain"

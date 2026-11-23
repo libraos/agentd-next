@@ -98,12 +98,12 @@ function describeOffer(offer: StartupRecoveryOffer): { text: string; action: str
       return {
         text:
           offer.percent === null
-            ? m(msg("Downloading {version}. AgentD Next restarts when the download is done."), {
+            ? m(msg("Downloading {version}. LibraOS Next restarts when the download is done."), {
                 version: offer.version,
               })
             : m(
                 msg(
-                  "Downloading {version} ({percent}%). AgentD Next restarts when the download is done.",
+                  "Downloading {version} ({percent}%). LibraOS Next restarts when the download is done.",
                 ),
                 { version: offer.version, percent: String(Math.floor(offer.percent / 10) * 10) },
               ),
@@ -119,14 +119,14 @@ function describeOffer(offer: StartupRecoveryOffer): { text: string; action: str
       };
     case "Releases":
       return {
-        text: m(msg("Reinstall AgentD Next from the copy you installed it from.")),
+        text: m(msg("Reinstall LibraOS Next from the copy you installed it from.")),
         action: "",
       };
     case "ManagedPolicy":
       return {
         text: m(
           msg(
-            "Your organization's managed policy stopped AgentD Next from starting. Send the details below to your IT administrator.",
+            "Your organization's managed policy stopped LibraOS Next from starting. Send the details below to your IT administrator.",
           ),
         ),
         action: "",
@@ -142,7 +142,7 @@ function buildStartupRecoveryHtml(input: {
 }): string {
   const offer = describeOffer(input.offer);
   const output = input.failure.output.trim();
-  const title = escapeHtml(m(msg("AgentD Next could not start")));
+  const title = escapeHtml(m(msg("LibraOS Next could not start")));
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${title}</title><style>
 :root{color-scheme:light dark;--bg:#fff;--fg:#111;--muted:#666;--line:#ddd;--code:#f4f4f4}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--fg:#fff;--muted:#999;--line:#333;--code:#111}}
@@ -159,7 +159,7 @@ pre{flex:1;min-height:60px;margin:0;overflow:auto;background:var(--code);border:
 <p>${escapeHtml(offer.text)}</p>
 <div class="actions">${offer.action}${actionLink("copy", m(msg("Copy details")))}${actionLink("quit", m(msg("Quit", { $context: "button, quits the app" })))}</div>
 <pre>${escapeHtml(output.length > 0 ? output : m(msg("The server wrote no output.")))}</pre>
-<p class="muted">${escapeHtml(m(msg("Version {version}. AgentD Next tries again in the background. Logs: {logDir}"), { version: input.appVersion, logDir: input.logDir }))}</p>
+<p class="muted">${escapeHtml(m(msg("Version {version}. LibraOS Next tries again in the background. Logs: {logDir}"), { version: input.appVersion, logDir: input.logDir }))}</p>
 </body></html>`;
 }
 
@@ -287,7 +287,7 @@ export const listen: Effect.Effect<
           minWidth: 420,
           minHeight: 320,
           show: false,
-          title: m(msg("AgentD Next could not start")),
+          title: m(msg("LibraOS Next could not start")),
           autoHideMenuBar: true,
           backgroundColor: shouldUseDarkColors ? "#000000" : "#ffffff",
           webPreferences: {

@@ -265,7 +265,7 @@ export function McpAppFrame(props: {
       flushSync(() => setDisplayMode("inline"));
       const approved = await requestConfirmDialog(message);
       if (approved === undefined) {
-        throw new McpAppHostRefusal({ message: "AgentD Next could not ask for approval here." });
+        throw new McpAppHostRefusal({ message: "LibraOS Next could not ask for approval here." });
       }
       return approved;
     };

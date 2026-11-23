@@ -174,7 +174,9 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
             stackedThreadToast({
               type: "info",
               title: m(msg("Preview is desktop-only")),
-              description: m(msg("Open AgentD Next in the desktop app to use the in-app preview.")),
+              description: m(
+                msg("Open LibraOS Next in the desktop app to use the in-app preview."),
+              ),
             }),
           );
           return;

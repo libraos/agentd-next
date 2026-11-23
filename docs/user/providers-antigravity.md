@@ -1,14 +1,14 @@
 # Antigravity
 
-AgentD Next runs Google's official Antigravity ACP agent on your selected environment.
-AgentD Next manages its own CLI installation and sign-in, separate from your terminal or IDE. Google controls
+LibraOS Next runs Google's official Antigravity ACP agent on your selected environment.
+LibraOS Next manages its own CLI installation and sign-in, separate from your terminal or IDE. Google controls
 which models and account access are available through this agent.
 
 ## Set up Antigravity
 
 On web or desktop, open **Settings > Providers**, choose the environment that runs
 your project, and enable Antigravity. Install its runtime there, then choose
-**Sign in** and complete the browser sign-in. Wait for AgentD Next to confirm
+**Sign in** and complete the browser sign-in. Wait for LibraOS Next to confirm
 account access and load models before starting a thread. Once the runtime is installed,
 you can also sign in from **Settings > Providers** in the mobile app.
 
@@ -23,7 +23,7 @@ page's full address, into the code field in the client where you started sign-in
 This works the same from any device.
 
 The code is temporary. Paste it only into the setup field. The page alone does not
-confirm account access; wait for AgentD Next's confirmation.
+confirm account access; wait for LibraOS Next's confirmation.
 
 ### Other sign-in methods
 
@@ -58,7 +58,7 @@ Leave the field blank to use the managed runtime, or a compatible executable on
 ## Update the managed runtime
 
 In web or desktop provider settings, choose **Update Antigravity** when an update
-is available. AgentD Next checks Google's CLI release channel while provider update checks
+is available. LibraOS Next checks Google's CLI release channel while provider update checks
 are enabled. Installing or reinstalling also checks that channel. Updates keep
 your profile and existing runtime available if the new release fails validation.
 
@@ -87,7 +87,7 @@ Questions with fixed choices still need one of the offered answers, even in
 
 On web and desktop, [Edit from here](./composer.md#edit-an-earlier-prompt) works with
 Antigravity. Antigravity cannot rewind its own conversation, so the next turn
-starts a fresh Antigravity session and AgentD Next sends it the kept conversation,
+starts a fresh Antigravity session and LibraOS Next sends it the kept conversation,
 without the turns you removed.
 
 Use `/compact` to summarize a long conversation when your Antigravity runtime
@@ -96,7 +96,7 @@ or send `/clear` when you need a fresh context.
 
 ### Skills and attachments
 
-Put project skills in `.agents/skills`. AgentD Next also reads `.gemini/skills` and the
+Put project skills in `.agents/skills`. LibraOS Next also reads `.gemini/skills` and the
 legacy `.agent/skills` directory. Among these project locations, the first copy
 wins in this order: `.gemini/skills`, `.agents/skills`, `.agent/skills`. See
 [commands and skills](./composer.md#commands-and-skills) for invoking them.
@@ -104,7 +104,7 @@ wins in this order: `.gemini/skills`, `.agents/skills`, `.agent/skills`. See
 Skills for every project go in `~/.gemini/config/skills` or
 `~/.gemini/antigravity-cli/skills`. Antigravity does not read `~/.agents/skills`
 on its own; to share a folder like that one, list it in `~/.gemini/config/skills.json`
-(or a project's `.agents/skills.json`), and AgentD Next shows the skills it declares,
+(or a project's `.agents/skills.json`), and LibraOS Next shows the skills it declares,
 honoring `inherits`, `include_only`, and `exclude`.
 
 Antigravity receives images and audio directly, and reads PDFs and text files as
@@ -150,13 +150,13 @@ objective. Antigravity keeps working until it completes the goal or you cancel i
 
 Use Stop to interrupt a running goal, then ask Antigravity to stop pursuing it
 before starting more work. Ordinary follow-ups wait until the running turn ends.
-AgentD Next does not support Antigravity goal status, pause, resume, or clear commands.
+LibraOS Next does not support Antigravity goal status, pause, resume, or clear commands.
 
 ## Check access and troubleshoot
 
 Open **Usage > Limits** to see the remaining Gemini and shared Claude/GPT allowances
 for Google sign-ins. Each group has separate five-hour and weekly limits and reset
-times. Limits refresh with provider status and include usage outside AgentD Next.
+times. Limits refresh with provider status and include usage outside LibraOS Next.
 
 A server restart keeps your Google sign-in. The provider shows the saved account
 until a session, a refresh, or a sign-out reports something new.

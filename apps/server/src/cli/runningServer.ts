@@ -54,7 +54,7 @@ export const serverClient = Effect.fn("RunningServer.serverClient")(function* (
     environmentAuth.issueSession({
       scopes,
       subject: "cli",
-      label: "agentd-next cli",
+      label: "libraos-next cli",
       ttl: SESSION_TTL,
     }),
     ({ sessionId }) => environmentAuth.revokeSession(sessionId).pipe(Effect.ignore({ log: true })),

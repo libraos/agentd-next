@@ -2664,7 +2664,7 @@ export function AboutSettingsPanel() {
         <SettingsRow
           {...setting("open-source-licenses")}
           description={gt(
-            "Notices for dependencies, assets, and optional tools used by AgentD Next.",
+            "Notices for dependencies, assets, and optional tools used by LibraOS Next.",
           )}
           control={
             <Button

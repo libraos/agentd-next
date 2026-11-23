@@ -1,4 +1,8 @@
-import { CLI_COMMAND_NAME, LEGACY_CLI_COMMAND_NAME } from "@t3tools/shared/desktopIdentity";
+import {
+  CLI_COMMAND_ALIASES,
+  CLI_COMMAND_NAME,
+  LEGACY_CLI_COMMAND_NAME,
+} from "@t3tools/shared/desktopIdentity";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,12 +15,12 @@ import { makeComponentLogger } from "./DesktopObservability.ts";
 // AppImage mounts change each run; the launcher must mount the image itself.
 const { logInfo, logWarning } = makeComponentLogger("desktop-cli-shim");
 
-export const MARKER = "Written by AgentD Next: runs the desktop app's bundled agentd-next CLI.";
-/** Launchers and aliases from agentd.4 to agentd.6 carry the legacy marker. */
-export const LEGACY_MARKER = "Written by AgentD Desktop: runs";
+export const MARKER = "Written by AgentD Next: runs the desktop app's bundled libraos-next CLI.";
+/** Earlier launchers: `agentd-next` ones, and from agentd.4 to agentd.6 `agentd-desktop` ones. */
+const EARLIER_MARKERS = ["Written by AgentD Next: runs", "Written by AgentD Desktop: runs"];
 
 export const isOwnShim = (content: string) =>
-  content.includes(MARKER) || content.includes(LEGACY_MARKER);
+  [MARKER, ...EARLIER_MARKERS].some((marker) => content.includes(marker));
 
 const SERVER_ENTRY = "apps/server/dist/bin.mjs";
 
@@ -135,9 +139,9 @@ const launcherNamed = (
 export const launcherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
   launcherNamed(environment, CLI_COMMAND_NAME);
 
-/** The legacy launcher, which links in ~/.local/bin or a Windows PATH entry may still run. */
-const legacyLauncherPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
-  launcherNamed(environment, LEGACY_CLI_COMMAND_NAME);
+/** Launchers under earlier names, which links in ~/.local/bin or a Windows PATH entry may still run. */
+const earlierLauncherPaths = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
+  [...CLI_COMMAND_ALIASES, LEGACY_CLI_COMMAND_NAME].map((name) => launcherNamed(environment, name));
 
 export const install = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
@@ -165,28 +169,29 @@ export const install = Effect.gen(function* () {
     const staging = `${at}.${process.pid}.${yield* Random.nextIntBetween(0, 0xffffff)}.tmp`;
     yield* fs.writeFileString(staging, content, { mode: 0o755 });
     yield* fs.rename(staging, at);
-    yield* logInfo("installed agentd-next launcher", { shimPath: at });
+    yield* logInfo("installed libraos-next launcher", { shimPath: at });
   });
 
   return yield* Effect.gen(function* () {
     const existing = yield* fs.readFileString(shimPath).pipe(Effect.option);
     if (Option.isSome(existing) && !isOwnShim(existing.value)) {
-      yield* logWarning("leaving an agentd-next launcher the app did not write", { shimPath });
+      yield* logWarning("leaving a libraos-next launcher the app did not write", { shimPath });
       return Option.none<string>();
     }
     const content = contentFor(shimPath);
     if (Option.getOrUndefined(existing) !== content) yield* write(shimPath, content);
-    // Only refreshed, never created: the legacy command keeps working where it was installed.
-    const legacy = legacyLauncherPath(environment);
-    const legacyExisting = yield* fs.readFileString(legacy).pipe(Effect.option);
-    if (Option.isSome(legacyExisting) && isOwnShim(legacyExisting.value)) {
-      const legacyContent = contentFor(legacy);
-      if (legacyExisting.value !== legacyContent) yield* write(legacy, legacyContent);
+    // Only refreshed, never created: an earlier command keeps working where it was installed.
+    for (const earlier of earlierLauncherPaths(environment)) {
+      const earlierExisting = yield* fs.readFileString(earlier).pipe(Effect.option);
+      if (Option.isSome(earlierExisting) && isOwnShim(earlierExisting.value)) {
+        const earlierContent = contentFor(earlier);
+        if (earlierExisting.value !== earlierContent) yield* write(earlier, earlierContent);
+      }
     }
     return Option.some(shimPath);
   }).pipe(
     Effect.catchCause((cause) =>
-      logWarning("could not install agentd-next launcher", {
+      logWarning("could not install libraos-next launcher", {
         shimPath,
         cause: Cause.pretty(cause),
       }).pipe(Effect.as(Option.none<string>())),

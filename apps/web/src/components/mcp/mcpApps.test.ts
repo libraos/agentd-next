@@ -5,16 +5,16 @@ import { MCP_APPS, mcpHandoffAction } from "./mcpApps";
 const MCP_URL = "https://prod-a1.t3coderelay.com/mcp?x=1&y=two words";
 
 describe("MCP app links", () => {
-  it("fill in AgentD Next and the encoded URL", () => {
+  it("fill in LibraOS Next and the encoded URL", () => {
     const opened = (id: string) => {
       const app = MCP_APPS.find((candidate) => candidate.id === id)!;
       return new URL(mcpHandoffAction(app, MCP_URL)!.link);
     };
     const poke = opened("poke");
-    expect(poke.searchParams.get("name")).toBe("AgentD Next");
+    expect(poke.searchParams.get("name")).toBe("LibraOS Next");
     expect(poke.searchParams.get("url")).toBe(MCP_URL);
     const claude = opened("claude");
-    expect(claude.searchParams.get("connectorName")).toBe("AgentD Next");
+    expect(claude.searchParams.get("connectorName")).toBe("LibraOS Next");
     expect(claude.searchParams.get("connectorUrl")).toBe(MCP_URL);
   });
 

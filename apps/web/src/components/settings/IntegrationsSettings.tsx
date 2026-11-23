@@ -844,12 +844,12 @@ export function PullRequestLinksOpenInAppSetting() {
     <SettingsRow
       {...searchableSetting("pull-request-links-open-in-app")}
       description={gt(
-        "Clicking a pull request link opens it in AgentD Next. Turn off to open pull request links like any other link, on your git host.",
+        "Clicking a pull request link opens it in LibraOS Next. Turn off to open pull request links like any other link, on your git host.",
       )}
       resetAction={
         openInApp ? null : (
           <SettingResetButton
-            ariaLabel={gt("Reset open pull requests in AgentD Next to default")}
+            ariaLabel={gt("Reset open pull requests in LibraOS Next to default")}
             onClick={() => updateSettings({ pullRequestLinksOpenInApp: true })}
           />
         )
@@ -860,7 +860,7 @@ export function PullRequestLinksOpenInAppSetting() {
           onCheckedChange={(checked) =>
             updateSettings({ pullRequestLinksOpenInApp: Boolean(checked) })
           }
-          aria-label={gt("Open pull requests in AgentD Next")}
+          aria-label={gt("Open pull requests in LibraOS Next")}
         />
       }
     />

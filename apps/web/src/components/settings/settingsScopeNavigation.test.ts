@@ -16,7 +16,7 @@ import { validateScheduledTasksSearch } from "./scheduledTasksSettings.logic";
 const checkoutSearch = {
   project: "repository:t3code",
   machine: "remote-server",
-  checkout: "remote-server:/home/user/AgentD Next",
+  checkout: "remote-server:/home/user/LibraOS Next",
 };
 
 function createSettingsRouter(initialEntry = "/settings/general") {

@@ -22,7 +22,7 @@ describe("resolveTriageCommand", () => {
   it("prefers t3 on PATH, then the desktop launcher", async () => {
     const onPath = { ...notOnPath("/home/me/.t3/bin/t3"), onPath: true };
     await expect(resolveTriageCommand(desktopWith(async () => onPath))).resolves.toBe(
-      "agentd-next triage",
+      "libraos-next triage",
     );
     await expect(
       resolveTriageCommand(desktopWith(async () => notOnPath("/home/me/.t3/bin/t3"))),

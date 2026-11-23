@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "AgentD Next",
-  "short_name": "AgentD Next",
+  "name": "LibraOS Next",
+  "short_name": "LibraOS Next",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

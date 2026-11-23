@@ -218,7 +218,7 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
   const plan = yield* planUninstall({ baseDir: input.baseDir });
 
   if (!plan.service && plan.launchers.length === 0 && plan.runtimeDir === undefined) {
-    yield* Console.log(`Nothing to remove: agentd-next is not installed for ${input.baseDir}.`);
+    yield* Console.log(`Nothing to remove: libraos-next is not installed for ${input.baseDir}.`);
     if (!(yield* HostProcess.IsExecutable)) {
       yield* Console.log(
         "  This t3 runs from a Node script, so it was installed by npm or built from source. Remove it the same way (`npm uninstall -g t3`, or delete the checkout).",
@@ -301,6 +301,6 @@ const runUninstall = Effect.fn("cli.uninstall.run")(function* (input: {
     }
   }
   yield* Console.log("");
-  yield* Console.log("agentd-next is uninstalled. Thanks for trying AgentD Next.");
+  yield* Console.log("libraos-next is uninstalled. Thanks for trying AgentD Next.");
   yield* logOtherHomeService(plan);
 });

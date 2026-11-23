@@ -1,6 +1,6 @@
 # Following upstream
 
-AgentD Next is a fork of [T3 Code](https://github.com/pingdotgg/t3code) (`pingdotgg/t3code`, MIT). We forked at `f5f8c8d1` and keep merging upstream, so most fixes and features come to us for free. Everything here exists to keep that merge cheap.
+LibraOS Next is a fork of [T3 Code](https://github.com/pingdotgg/t3code) (`pingdotgg/t3code`, MIT). We forked at `f5f8c8d1` and keep merging upstream, so most fixes and features come to us for free. Everything here exists to keep that merge cheap.
 
 ## Remotes
 
@@ -20,8 +20,8 @@ Each change to an upstream file is small and listed, one line per file with the 
 
 By area:
 
-- **Name and branding.** The product is AgentD Next. No upstream name, icon or hosted service (app.t3.codes, T3 Connect, update feeds, stores) ships in our builds.
-- **Product profile.** agentd is the authority for tasks, approvals and worker state; the app reads them from agentd and keeps no copy of its own as the truth. The app has no model access and prefers no agent.
+- **Name and branding.** The product is LibraOS Next. No upstream name, icon or hosted service (app.t3.codes, T3 Connect, update feeds, stores) ships in our builds.
+- **Product profile.** LibraOS Core (agentd) is the authority for tasks, approvals and worker state; the app reads them from LibraOS Core and keeps no copy of its own as the truth. The app has no model access and prefers no agent.
 - **Hidden features.** Upstream features we do not offer are hidden behind the product profile, not deleted, so their code still merges cleanly.
 - **Our own code.** New code lives under `agentd/`, `apps/web/src/components/agentd/` and `apps/server/src/agentd/` where it can. Files that are ours alone never conflict.
 
@@ -47,7 +47,7 @@ After the merge: resolve conflicts, run `vp i`, run `vp run check:changed` and t
 - **Ours** for the product name, the product profile and the hidden features: keep our lines, then re-apply them on top of upstream's new code if upstream moved the surrounding code.
 - **Theirs** for everything else. If upstream rewrote code we patched, take theirs and redo our patch as a smaller change, then update its line in `agentd/patches/`.
 - `pnpm-lock.yaml`: take upstream's, then run `vp i` to regenerate it.
-- `AGENTS.md`: keep our "AgentD Next" section at the top and take upstream's text for the rest.
+- `AGENTS.md`: keep our own section at the top and take upstream's text for the rest.
 - `README.md` is ours entirely; `LICENSE` is upstream's and never changes here.
 - Translation catalogs (`*/i18n/translations/*.json`): take upstream's, then regenerate once with `vp run i18n:generate` and translate our keys.
 

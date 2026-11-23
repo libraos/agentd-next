@@ -84,14 +84,14 @@ export function classifyReachability(
     fix: string,
     hint: string | null = null,
   ): Unreachable => ({ status: "unreachable", checkedAt, cause, reason, hint, fix });
-  const restart = "Restart AgentD Next. If it stays, run `agentd-next connect` again.";
+  const restart = "Restart AgentD Next. If it stays, run `libraos-next connect` again.";
 
   if (!facts.managedTunnelConfigured) {
     // A running server reads the link `t3 connect` stores only at startup.
     return fail(
       "not_linked",
       "The server has not set up a hosted relay tunnel.",
-      "Run `agentd-next connect`, then restart AgentD Next so it applies the link.",
+      "Run `libraos-next connect`, then restart AgentD Next so it applies the link.",
     );
   }
   if (connector === null) {
@@ -155,7 +155,7 @@ export function classifyReachability(
     return fail(
       "dns_failed",
       "The hosted relay address no longer points to this machine's tunnel (Cloudflare error 1016). The hosted relay may have removed this environment.",
-      "Link this environment again. Turn the hosted relay off and on in Settings > Sharing & access, or run `agentd-next connect link` and then restart AgentD Next.",
+      "Link this environment again. Turn the hosted relay off and on in Settings > Sharing & access, or run `libraos-next connect link` and then restart AgentD Next.",
     );
   }
   if (status !== null) {

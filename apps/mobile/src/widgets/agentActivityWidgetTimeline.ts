@@ -73,7 +73,7 @@ export function agentActivityWidgetTimeline(
   if (source.kind !== "snapshot" || !source.aggregate) {
     const props: AgentActivityProps = {
       text: agentActivityText(0, resolve),
-      title: "AgentD Next",
+      title: "LibraOS Next",
       subtitle:
         source.kind === "signed-out"
           ? resolve(msg("Sign in to {product} to see agents", { product: "Hosted relay" }))

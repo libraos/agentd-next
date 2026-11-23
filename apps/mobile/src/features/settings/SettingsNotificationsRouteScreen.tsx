@@ -459,7 +459,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
     Dialog.alert(
       gt("Disable notifications"),
       gt("Open system Settings to disable notifications for {product}.", {
-        product: "AgentD Next",
+        product: "LibraOS Next",
       }),
       [
         { text: gt("Cancel"), style: "cancel" },
@@ -621,7 +621,7 @@ function ConfiguredSettingsNotificationsRouteScreen() {
                     gt("Couldn't open Settings"),
                     gt(
                       "Open Android Settings, select {product}, then enable Live Updates in Notifications.",
-                      { product: "AgentD Next" },
+                      { product: "LibraOS Next" },
                     ),
                   );
                 });

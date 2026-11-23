@@ -54,7 +54,7 @@ export const MCP_APPS: readonly McpApp[] = [
     logo: pokeLogo,
     handoff: {
       kind: "open",
-      link: (url) => `https://poke.com/integrations/new?name=AgentD%20Next&url=${encoded(url)}`,
+      link: (url) => `https://poke.com/integrations/new?name=LibraOS%20Next&url=${encoded(url)}`,
     },
     steps: [msg("Open poke.com/integrations/new."), msg("Paste the URL and add the integration.")],
     docs: "https://poke.com/docs/mcp-servers",
@@ -66,7 +66,7 @@ export const MCP_APPS: readonly McpApp[] = [
     handoff: {
       kind: "open",
       link: (url) =>
-        `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=AgentD%20Next&connectorUrl=${encoded(url)}`,
+        `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=LibraOS%20Next&connectorUrl=${encoded(url)}`,
     },
     steps: [
       msg("In Claude, open Customize, then Connectors."),

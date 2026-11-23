@@ -528,7 +528,7 @@ function armAgentAwarenessLiveActivityForLocalWorkNow(input: {
     const activity = startAgentLiveActivity(
       {
         text: agentActivityText(1, m),
-        title: "AgentD Next",
+        title: "LibraOS Next",
         subtitle: m(msg("Agent work in progress")),
         activeCount: 1,
         updatedAt: nowIso,

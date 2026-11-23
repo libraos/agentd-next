@@ -20,11 +20,11 @@ export const appLinkSchemes = (development: boolean): readonly [string, string] 
   return [`${APP_LINK_SCHEME}${suffix}`, `${LEGACY_APP_LINK_SCHEME}${suffix}`];
 };
 /** The command the app puts on PATH (`.cmd` on Windows). */
-export const CLI_COMMAND_NAME = "agentd-next";
+export const CLI_COMMAND_NAME = "libraos-next";
 /** The legacy command name, from agentd.4 to agentd.6; an installed one is kept working and removed with the new one. */
 export const LEGACY_CLI_COMMAND_NAME = "agentd-desktop";
-/** Installed beside the command so scripts written for upstream's `t3` keep working. */
-export const CLI_COMMAND_ALIAS = "t3";
+/** Installed beside the command under the earlier names, so `agentd-next` and upstream's `t3` keep working. */
+export const CLI_COMMAND_ALIASES = ["agentd-next", "t3"] as const;
 /** Background service, Windows task, systemd slices and per-user folders; the upstream app's are `t3code`. */
 export const OS_NAME = "agentd-desktop";
 /** AgentD Next's bundle id plus `.service`; kept so existing installs keep their background service. */
@@ -32,9 +32,16 @@ export const LAUNCHD_SERVICE_LABEL = "ai.libraos.agentd-desktop.service";
 
 export const DESKTOP_HOME_DIRECTORY_NAME = ".agentd-desktop";
 export const DESKTOP_HOME_ENV = "AGENTD_DESKTOP_HOME";
+/** Read before the others, as every `LIBRAOS_NEXT_<NAME>` is read before `T3CODE_<NAME>`. */
+const LIBRAOS_NEXT_HOME_ENV = "LIBRAOS_NEXT_HOME";
 /** Upstream's name, still read when the new one is unset. */
 const LEGACY_DESKTOP_HOME_ENV = "T3CODE_HOME";
-export const DESKTOP_HOME_ENV_NAMES = [DESKTOP_HOME_ENV, LEGACY_DESKTOP_HOME_ENV] as const;
+/** In the order they are read. */
+export const DESKTOP_HOME_ENV_NAMES = [
+  LIBRAOS_NEXT_HOME_ENV,
+  DESKTOP_HOME_ENV,
+  LEGACY_DESKTOP_HOME_ENV,
+] as const;
 
 const nonBlank = (value: string | undefined): string | undefined => {
   const trimmed = value?.trim();
@@ -43,7 +50,13 @@ const nonBlank = (value: string | undefined): string | undefined => {
 
 export const configuredDesktopHome = (
   env: Readonly<Record<string, string | undefined>>,
-): string | undefined => nonBlank(env[DESKTOP_HOME_ENV]) ?? nonBlank(env[LEGACY_DESKTOP_HOME_ENV]);
+): string | undefined => {
+  for (const name of DESKTOP_HOME_ENV_NAMES) {
+    const value = nonBlank(env[name]);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+};
 
 export const defaultDesktopHome = (
   homeDirectory: string,
@@ -51,16 +64,19 @@ export const defaultDesktopHome = (
 ): string => join(homeDirectory, DESKTOP_HOME_DIRECTORY_NAME);
 
 /** The configured home, trimmed; blank counts as unset. */
-export const DesktopHomeConfig: Config.Config<Option.Option<string>> = Config.all({
-  [DESKTOP_HOME_ENV]: Config.String(DESKTOP_HOME_ENV).pipe(Config.option),
-  [LEGACY_DESKTOP_HOME_ENV]: Config.String(LEGACY_DESKTOP_HOME_ENV).pipe(Config.option),
-}).pipe(
+export const DesktopHomeConfig: Config.Config<Option.Option<string>> = Config.all(
+  DESKTOP_HOME_ENV_NAMES.map((name) => Config.String(name).pipe(Config.option)),
+).pipe(
   Config.map((values) =>
     Option.fromUndefinedOr(
-      configuredDesktopHome({
-        [DESKTOP_HOME_ENV]: Option.getOrUndefined(values[DESKTOP_HOME_ENV]),
-        [LEGACY_DESKTOP_HOME_ENV]: Option.getOrUndefined(values[LEGACY_DESKTOP_HOME_ENV]),
-      }),
+      configuredDesktopHome(
+        Object.fromEntries(
+          DESKTOP_HOME_ENV_NAMES.map((name, index) => [
+            name,
+            Option.getOrUndefined(values[index]!),
+          ]),
+        ),
+      ),
     ),
   ),
 );

@@ -355,7 +355,7 @@ function TelemetryNotice({ environmentId }: { readonly environmentId: Environmen
     <p className="mt-9 text-center text-2xs leading-relaxed text-muted-foreground/70">
       {telemetryOff === undefined ? (
         <T>
-          AgentD Next sends no usage data unless an analytics endpoint is configured. See{" "}
+          LibraOS Next sends no usage data unless an analytics endpoint is configured. See{" "}
           <a
             className="underline decoration-current/40 underline-offset-2 hover:text-muted-foreground"
             href={PRIVACY_POLICY_URL}
@@ -1737,7 +1737,7 @@ function ImportRowMeta({
   );
 }
 
-/** The desktop app links `agentd-next` on a fresh install; this puts its folder on PATH when it is not. */
+/** The desktop app links `libraos-next` on a fresh install; this puts its folder on PATH when it is not. */
 function CliPathSetup() {
   const { state, busy, run } = useDesktopCliCommand();
   const setup = state?.pathSetup;
@@ -1751,11 +1751,11 @@ function CliPathSetup() {
         {setup.added ? (
           <T>
             Added to <Var>{setup.file}</Var>. Open a new terminal to use{" "}
-            <code className="font-mono">agentd-next</code>.
+            <code className="font-mono">libraos-next</code>.
           </T>
         ) : (
           <T>
-            Use <code className="font-mono">agentd-next</code> from any terminal. Adds one line to{" "}
+            Use <code className="font-mono">libraos-next</code> from any terminal. Adds one line to{" "}
             <Var>{setup.file}</Var>.
           </T>
         )}
