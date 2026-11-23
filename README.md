@@ -10,14 +10,14 @@ It runs on macOS, Linux and Windows.
 
 ## Install the desktop app
 
-Installers are on the [releases page](https://github.com/libraos/agentd-next/releases), with agentd and its Skills inside. Releases up to 0.1.10-agentd.6 carry the earlier name, AgentD Desktop, in the app and in the file names (`AgentD-Desktop-…`).
+Installers are on the [releases page](https://github.com/libraos/agentd-next/releases), with agentd and its Skills inside. Earlier releases carry earlier names in the app and in the file names: AgentD Next (`AgentD-Next-…`) and, up to 0.1.10-agentd.6, AgentD Desktop (`AgentD-Desktop-…`).
 
-| System                | File                                           |
-| --------------------- | ---------------------------------------------- |
-| macOS (Apple silicon) | `AgentD-Next-…-arm64.dmg` or `…-arm64.zip`     |
-| macOS (Intel)         | `AgentD-Next-…-x64.dmg` or `…-x64.zip`         |
-| Windows (x64)         | `AgentD-Next-…-x64.exe`                        |
-| Linux (x64)           | `AgentD-Next-x86_64.AppImage` or `…-amd64.deb` |
+| System                | File                                            |
+| --------------------- | ----------------------------------------------- |
+| macOS (Apple silicon) | `LibraOS-Next-…-arm64.dmg` or `…-arm64.zip`     |
+| macOS (Intel)         | `LibraOS-Next-…-x64.dmg` or `…-x64.zip`         |
+| Windows (x64)         | `LibraOS-Next-…-x64.exe`                        |
+| Linux (x64)           | `LibraOS-Next-x86_64.AppImage` or `…-amd64.deb` |
 
 Download from the official releases page and check the installer against `SHA256SUMS` before opening it. A matching checksum checks the file against the published checksum; it is not a publisher signature. macOS beta builds are ad-hoc signed and not notarized; Windows installers are unsigned. If you verified the download, trust the source, and your organization's policy allows it, use the operating system's per-app option:
 

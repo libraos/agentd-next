@@ -27,7 +27,7 @@ export const LEGACY_CLI_COMMAND_NAME = "agentd-desktop";
 export const CLI_COMMAND_ALIAS = "t3";
 /** Background service, Windows task, systemd slices and per-user folders; the upstream app's are `t3code`. */
 export const OS_NAME = "agentd-desktop";
-/** `.service` keeps it apart from the app's bundle id, `ai.libraos.agentd-desktop`. */
+/** AgentD Next's bundle id plus `.service`; kept so existing installs keep their background service. */
 export const LAUNCHD_SERVICE_LABEL = "ai.libraos.agentd-desktop.service";
 
 export const DESKTOP_HOME_DIRECTORY_NAME = ".agentd-desktop";

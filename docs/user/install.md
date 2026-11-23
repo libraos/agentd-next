@@ -13,15 +13,15 @@ launch AgentD Next and configure providers afterwards.
 Download an installer from the
 [releases page](https://github.com/libraos/agentd-next/releases). Each
 release lists its files and a `SHA256SUMS` file; installers are named
-`AgentD-Next-<version>-<arch>.<ext>`, except the AppImage, which has no version
+`LibraOS-Next-<version>-<arch>.<ext>`, except the AppImage, which has no version
 in its name so that updates replace it in place.
 
-| System                | File                                               |
-| --------------------- | -------------------------------------------------- |
-| macOS (Apple silicon) | `AgentD-Next-<version>-arm64.dmg` or `…-arm64.zip` |
-| macOS (Intel)         | `AgentD-Next-<version>-x64.dmg` or `…-x64.zip`     |
-| Windows (x64)         | `AgentD-Next-<version>-x64.exe`                    |
-| Linux (x64)           | `AgentD-Next-x86_64.AppImage` or `…-amd64.deb`     |
+| System                | File                                                |
+| --------------------- | --------------------------------------------------- |
+| macOS (Apple silicon) | `LibraOS-Next-<version>-arm64.dmg` or `…-arm64.zip` |
+| macOS (Intel)         | `LibraOS-Next-<version>-x64.dmg` or `…-x64.zip`     |
+| Windows (x64)         | `LibraOS-Next-<version>-x64.exe`                    |
+| Linux (x64)           | `LibraOS-Next-x86_64.AppImage` or `…-amd64.deb`     |
 
 From 0.2.0 the app checks for a new release at launch and every four hours, and
 asks before installing it (Settings → About also has **Check for Updates**). On
@@ -29,8 +29,11 @@ Windows and Linux it downloads and installs the update; on macOS it opens the
 release page, and you install the new version by hand. 0.1.10-agentd.8 and
 earlier do not check: install 0.2.0 by hand once.
 
-Releases up to 0.1.10-agentd.6 carry the earlier name, AgentD Desktop, in their
-file names (`AgentD-Desktop-…`).
+Earlier releases carry earlier names in their file names: AgentD Next
+(`AgentD-Next-…`) and, up to 0.1.10-agentd.6, AgentD Desktop (`AgentD-Desktop-…`).
+LibraOS Next installs as a new app beside AgentD Next. Its first start copies
+AgentD Next's window settings and sign-in, and AgentD Next's own folder is left
+as it was; once LibraOS Next works, you can uninstall AgentD Next.
 
 Check the download against `SHA256SUMS` before opening it, for example with
 `sha256sum` on Linux or `shasum -a 256` on macOS. A matching checksum shows the
@@ -56,14 +59,14 @@ if the repair fails, AgentD shows "needs attention" with agentd's own fix.
 To launch the AppImage, open a terminal in its download folder:
 
 ```bash
-chmod +x ./AgentD-Next-*x*64.AppImage
-./AgentD-Next-*x*64.AppImage
+chmod +x ./LibraOS-Next-*x*64.AppImage
+./LibraOS-Next-*x*64.AppImage
 ```
 
 To install the `.deb`:
 
 ```bash
-sudo apt install ./AgentD-Next-<version>-amd64.deb
+sudo apt install ./LibraOS-Next-<version>-amd64.deb
 ```
 
 ### The `agentd-next` command

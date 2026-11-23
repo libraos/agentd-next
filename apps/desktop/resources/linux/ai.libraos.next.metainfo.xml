@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>ai.libraos.agentd-desktop</id>
+  <id>ai.libraos.next</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <name>AgentD Next</name>
+  <name>LibraOS Next</name>
   <summary>Desktop GUI for coding agents</summary>
   <developer id="ai.libraos">
     <name>LibraOS</name>
   </developer>
   <description>
     <p>
-      AgentD Next is an open-source desktop app for coding agents. Work with your
+      LibraOS Next is an open-source desktop app for coding agents. Work with your
       existing agent subscriptions, review code changes, and run commands in
       your projects.
     </p>
@@ -18,10 +18,13 @@
       Connect from desktop, web, or mobile to continue working remotely.
     </p>
   </description>
-  <launchable type="desktop-id">ai.libraos.agentd-desktop.desktop</launchable>
-  <icon type="stock">agentd-desktop</icon>
+  <launchable type="desktop-id">ai.libraos.next.desktop</launchable>
+  <replaces>
+    <id>ai.libraos.agentd-desktop</id>
+  </replaces>
+  <icon type="stock">libraos-next</icon>
   <provides>
-    <binary>agentd-desktop</binary>
+    <binary>libraos-next</binary>
   </provides>
   <categories>
     <category>Development</category>

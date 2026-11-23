@@ -63,7 +63,15 @@ import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
-const DESKTOP_APP_ID = "ai.libraos.agentd-desktop";
+const DESKTOP_APP_ID = "ai.libraos.next";
+const DESKTOP_PACKAGE_NAME = "libraos-next";
+// AgentD Next's scheme still opens the app (packages/shared/src/desktopIdentity.ts).
+const DESKTOP_LINK_SCHEMES = [
+  "libraos-next",
+  "libraos-next-dev",
+  "agentd-desktop",
+  "agentd-desktop-dev",
+];
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/u;
 
 const BuildPlatform = Schema.Literals(["mac", "linux", "win"]);
@@ -2494,14 +2502,21 @@ export class AgentdCliMissingError extends Schema.TaggedError<AgentdCliMissingEr
   }
 }
 
-/** Release asset names as agentd publishes them, e.g. agentd-darwin-arm64, agentd-windows-amd64.exe. */
+/**
+ * LibraOS Core's executable names, newest first. A release that publishes `libraos-core-*` assets
+ * accepts that name for its hooks; an earlier one publishes only `agentd-*` and knows only `agentd`.
+ */
+const CORE_EXECUTABLE_NAMES = ["libraos-core", "agentd"] as const;
+
+/** Release asset names as Core publishes them, e.g. agentd-darwin-arm64, libraos-core-windows-amd64.exe. */
 export function agentdReleaseAssets(
   platform: typeof BuildPlatform.Type,
   arch: typeof BuildArch.Type,
+  executable: (typeof CORE_EXECUTABLE_NAMES)[number] = "agentd",
 ): ReadonlyArray<string> {
   const os = platform === "mac" ? "darwin" : platform === "win" ? "windows" : "linux";
   const cpus = arch === "universal" ? ["amd64", "arm64"] : [arch === "x64" ? "amd64" : "arm64"];
-  return cpus.map((cpu) => `agentd-${os}-${cpu}${platform === "win" ? ".exe" : ""}`);
+  return cpus.map((cpu) => `${executable}-${os}-${cpu}${platform === "win" ? ".exe" : ""}`);
 }
 
 /** The agentd Skills a release ships beside its binaries; installed into each agent client after consent. */
@@ -2533,7 +2548,6 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const dir = path.resolve(distDir.value);
-  const assets = agentdReleaseAssets(input.platform, input.arch);
   const sums = yield* fs
     .readFileString(path.join(dir, "SHA256SUMS"))
     .pipe(
@@ -2549,6 +2563,12 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
       .filter((match) => match !== null)
       .map((match) => [match[2]!, match[1]!.toLowerCase()] as const),
   );
+  // The binary keeps the name its release gives it, so its hooks connect.
+  const executable =
+    CORE_EXECUTABLE_NAMES.find((name) =>
+      agentdReleaseAssets(input.platform, input.arch, name).every((asset) => pinned.has(asset)),
+    ) ?? "agentd";
+  const assets = agentdReleaseAssets(input.platform, input.arch, executable);
   const sources: string[] = [];
   for (const asset of [...assets, ...AGENTD_SKILL_ASSETS]) {
     const source = path.join(dir, asset);
@@ -2577,7 +2597,7 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
   const destinationDirectory = path.join(input.stageResourcesDir, "agentd");
   const destinationPath = path.join(
     destinationDirectory,
-    input.platform === "win" ? "agentd.exe" : "agentd",
+    input.platform === "win" ? `${executable}.exe` : executable,
   );
   yield* fs.remove(destinationDirectory, { recursive: true, force: true }).pipe(Effect.ignore);
   yield* fs.makeDirectory(destinationDirectory, { recursive: true });
@@ -2591,7 +2611,7 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
     yield* runCommand(
       ChildProcess.make("lipo", ["-create", ...binaries, "-output", destinationPath]),
       {
-        label: "lipo agentd universal binary",
+        label: `lipo ${executable} universal binary`,
         verbose: input.verbose,
       },
     );
@@ -2600,7 +2620,7 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
     yield* fs.chmod(destinationPath, 0o755);
   }
   yield* Effect.log(
-    `[desktop-artifact] Bundled agentd (${assets.join(", ")}) at ${destinationPath}.`,
+    `[desktop-artifact] Bundled LibraOS Core (${assets.join(", ")}) at ${destinationPath}.`,
   );
 });
 
@@ -2957,7 +2977,7 @@ export function resolvePackageManagerUserAgent(packageManager: string): string {
 }
 
 export function resolveDesktopProductName(version: string): string {
-  const productName = desktopPackageJson.productName ?? "AgentD Next";
+  const productName = desktopPackageJson.productName ?? "LibraOS Next";
   return resolveDesktopUpdateChannel(version) === "nightly"
     ? `${productName} (Nightly)`
     : productName;
@@ -2983,10 +3003,10 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     afterPack: (yield* Path.Path).join(yield* RepoRoot, "scripts/prepare-server-compile-cache.cjs"),
     appId: DESKTOP_APP_ID,
     productName: resolveDesktopProductName(version),
-    artifactName: "AgentD-Next-${version}-${arch}.${ext}",
+    artifactName: "LibraOS-Next-${version}-${arch}.${ext}",
     extraMetadata: {
-      name: "agentd-desktop",
-      description: "AgentD Next is a desktop app for coding agents.",
+      name: DESKTOP_PACKAGE_NAME,
+      description: "LibraOS Next is a desktop app for coding agents.",
       author: { name: "LibraOS" },
       homepage: "https://github.com/libraos/agentd-next",
       ...(platform === "linux" ? { desktopName: `${DESKTOP_APP_ID}.desktop` } : {}),
@@ -3046,21 +3066,21 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
         NSLocalNetworkUsageDescription:
-          "AgentD Next connects to devices on your local network for remote environments and commands run by terminals and coding agents.",
+          "LibraOS Next connects to devices on your local network for remote environments and commands run by terminals and coding agents.",
         NSCalendarsUsageDescription:
-          "Commands you run in AgentD Next may need access to your calendars.",
+          "Commands you run in LibraOS Next may need access to your calendars.",
         NSCalendarsFullAccessUsageDescription:
-          "Commands you run in AgentD Next may need to read and write your calendar events.",
+          "Commands you run in LibraOS Next may need to read and write your calendar events.",
         NSCalendarsWriteOnlyAccessUsageDescription:
-          "Commands you run in AgentD Next may need to add events to your calendars.",
+          "Commands you run in LibraOS Next may need to add events to your calendars.",
         NSScreenCaptureUsageDescription:
-          "AgentD Next captures the active window when you use the window capture shortcut.",
+          "LibraOS Next captures the active window when you use the window capture shortcut.",
         NSCameraUsageDescription:
-          "AgentD Next lets commands run by terminals and coding agents use the camera.",
+          "LibraOS Next lets commands run by terminals and coding agents use the camera.",
         NSMicrophoneUsageDescription:
-          "AgentD Next lets commands run by terminals and coding agents use the microphone.",
+          "LibraOS Next lets commands run by terminals and coding agents use the microphone.",
         NSSpeechRecognitionUsageDescription:
-          "AgentD Next transcribes your dictation on this Mac when you choose Apple Speech.",
+          "LibraOS Next transcribes your dictation on this Mac when you choose Apple Speech.",
         // macOS lists an app under Default web browser only when it opens web
         // pages as documents as well as http and https links (see protocols).
         CFBundleDocumentTypes: [
@@ -3075,7 +3095,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       protocols: [
         {
           name: resolveDesktopProductName(version),
-          schemes: ["agentd-desktop", "agentd-desktop-dev"],
+          schemes: DESKTOP_LINK_SCHEMES,
         },
         {
           name: "Web site URL",
@@ -3124,7 +3144,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     buildConfig.afterPack = path.join(repoRoot, "scripts/linux-after-pack.ts");
     buildConfig.linux = {
       target: target === "AppImage" ? [target, "deb"] : [target],
-      executableName: "agentd-desktop",
+      executableName: DESKTOP_PACKAGE_NAME,
       syncDesktopName: true,
       icon: "icons",
       category: "Development",
@@ -3133,7 +3153,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       protocols: [
         {
           name: resolveDesktopProductName(version),
-          schemes: ["agentd-desktop", "agentd-desktop-dev"],
+          schemes: DESKTOP_LINK_SCHEMES,
         },
       ],
       desktop: {
@@ -3148,16 +3168,16 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       buildConfig.appImage = {
         artifactName:
           updateChannel === "nightly"
-            ? "AgentD-Next-Nightly-${arch}.${ext}"
-            : "AgentD-Next-${arch}.${ext}",
+            ? "LibraOS-Next-Nightly-${arch}.${ext}"
+            : "LibraOS-Next-${arch}.${ext}",
       };
     }
     buildConfig.deb = {
-      packageName: "agentd-desktop",
+      packageName: DESKTOP_PACKAGE_NAME,
       // FPM runs outside the staged app directory, so source paths must be absolute.
       fpm: [
         `${path.join(repoRoot, `apps/desktop/resources/linux/${DESKTOP_APP_ID}.metainfo.xml`)}=/usr/share/metainfo/${DESKTOP_APP_ID}.metainfo.xml`,
-        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/agentd-desktop/copyright`,
+        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/${DESKTOP_PACKAGE_NAME}/copyright`,
       ],
       // Debian 13 and Ubuntu 24.04 use 64-bit-time names; retain old-name fallbacks.
       depends: [

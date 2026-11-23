@@ -85,7 +85,9 @@ export class DesktopEnvironment extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopEnvironment") {}
 
-export const APP_BASE_NAME = "AgentD Next";
+export const APP_BASE_NAME = "LibraOS Next";
+/** Electron's app name keeps AgentD Next's: safeStorage keys secrets on it in the macOS Keychain and Linux keyring. */
+export const ELECTRON_APP_NAME_BASE = "AgentD Next";
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;
@@ -228,7 +230,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     branding,
     displayName,
     appUserModelId: Option.getOrElse(config.appUserModelIdOverride, () =>
-      isDevelopment ? "ai.libraos.agentd-desktop.dev" : "ai.libraos.agentd-desktop",
+      isDevelopment ? "ai.libraos.next.dev" : "ai.libraos.next",
     ),
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxApplicationsDir,

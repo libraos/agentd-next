@@ -13,9 +13,9 @@ const defaultInput = {
   platform: "darwin",
   processArch: "arm64",
   appVersion: "0.0.22",
-  appPath: "/Applications/AgentD Next.app/Contents/Resources/app.asar",
+  appPath: "/Applications/LibraOS Next.app/Contents/Resources/app.asar",
   isPackaged: false,
-  resourcesPath: "/Applications/AgentD Next.app/Contents/Resources",
+  resourcesPath: "/Applications/LibraOS Next.app/Contents/Resources",
   runningUnderArm64Translation: false,
 } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
 
@@ -73,7 +73,7 @@ describe("DesktopEnvironment", () => {
     }),
   );
 
-  it.effect("uses the AgentD Next identity without dropping channel labels", () =>
+  it.effect("uses the LibraOS Next identity without dropping channel labels", () =>
     Effect.gen(function* () {
       const stable = yield* makeEnvironment({ platform: "win32", isPackaged: true });
       const nightly = yield* makeEnvironment({
@@ -83,13 +83,13 @@ describe("DesktopEnvironment", () => {
       });
 
       assert.deepStrictEqual(stable.branding, {
-        baseName: "AgentD Next",
+        baseName: "LibraOS Next",
         stageLabel: "Beta",
-        displayName: "AgentD Next (Beta)",
+        displayName: "LibraOS Next (Beta)",
       });
-      assert.equal(stable.appUserModelId, "ai.libraos.agentd-desktop");
-      assert.equal(nightly.displayName, "AgentD Next (Nightly)");
-      assert.equal(nightly.linuxDesktopEntryName, "ai.libraos.agentd-desktop.desktop");
+      assert.equal(stable.appUserModelId, "ai.libraos.next");
+      assert.equal(nightly.displayName, "LibraOS Next (Nightly)");
+      assert.equal(nightly.linuxDesktopEntryName, "ai.libraos.next.desktop");
     }),
   );
 });

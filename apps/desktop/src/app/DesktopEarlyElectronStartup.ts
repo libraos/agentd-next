@@ -32,7 +32,7 @@ export interface EarlyLinuxElectronOptions {
 }
 
 export const resolveLinuxDesktopEntryName = (isDevelopment: boolean): string =>
-  isDevelopment ? "ai.libraos.agentd-desktop.dev.desktop" : "ai.libraos.agentd-desktop.desktop";
+  isDevelopment ? "ai.libraos.next.dev.desktop" : "ai.libraos.next.desktop";
 
 const trimNonEmpty = (value: string | undefined): string | null => {
   const trimmed = value?.trim();

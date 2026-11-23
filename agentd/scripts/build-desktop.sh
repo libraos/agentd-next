@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# AgentD Next with agentd inside. Usage: agentd/scripts/build-desktop.sh linux|win|mac [arm64|x64]
+# LibraOS Next with LibraOS Core (agentd) inside. Usage: agentd/scripts/build-desktop.sh linux|win|mac [arm64|x64]
 #
-# Writes release/AgentD-Next-<version>-<arch>.{deb,exe,dmg,zip}, AgentD-Next-x86_64.AppImage (no
+# Writes release/LibraOS-Next-<version>-<arch>.{deb,exe,dmg,zip}, LibraOS-Next-x86_64.AppImage (no
 # version in the name, so the updater replaces it in place) and the updater's latest*.yml. Nothing is
 # published (.github/workflows/release.yml does that). For linux and win it runs the upstream packager
 # (scripts/build-desktop-artifact.ts) by default inside a container made from electron-builder's Wine
@@ -43,7 +43,9 @@ case "$platform/$arch" in
 esac
 case "$arch" in arm64) cpu=arm64 ;; *) cpu=amd64 ;; esac
 agentd_asset=agentd-$os-$cpu
-[ "$platform" = win ] && agentd_asset=$agentd_asset.exe
+# A release that publishes it is bundled as libraos-core; earlier ones only as agentd.
+core_asset=libraos-core-$os-$cpu
+[ "$platform" = win ] && agentd_asset=$agentd_asset.exe && core_asset=$core_asset.exe
 
 repo=$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)
 cd "$repo"
@@ -71,7 +73,7 @@ if [ "${AGENTD_BUILD_INSIDE:-}" != 1 ]; then
       [ ! -s "$AGENTD_DIST_DIR/SKILL.md" ] || [ ! -s "$AGENTD_DIST_DIR/SKILL-agentd.md" ]; then
       mkdir -p "$AGENTD_DIST_DIR"
       gh release download "$release" -R libraos/agentd -D "$AGENTD_DIST_DIR" --clobber \
-        -p SHA256SUMS -p "$agentd_asset" -p SKILL.md -p SKILL-agentd.md
+        -p SHA256SUMS -p "$agentd_asset" -p "$core_asset" -p SKILL.md -p SKILL-agentd.md
     fi
   fi
   # pwd -W: Git Bash on Windows gives the Windows path that Node needs.
@@ -131,9 +133,9 @@ fi
 
 echo "[agentd] building $platform/$target $arch $version with agentd from $AGENTD_DIST_DIR"
 node scripts/build-desktop-artifact.ts --platform "$platform" --target "$target" --arch "$arch"
-if [ "$platform" = linux ] && [ -e "release/AgentD-Next-$version-x86_64.AppImage" ]; then
+if [ "$platform" = linux ] && [ -e "release/LibraOS-Next-$version-x86_64.AppImage" ]; then
   # Without a feed the AppImage is versioned; it then carries x64 as on Windows. With one, its name
   # is what latest-linux.yml lists, so it stays.
-  mv -f "release/AgentD-Next-$version-x86_64.AppImage" "release/AgentD-Next-$version-x64.AppImage"
+  mv -f "release/LibraOS-Next-$version-x86_64.AppImage" "release/LibraOS-Next-$version-x64.AppImage"
 fi
-ls -l release/AgentD-Next-* release/*.yml 2>/dev/null || true
+ls -l release/LibraOS-Next-* release/*.yml 2>/dev/null || true
