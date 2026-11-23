@@ -16,6 +16,7 @@ import {
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { usePrimaryEnvironmentId } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
+import ChatMarkdown from "../ChatMarkdown";
 import { Button } from "../ui/button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import {
@@ -310,9 +311,16 @@ function AgentdSetupDialog({
                           tabIndex={0}
                           className="max-h-72 overflow-y-auto rounded-lg border border-border p-3"
                         >
-                          <pre className="wrap-anywhere whitespace-pre-wrap font-sans text-xs">
-                            {eula.data?.text ?? gt("Loading…")}
-                          </pre>
+                          {eula.data?.text ? (
+                            <ChatMarkdown
+                              text={eula.data.text}
+                              cwd={undefined}
+                              headingLevelOffset={2}
+                              className="text-xs"
+                            />
+                          ) : (
+                            <p className="text-xs">{gt("Loading…")}</p>
+                          )}
                         </div>
                       )}
                       <p className="text-muted-foreground text-sm">
