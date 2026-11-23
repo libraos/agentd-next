@@ -119,7 +119,7 @@ it("does not reopen a superseded helper when its initial probe completes", async
   );
   await open();
   const pageUrl = new URL(mocks.loadURL.mock.calls[0]![0] as string);
-  expect(decodeURIComponent(pageUrl.pathname)).toContain("Drag AgentD Next into the list above");
+  expect(decodeURIComponent(pageUrl.pathname)).toContain("Drag LibraOS Next into the list above");
   pending.resolve(false);
   await first;
   expect(windows).toHaveLength(1);
