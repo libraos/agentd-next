@@ -4,6 +4,8 @@ import {
   customGatewayAgentsOf,
   type CustomGatewayAgent,
   type CustomGatewayFormat,
+  type CustomGatewaySaveInput,
+  type CustomGatewaySummary,
   type EnvironmentId,
 } from "@t3tools/contracts";
 import { T, useGT, useMessages, Var } from "gt-react";
@@ -13,11 +15,6 @@ import { useCustomGatewayCommands } from "../../lib/customGatewayState";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-
-const formats: ReadonlyArray<{ readonly id: CustomGatewayFormat; readonly label: string }> = [
-  { id: "openai", label: "OpenAI" },
-  { id: "anthropic", label: "Anthropic" },
-];
 
 const agents: ReadonlyArray<{ readonly id: CustomGatewayAgent; readonly label: string }> = [
   { id: "claude", label: "Claude Code" },
@@ -43,24 +40,33 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
   // The gateway's model list could not be read: the user may type the ids instead.
   const [modelsProblem, setModelsProblem] = useState<string | null>(null);
   const [models, setModels] = useState("");
+  const [saved, setSaved] = useState<CustomGatewaySummary | null>(null);
+  const [extensionKey, setExtensionKey] = useState("");
   const disabled = busy || !canChange;
-  const keyRequired = format === "anthropic";
-  const chosen = customGatewayAgentsOf(format).filter((agent) => !declined.has(agent));
+  const keyRequired = format !== "openai";
+  const availableAgents = customGatewayAgentsOf(format);
+  const chosen = availableAgents.filter((agent) => !declined.has(agent));
+  const formats = [
+    { id: "openai", label: "OpenAI", description: gt("OpenAI supports Codex, opencode, and Pi.") },
+    {
+      id: "anthropic",
+      label: "Anthropic",
+      description: gt("Anthropic supports Claude Code and opencode."),
+    },
+    {
+      id: "both",
+      label: gt("Both"),
+      description: gt("One key for Claude Code, Codex, opencode, and Pi."),
+    },
+  ] as const;
 
-  const save = async (typed: ReadonlyArray<string> | undefined) => {
+  const otherAgent =
+    saved?.format === "openai" ? "Claude Code" : saved?.format === "anthropic" ? "Codex" : null;
+
+  const save = async (input: CustomGatewaySaveInput) => {
     setBusy(true);
     setError(null);
-    const result = await add({
-      environmentId,
-      input: {
-        url,
-        format,
-        agents: chosen,
-        ...(key.trim() === "" ? {} : { key }),
-        ...(name.trim() === "" ? {} : { name }),
-        ...(typed === undefined ? {} : { models: typed }),
-      },
-    });
+    const result = await add({ environmentId, input });
     setBusy(false);
     if (result._tag === "Failure") {
       const cause = squashAtomCommandFailure(result);
@@ -71,6 +77,9 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
       setModelsProblem(result.value.message);
       return;
     }
+    setSaved(result.value.gateway);
+    setExtensionKey("");
+    if ("extendId" in input) return;
     setUrl("");
     setKey("");
     setName("");
@@ -78,10 +87,21 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
     setModelsProblem(null);
   };
 
+  const addGateway = (typed: ReadonlyArray<string> | undefined) =>
+    save({
+      url,
+      format,
+      agents: chosen,
+      ...(key.trim() === "" ? {} : { key }),
+      ...(name.trim() === "" ? {} : { name }),
+      ...(typed === undefined ? {} : { models: typed }),
+    });
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (url.trim() === "") return;
-    void save(undefined);
+    if (disabled || url.trim() === "" || chosen.length === 0 || (keyRequired && key.trim() === ""))
+      return;
+    void addGateway(undefined);
   };
 
   const typedModels = models
@@ -102,6 +122,7 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
         <Input
           id={`${id}-url`}
           type="url"
+          aria-describedby={`${id}-url-hint`}
           inputMode="url"
           autoComplete="off"
           spellCheck={false}
@@ -113,27 +134,38 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
             setModelsProblem(null);
           }}
         />
+        <p id={`${id}-url-hint`} className="text-xs text-muted-foreground">
+          {gt("A trailing /v1 is optional for every format.")}
+        </p>
       </div>
       <fieldset className="space-y-1">
         <legend className="font-medium text-foreground">
           <T>Format</T>
         </legend>
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-1.5">
           {formats.map((entry) => (
             <label
               key={entry.id}
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-1.5 has-checked:border-primary/60"
+              className="flex cursor-pointer flex-wrap items-center gap-x-2 rounded-md border border-border px-3 py-1.5 has-checked:border-primary/60"
             >
               <input
                 type="radio"
                 name={`${id}-format`}
                 value={entry.id}
+                aria-labelledby={`${id}-${entry.id}-label`}
+                aria-describedby={`${id}-${entry.id}-description`}
                 checked={format === entry.id}
                 disabled={disabled}
-                onChange={() => setFormat(entry.id)}
+                onChange={() => {
+                  setFormat(entry.id);
+                  setModelsProblem(null);
+                }}
                 className="accent-primary"
               />
-              {entry.label}
+              <span id={`${id}-${entry.id}-label`}>{entry.label}</span>
+              <span id={`${id}-${entry.id}-description`} className="text-xs text-muted-foreground">
+                {entry.description}
+              </span>
             </label>
           ))}
         </div>
@@ -178,7 +210,7 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
         </legend>
         <div className="flex flex-wrap gap-2">
           {agents.map((agent) => {
-            const speaks = customGatewayAgentsOf(format).includes(agent.id);
+            const speaks = availableAgents.includes(agent.id);
             return (
               <label
                 key={agent.id}
@@ -201,19 +233,63 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
             );
           })}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {format === "openai" ? (
-            <T>Claude Code needs an Anthropic-format gateway.</T>
-          ) : (
-            <T>Codex needs an OpenAI-format gateway.</T>
-          )}
-        </p>
       </fieldset>
       <p className="text-muted-foreground">
         <T>
           The key stays on this environment. Its models are read from the endpoint's model list.
         </T>
       </p>
+      {saved === null ? null : (
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <div role="status">
+            <p>
+              {gt("{gateway} is used by {agents}.", {
+                gateway: saved.name,
+                agents: saved.agents
+                  .map((id) => agents.find((agent) => agent.id === id)?.label ?? id)
+                  .join(", "),
+              })}
+            </p>
+            {otherAgent === null ? null : (
+              <p>{gt("The built-in {agent} still uses its own sign-in.", { agent: otherAgent })}</p>
+            )}
+          </div>
+          {otherAgent === null ? null : (
+            <>
+              {saved.hasKey ? null : (
+                <div className="space-y-1">
+                  <label htmlFor={`${id}-extension-key`}>{gt("Gateway key")}</label>
+                  <Input
+                    id={`${id}-extension-key`}
+                    type="password"
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                    data-bwignore
+                    value={extensionKey}
+                    disabled={disabled}
+                    onChange={(event) => setExtensionKey(event.currentTarget.value)}
+                  />
+                </div>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled || (!saved.hasKey && extensionKey.trim() === "")}
+                onClick={() =>
+                  void save({
+                    extendId: saved.id,
+                    ...(saved.hasKey ? {} : { key: extensionKey }),
+                  })
+                }
+              >
+                {gt("Also use {gateway} for {agent}", { gateway: saved.name, agent: otherAgent })}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       {error === null ? null : (
         <p role="alert" className="text-destructive-foreground">
           {error}
@@ -254,8 +330,13 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
             <Button
               type="button"
               size="sm"
-              disabled={disabled || typedModels.length === 0 || chosen.length === 0}
-              onClick={() => void save(typedModels)}
+              disabled={
+                disabled ||
+                typedModels.length === 0 ||
+                chosen.length === 0 ||
+                (keyRequired && key.trim() === "")
+              }
+              onClick={() => void addGateway(typedModels)}
             >
               <T>Save with these models</T>
             </Button>

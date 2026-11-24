@@ -172,7 +172,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
             }}
           >
             <SourceDot color={props.sourceColor} />
-            <span className="max-w-28 truncate">{props.sourceLabel}</span>
+            <span className="max-w-40 truncate">{props.sourceLabel}</span>
             <ChevronDownIcon
               className={cn("size-3", props.variantsExpanded && "rotate-180")}
               aria-hidden="true"
@@ -184,7 +184,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
             data-model-source={props.sourceLabel}
           >
             <SourceDot color={props.sourceColor} />
-            <span className="max-w-28 truncate">{props.sourceLabel}</span>
+            <span className="max-w-40 truncate">{props.sourceLabel}</span>
           </span>
         )}
         <Tooltip>

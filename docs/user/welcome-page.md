@@ -60,14 +60,15 @@ install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
 If no default model is chosen yet and neither Claude Code, Codex nor opencode
 is installed, it becomes the default.
 
-**Custom endpoint** connects any OpenAI- or Anthropic-compatible gateway: enter its
-**Endpoint URL**, pick the **Format** (OpenAI adds Codex, opencode and Pi agents,
-Anthropic adds Claude Code and opencode agents), add its **Key** (an
-Anthropic-format gateway needs one; an OpenAI-format one only if it asks),
-and press **Add gateway**; if its model list can't be read, list the **Model ids**
-yourself. Other options on that screen show **Not available yet**;
-use a provider instance's environment variables for those
-([Providers](./install.md#providers)).
+With **Custom endpoint**, enter a gateway URL with or without a trailing `/v1`.
+Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi.
+**OpenAI** supports Codex, opencode, and Pi. **Anthropic** supports Claude Code
+and opencode. A key is required for **Both** and **Anthropic**. If the model list
+can't be read, enter the **Model ids** yourself.
+
+After saving one format, use the action below the form to add the other format
+to the same gateway. In the model picker, look for the gateway name to select
+the instance that uses it.
 
 **Join a team** takes a **Team invitation link** from your team and enrolls this
 device with its LibraOS Core server. Joining needs maintenance access to the

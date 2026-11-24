@@ -79,6 +79,7 @@ import {
   type ModelSelection,
   type PreviewAnnotationPayload,
   ProviderInstanceId,
+  customGatewayIdOfInstance,
   type ServerProvider,
   type ScopedThreadRef,
   type ThreadId,
@@ -1418,6 +1419,18 @@ export default function ChatView(props: ChatViewProps) {
   });
   const selectedProvider = selectedProviderEntry?.driverKind ?? requestedDriverKind;
   const activeProviderInstanceId = selectedProviderEntry?.instanceId ?? null;
+  const errorInstanceId = serverRuntime?.providerInstanceId;
+  const threadErrorProvider =
+    !threadErrorIsServerRuntimeError ||
+    timelineThreadError === null ||
+    errorInstanceId === undefined
+      ? null
+      : errorInstanceId === "claudeAgent"
+        ? gt("Claude Code (built-in)")
+        : customGatewayIdOfInstance(errorInstanceId) !== null
+          ? (providerInstanceEntries.find((entry) => entry.instanceId === errorInstanceId)
+              ?.displayName ?? errorInstanceId)
+          : null;
   const activeProviderStatus = selectedProviderEntry?.snapshot ?? null;
   const activeUsageModel =
     [
@@ -3589,6 +3602,7 @@ export default function ChatView(props: ChatViewProps) {
               onOpenProviderSetup={openProviderSetupStable}
               threadId={activeThread.id}
               threadError={timelineThreadError}
+              threadErrorProvider={threadErrorProvider}
               threadErrorClass={
                 threadErrorIsServerRuntimeError ? (serverRuntime?.lastErrorClass ?? null) : null
               }

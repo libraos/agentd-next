@@ -380,12 +380,15 @@ it("lists a model reported twice by one provider once, with contiguous jump shor
   );
 });
 
-it("lists a gateway's model once and offers each agent that runs it when pointed at", async () => {
+it("distinguishes the built-in Claude Code and gateway agents on a shared model", async () => {
+  const builtInClaude = ProviderInstanceId.make("claudeAgent");
+  const gatewayClaude = ProviderInstanceId.make("gw-abc-claude");
   const gatewayCodex = ProviderInstanceId.make("gw-abc-codex");
   const gatewayOpencode = ProviderInstanceId.make("gw-abc-opencode");
   const entries = deriveProviderInstanceEntries(
     [
-      { instanceId: ProviderInstanceId.make("codex"), driver: "codex", displayName: "Codex" },
+      { instanceId: builtInClaude, driver: "claudeAgent", displayName: "Claude Code" },
+      { instanceId: gatewayClaude, driver: "claudeAgent", displayName: "Claude Code · Work GW" },
       { instanceId: gatewayCodex, driver: "codex", displayName: "Codex · Work GW" },
       { instanceId: gatewayOpencode, driver: "opencode", displayName: "opencode · Work GW" },
     ].map((provider) => ({
@@ -407,13 +410,15 @@ it("lists a gateway's model once and offers each agent that runs it when pointed
   await using screen = await render(
     <ProviderModelPicker
       environmentId={null}
-      activeInstanceId={ProviderInstanceId.make("codex")}
-      model="gpt"
+      activeInstanceId={builtInClaude}
+      model="chat-small"
+      isComposerOwned
       lockedProvider={null}
       instanceEntries={entries}
       modelOptionsByInstance={
         new Map([
-          [ProviderInstanceId.make("codex"), [{ slug: "gpt", name: "GPT" }]],
+          [builtInClaude, gatewayModels],
+          [gatewayClaude, gatewayModels],
           [gatewayCodex, gatewayModels],
           [gatewayOpencode, gatewayModels],
         ])
@@ -422,19 +427,27 @@ it("lists a gateway's model once and offers each agent that runs it when pointed
       onInstanceModelChange={onInstanceModelChange}
     />,
   );
-  await screen.getByRole("button", { name: "Choose model" }).click();
+  const trigger = screen.getByRole("button", { name: "Choose model" });
+  await expect
+    .element(screen.getByText("Claude Code (built-in) · chat-small", { exact: true }))
+    .toBeVisible();
+  await trigger.click();
   await expect.element(page.getByRole("option", { name: /chat-small/ })).toBeVisible();
   const sources = () =>
     [...document.querySelectorAll<HTMLElement>("[data-model-source]")].map(
       (source) => source.dataset.modelSource,
     );
-  expect(sources()).toEqual(["Codex", "Work GW · Codex"]);
+  expect(sources()).toEqual(["Claude Code"]);
 
-  // Pointing at the model offers each agent that runs it.
-  await page.getByRole("option", { name: /chat-small/ }).hover();
-  const choice = document.querySelector<HTMLElement>(
-    '[data-model-source-choice="Work GW · opencode"]',
-  )!;
-  await page.elementLocator(choice).click();
-  expect(onInstanceModelChange).toHaveBeenLastCalledWith(gatewayOpencode, "chat-small");
+  await page.getByRole("button", { name: "Claude Code. Other sources of this model" }).click();
+  await vi.waitFor(() => {
+    expect(sources()).toEqual([
+      "Claude Code",
+      "Claude Code · Work GW",
+      "Work GW · Codex",
+      "Work GW · opencode",
+    ]);
+  });
+  await page.getByRole("option", { name: /chat-small.*Claude Code · Work GW/ }).click();
+  expect(onInstanceModelChange).toHaveBeenLastCalledWith(gatewayClaude, "chat-small");
 });

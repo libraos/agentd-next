@@ -1,4 +1,5 @@
 import {
+  customGatewayAgentsOf,
   type CustomGatewayFormat,
   type CustomModelSetting,
   LIBRAOS_GATEWAY_INSTANCE_IDS,
@@ -438,9 +439,11 @@ function customShape(gateway: Omit<CustomGatewayInput, "key">, hasKey: boolean):
     base: `${origin}/v1`,
     keyEnv: hasKey ? CUSTOM_KEY_ENV : null,
     opencodeNpm: gateway.format === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible",
-    agents: [gateway.format === "anthropic" ? "claude" : "codex"],
+    agents: customGatewayAgentsOf(gateway.format).filter(
+      (agent) => agent === "claude" || agent === "codex",
+    ),
     // Pi's anthropic-messages API would serve the other format; untested, so not offered yet.
-    pi: gateway.format === "openai",
+    pi: gateway.format !== "anthropic",
     renamable: true,
     claudeEnvironment: [],
     // A custom gateway's ids are what its agents ask for, as given.
@@ -480,6 +483,69 @@ export function nextGatewayAccentColor(current: ProviderInstanceConfigMap): stri
   return GATEWAY_ACCENT_COLORS.reduce((best, color) => (uses(color) < uses(best) ? color : best));
 }
 
+export function extendCustomGatewayInstances(
+  current: ProviderInstanceConfigMap,
+  gateway: CustomGatewayInput & {
+    readonly models: ReadonlyArray<LibraosGatewayModel>;
+    readonly piAgentDir: string;
+  },
+  agent: GatewayAgent,
+  addedKey: boolean,
+): ProviderInstanceConfigMap {
+  const shape = customShape(gateway, gateway.key !== null);
+  const instances = shapeInstances(shape, gateway.key, gateway.models, gateway.piAgentDir);
+  const next: Record<string, ProviderInstanceConfig> = { ...current };
+  const accentColor =
+    Object.values(shape.ids).flatMap((id) => current[id]?.accentColor ?? [])[0] ??
+    nextGatewayAccentColor(current);
+  for (const { instanceId, instance } of instances) {
+    const existing = current[instanceId];
+    if (existing === undefined) {
+      if (instanceId === shape.ids[agent]) next[instanceId] = { ...instance, accentColor };
+      continue;
+    }
+    const environment = existing.environment ?? [];
+    if (instanceId === shape.ids.opencode) {
+      const inline = environment.find((variable) => variable.name === OPENCODE_CONFIG_ENV)?.value;
+      const config = patchOpencodeGatewayConfig(
+        shape,
+        typeof inline === "string" ? inline : undefined,
+        gateway.models,
+        true,
+      );
+      next[instanceId] = {
+        ...existing,
+        environment: [
+          ...environment.filter(
+            (variable) =>
+              variable.name !== OPENCODE_CONFIG_ENV &&
+              (!addedKey || variable.name !== CUSTOM_KEY_ENV),
+          ),
+          ...(addedKey && gateway.key !== null ? [secret(CUSTOM_KEY_ENV, gateway.key)] : []),
+          plain(OPENCODE_CONFIG_ENV, config),
+        ],
+      };
+    } else if (addedKey && gateway.key !== null && instanceId !== shape.ids.claude) {
+      next[instanceId] = {
+        ...existing,
+        environment: [
+          ...environment.filter((variable) => variable.name !== CUSTOM_KEY_ENV),
+          secret(CUSTOM_KEY_ENV, gateway.key),
+        ],
+        ...(instanceId === shape.ids.codex
+          ? {
+              config: {
+                ...(isRecord(existing.config) ? existing.config : {}),
+                launchArgs: codexLaunchArgs(shape),
+              },
+            }
+          : {}),
+      };
+    }
+  }
+  return next;
+}
+
 export const customGatewayInstances = (
   gateway: CustomGatewayInput & {
     readonly models: ReadonlyArray<LibraosGatewayModel>;
@@ -501,6 +567,7 @@ function patchOpencodeGatewayConfig(
   shape: GatewayShape,
   current: string | undefined,
   models: ReadonlyArray<LibraosGatewayModel>,
+  updateConnection = false,
 ): string {
   const fresh = opencodeGatewayConfig(shape, models);
   let parsed: unknown;
@@ -510,7 +577,10 @@ function patchOpencodeGatewayConfig(
     parsed = undefined;
   }
   if (!isRecord(parsed)) return fresh;
-  const served = JSON.parse(fresh) as { model?: string };
+  const served = JSON.parse(fresh) as {
+    model?: string;
+    provider: Record<string, { npm: string; options: Record<string, string> }>;
+  };
   const providers = isRecord(parsed.provider) ? parsed.provider : {};
   const ownEntry = providers[shape.providerId];
   const own = isRecord(ownEntry) ? ownEntry : {};
@@ -529,6 +599,15 @@ function patchOpencodeGatewayConfig(
     ...providers,
     [shape.providerId]: {
       ...own,
+      ...(updateConnection
+        ? {
+            npm: shape.opencodeNpm,
+            options: {
+              ...(isRecord(own.options) ? own.options : {}),
+              ...served.provider[shape.providerId]?.options,
+            },
+          }
+        : {}),
       // A rename reaches opencode's own provider name; LibraOS Gateway's is its user's to edit.
       ...(shape.renamable ? { name: shape.name } : {}),
       models: Object.fromEntries(

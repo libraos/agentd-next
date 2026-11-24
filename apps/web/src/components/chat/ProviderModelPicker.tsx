@@ -4,6 +4,7 @@ import {
   type EnvironmentId,
   type ProviderDriverKind,
   type ResolvedKeybindingsConfig,
+  customGatewayIdOfInstance,
 } from "@t3tools/contracts";
 import { RegistryContext } from "@effect/atom-react";
 import { T, useGT } from "gt-react";
@@ -280,7 +281,18 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     .filter(Boolean)
     .join(" · ");
 
-  const triggerText = props.triggerLabel ?? multipleLabel ?? triggerTitle;
+  const claudeSource =
+    props.isComposerOwned && activeEntry?.driverKind === "claudeAgent"
+      ? activeEntry.instanceId === "claudeAgent"
+        ? gt("Claude Code (built-in)")
+        : customGatewayIdOfInstance(activeEntry.instanceId) !== null
+          ? activeEntry.displayName
+          : null
+      : null;
+  const triggerText =
+    props.triggerLabel ??
+    multipleLabel ??
+    (claudeSource === null ? triggerTitle : `${claudeSource} · ${triggerTitle}`);
   const triggerTextProps = {
     className: cn(
       "min-w-0 flex-1 overflow-hidden truncate",

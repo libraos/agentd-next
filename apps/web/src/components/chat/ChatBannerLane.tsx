@@ -23,6 +23,7 @@ export function ChatBannerLane(props: {
   onOpenProviderSetup: (instanceId: ProviderInstanceId) => void;
   threadId: ThreadId;
   threadError: string | null;
+  threadErrorProvider: string | null;
   threadErrorClass: OrchestrationV2ProviderFailureClass | null;
   threadErrorCode: string | null;
   threadErrorBannerKey: string | null;
@@ -51,6 +52,7 @@ export function ChatBannerLane(props: {
       />
       <ThreadErrorBanner
         error={threadError}
+        provider={props.threadErrorProvider}
         errorClass={threadErrorClass}
         errorCode={threadErrorCode}
         onDismiss={() => {

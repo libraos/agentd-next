@@ -414,6 +414,37 @@ describe("gatewaySetup", () => {
     }
   });
 
+  it("both formats share a key and model list while using each agent's endpoint", () => {
+    for (const url of ["https://gw.example.com", "https://gw.example.com/v1/"]) {
+      const entries = customGatewayInstances({ ...customGateway, url, format: "both" });
+      expect(entries.map(({ instanceId }) => instanceId)).toEqual([
+        "gw-a1-claude",
+        "gw-a1-codex",
+        "gw-a1-opencode",
+        "gw-a1-pi",
+      ]);
+      const [claude, codex] = entries;
+      expect(claude?.instance.displayName).toBe("Claude Code · My GW");
+      expect(env(claude, "ANTHROPIC_BASE_URL")).toBe("https://gw.example.com");
+      expect(env(claude, "ANTHROPIC_API_KEY")).toBe("k1");
+      expect(env(codex, "CUSTOM_GATEWAY_API_KEY")).toBe("k1");
+      const config = codex?.instance.config as { launchArgs: string };
+      expect(tokenizeCliArgs(config.launchArgs)).toContain(
+        'model_providers.gw_a1.base_url="https://gw.example.com/v1"',
+      );
+      expect(tokenizeCliArgs(config.launchArgs)).toContain(
+        'model_providers.gw_a1.env_key="CUSTOM_GATEWAY_API_KEY"',
+      );
+      for (const entry of [claude, codex]) {
+        expect(entry?.instance.config).toMatchObject({
+          customModels: [{ slug: "gpt-x" }],
+          onlyCustomModels: true,
+        });
+      }
+      expect(opencodeConfigOf(entries).provider.gw_a1.npm).toBe("@ai-sdk/openai-compatible");
+    }
+  });
+
   it("no key writes no key", () => {
     for (const format of ["openai", "anthropic"] as const) {
       const entries = customGatewayInstances({ ...customGateway, format, key: null });

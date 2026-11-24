@@ -575,7 +575,13 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       const gatewayId = customGatewayIdOfInstance(entry.instanceId);
       const [agent, ...gatewayName] = entry.displayName.split(" · ");
       return gatewayId !== null && gatewayName.length > 0
-        ? { entry, gatewayId, source: gatewayName.join(" · "), agent }
+        ? {
+            entry,
+            gatewayId,
+            source:
+              entry.driverKind === "claudeAgent" ? entry.displayName : gatewayName.join(" · "),
+            agent: entry.driverKind === "claudeAgent" ? undefined : agent,
+          }
         : { entry, gatewayId: null, source: entry.displayName, agent: undefined };
     });
     const readyAgents = new Map<string, number>();
@@ -1054,7 +1060,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                     }
                     sourceColor={sourceColorOf(model)}
                     sources={
-                      !isVariant && row.variants.length > 1
+                      !isVariant && row.variants.length > 1 && row.variants.length <= 3
                         ? row.variants.map((variant) => ({
                             instanceId: variant.instanceId,
                             slug: variant.slug,

@@ -1,10 +1,12 @@
 import {
   CustomGatewayError,
-  type CustomGatewayAddInput,
+  type CustomGatewaySaveInput,
   type CustomGatewayAddResult,
   type CustomGatewayList,
   type CustomGatewaySetting,
+  type CustomGatewaySummary,
   type LibraosGatewayModel,
+  type ProviderInstanceConfigMap,
   customGatewayAgentsOf,
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -23,6 +25,7 @@ import { askModels } from "./gatewayKeyModels.ts";
 import {
   customGatewayInstanceIds,
   customGatewayInstances,
+  extendCustomGatewayInstances,
   nextGatewayAccentColor,
   customGatewayKeySecret,
   customGatewayModels,
@@ -46,11 +49,11 @@ export class CustomGateway extends Context.Service<
   {
     readonly list: Effect.Effect<CustomGatewayList, CustomGatewayError>;
     /**
-     * Asks the gateway for its models unless `models` are typed, then keeps the key and adds the
-     * agents of its format. A model list it cannot read is `modelsProblem`, and nothing is kept.
+     * Adds a gateway using the fetched or supplied models, or extends a saved gateway to both
+     * formats using its existing models. An unreadable model list leaves the gateway unsaved.
      */
     readonly add: (
-      input: CustomGatewayAddInput,
+      input: CustomGatewaySaveInput,
     ) => Effect.Effect<CustomGatewayAddResult, CustomGatewayError>;
     /** A blank name names the gateway after its URL. */
     readonly rename: (
@@ -101,6 +104,22 @@ const agentsOf = (instances: Record<string, unknown>, id: string) => {
   const ids = customGatewayInstanceIds(id);
   return ALL_AGENTS.filter((agent) => Object.hasOwn(instances, ids[agent]));
 };
+
+function summarize(
+  instances: ProviderInstanceConfigMap,
+  gateway: CustomGatewaySetting,
+  hasKey: boolean,
+): CustomGatewaySummary {
+  const models = (customGatewayModels(instances, gateway.id) ?? []).map((model) => model.id);
+  return {
+    ...gateway,
+    hasKey,
+    agents: agentsOf(instances, gateway.id),
+    modelCount: models.length,
+    models,
+    hiddenModels: gateway.hiddenModels ?? [],
+  };
+}
 
 const baseOf = (url: string) => `${url.replace(/\/v1$/, "")}/v1`;
 
@@ -170,19 +189,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
     const current = yield* readSettings;
     const gateways = yield* Effect.forEach(current.customGateways, (gateway) =>
       readKey(gateway.id).pipe(
-        Effect.map((key) => {
-          const models = (customGatewayModels(current.providerInstances, gateway.id) ?? []).map(
-            (model) => model.id,
-          );
-          return {
-            ...gateway,
-            hasKey: key !== null,
-            agents: agentsOf(current.providerInstances, gateway.id),
-            modelCount: models.length,
-            models,
-            hiddenModels: gateway.hiddenModels ?? [],
-          };
-        }),
+        Effect.map((key) => summarize(current.providerInstances, gateway, key !== null)),
       ),
     );
     return { gateways };
@@ -194,15 +201,79 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
     return gateway;
   });
 
-  const add: CustomGateway["Service"]["add"] = (input) =>
-    lock
+  const extend = Effect.fn("CustomGateway.extend")(function* (
+    input: Extract<CustomGatewaySaveInput, { extendId: string }>,
+  ) {
+    const id = input.extendId;
+    const current = yield* readSettings;
+    const gateway = current.customGateways.find((entry) => entry.id === id);
+    if (gateway === undefined) return yield* fail("That gateway is no longer here.");
+    const storedKey = yield* readKey(id);
+    if (gateway.format === "both") {
+      return {
+        kind: "added",
+        gateway: summarize(current.providerInstances, gateway, storedKey !== null),
+      } satisfies CustomGatewayAddResult;
+    }
+    const key = storedKey ?? (input.key?.trim() || null);
+    if (key === null) return yield* fail("An Anthropic-format gateway needs a key.");
+    const models = customGatewayModels(current.providerInstances, id);
+    if (!models?.length) return yield* fail("This gateway has no models to share.");
+    const updated = { ...gateway, format: "both" } as const;
+    const addedKey = storedKey === null;
+    const updatePi =
+      addedKey && current.providerInstances[customGatewayInstanceIds(id).pi] !== undefined;
+    const writeKey = secrets
+      .set(customGatewayKeySecret(id), textEncoder.encode(key))
+      .pipe(Effect.catch(storageFailure("store the gateway's key")));
+
+    const saved = yield* Effect.gen(function* () {
+      if (addedKey) yield* writeKey;
+      if (updatePi) yield* writePi(updated, true, models);
+      return yield* settings
+        .updateProviderInstances(
+          (instances) =>
+            extendCustomGatewayInstances(
+              instances,
+              { ...updated, key, models, piAgentDir: piDirOf(id) },
+              gateway.format === "openai" ? "claude" : "codex",
+              addedKey,
+            ),
+          {
+            customGateways: current.customGateways.map((entry) =>
+              entry.id === id ? updated : entry,
+            ),
+          },
+        )
+        .pipe(Effect.catch(storageFailure("save the gateway and its agents")));
+    }).pipe(
+      Effect.onError(() =>
+        addedKey
+          ? Effect.gen(function* () {
+              if (updatePi)
+                yield* writePi(gateway, false, models).pipe(Effect.ignore({ log: true }));
+              yield* secrets.remove(customGatewayKeySecret(id)).pipe(Effect.ignore({ log: true }));
+            })
+          : Effect.void,
+      ),
+      Effect.uninterruptible,
+    );
+    return {
+      kind: "added",
+      gateway: summarize(saved.providerInstances, updated, true),
+    } satisfies CustomGatewayAddResult;
+  });
+
+  const add: CustomGateway["Service"]["add"] = (input) => {
+    if ("extendId" in input) return lock.withPermits(1)(extend(input));
+    return lock
       .withPermits(1)(
         Effect.gen(function* () {
           const url = readGatewayUrl(input.url);
           if (url === null) return yield* fail("Enter the gateway's http:// or https:// URL.");
           const key = input.key?.trim() || null;
           // Without one, Claude Code would send the person's own Claude login to this gateway.
-          if (input.format === "anthropic" && key === null) {
+          if (input.format !== "openai" && key === null) {
             return yield* fail("An Anthropic-format gateway needs a key.");
           }
           const agents = customGatewayAgentsOf(input.format).filter(
@@ -240,37 +311,55 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
             }
             models = answer.models;
           }
-          if (key !== null) {
-            yield* secrets
-              .set(customGatewayKeySecret(id), textEncoder.encode(key))
-              .pipe(Effect.catch(storageFailure("store the gateway's key")));
-          }
           const ids = customGatewayInstanceIds(id);
           const withPi = agents.includes("pi");
-          if (withPi) yield* writePi(gateway, key !== null, models);
           const instances = customGatewayInstances({
             ...gateway,
             key,
             models,
             piAgentDir: piDirOf(id),
           }).filter(({ instanceId }) => agents.some((agent) => ids[agent] === instanceId));
-          yield* settings
-            .updateProviderInstances((current) => {
-              const accentColor = nextGatewayAccentColor(current);
-              return {
-                ...current,
-                ...Object.fromEntries(
-                  instances.map(({ instanceId, instance }) => [
-                    instanceId,
-                    { ...instance, accentColor },
-                  ]),
-                ),
-              };
-            })
-            .pipe(Effect.catch(storageFailure("add the gateway's agents")));
-          yield* settings
-            .updateSettings({ customGateways: [...existing, gateway] })
-            .pipe(Effect.catch(storageFailure("save the gateway")));
+          yield* Effect.gen(function* () {
+            if (key !== null) {
+              yield* secrets
+                .set(customGatewayKeySecret(id), textEncoder.encode(key))
+                .pipe(Effect.catch(storageFailure("store the gateway's key")));
+            }
+            if (withPi) yield* writePi(gateway, key !== null, models);
+            yield* settings
+              .updateProviderInstances(
+                (current) => {
+                  const accentColor = nextGatewayAccentColor(current);
+                  return {
+                    ...current,
+                    ...Object.fromEntries(
+                      instances.map(({ instanceId, instance }) => [
+                        instanceId,
+                        { ...instance, accentColor },
+                      ]),
+                    ),
+                  };
+                },
+                { customGateways: [...existing, gateway] },
+              )
+              .pipe(Effect.catch(storageFailure("save the gateway and its agents")));
+          }).pipe(
+            Effect.onError(() =>
+              Effect.gen(function* () {
+                if (withPi) {
+                  yield* withFiles(removePiGatewayAgentDir(piDirOf(id))).pipe(
+                    Effect.ignore({ log: true }),
+                  );
+                }
+                if (key !== null) {
+                  yield* secrets
+                    .remove(customGatewayKeySecret(id))
+                    .pipe(Effect.ignore({ log: true }));
+                }
+              }),
+            ),
+            Effect.uninterruptible,
+          );
           if (withPi) {
             yield* withFiles(choosePiFirstRunDefault(settings, ids.pi)).pipe(
               Effect.catch((cause) =>
@@ -292,6 +381,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
         }),
       )
       .pipe(Effect.withSpan("CustomGateway.add"));
+  };
 
   const rename: CustomGateway["Service"]["rename"] = (id, name) =>
     lock

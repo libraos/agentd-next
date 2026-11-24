@@ -277,6 +277,7 @@ export class ServerSettingsService extends Context.Service<
     /** Rewrites provider instances from the stored ones within one write, so a concurrent edit or removal stands. */
     readonly updateProviderInstances: (
       update: (current: ProviderInstanceConfigMap) => ProviderInstanceConfigMap,
+      patch?: Pick<ServerSettingsPatch, "customGateways">,
     ) => Effect.Effect<ServerSettings, ServerSettingsError>;
 
     readonly withSettingsSnapshot: <A, E, R>(
@@ -344,10 +345,11 @@ const makeTest = Effect.fn("serverSettings.makeTest")(function* (
           return applyProviderInstanceMutation(patched, mutation);
         }),
       ),
-    updateProviderInstances: (update) =>
+    updateProviderInstances: (update, patch = {}) =>
       updateTestSettings((currentSettings) =>
         Effect.succeed({
           ...currentSettings,
+          ...patch,
           providerInstances: update(currentSettings.providerInstances),
         }),
       ),
@@ -1442,9 +1444,13 @@ const make = Effect.gen(function* () {
           return applyProviderInstanceMutation(patched, mutation);
         }),
       ),
-    updateProviderInstances: (update) =>
-      updateAndPersistSettings({}, (current) =>
-        Effect.succeed({ ...current, providerInstances: update(current.providerInstances) }),
+    updateProviderInstances: (update, patch = {}) =>
+      updateAndPersistSettings(patch, (current) =>
+        Effect.succeed({
+          ...current,
+          ...patch,
+          providerInstances: update(current.providerInstances),
+        }),
       ),
     withSettingsSnapshot,
     get streamChanges() {
