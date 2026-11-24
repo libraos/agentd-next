@@ -1019,6 +1019,8 @@ export const DESKTOP_FILE_EXCLUSIONS = [
   "!apps/desktop/prod-resources/agentd/**/*",
   "!apps/desktop/gnome-extension",
   "!apps/desktop/gnome-extension/**/*",
+  // Its package claims x64 but ffi-rs loads it only on ia32 Windows, which no build targets.
+  "!**/node_modules/@yuuang/ffi-rs-win32-ia32-msvc/**/*",
 ] as const;
 // Windows terminal helpers cannot run on macOS and slow signing and notarization.
 export const MAC_FILE_EXCLUSIONS = [
@@ -1046,13 +1048,8 @@ export const WINDOWS_SERVER_ASAR_RESOURCE = "server.asar";
 // Native modules and executables need real paths, so place them in ASAR's .unpacked sibling.
 export const WINDOWS_NATIVE_ASAR_UNPACK_GLOB =
   "{**/*.node,**/*.dll,**/*.exe,**/*.so,**/*.so.*,**/*.dylib}";
-export const WINDOWS_SERVER_ASAR_UNPACK_GLOBS = [
-  "**/*.dll",
-  "**/*.exe",
-  "**/*.so",
-  "**/*.so.*",
-  "**/*.dylib",
-] as const;
+// Windows loads only PE files; Pi's quickjs-wasi ships WebAssembly as .so, which reads fine from ASAR.
+export const WINDOWS_SERVER_ASAR_UNPACK_GLOBS = ["**/*.dll", "**/*.exe"] as const;
 // Keep sidecar exclusions aligned with the app; .bin symlinks are unused and unsupported by ASAR extraction.
 export const WINDOWS_SERVER_ASAR_IGNORE_GLOBS = [
   "**/node_modules/@cursor/sdk-*",
@@ -1062,11 +1059,14 @@ export const WINDOWS_SERVER_ASAR_IGNORE_GLOBS = [
   "**/node_modules/.bin",
   "**/node_modules/.bin/**",
   "**/*.map",
+  "**/node_modules/@yuuang/ffi-rs-win32-ia32-msvc",
+  "**/node_modules/@yuuang/ffi-rs-win32-ia32-msvc/**",
 ] as const;
 
 export function resolveWindowsServerAsarIgnoreGlobs(arch: typeof BuildArch.Type) {
   const unusedArch = arch === "arm64" ? "x64" : "arm64";
-  const unusedPrebuild = `**/node_modules/node-pty/prebuilds/win32-${unusedArch}`;
+  // node-pty and Pi's pi-tui ship both Windows architectures' prebuilds.
+  const unusedPrebuild = `**/node_modules/**/prebuilds/win32-${unusedArch}`;
   const unusedConpty = `**/node_modules/node-pty/third_party/conpty/*/win10-${unusedArch}`;
 
   return [
@@ -1078,7 +1078,8 @@ export function resolveWindowsServerAsarIgnoreGlobs(arch: typeof BuildArch.Type)
   ];
 }
 
-// Upstream's 80 plus room for the bundled agentd, its Skills and our resources (93 in agentd.4).
+// Upstream's 80 plus room for the bundled LibraOS Core, its Skills and our resources (100 in 0.2.3).
+// It catches files that should not ship: 0.3.0's Pi added 7, now packed in the ASAR or dropped.
 export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 100;
 export const WINDOWS_SERVER_RESOURCE_SOURCE_DIR = "apps/desktop/prod-resources/windows-server";
 export const WINDOWS_SERVER_EXTRA_RESOURCES = [
