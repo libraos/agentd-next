@@ -11,7 +11,7 @@ launch LibraOS Next and configure providers afterwards.
 ## Desktop app
 
 Download an installer from the
-[releases page](https://github.com/libraos/agentd-next/releases). Each
+[releases page](https://github.com/libraos/next/releases). Each
 release lists its files and a `SHA256SUMS` file; installers are named
 `LibraOS-Next-<version>-<arch>.<ext>`, except the AppImage, which has no version
 in its name so that updates replace it in place.

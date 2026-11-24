@@ -5,7 +5,7 @@ request, and which checks to run.
 
 ## Report a problem or ask for a change
 
-Open an issue on [libraos/agentd-next](https://github.com/libraos/agentd-next/issues).
+Open an issue on [libraos/next](https://github.com/libraos/next/issues).
 Search first, in case someone already reported it.
 
 - For a bug, say what you did, what you expected, and what happened instead. Add the app version,

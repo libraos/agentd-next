@@ -5,7 +5,7 @@
 LibraOS Next releases have no automatic update feed. **Settings → About** says
 "Automatic updates are not available because no update feed is configured."
 To update, download the new installer from the
-[releases page](https://github.com/libraos/agentd-next/releases), check it
+[releases page](https://github.com/libraos/next/releases), check it
 against `SHA256SUMS`, and install it over the old version (see
 [Install LibraOS Next](./install.md#desktop-app)). Your threads, settings and data
 stay, since the new version uses the same app id and data folder.

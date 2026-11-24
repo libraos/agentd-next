@@ -102,7 +102,7 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
               LibraOS Core was not found in this environment. Follow the{" "}
               <a
                 className="text-foreground underline"
-                href="https://github.com/libraos/agentd#installation"
+                href="https://github.com/libraos/cli#installation"
                 target="_blank"
                 rel="noreferrer"
               >

@@ -8,7 +8,7 @@
 4. A job merges the two macOS `latest-mac.yml` files into one, checks that every installer and `latest.yml`, `latest-linux.yml` and `latest-mac.yml` are there for this version, and writes `SHA256SUMS`. The last job creates a **draft** release for the tag with all of them, the blockmaps and notes on the unsigned builds and the agentd version inside.
 5. Review the draft on GitHub (download an installer, check it against `SHA256SUMS`), then publish it as the latest release. Nothing is public until then, and installed apps are offered it only once it is published and marked latest.
 
-agentd inside: the `prepare` job resolves one libraos/agentd release for every build, using the dispatch input first, then the `AGENTD_RELEASE` repository variable, then the latest release, and each build downloads that release's asset for its target, `SKILL.md`, `SKILL-agentd.md` and `SHA256SUMS`. The packager refuses an asset that is missing or does not match `SHA256SUMS`.
+agentd inside: the `prepare` job resolves one libraos/cli release for every build, using the dispatch input first, then the `AGENTD_RELEASE` repository variable, then the latest release, and each build downloads that release's asset for its target, `SKILL.md`, `SKILL-agentd.md` and `SHA256SUMS`. The packager refuses an asset that is missing or does not match `SHA256SUMS`.
 
 To try the build without a release, run the workflow by hand (Actions → Release → Run workflow) with N and, optionally, an agentd release: it builds the same files and uploads them, with `SHA256SUMS`, as workflow artifacts.
 
@@ -46,7 +46,7 @@ agentd/scripts/build-desktop.sh win      # 1 min 40 s here
 agentd/scripts/build-desktop.sh mac [arm64|x64]  # on a Mac only, on the host; arch defaults to the Mac's
 ```
 
-`agentd/scripts/build-desktop.sh` sets the version (`AGENTD_BUILD_N`, default 1), downloads the agentd release (`AGENTD_RELEASE`, default the latest of `libraos/agentd`) with `gh` into `release/agentd-dist/<tag>` (the binary for the target, `agentd-linux-amd64`, `agentd-windows-amd64.exe`, `agentd-darwin-arm64` or `agentd-darwin-amd64`, both Skills and `SHA256SUMS`) unless `AGENTD_DIST_DIR` names one, clears the update repository variables, and runs upstream's packager `scripts/build-desktop-artifact.ts --platform linux|win --target AppImage|nsis --arch x64`. The packager checks each agentd asset against `SHA256SUMS` before bundling it (task #15).
+`agentd/scripts/build-desktop.sh` sets the version (`AGENTD_BUILD_N`, default 1), downloads the agentd release (`AGENTD_RELEASE`, default the latest of `libraos/cli`) with `gh` into `release/agentd-dist/<tag>` (the binary for the target, `agentd-linux-amd64`, `agentd-windows-amd64.exe`, `agentd-darwin-arm64` or `agentd-darwin-amd64`, both Skills and `SHA256SUMS`) unless `AGENTD_DIST_DIR` names one, clears the update repository variables, and runs upstream's packager `scripts/build-desktop-artifact.ts --platform linux|win --target AppImage|nsis --arch x64`. The packager checks each agentd asset against `SHA256SUMS` before bundling it (task #15).
 
 It runs the packager in a container, because the host lacks what upstream's build needs and has no sudo to install it:
 

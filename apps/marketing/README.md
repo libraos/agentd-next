@@ -4,7 +4,7 @@ This folder is the source of upstream T3 Code's website. It comes with the code 
 
 It is not AgentD Next's website, and LibraOS does not deploy it.
 
-- The download pages here describe upstream's product. Where they name the only official download site, they refer to T3 Code. AgentD Next installers are available from the [releases page](https://github.com/libraos/agentd-next/releases).
+- The download pages here describe upstream's product. Where they name the only official download site, they refer to T3 Code. AgentD Next installers are available from the [releases page](https://github.com/libraos/next/releases).
 - The privacy policy, terms of service and security policy pages here are upstream's documents for upstream's product and services.
 
 For AgentD Next:
