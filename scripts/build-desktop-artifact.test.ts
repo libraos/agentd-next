@@ -920,13 +920,21 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
           "node_modules/node-pty/third_party/conpty/1.0.0/win10-arm64/OpenConsole.exe",
           "node_modules/node-pty/prebuilds/win32-x64/pty.node",
           "node_modules/node-pty/prebuilds/linux-x64/pty.node",
+          "node_modules/@earendil-works/pi-tui/native/win32/prebuilds/win32-x64/win32-platform.node",
+          "node_modules/@earendil-works/pi-tui/native/win32/prebuilds/win32-arm64/win32-platform.node",
+          "node_modules/@yuuang/ffi-rs-win32-ia32-msvc/ffi-rs.win32-ia32-msvc.node",
         ];
+        const wasmExtension = "node_modules/quickjs-wasi/extensions/url/url.so";
 
         for (const nativeFile of nativeFiles) {
           const nativePath = path.join(sourceDir, nativeFile);
           yield* fs.makeDirectory(path.dirname(nativePath), { recursive: true });
           yield* fs.writeFileString(nativePath, nativeFile.includes("linux") ? "\x7fELF" : "MZ");
         }
+        yield* fs.makeDirectory(path.dirname(path.join(sourceDir, wasmExtension)), {
+          recursive: true,
+        });
+        yield* fs.writeFileString(path.join(sourceDir, wasmExtension), "\0asm");
 
         const asarPath = path.join(tempDir, "server.asar");
         yield* packWindowsServerAsar({ sourceDir, asarPath, arch: "x64" });
@@ -961,6 +969,23 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         assert.isFalse(
           yield* fs.exists(
             path.join(unpackedRoot, "node_modules/node-pty/third_party/conpty/1.0.0/win10-arm64"),
+          ),
+        );
+        // v0.3.0's 107-file payload: Pi's other-arch prebuild, its WebAssembly .so files and ffi-rs's ia32 addon.
+        const piPrebuilds = "node_modules/@earendil-works/pi-tui/native/win32/prebuilds";
+        assert.isTrue(
+          yield* fs.exists(path.join(unpackedRoot, piPrebuilds, "win32-x64/win32-platform.node")),
+        );
+        assert.isFalse(yield* fs.exists(path.join(unpackedRoot, piPrebuilds, "win32-arm64")));
+        assert.isFalse(yield* fs.exists(path.join(unpackedRoot, "node_modules/@yuuang")));
+        assert.isFalse(yield* fs.exists(path.join(unpackedRoot, "node_modules/quickjs-wasi")));
+        assert.equal(
+          extractFile(asarPath, path.join(...wasmExtension.split("/"))).toString(),
+          "\0asm",
+        );
+        assert.isTrue(
+          DESKTOP_FILE_EXCLUSIONS.some((glob) =>
+            NodePath.matchesGlob(nativeFiles.at(-1)!, glob.slice(1)),
           ),
         );
       }),
