@@ -74,9 +74,13 @@ installed whatever app it contains.
 - Installing LibraOS Next by hand does the same. AgentD Desktop (up to 0.1.10-agentd.6) had the same
   app id, so it is removed too. Only per-user installs are looked for: every release was a one-click
   per-user installer.
-- Not verified on Windows yet: the macro has not been compiled or run. The release build compiles it
-  (a syntax error fails the build before anything is published); check the move once in the Windows VM
-  with a 0.2.3 install before publishing.
+- Checked on 2026-11-24 in the Windows 11 VM (`next-win`) with the published
+  `AgentD-Next-0.2.3-x64.exe` installed: `removePreviousApp`, compiled by app-builder-lib's makensis
+  3.0.4.1 into a test installer with `$INSTDIR` set to `Programs\libraos-next`, removed AgentD Next's
+  uninstall and install keys, its folder, and its Start menu and desktop shortcuts, both with AgentD Next
+  closed and with it running (its uninstaller closed it). `%APPDATA%\agentd-desktop`, `~\.agentd-desktop`
+  and `Programs\agentd` with its marker stayed. A second run with nothing installed did nothing. The full
+  0.3.0 installer was not built for this; the release build compiles the same macro.
 
 ### Linux AppImage: moves to LibraOS Next
 
@@ -150,5 +154,6 @@ reinstalling AgentD Next):
 
 ## Open
 
-- Run the Windows move once in the VM (0.2.3 installed, then the 0.3.0 installer) before publishing.
+- The whole update path (0.2.3 updating itself to a built 0.3.0 installer) was not run; the parts were:
+  electron-updater's NSIS install path above, and the removal macro in the VM.
 - Windows link schemes are not registered by either version; a separate change should register both.
