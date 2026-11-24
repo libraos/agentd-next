@@ -491,6 +491,7 @@ export function extendCustomGatewayInstances(
   },
   agent: GatewayAgent,
   addedKey: boolean,
+  addPi: boolean,
 ): ProviderInstanceConfigMap {
   const shape = customShape(gateway, gateway.key !== null);
   const instances = shapeInstances(shape, gateway.key, gateway.models, gateway.piAgentDir);
@@ -501,11 +502,14 @@ export function extendCustomGatewayInstances(
   for (const { instanceId, instance } of instances) {
     const existing = current[instanceId];
     if (existing === undefined) {
-      if (instanceId === shape.ids[agent]) next[instanceId] = { ...instance, accentColor };
+      if (instanceId === shape.ids[agent] || (addPi && instanceId === shape.ids.pi)) {
+        next[instanceId] = { ...instance, accentColor };
+      }
       continue;
     }
     const environment = existing.environment ?? [];
     if (instanceId === shape.ids.opencode) {
+      if (!addedKey) continue;
       const inline = environment.find((variable) => variable.name === OPENCODE_CONFIG_ENV)?.value;
       const config = patchOpencodeGatewayConfig(
         shape,
@@ -517,11 +521,9 @@ export function extendCustomGatewayInstances(
         ...existing,
         environment: [
           ...environment.filter(
-            (variable) =>
-              variable.name !== OPENCODE_CONFIG_ENV &&
-              (!addedKey || variable.name !== CUSTOM_KEY_ENV),
+            (variable) => variable.name !== OPENCODE_CONFIG_ENV && variable.name !== CUSTOM_KEY_ENV,
           ),
-          ...(addedKey && gateway.key !== null ? [secret(CUSTOM_KEY_ENV, gateway.key)] : []),
+          ...(gateway.key !== null ? [secret(CUSTOM_KEY_ENV, gateway.key)] : []),
           plain(OPENCODE_CONFIG_ENV, config),
         ],
       };

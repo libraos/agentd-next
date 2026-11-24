@@ -5,8 +5,15 @@ import { expect, it, vi } from "vite-plus/test";
 import { render } from "../../../test/render";
 import { CustomGatewayForm } from "./CustomGatewayForm";
 
-const { add } = vi.hoisted(() => ({ add: vi.fn() }));
+const { add, list } = vi.hoisted(() => ({
+  add: vi.fn(),
+  list: vi.fn(() => ({
+    data: null as { gateways: CustomGatewaySummary[] } | null,
+    dataUpdatedAt: 0,
+  })),
+}));
 vi.mock("../../lib/customGatewayState", () => ({
+  useCustomGateways: list,
   useCustomGatewayCommands: () => ({ canChange: true, add }),
 }));
 
@@ -28,6 +35,7 @@ it.for([
       hiddenModels: [],
       agents: format === "openai" ? ["codex", "opencode", "pi"] : ["claude", "opencode"],
     };
+    list.mockReset();
     add
       .mockReset()
       .mockResolvedValueOnce(AsyncResult.success({ kind: "added", gateway }))
@@ -38,7 +46,7 @@ it.for([
             ...gateway,
             format: "both",
             hasKey: true,
-            agents: ["claude", "codex", "opencode"],
+            agents: ["claude", "codex", "opencode", "pi"],
           },
         }),
       );
@@ -68,7 +76,7 @@ it.for([
     });
     await expect.element(action).not.toBeInTheDocument();
     await expect
-      .element(screen.getByText("Work is used by Claude Code, Codex, opencode."))
+      .element(screen.getByText("Work is used by Claude Code, Codex, opencode, Pi."))
       .toBeVisible();
   },
 );
@@ -85,6 +93,7 @@ it("adds both formats with one URL and key", async () => {
     hiddenModels: [],
     agents: ["claude", "codex", "opencode", "pi"],
   };
+  list.mockReset();
   add.mockReset().mockResolvedValueOnce(AsyncResult.success({ kind: "added", gateway }));
   const environmentId = EnvironmentId.make("test");
   await using screen = await render(<CustomGatewayForm environmentId={environmentId} />);
@@ -102,4 +111,34 @@ it("adds both formats with one URL and key", async () => {
     .element(screen.getByText("Work is used by Claude Code, Codex, opencode, Pi."))
     .toBeVisible();
   await expect.element(screen.getByRole("button", { name: /Also use/ })).not.toBeInTheDocument();
+});
+
+it("clears an extension prompt when the saved gateway is removed", async () => {
+  const gateway: CustomGatewaySummary = {
+    id: "work",
+    name: "Work",
+    url: "https://gateway.example.com",
+    format: "openai",
+    hasKey: true,
+    modelCount: 1,
+    models: ["model"],
+    hiddenModels: [],
+    agents: ["codex"],
+  };
+  list.mockReset().mockReturnValue({ data: { gateways: [] }, dataUpdatedAt: 1 });
+  add.mockReset().mockResolvedValueOnce(AsyncResult.success({ kind: "added", gateway }));
+  const environmentId = EnvironmentId.make("test");
+  await using screen = await render(<CustomGatewayForm environmentId={environmentId} />);
+  await screen.getByLabelText("Endpoint URL").fill(gateway.url);
+  await screen.getByRole("button", { name: "Add gateway" }).click();
+  const action = screen.getByRole("button", { name: "Also use Work for Claude Code" });
+  await expect.element(action).toBeVisible();
+
+  list.mockReturnValue({ data: { gateways: [gateway] }, dataUpdatedAt: 2 });
+  await screen.rerender(<CustomGatewayForm environmentId={environmentId} />);
+  await expect.element(action).toBeVisible();
+
+  list.mockReturnValue({ data: { gateways: [] }, dataUpdatedAt: 3 });
+  await screen.rerender(<CustomGatewayForm environmentId={environmentId} />);
+  await expect.element(action).not.toBeInTheDocument();
 });

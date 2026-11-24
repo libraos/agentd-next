@@ -228,6 +228,9 @@ it.effect("extending either legacy format adds the other agent to the same saved
   return Effect.gen(function* () {
     const gateways = yield* CustomGateway.CustomGateway;
     const settings = yield* ServerSettingsService;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { stateDir } = yield* ServerConfig.ServerConfig;
     for (const format of ["openai", "anthropic"] as const) {
       const added = yield* gateways.add({
         url: `${URL}/v1`,
@@ -241,7 +244,7 @@ it.effect("extending either legacy format adds the other agent to the same saved
       yield* gateways.setHiddenModels(id, ["m2"]);
       if (format === "openai") {
         const error = yield* gateways.add({ extendId: id }).pipe(Effect.flip);
-        assert.include(error.message, "needs a key");
+        assert.strictEqual(error.message, "Claude Code needs a key for this gateway.");
         assert.strictEqual(
           (yield* settings.getSettings).customGateways.find((g) => g.id === id)?.format,
           "openai",
@@ -259,6 +262,15 @@ it.effect("extending either legacy format adds the other agent to the same saved
         url: `${URL}/v1`,
         format: "both",
         hasKey: true,
+      });
+      assert.deepStrictEqual(extended.gateway.agents, ["claude", "codex", "opencode", "pi"]);
+      const piModels = yield* fs.readFileString(
+        path.join(stateDir, "pi-gateway", `gw-${id}-pi`, "models.json"),
+      );
+      assert.deepInclude(JSON.parse(piModels).providers[`gw_${id}`], {
+        baseUrl: `${URL}/v1`,
+        apiKey: "$CUSTOM_GATEWAY_API_KEY",
+        models: [{ id: "vendor/m1" }],
       });
       assert.deepStrictEqual(extended.gateway.hiddenModels, ["m2"]);
       assert.deepStrictEqual(extended.gateway.models, ["vendor/m1"]);
@@ -283,7 +295,10 @@ it.effect("extending either legacy format adds the other agent to the same saved
       const inline = instance(current, `gw-${id}-opencode`)?.environment?.find(
         (variable) => variable.name === "OPENCODE_CONFIG_CONTENT",
       )?.value;
-      assert.include(String(inline), "@ai-sdk/openai-compatible");
+      assert.include(
+        String(inline),
+        format === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible",
+      );
       assert.deepStrictEqual(yield* gateways.add({ extendId: id }), extended);
     }
     assert.lengthOf((yield* gateways.list).gateways, 2);

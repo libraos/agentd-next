@@ -11,7 +11,7 @@ import {
 import { T, useGT, useMessages, Var } from "gt-react";
 import { useId, useState, type FormEvent } from "react";
 
-import { useCustomGatewayCommands } from "../../lib/customGatewayState";
+import { useCustomGatewayCommands, useCustomGateways } from "../../lib/customGatewayState";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -40,7 +40,17 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
   // The gateway's model list could not be read: the user may type the ids instead.
   const [modelsProblem, setModelsProblem] = useState<string | null>(null);
   const [models, setModels] = useState("");
-  const [saved, setSaved] = useState<CustomGatewaySummary | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    gateway: CustomGatewaySummary;
+    previousListUpdatedAt: number;
+  } | null>(null);
+  const { data: gatewayList, dataUpdatedAt } = useCustomGateways(environmentId);
+  const saved =
+    confirmation === null
+      ? null
+      : gatewayList !== null && dataUpdatedAt > confirmation.previousListUpdatedAt
+        ? (gatewayList.gateways.find((gateway) => gateway.id === confirmation.gateway.id) ?? null)
+        : confirmation.gateway;
   const [extensionKey, setExtensionKey] = useState("");
   const disabled = busy || !canChange;
   const keyRequired = format !== "openai";
@@ -77,7 +87,7 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
       setModelsProblem(result.value.message);
       return;
     }
-    setSaved(result.value.gateway);
+    setConfirmation({ gateway: result.value.gateway, previousListUpdatedAt: dataUpdatedAt });
     setExtensionKey("");
     if ("extendId" in input) return;
     setUrl("");

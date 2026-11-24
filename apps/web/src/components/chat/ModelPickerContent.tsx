@@ -578,9 +578,8 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
         ? {
             entry,
             gatewayId,
-            source:
-              entry.driverKind === "claudeAgent" ? entry.displayName : gatewayName.join(" · "),
-            agent: entry.driverKind === "claudeAgent" ? undefined : agent,
+            source: gatewayName.join(" · "),
+            agent,
           }
         : { entry, gatewayId: null, source: entry.displayName, agent: undefined };
     });
@@ -591,16 +590,19 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       }
     }
     return new Map(
-      named.map(({ entry, gatewayId, source, agent }) => [
-        entry.instanceId,
-        {
-          source,
-          variant:
-            gatewayId !== null && agent && (readyAgents.get(gatewayId) ?? 0) > 1
-              ? `${source} · ${agent}`
-              : source,
-        },
-      ]),
+      named.map(({ entry, gatewayId, source, agent }) => {
+        const label = entry.driverKind === "claudeAgent" ? entry.displayName : source;
+        return [
+          entry.instanceId,
+          {
+            source: label,
+            variant:
+              gatewayId !== null && agent && (readyAgents.get(gatewayId) ?? 0) > 1
+                ? `${source} · ${agent}`
+                : label,
+          },
+        ];
+      }),
     );
   })();
 
@@ -1060,7 +1062,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                     }
                     sourceColor={sourceColorOf(model)}
                     sources={
-                      !isVariant && row.variants.length > 1 && row.variants.length <= 3
+                      !isVariant && row.variants.length > 1
                         ? row.variants.map((variant) => ({
                             instanceId: variant.instanceId,
                             slug: variant.slug,

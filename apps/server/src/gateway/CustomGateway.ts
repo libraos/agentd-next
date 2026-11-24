@@ -216,20 +216,22 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
       } satisfies CustomGatewayAddResult;
     }
     const key = storedKey ?? (input.key?.trim() || null);
-    if (key === null) return yield* fail("An Anthropic-format gateway needs a key.");
+    if (key === null) return yield* fail("Claude Code needs a key for this gateway.");
     const models = customGatewayModels(current.providerInstances, id);
     if (!models?.length) return yield* fail("This gateway has no models to share.");
     const updated = { ...gateway, format: "both" } as const;
     const addedKey = storedKey === null;
-    const updatePi =
-      addedKey && current.providerInstances[customGatewayInstanceIds(id).pi] !== undefined;
+    const piId = customGatewayInstanceIds(id).pi;
+    const hasPi = current.providerInstances[piId] !== undefined;
+    const addPi = gateway.format === "anthropic" && !hasPi;
+    const updatePi = addedKey && hasPi;
     const writeKey = secrets
       .set(customGatewayKeySecret(id), textEncoder.encode(key))
       .pipe(Effect.catch(storageFailure("store the gateway's key")));
 
     const saved = yield* Effect.gen(function* () {
       if (addedKey) yield* writeKey;
-      if (updatePi) yield* writePi(updated, true, models);
+      if (addPi || updatePi) yield* writePi(updated, true, models);
       return yield* settings
         .updateProviderInstances(
           (instances) =>
@@ -238,6 +240,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
               { ...updated, key, models, piAgentDir: piDirOf(id) },
               gateway.format === "openai" ? "claude" : "codex",
               addedKey,
+              addPi,
             ),
           {
             customGateways: current.customGateways.map((entry) =>
@@ -248,16 +251,29 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
         .pipe(Effect.catch(storageFailure("save the gateway and its agents")));
     }).pipe(
       Effect.onError(() =>
-        addedKey
-          ? Effect.gen(function* () {
-              if (updatePi)
-                yield* writePi(gateway, false, models).pipe(Effect.ignore({ log: true }));
-              yield* secrets.remove(customGatewayKeySecret(id)).pipe(Effect.ignore({ log: true }));
-            })
-          : Effect.void,
+        Effect.gen(function* () {
+          if (addPi) {
+            yield* withFiles(removePiGatewayAgentDir(piDirOf(id))).pipe(
+              Effect.ignore({ log: true }),
+            );
+          }
+          if (updatePi) {
+            yield* writePi(gateway, false, models).pipe(Effect.ignore({ log: true }));
+          }
+          if (addedKey) {
+            yield* secrets.remove(customGatewayKeySecret(id)).pipe(Effect.ignore({ log: true }));
+          }
+        }),
       ),
       Effect.uninterruptible,
     );
+    if (addPi) {
+      yield* withFiles(choosePiFirstRunDefault(settings, piId)).pipe(
+        Effect.catch((cause) =>
+          Effect.logWarning("Custom gateway: could not make Pi the default agent", { cause }),
+        ),
+      );
+    }
     return {
       kind: "added",
       gateway: summarize(saved.providerInstances, updated, true),

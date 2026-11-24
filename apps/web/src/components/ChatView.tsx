@@ -47,6 +47,7 @@ import {
   isThreadEnvironmentLocked,
   resolveDraftHeroState,
   resolveThreadErrorBanner,
+  threadErrorProviderLabel,
 } from "./ChatView.logic";
 import { useQueuedRunEdit } from "./chat/useQueuedRunEdit";
 import { recallCheckoutIsRepo, rememberCheckoutIsRepo } from "./ChatView.logic";
@@ -79,7 +80,6 @@ import {
   type ModelSelection,
   type PreviewAnnotationPayload,
   ProviderInstanceId,
-  customGatewayIdOfInstance,
   type ServerProvider,
   type ScopedThreadRef,
   type ThreadId,
@@ -1419,18 +1419,15 @@ export default function ChatView(props: ChatViewProps) {
   });
   const selectedProvider = selectedProviderEntry?.driverKind ?? requestedDriverKind;
   const activeProviderInstanceId = selectedProviderEntry?.instanceId ?? null;
-  const errorInstanceId = serverRuntime?.providerInstanceId;
+  const errorRun =
+    serverRuntime?.lastErrorClass != null
+      ? serverProjection?.runs.find((run) => run.id === serverLatestRun?.runId)
+      : undefined;
+  const errorInstanceId = errorRun?.providerInstanceId ?? serverRuntime?.providerInstanceId;
   const threadErrorProvider =
-    !threadErrorIsServerRuntimeError ||
-    timelineThreadError === null ||
-    errorInstanceId === undefined
-      ? null
-      : errorInstanceId === "claudeAgent"
-        ? gt("Claude Code (built-in)")
-        : customGatewayIdOfInstance(errorInstanceId) !== null
-          ? (providerInstanceEntries.find((entry) => entry.instanceId === errorInstanceId)
-              ?.displayName ?? errorInstanceId)
-          : null;
+    threadErrorIsServerRuntimeError && timelineThreadError !== null
+      ? threadErrorProviderLabel(errorInstanceId, providerInstanceEntries, messages)
+      : null;
   const activeProviderStatus = selectedProviderEntry?.snapshot ?? null;
   const activeUsageModel =
     [

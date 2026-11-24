@@ -24,6 +24,7 @@ import {
   recallCheckoutIsRepo,
   rememberCheckoutIsRepo,
   resolveThreadErrorBanner,
+  threadErrorProviderLabel,
 } from "./ChatView.logic";
 import { ProviderDriverKind, type ServerProvider } from "@t3tools/contracts";
 import { deriveProviderInstanceEntries } from "../providerInstances";
@@ -1694,6 +1695,29 @@ describe("prepareRevertedMessageAttachments", () => {
     ]);
     expect(store.addImages(target, repeat)).toEqual([]);
     expect(store.getComposerDraft(target)?.images.map(({ id }) => id)).toEqual(["restored"]);
+  });
+});
+
+describe("threadErrorProviderLabel", () => {
+  it.each([
+    { instanceId: "codex", displayName: undefined, expected: "Codex" },
+    {
+      instanceId: "libraosCodex",
+      displayName: "Codex · LibraOS Gateway",
+      expected: "Codex · LibraOS Gateway",
+    },
+    { instanceId: "libraosCodex", displayName: undefined, expected: "LibraOS Gateway" },
+    {
+      instanceId: "gw-work-claude",
+      displayName: "Claude Code · Work",
+      expected: "Claude Code · Work",
+    },
+    { instanceId: "claudeAgent", displayName: undefined, expected: "Claude Code (built-in)" },
+    { instanceId: "unrelated", displayName: undefined, expected: null },
+  ])("labels the source $instanceId as $expected", ({ instanceId, displayName, expected }) => {
+    const id = ProviderInstanceId.make(instanceId);
+    const entries = displayName === undefined ? [] : [{ instanceId: id, displayName }];
+    expect(threadErrorProviderLabel(id, entries)).toBe(expected);
   });
 });
 

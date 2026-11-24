@@ -2,12 +2,14 @@
 
 - `packages/contracts/src/rpc.ts` — Accept an in-place format extension on the existing protected gateway save RPC.
 - `apps/server/src/serverSettings.ts` — Save the gateway format and its provider instances in one settings write.
-- `apps/web/src/components/ChatView.tsx` — Resolve a provider error's source from the run's instance.
+- `apps/web/src/components/ChatView.tsx` — Resolve Claude Code, Codex, and gateway errors from the failed run's provider.
+- `apps/web/src/components/ChatView.logic.ts` — Resolve display names for built-in and gateway error sources.
+- `apps/web/src/components/ChatView.logic.test.ts` — Verify Codex and LibraOS Gateway error labels.
 - `apps/web/src/components/chat/ChatBannerLane.tsx` — Forward the source to the thread error banner.
 - `apps/web/src/components/chat/ThreadErrorBanner.tsx` — Show which provider reported the error.
-- `apps/web/src/components/chat/ModelPickerContent.tsx` — Keep the Claude Code gateway's full name and use the existing expander for four or more sources.
+- `apps/web/src/components/chat/ModelPickerContent.tsx` — Keep the full Claude Code label for a single source and use the existing gateway-first labels and hover choices for shared models.
 - `apps/web/src/components/chat/ModelListRow.tsx` — Give source labels space to show the gateway name.
-- `apps/web/src/components/chat/ProviderModelPicker.tsx` — Identify the built-in Claude Code profile or named gateway in the composer.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx` — Identify the Claude Code or Codex source in the composer when custom gateways are configured.
 - `apps/web/src/components/chat/ProviderModelPicker.browser.test.tsx` — Verify the picker distinguishes built-in Claude Code and gateway-backed agents on a shared model.
 - `apps/web/src/i18n/translations/de.json` — Translate the format, save confirmation, and Claude source labels.
 - `apps/web/src/i18n/translations/en.json` — Extract the format, save confirmation, and Claude source labels.
