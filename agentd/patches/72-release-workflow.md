@@ -30,7 +30,7 @@ ID); electron-builder warns about exactly that combination. `notarize: false` ma
 - Triggers: tag `vX.Y.Z` and `workflow_dispatch` (input `agentd_release`). The tag must equal
   `apps/desktop/package.json`'s version, or the run fails at once (patch 144; before it, `v*-agentd.*`).
 - `prepare` resolves the version and one agentd release for all builds (input, else the `AGENTD_RELEASE`
-  repository variable, else the latest of libraos/cli).
+  repository variable, else the latest of libraos/libraos-core).
 - `build` matrix: `ubuntu-latest` linux x64, `windows-latest` win x64, `macos-14` mac arm64,
   `macos-15-intel` mac x64. The task named `macos-13`; GitHub retired that image in December 2025, and
   `macos-15-intel` is its Intel replacement. Each installs Rust 1.100.0 (as the local Docker image) with the
@@ -68,7 +68,7 @@ installer installs and the app starts.
 - That electron-builder ad-hoc signs (log line `identityName=-`) and the `.dmg` opens with right-click →
   Open on Apple Silicon and Intel, not "damaged".
 - That `setup-vp` installs dependencies on Windows and macOS as it does on Linux in `ci.yml`.
-- That `gh release download` from libraos/agentd works with this repository's `GITHUB_TOKEN`, and
+- That `gh release download` from libraos/libraos-core works with this repository's `GITHUB_TOKEN`, and
   `gh release create --draft` makes the draft with all eight files.
 - That Windows Git Bash runs `build-desktop.sh` end to end (path handling, `ls` of the output).
 - `.github/workflows/release.yml`: the Linux build runs on `ubuntu-24.04`, not `ubuntu-latest` (now 26.04 with glibc 2.42, above the 2.39 ceiling the build enforces).

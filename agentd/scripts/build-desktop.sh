@@ -12,7 +12,7 @@
 #   AGENTD_UPDATE_REPOSITORY  GitHub releases the app updates from (default libraos/next;
 #                             empty: no update feed)
 #   AGENTD_DIST_DIR=DIR       agentd release assets and their SHA256SUMS; unset: downloaded with gh
-#   AGENTD_RELEASE=vX.Y.Z     the agentd release to download (default: the latest of libraos/cli)
+#   AGENTD_RELEASE=vX.Y.Z     the agentd release to download (default: the latest of libraos/libraos-core)
 #   AGENTD_BUILD_ON_HOST=1    run the packager here, not in the container (the host then needs
 #                             cargo, cc, make, libsecret-1-dev and ImageMagick; win: Windows with
 #                             MSVC, run from Git Bash)
@@ -65,14 +65,14 @@ esac
 
 if [ "${AGENTD_BUILD_INSIDE:-}" != 1 ]; then
   if [ -z "${AGENTD_DIST_DIR:-}" ]; then
-    release=${AGENTD_RELEASE:-$(gh release view -R libraos/cli --json tagName -q .tagName)}
+    release=${AGENTD_RELEASE:-$(gh release view -R libraos/libraos-core --json tagName -q .tagName)}
     AGENTD_DIST_DIR=$repo/release/agentd-dist/$release
     # The Skills too: the packager bundles them beside the binary (#55).
     # The packager checks each one against SHA256SUMS before bundling it.
     if [ ! -s "$AGENTD_DIST_DIR/SHA256SUMS" ] || [ ! -s "$AGENTD_DIST_DIR/$agentd_asset" ] ||
       [ ! -s "$AGENTD_DIST_DIR/SKILL.md" ] || [ ! -s "$AGENTD_DIST_DIR/SKILL-agentd.md" ]; then
       mkdir -p "$AGENTD_DIST_DIR"
-      gh release download "$release" -R libraos/cli -D "$AGENTD_DIST_DIR" --clobber \
+      gh release download "$release" -R libraos/libraos-core -D "$AGENTD_DIST_DIR" --clobber \
         -p SHA256SUMS -p "$agentd_asset" -p "$core_asset" -p SKILL.md -p SKILL-agentd.md
     fi
   fi
