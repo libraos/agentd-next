@@ -2,7 +2,7 @@
 
 ## What is LibraOS Next?
 
-An IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Core](https://github.com/libraos/libraos-core) runs, each with a goal, acceptance criteria, a check and a budget. LibraOS Core is the authority on tasks, approvals and workers; the app shows them.
+An IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Core](https://github.com/libraos/engine) runs, each with a goal, acceptance criteria, a check and a budget. LibraOS Core is the authority on tasks, approvals and workers; the app shows them.
 
 ## Is LibraOS Next a harness?
 
