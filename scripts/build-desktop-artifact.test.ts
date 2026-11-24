@@ -608,6 +608,13 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.nestedPropertyVal(linux, "extraMetadata.desktopName", "com.libraos.next.desktop");
       assert.nestedPropertyVal(linux, "linux.desktop.entry.StartupWMClass", "com.libraos.next");
       assert.nestedPropertyVal(linux, "deb.packageName", "libraos-next");
+      // dpkg removes AgentD Next's package instead of leaving it to relaunch and update again.
+      assert.includeOrderedMembers((linux.deb as { fpm: string[] }).fpm, [
+        "--conflicts",
+        "agentd-desktop",
+        "--replaces",
+        "agentd-desktop",
+      ]);
       assert.nestedPropertyVal(linux, "extraMetadata.name", "libraos-next");
       // AgentD Next's links keep opening the app.
       assert.deepNestedPropertyVal(linux, "linux.protocols[0].schemes", [

@@ -13,6 +13,32 @@
 !define LEGACY_NIGHTLY_APP_NAME "AgentD Desktop (Nightly)"
 !define PREVIOUS_APP_NAME "AgentD Next"
 !define PREVIOUS_NIGHTLY_APP_NAME "AgentD Next (Nightly)"
+; electron-builder's GUID for AgentD Next's (and AgentD Desktop's) app id, ai.libraos.agentd-desktop.
+!define PREVIOUS_APP_GUID "041eb987-cbe3-5982-b45c-5b3d7642e103"
+
+; LibraOS Next takes AgentD Next's place: its own uninstaller runs silently with --updated, so its
+; data stays for LibraOS Next's first-start copy and the agentd it installed stays (agentd-uninstall.nsh).
+; Left installed, AgentD Next would keep offering this release as its update.
+!macro removePreviousApp
+  Push $R0
+  Push $R1
+  Push $R2
+  ReadRegStr $R0 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PREVIOUS_APP_GUID}" UninstallString
+  ReadRegStr $R1 HKCU "Software\${PREVIOUS_APP_GUID}" InstallLocation
+  ${If} $R0 != ""
+  ${AndIf} $R1 != ""
+  ${AndIf} $R1 != $INSTDIR
+    !insertmacro GetInQuotes $R2 "$R0"
+    ${If} ${FileExists} "$R2"
+      CopyFiles /SILENT "$R2" "$PLUGINSDIR\previous-app-uninstaller.exe"
+      ExecWait '"$PLUGINSDIR\previous-app-uninstaller.exe" /S /KEEP_APP_DATA /currentuser --updated _?=$R1'
+    ${EndIf}
+  ${EndIf}
+  ClearErrors
+  Pop $R2
+  Pop $R1
+  Pop $R0
+!macroend
 
 !macro customAppRunningMessages
   Push $0
@@ -41,6 +67,7 @@
 !macroend
 
 !macro customInstall
+  !insertmacro removePreviousApp
   !ifndef DO_NOT_CREATE_START_MENU_SHORTCUT
     ${IfNot} ${FileExists} "$newStartMenuLink"
       !insertmacro createMenuDirectory
