@@ -13396,5 +13396,33 @@
   "27d76249d09eb69f": "Review-Leitfaden bereit",
   "faa3bb26abb39c93": "Review-Leitfaden fehlgeschlagen",
   "b7df38b7d8792d78": "Leitfaden öffnen",
-  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden"
+  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden",
+  "864f9438f3e5a492": "Wartet schon lange",
+  "f0e8f441d0a36f07": [
+    "In der Warteschlange: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "30f6f44cf9088f44": "Start angefordert",
+  "76dd87237a697b61": "Starten mit…",
+  "2d2c04b2e94679d0": [
+    "Aufgabe konnte nicht gestartet werden: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "86c28db793e779c6": "Startet nicht von selbst: Es wurde kein Agent ausgewählt",
+  "8d7eea7da969c3dd": "Wartet auf einen Worker für {worker}",
+  "fd2765bb89d940c8": "Seit {count, plural, one {{count} Tag} other {{count} Tagen}} in der Warteschlange",
+  "5450243e54af24ca": "Seit {count, plural, one {{count} Stunde} other {{count} Stunden}} in der Warteschlange",
+  "cea29f889a31981d": "Seit {count, plural, one {{count} Minute} other {{count} Minuten}} in der Warteschlange",
+  "3bbede5bac09058a": "Seit weniger als einer Minute in der Warteschlange",
+  "9090c8b2e973fa26": "Diese Aufgabe wartet nicht mehr auf einen Agenten.",
+  "0fdac573aa09e72b": "Diese Aufgabe wurde an eine bestimmte Sitzung gesendet.",
+  "9d82c78119594a68": "Für diese Aufgabe ist kein lokaler Projektordner verfügbar."
 }

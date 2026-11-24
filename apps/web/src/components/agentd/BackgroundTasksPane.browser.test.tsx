@@ -9,7 +9,7 @@ import { AsyncResult } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
-import { render } from "../../../test/render";
+import { act, fakeTimers, render } from "../../../test/render";
 import type * as AgentdState from "../../lib/agentdState";
 import { ConfirmDialogHost } from "../ConfirmDialogHost";
 import { BackgroundTasksPane } from "./BackgroundTasksPane";
@@ -18,6 +18,7 @@ const bridge = vi.hoisted(() => ({
   useAgentdTasks: vi.fn<typeof AgentdState.useAgentdTasks>(),
   useAgentdTask: vi.fn<typeof AgentdState.useAgentdTask>(),
   useAgentdTaskOutput: vi.fn<typeof AgentdState.useAgentdTaskOutput>(),
+  retryStart: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["retryStart"]>(),
   stopTask: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["stopTask"]>(),
   projects: vi.fn<() => ReadonlyArray<Record<string, unknown>>>(() => []),
   review: vi.fn<() => { data: null; error: string | null }>(() => ({ data: null, error: null })),
@@ -29,10 +30,11 @@ vi.mock("../../lib/agentdState", async () => {
   return {
     ...bridge,
     agentdEnvironment: {
+      retryStart: { permissionAtom: () => canStop },
       stopTask: { permissionAtom: () => canStop },
       cloudReview: (target: unknown) => target,
     },
-    useAgentdCommands: () => ({ stopTask: bridge.stopTask }),
+    useAgentdCommands: () => ({ stopTask: bridge.stopTask, retryStart: bridge.retryStart }),
     useAgentdPermissionMode: () => ({ data: null, error: null }),
   };
 });
@@ -212,6 +214,80 @@ it("follows a running task's output and only stops the task after confirmation",
   expect(bridge.stopTask).toHaveBeenCalledExactlyOnceWith({
     environmentId: threadRef.environmentId,
     input: { id: "hof-123abc", reason: "Stopped from LibraOS Next" },
+  });
+});
+
+function setupQueuedTasks() {
+  setup();
+  const queued: AgentdTaskRow = {
+    ...running,
+    id: "hof-123def",
+    title: "Plan the widget",
+    state: "offered",
+    workerRunning: false,
+    workerTool: null,
+  };
+  const assigned: AgentdTaskRow = { ...queued, id: "hof-123fed", title: "Write the docs" };
+  bridge.useAgentdTasks.mockReturnValue(answer([running, queued, assigned]));
+  bridge.useAgentdTask.mockImplementation((id) =>
+    answer(
+      id === running.id
+        ? taskDetails(running, { started: "2026-11-22T08:59:55Z" })
+        : id === assigned.id
+          ? taskDetails(assigned, { workerTool: "codex", started: "2026-11-22T08:40:00Z" })
+          : taskDetails(queued, { budget: "30m", started: "2026-11-18T09:00:00Z" }),
+    ),
+  );
+  return queued;
+}
+
+it("shows queue age without spending time budget and keeps the running timer live", async () => {
+  setupQueuedTasks();
+  using _timers = fakeTimers({ now: new Date("2026-11-22T09:00:00Z") });
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  const runningRow = screen.getByRole("button", { name: /Build the widget/ });
+  const queuedRow = screen.getByRole("button", { name: /Plan the widget/ });
+  const assignedRow = screen.getByRole("button", { name: /Write the docs/ });
+  await expect.element(screen.getByRole("heading", { name: "Running 1" })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Queued 2" })).toBeVisible();
+  await expect
+    .element(queuedRow.getByText("Won't start on its own: no agent chosen", { exact: true }))
+    .toBeVisible();
+  await expect.element(queuedRow.getByText("Waiting a long time", { exact: true })).toBeVisible();
+  await expect
+    .element(assignedRow.getByText("Waiting for a Codex worker", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(assignedRow.getByText("Queued for 20 minutes", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(screen.getByRole("progressbar", { name: "Budget used" }))
+    .toHaveAttribute("aria-valuenow", "0");
+  await expect.element(runningRow.getByText("5s", { exact: true })).toBeVisible();
+  const queuedText = queuedRow.element().textContent;
+  await act(() => vi.advanceTimersByTime(2_000));
+  await expect.element(runningRow.getByText("7s", { exact: true })).toBeVisible();
+  expect(queuedRow.element().textContent).toBe(queuedText);
+  expect(queuedText).toContain("Queued for 4 days");
+});
+
+it("offers Start with only for the unassigned task and keeps Stop available", async () => {
+  const queued = setupQueuedTasks();
+  bridge.retryStart.mockResolvedValue(
+    AsyncResult.success({ id: queued.id, started: true, note: null }),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  const queuedItem = screen.getByRole("listitem").filter({ hasText: queued.title });
+  await expect.element(queuedItem.getByRole("button", { name: "Stop", exact: true })).toBeEnabled();
+  const start = screen.getByRole("button", { name: "Start with…" });
+  await expect.element(start).toBeVisible();
+  expect(start.all()).toHaveLength(1);
+  await userEvent.click(start);
+  await userEvent.click(page.getByRole("menuitem", { name: "Codex", exact: true }));
+  await expect.element(screen.getByRole("button", { name: "Start requested" })).toBeDisabled();
+  expect(bridge.retryStart).toHaveBeenCalledExactlyOnceWith({
+    environmentId: threadRef.environmentId,
+    input: { id: queued.id, action: "queued", worker: "codex" },
   });
 });
 

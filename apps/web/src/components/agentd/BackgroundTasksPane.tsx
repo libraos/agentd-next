@@ -6,7 +6,7 @@ import { useQuietThreadProjection } from "../../state/entities";
 import { deriveThreadPendingBackgroundTasks } from "../ChatView.logic";
 import { useCommandOutputStreaming } from "../chat/CommandOutputPanel";
 import { AgentdBackgroundTaskRow } from "./AgentdBackgroundTaskRow";
-import { isFinishedAgentdTask } from "./backgroundTasks.logic";
+import { isFinishedAgentdTask, isQueuedAgentdTask } from "./backgroundTasks.logic";
 import { SessionBackgroundTaskRow } from "./SessionBackgroundTaskRow";
 
 export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
@@ -16,7 +16,10 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
   const sessionTasks = deriveThreadPendingBackgroundTasks(projection);
   const streamsOutput = useCommandOutputStreaming(environmentId);
   const rows = data ?? [];
-  const running = rows.filter((row) => !isFinishedAgentdTask(row.state));
+  const running = rows.filter(
+    (row) => !isFinishedAgentdTask(row.state) && !isQueuedAgentdTask(row),
+  );
+  const queued = rows.filter(isQueuedAgentdTask);
   const finished = rows.filter((row) => isFinishedAgentdTask(row.state));
 
   return (
@@ -62,6 +65,25 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
                 ))}
               </ul>
             )}
+          </section>
+        ) : null}
+        {queued.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-xs font-medium text-muted-foreground">
+              <T>
+                Queued <Var>{queued.length}</Var>
+              </T>
+            </h2>
+            <ul className="space-y-1.5">
+              {queued.map((row) => (
+                <AgentdBackgroundTaskRow
+                  key={row.id}
+                  row={row}
+                  environmentId={environmentId}
+                  finished={false}
+                />
+              ))}
+            </ul>
           </section>
         ) : null}
         {data !== null && data.length > 0 ? (

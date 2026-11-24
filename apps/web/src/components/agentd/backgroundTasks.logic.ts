@@ -61,6 +61,70 @@ export function isFinishedAgentdTask(state: string): boolean {
   return state === "done" || state === "delivered" || state === "cancelled" || state === "declined";
 }
 
+export function isQueuedAgentdTask(
+  row: Pick<AgentdTaskRow, "state" | "workerRunning" | "workerState" | "runsOn">,
+): boolean {
+  return (
+    row.state === "offered" &&
+    !row.workerRunning &&
+    row.runsOn !== "cloud" &&
+    row.workerState !== "blocked" &&
+    row.workerState !== "waiting_answer" &&
+    row.workerState !== "gone" &&
+    row.workerState !== "stopped"
+  );
+}
+
+export function queuedAgentdTaskReason(
+  worker: string | null,
+  resolve: MessageResolver = m,
+): string {
+  return worker === null
+    ? resolve(msg("Won't start on its own: no agent chosen"))
+    : resolve(msg("Waiting for a {worker} worker"), { worker });
+}
+
+export function queuedAgentdTaskWait(
+  created: string | null,
+  now: number,
+  resolve: MessageResolver = m,
+): { label: string | null; long: boolean } {
+  const elapsed = now - Date.parse(created ?? "");
+  if (!Number.isFinite(elapsed)) return { label: null, long: false };
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const long = elapsed > day;
+  if (elapsed >= day) {
+    return {
+      label: resolve(msg("Queued for {count, plural, one {{count} day} other {{count} days}}"), {
+        count: Math.floor(elapsed / day),
+      }),
+      long,
+    };
+  }
+  if (elapsed >= hour) {
+    return {
+      label: resolve(msg("Queued for {count, plural, one {{count} hour} other {{count} hours}}"), {
+        count: Math.floor(elapsed / hour),
+      }),
+      long,
+    };
+  }
+  if (elapsed >= minute) {
+    return {
+      label: resolve(
+        msg("Queued for {count, plural, one {{count} minute} other {{count} minutes}}"),
+        {
+          count: Math.floor(elapsed / minute),
+        },
+      ),
+      long,
+    };
+  }
+  return { label: resolve(msg("Queued for less than a minute")), long };
+}
+
 export function runningAgentdTaskLabel(
   {
     state,

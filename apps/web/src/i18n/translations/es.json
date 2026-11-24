@@ -13391,5 +13391,33 @@
   "27d76249d09eb69f": "Guía de revisión lista",
   "faa3bb26abb39c93": "Falló la guía de revisión",
   "b7df38b7d8792d78": "Abrir guía",
-  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión"
+  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión",
+  "864f9438f3e5a492": "Lleva mucho tiempo esperando",
+  "f0e8f441d0a36f07": [
+    "En cola: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "30f6f44cf9088f44": "Inicio solicitado",
+  "76dd87237a697b61": "Iniciar con…",
+  "2d2c04b2e94679d0": [
+    "No se pudo iniciar la tarea: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "86c28db793e779c6": "No se iniciará por sí sola: no se ha elegido ningún agente",
+  "8d7eea7da969c3dd": "En espera de un proceso de trabajo de {worker}",
+  "fd2765bb89d940c8": "En cola desde hace {count, plural, one {{count} día} other {{count} días}}",
+  "5450243e54af24ca": "En cola desde hace {count, plural, one {{count} hora} other {{count} horas}}",
+  "cea29f889a31981d": "En cola desde hace {count, plural, one {{count} minuto} other {{count} minutos}}",
+  "3bbede5bac09058a": "En cola desde hace menos de un minuto",
+  "9090c8b2e973fa26": "Esta tarea ya no está esperando a un agente.",
+  "0fdac573aa09e72b": "Esta tarea se envió a una sesión concreta.",
+  "9d82c78119594a68": "No hay una copia de trabajo local para esta tarea."
 }

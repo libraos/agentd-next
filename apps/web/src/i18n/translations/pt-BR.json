@@ -13395,5 +13395,33 @@
   "27d76249d09eb69f": "Guia de revisão pronto",
   "faa3bb26abb39c93": "O guia de revisão falhou",
   "b7df38b7d8792d78": "Abrir guia",
-  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão"
+  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão",
+  "864f9438f3e5a492": "Esperando há muito tempo",
+  "f0e8f441d0a36f07": [
+    "Na fila: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "30f6f44cf9088f44": "Início solicitado",
+  "76dd87237a697b61": "Iniciar com…",
+  "2d2c04b2e94679d0": [
+    "Não foi possível iniciar a tarefa: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "86c28db793e779c6": "Não iniciará por conta própria: nenhum agente foi escolhido",
+  "8d7eea7da969c3dd": "Aguardando um executor de {worker}",
+  "fd2765bb89d940c8": "Na fila há {count, plural, one {{count} dia} other {{count} dias}}",
+  "5450243e54af24ca": "Na fila há {count, plural, one {{count} hora} other {{count} horas}}",
+  "cea29f889a31981d": "Na fila há {count, plural, one {{count} minuto} other {{count} minutos}}",
+  "3bbede5bac09058a": "Na fila há menos de um minuto",
+  "9090c8b2e973fa26": "Esta tarefa não está mais aguardando um agente.",
+  "0fdac573aa09e72b": "Esta tarefa foi enviada para uma sessão específica.",
+  "9d82c78119594a68": "Não há uma cópia de trabalho local disponível para esta tarefa."
 }

@@ -597,6 +597,62 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("starts an existing unassigned local task through the app session", () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const queued = {
+        id: "hof-0e3d000001",
+        state: "offered",
+        to_session: "any",
+        origin: { dir: "/work/app" },
+      };
+      let details: Record<string, unknown> = queued;
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const line = input.args.join(" ");
+        calls.push(line);
+        switch (line) {
+          case "handoff show hof-0e3d000001 --json":
+            return Effect.succeed(output(JSON.stringify(details)));
+          case "handoff list --json":
+            return Effect.succeed(output(JSON.stringify([details])));
+          case "session join --id agentd-new --tool other --label agentd new --wake pull --cwd /work/app":
+          case "handoff dispatch hof-0e3d000001 --tool codex --cwd /work/app --session agentd-new":
+            return Effect.succeed(output("{}"));
+          default:
+            return Effect.die(`unexpected agentd ${line}`);
+        }
+      });
+      const input = { id: queued.id, worker: "codex", action: "queued" } as const;
+      expect(yield* bridge.retryStart(input)).toEqual({ id: queued.id, started: true, note: null });
+      expect(calls.slice(-2)).toEqual([
+        "session join --id agentd-new --tool other --label agentd new --wake pull --cwd /work/app",
+        "handoff dispatch hof-0e3d000001 --tool codex --cwd /work/app --session agentd-new",
+      ]);
+      for (const workerField of ["worker", "worker_tool", "start_tool"]) {
+        details = { ...queued, [workerField]: "claude" };
+        expect((yield* bridge.task({ id: queued.id })).workerTool).toBe("claude");
+      }
+      for (const changed of [
+        { state: "claimed" },
+        { worker_running: true },
+        { worker_state: "blocked" },
+        { start_tool: "claude" },
+        { worker: "codex" },
+        { worker_tool: "codex" },
+        { cloud_state: "queued" },
+        { to_session: "codex-other" },
+        { origin: null },
+      ]) {
+        details = { ...queued, ...changed };
+        calls.length = 0;
+        yield* Effect.flip(bridge.retryStart(input));
+        expect(
+          calls.every((call) => call.startsWith("handoff show") || call.startsWith("handoff list")),
+        ).toBe(true);
+      }
+    }),
+  );
+
   it.effect("names the task holding the directory, and releases or forces past it as chosen", () =>
     Effect.gen(function* () {
       const calls: string[] = [];

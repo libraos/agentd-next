@@ -13404,5 +13404,33 @@
   "27d76249d09eb69f": "Review guide ready",
   "faa3bb26abb39c93": "Review guide failed",
   "b7df38b7d8792d78": "Open guide",
-  "9e91e9a77b664e4e": "Could not start a review guide"
+  "9e91e9a77b664e4e": "Could not start a review guide",
+  "864f9438f3e5a492": "Waiting a long time",
+  "f0e8f441d0a36f07": [
+    "Queued ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "30f6f44cf9088f44": "Start requested",
+  "76dd87237a697b61": "Start with…",
+  "2d2c04b2e94679d0": [
+    "Couldn't start task: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "86c28db793e779c6": "Won't start on its own: no agent chosen",
+  "8d7eea7da969c3dd": "Waiting for a {worker} worker",
+  "fd2765bb89d940c8": "Queued for {count, plural, one {{count} day} other {{count} days}}",
+  "5450243e54af24ca": "Queued for {count, plural, one {{count} hour} other {{count} hours}}",
+  "cea29f889a31981d": "Queued for {count, plural, one {{count} minute} other {{count} minutes}}",
+  "3bbede5bac09058a": "Queued for less than a minute",
+  "9090c8b2e973fa26": "This task is no longer waiting for an agent.",
+  "0fdac573aa09e72b": "This task was sent to a specific session.",
+  "9d82c78119594a68": "No local checkout is available for this task."
 }

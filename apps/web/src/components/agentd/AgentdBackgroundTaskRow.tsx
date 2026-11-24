@@ -7,6 +7,7 @@ import { CheckIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
+import { useNowMinute } from "../../hooks/useNowMinute";
 import { agentdEnvironment, useAgentdCommands, useAgentdTask } from "../../lib/agentdState";
 import { tickTextContent } from "../../lib/tickTextContent";
 import { formatEnvironmentQueryError } from "../../state/query";
@@ -21,8 +22,12 @@ import {
   agentdTaskBudgetUse,
   type AgentdTaskBudgetTone,
   finishedAgentdTaskLabel,
+  isQueuedAgentdTask,
+  queuedAgentdTaskReason,
+  queuedAgentdTaskWait,
   runningAgentdTaskLabel,
 } from "./backgroundTasks.logic";
+import { StartQueuedTaskMenu } from "./StartQueuedTaskMenu";
 import { budgetDollarLimit, budgetMinutes } from "./startTask.logic";
 
 function AgentdTaskLocation({ location }: { readonly location: AgentdRunsOn }) {
@@ -78,6 +83,22 @@ function TaskDuration(props: {
         )}
       </TooltipPopup>
     </Tooltip>
+  );
+}
+
+function QueueWait({ created }: { readonly created: string | null }) {
+  const resolve = useMessages();
+  const minute = useNowMinute();
+  const { label, long } = queuedAgentdTaskWait(created, Date.parse(`${minute}Z`), resolve);
+  return (
+    <>
+      {label === null ? null : <span className="italic">{label}</span>}
+      {long ? (
+        <Badge variant="secondary">
+          <T>Waiting a long time</T>
+        </Badge>
+      ) : null}
+    </>
   );
 }
 
@@ -441,7 +462,14 @@ export function AgentdBackgroundTaskRow(props: {
   const worker = workerName(task?.workerTool ?? row.workerTool);
   const location = task?.runsOn ?? (row.runsOn === "cloud" ? row.runsOn : null);
   const cloud = location === "cloud";
-  const elapsedMs = useElapsedMs(task, !finished);
+  const queued =
+    !finished &&
+    isQueuedAgentdTask({
+      ...row,
+      runsOn: location ?? row.runsOn,
+      workerState: task?.workerState ?? row.workerState,
+    });
+  const elapsedMs = useElapsedMs(queued ? null : task, !finished && !queued);
   return (
     <BackgroundTaskCard
       title={title}
@@ -456,7 +484,11 @@ export function AgentdBackgroundTaskRow(props: {
                 : runningAgentdTaskLabel(row, task?.budgetState ?? null, resolve)}
             </span>
           )}
-          {!finished && (!cloud || worker !== null) ? (
+          {queued ? (
+            task || worker !== null ? (
+              <span>{queuedAgentdTaskReason(worker, resolve)}</span>
+            ) : null
+          ) : !finished && (!cloud || worker !== null) ? (
             <span>{worker ?? <T>Agent unknown</T>}</span>
           ) : null}
           {location === null || cloud ? null : (
@@ -464,7 +496,9 @@ export function AgentdBackgroundTaskRow(props: {
               <AgentdTaskLocation location={location} />
             </span>
           )}
-          {task !== null || error !== null ? (
+          {queued ? (
+            <QueueWait created={task?.started ?? row.started} />
+          ) : task !== null || error !== null ? (
             <TaskDuration
               started={task?.started ?? null}
               ended={task?.updated ?? null}
@@ -497,7 +531,12 @@ export function AgentdBackgroundTaskRow(props: {
       }
       action={
         !finished ? (
-          <StopTaskButton id={row.id} title={title} environmentId={environmentId} />
+          <div className="flex flex-wrap justify-end gap-1">
+            {queued && task && worker === null ? (
+              <StartQueuedTaskMenu id={row.id} environmentId={environmentId} />
+            ) : null}
+            <StopTaskButton id={row.id} title={title} environmentId={environmentId} />
+          </div>
         ) : cloud ? (
           <CloudTaskReviewActions row={row} task={task} environmentId={environmentId} />
         ) : null

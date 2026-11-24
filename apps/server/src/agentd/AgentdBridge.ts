@@ -643,7 +643,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   // Claude Code checks the main checkout, also for a worktree, then the folder and its parents.
   const ensureClaudeTrust = Effect.fn("AgentdBridge.ensureClaudeTrust")(function* (
     cwd: string,
-    consent: boolean,
+    consent: boolean | string,
   ) {
     const commonDir = yield* runner
       .run({
@@ -658,7 +658,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       );
     const folder = projectFolder(cwd, commonDir, pathService);
     if ((yield* claudeTrust.trusted(folder)) || (yield* claudeTrust.trusted(cwd))) return;
-    if (!consent)
+    if (consent !== true && consent !== folder)
       return yield* new AgentdCommandError({
         message: `Claude Code hasn’t been allowed to work in ${folder} yet.`,
         notSetUp: false,
@@ -693,8 +693,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     id: string,
     worker: AgentdWorkerTool,
     force: boolean,
+    queuedCwd?: string,
   ) {
-    return yield* run(yield* args(() => agentdArgs.dispatch(id, worker, force))).pipe(
+    return yield* run(yield* args(() => agentdArgs.dispatch(id, worker, force, queuedCwd))).pipe(
       Effect.as<AgentdStartTaskResult>({ id, started: true, note: null }),
       Effect.catchTags({ AgentdCommandError: (error) => refused(id, error.message) }),
     );
@@ -722,6 +723,49 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   });
 
   const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
+    if (input.action === "queued") {
+      const show = yield* readShow(input.id);
+      const task = AgentdJson.agentdTask(show);
+      const row = yield* listRow(input.id);
+      if (
+        task.state !== "offered" ||
+        row?.state !== "offered" ||
+        row.worker_running ||
+        row.claimer ||
+        task.workerState === "blocked" ||
+        task.workerState === "waiting_answer" ||
+        task.workerState === "gone" ||
+        task.workerState === "stopped" ||
+        task.workerTool !== null ||
+        task.runsOn !== "local" ||
+        task.cloud ||
+        row.cloud_state
+      ) {
+        return yield* new AgentdCommandError({
+          message: "This task is no longer waiting for an agent.",
+          notSetUp: false,
+          queuedStartRefusal: "no-longer-queued",
+        });
+      }
+      if (show.to_session !== "any") {
+        return yield* new AgentdCommandError({
+          message: "This task is addressed to a specific session.",
+          notSetUp: false,
+          queuedStartRefusal: "has-recipient",
+        });
+      }
+      const cwd = show.worker_cwd || show.origin?.dir;
+      if (!cwd || !pathService.isAbsolute(cwd)) {
+        return yield* new AgentdCommandError({
+          message: "No local checkout is available for this task.",
+          notSetUp: false,
+          queuedStartRefusal: "no-checkout",
+        });
+      }
+      if (input.worker === "claude") yield* ensureClaudeTrust(cwd, input.trustedFolder ?? false);
+      yield* run(yield* args(() => agentdArgs.appSession(cwd)));
+      return yield* dispatch(input.id, input.worker, false, cwd);
+    }
     if (input.action === "force") return yield* dispatch(input.id, input.worker, true);
     const row = yield* listRow(input.blocking);
     if (row === null) {

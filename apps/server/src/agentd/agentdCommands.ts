@@ -44,7 +44,7 @@ function text(name: string, value: string): string {
   return value;
 }
 
-const CLOUD_SESSION = "agentd-new";
+const APP_SESSION = "agentd-new";
 
 const AGE_RECIPIENT = /^age1[02-9ac-hj-np-z]{58}$/;
 
@@ -175,13 +175,14 @@ export const agentdArgs = {
     "--no-start",
   ],
   // force starts past an open task holding the directory or issue, after the person chose to.
-  dispatch: (id: string, worker: AgentdWorkerTool, force = false) => [
+  dispatch: (id: string, worker: AgentdWorkerTool, force: boolean, queuedCwd?: string) => [
     "handoff",
     "dispatch",
     handoffId(id),
     "--tool",
     worker,
     ...(force ? ["--force"] : []),
+    ...(queuedCwd === undefined ? [] : ["--cwd", absolute(queuedCwd), "--session", APP_SESSION]),
   ],
   connectAgent: (input: AgentdConnectAgentInput) => [
     "connect",
@@ -240,11 +241,11 @@ export const agentdArgs = {
     type,
     "--json",
   ],
-  cloudSession: (cwd: string) => [
+  appSession: (cwd: string) => [
     "session",
     "join",
     "--id",
-    CLOUD_SESSION,
+    APP_SESSION,
     "--tool",
     "other",
     "--label",
@@ -310,7 +311,7 @@ export const agentdArgs = {
     "--to",
     "any",
     "--session",
-    CLOUD_SESSION,
+    APP_SESSION,
     "--budget",
     input.cloud.budget,
     "--model-access",

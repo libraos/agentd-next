@@ -13402,5 +13402,33 @@
   "27d76249d09eb69f": "Granskningsguiden är klar",
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
-  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide"
+  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
+  "864f9438f3e5a492": "Har väntat länge",
+  "f0e8f441d0a36f07": [
+    "I kö: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "30f6f44cf9088f44": "Start begärd",
+  "76dd87237a697b61": "Starta med…",
+  "2d2c04b2e94679d0": [
+    "Det gick inte att starta uppgiften: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "86c28db793e779c6": "Startar inte automatiskt: ingen agent har valts",
+  "8d7eea7da969c3dd": "Väntar på en arbetsprocess för {worker}",
+  "fd2765bb89d940c8": "I kö i {count, plural, one {{count} dag} other {{count} dagar}}",
+  "5450243e54af24ca": "I kö i {count, plural, one {{count} timme} other {{count} timmar}}",
+  "cea29f889a31981d": "I kö i {count, plural, one {{count} minut} other {{count} minuter}}",
+  "3bbede5bac09058a": "I kö i mindre än en minut",
+  "9090c8b2e973fa26": "Uppgiften väntar inte längre på en agent.",
+  "0fdac573aa09e72b": "Uppgiften skickades till en specifik session.",
+  "9d82c78119594a68": "Det finns ingen lokal arbetskopia för uppgiften."
 }

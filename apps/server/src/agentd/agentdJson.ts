@@ -157,7 +157,10 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
     goal,
     state: show.state,
     workerState: nonEmpty(show.worker_state),
-    workerTool: nonEmpty(show.worker_tool) ?? nonEmpty(show.start_tool),
+    workerTool:
+      nonEmpty(show.worker_tool) ??
+      nonEmpty(show.start_tool) ??
+      (show.state === "offered" ? nonEmpty(show.worker) : null),
     runsOn: runsOn(show),
     accept: show.accept ?? [],
     check: nonEmpty(show.check_cmd),

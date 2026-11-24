@@ -33,6 +33,9 @@ export class AgentdCommandError extends Schema.TaggedError<AgentdCommandError>()
     wrongKeyFile: Schema.optionalKey(Schema.Literals(["anthropic", "openai"])),
     /** The folder Claude Code hasn't been allowed to work in; Start asks before trusting it. */
     untrustedFolder: Schema.optionalKey(Schema.String),
+    queuedStartRefusal: Schema.optionalKey(
+      Schema.Literals(["no-longer-queued", "has-recipient", "no-checkout"]),
+    ),
   },
 ) {}
 
@@ -124,10 +127,14 @@ export const AgentdHandoffShowJson = Schema.Struct({
       }),
     ),
   ),
+  to_session: NullableString,
+  worker_cwd: NullableString,
+  origin: Schema.optionalKey(Schema.NullOr(Schema.Struct({ dir: NullableString }))),
   budget: NullableString,
   budget_state: NullableString,
   worker_state: NullableString,
   worker_tool: NullableString,
+  worker: NullableString,
   start_tool: NullableString,
   worker_branch: NullableString,
   lease_branch: NullableString,
@@ -509,13 +516,21 @@ export const AgentdStartTaskResult = Schema.Struct({
 });
 export type AgentdStartTaskResult = typeof AgentdStartTaskResult.Type;
 
-/** Dispatch an offered task again: after releasing the task that held its directory, or forced. */
-export const AgentdRetryStartInput = Schema.Struct({
-  id: AgentdHandoffId,
-  worker: AgentdWorkerTool,
-  action: Schema.Literals(["release", "force"]),
-  blocking: AgentdHandoffId,
-});
+/** Dispatch an existing offered task, optionally resolving a conflict from an earlier start. */
+export const AgentdRetryStartInput = Schema.Union([
+  Schema.Struct({
+    id: AgentdHandoffId,
+    worker: AgentdWorkerTool,
+    action: Schema.Literals(["release", "force"]),
+    blocking: AgentdHandoffId,
+  }),
+  Schema.Struct({
+    id: AgentdHandoffId,
+    worker: AgentdWorkerTool,
+    action: Schema.Literal("queued"),
+    trustedFolder: Schema.optionalKey(AbsolutePath),
+  }),
+]);
 export type AgentdRetryStartInput = typeof AgentdRetryStartInput.Type;
 
 export const AgentdPeopleInput = Schema.Struct({
