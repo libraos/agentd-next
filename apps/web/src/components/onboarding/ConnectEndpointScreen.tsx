@@ -132,7 +132,7 @@ export function ConnectEndpointScreen({
             <T>Connect to an environment first.</T>
           </p>
         ) : (
-          <CustomGatewayForm environmentId={gatewayEnvironment} />
+          <CustomGatewayForm key={gatewayEnvironment} environmentId={gatewayEnvironment} />
         )
       ) : null}
       {gatewayEnvironment === null ? null : (

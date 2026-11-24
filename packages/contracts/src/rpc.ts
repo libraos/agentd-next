@@ -474,7 +474,7 @@ import {
   LibraosGatewayStatus,
 } from "./libraosGateway.ts";
 import {
-  CustomGatewayAddInput,
+  CustomGatewaySaveInput,
   CustomGatewayAddResult,
   CustomGatewayError,
   CustomGatewayIdInput,
@@ -2797,7 +2797,7 @@ const WsCustomGatewayListRpc = Rpc.make(WS_METHODS.customGatewayList, {
 });
 
 const WsCustomGatewayAddRpc = Rpc.make(WS_METHODS.customGatewayAdd, {
-  payload: CustomGatewayAddInput,
+  payload: CustomGatewaySaveInput,
   success: CustomGatewayAddResult,
   error: CustomGatewayRpcError,
 });

@@ -28,6 +28,8 @@ import {
   type CommandId,
   type EnvironmentId,
   isProviderDriverKind,
+  isGatewayInstanceId,
+  isLibraosGatewayInstanceId,
   ProjectId,
   type MessageId,
   type ModelSelection,
@@ -1293,6 +1295,20 @@ export function resolveThreadErrorBanner(input: {
       source: input.runtimeErrorSource,
     },
   };
+}
+
+export function threadErrorProviderLabel(
+  instanceId: ProviderInstanceId | undefined,
+  entries: ReadonlyArray<Pick<ProviderInstanceEntry, "instanceId" | "displayName">>,
+  resolve: MessageResolver = m,
+): string | null {
+  if (instanceId === undefined) return null;
+  if (instanceId === "claudeAgent") return resolve(msg("Claude Code (built-in)"));
+  if (instanceId !== "codex" && !isGatewayInstanceId(instanceId)) return null;
+  const entry = entries.find((entry) => entry.instanceId === instanceId);
+  if (entry !== undefined) return entry.displayName;
+  if (instanceId === "codex") return "Codex";
+  return isLibraosGatewayInstanceId(instanceId) ? resolve(msg("LibraOS Gateway")) : instanceId;
 }
 
 export function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | null }>(

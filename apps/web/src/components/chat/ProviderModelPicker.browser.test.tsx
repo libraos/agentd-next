@@ -380,14 +380,15 @@ it("lists a model reported twice by one provider once, with contiguous jump shor
   );
 });
 
-it("lists a gateway's model once and offers each agent that runs it when pointed at", async () => {
+it("distinguishes the built-in Claude Code and gateway agents on a shared model", async () => {
+  const builtInClaude = ProviderInstanceId.make("claudeAgent");
+  const gatewayClaude = ProviderInstanceId.make("gw-abc-claude");
   const gatewayCodex = ProviderInstanceId.make("gw-abc-codex");
-  const gatewayOpencode = ProviderInstanceId.make("gw-abc-opencode");
   const entries = deriveProviderInstanceEntries(
     [
-      { instanceId: ProviderInstanceId.make("codex"), driver: "codex", displayName: "Codex" },
+      { instanceId: builtInClaude, driver: "claudeAgent", displayName: "Claude Code" },
+      { instanceId: gatewayClaude, driver: "claudeAgent", displayName: "Claude Code · Work GW" },
       { instanceId: gatewayCodex, driver: "codex", displayName: "Codex · Work GW" },
-      { instanceId: gatewayOpencode, driver: "opencode", displayName: "opencode · Work GW" },
     ].map((provider) => ({
       ...provider,
       driver: ProviderDriverKind.make(provider.driver),
@@ -407,34 +408,110 @@ it("lists a gateway's model once and offers each agent that runs it when pointed
   await using screen = await render(
     <ProviderModelPicker
       environmentId={null}
-      activeInstanceId={ProviderInstanceId.make("codex")}
-      model="gpt"
+      activeInstanceId={builtInClaude}
+      model="chat-small"
+      isComposerOwned
       lockedProvider={null}
       instanceEntries={entries}
       modelOptionsByInstance={
         new Map([
-          [ProviderInstanceId.make("codex"), [{ slug: "gpt", name: "GPT" }]],
+          [builtInClaude, gatewayModels],
+          [gatewayClaude, gatewayModels],
           [gatewayCodex, gatewayModels],
-          [gatewayOpencode, gatewayModels],
         ])
       }
       triggerAriaLabel="Choose model"
       onInstanceModelChange={onInstanceModelChange}
     />,
   );
-  await screen.getByRole("button", { name: "Choose model" }).click();
-  await expect.element(page.getByRole("option", { name: /chat-small/ })).toBeVisible();
-  const sources = () =>
-    [...document.querySelectorAll<HTMLElement>("[data-model-source]")].map(
-      (source) => source.dataset.modelSource,
-    );
-  expect(sources()).toEqual(["Codex", "Work GW · Codex"]);
-
-  // Pointing at the model offers each agent that runs it.
+  const trigger = screen.getByRole("button", { name: "Choose model" });
+  await expect
+    .element(screen.getByText("Claude Code (built-in) · chat-small", { exact: true }))
+    .toBeVisible();
+  await trigger.click();
   await page.getByRole("option", { name: /chat-small/ }).hover();
-  const choice = document.querySelector<HTMLElement>(
-    '[data-model-source-choice="Work GW · opencode"]',
-  )!;
-  await page.elementLocator(choice).click();
-  expect(onInstanceModelChange).toHaveBeenLastCalledWith(gatewayOpencode, "chat-small");
+  const source = page.getByRole("button", { name: "Work GW · Claude Code", exact: true });
+  await expect.element(source).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Work GW · Codex", exact: true }))
+    .toBeVisible();
+  await source.click();
+  expect(onInstanceModelChange).toHaveBeenLastCalledWith(gatewayClaude, "chat-small");
+});
+
+it.for([
+  { instanceId: "codex", label: "Codex" },
+  { instanceId: "gw-abc-codex", label: "Codex · Work GW" },
+])(
+  "shows the Codex source $label in the composer when a gateway exists",
+  async ({ instanceId, label }) => {
+    const entries = deriveProviderInstanceEntries(
+      ["codex", "gw-abc-codex"].map((id) => ({
+        instanceId: ProviderInstanceId.make(id),
+        driver: ProviderDriverKind.make("codex"),
+        displayName: id === "codex" ? "Codex" : "Codex · Work GW",
+        enabled: true,
+        installed: true,
+        version: null,
+        status: "ready" as const,
+        auth: { status: "authenticated" as const },
+        checkedAt: "2026-01-01T00:00:00.000Z",
+        models: [],
+        slashCommands: [],
+        skills: [],
+      })),
+    );
+    await using screen = await render(
+      <ProviderModelPicker
+        environmentId={null}
+        activeInstanceId={ProviderInstanceId.make(instanceId)}
+        model="chat-small"
+        isComposerOwned
+        lockedProvider={null}
+        instanceEntries={entries}
+        modelOptionsByInstance={new Map()}
+        triggerAriaLabel="Choose model"
+        onInstanceModelChange={vi.fn()}
+      />,
+    );
+    await expect.element(screen.getByText(`${label} · chat-small`, { exact: true })).toBeVisible();
+  },
+);
+
+it("shows every hover choice for a model shared by four ordinary sources", async () => {
+  const entries = deriveProviderInstanceEntries(
+    ["claudeAgent", "codex", "opencode", "extra-codex"].map((id) => ({
+      instanceId: ProviderInstanceId.make(id),
+      driver: ProviderDriverKind.make(id === "extra-codex" ? "codex" : id),
+      enabled: true,
+      installed: true,
+      version: null,
+      status: "ready" as const,
+      auth: { status: "authenticated" as const },
+      checkedAt: "2026-01-01T00:00:00.000Z",
+      models: [],
+      slashCommands: [],
+      skills: [],
+    })),
+  );
+  await using screen = await render(
+    <ProviderModelPicker
+      environmentId={null}
+      activeInstanceId={ProviderInstanceId.make("claudeAgent")}
+      model="shared"
+      isComposerOwned
+      lockedProvider={null}
+      instanceEntries={entries}
+      modelOptionsByInstance={
+        new Map(entries.map((entry) => [entry.instanceId, [{ slug: "shared", name: "shared" }]]))
+      }
+      triggerAriaLabel="Choose model"
+      onInstanceModelChange={vi.fn()}
+    />,
+  );
+  const trigger = screen.getByRole("button", { name: "Choose model" });
+  expect.soft(screen.getByText("shared", { exact: true }).query()).not.toBeNull();
+  await trigger.click();
+  await page.getByRole("option", { name: /shared/ }).hover();
+  await expect.poll(() => document.querySelectorAll("[data-model-source-choice]").length).toBe(4);
 });

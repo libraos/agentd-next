@@ -108,7 +108,8 @@ function GatewayRow({
     a.localeCompare(b),
   );
 
-  const format = gateway.format === "openai" ? "OpenAI" : "Anthropic";
+  const format =
+    gateway.format === "both" ? gt("Both") : gateway.format === "openai" ? "OpenAI" : "Anthropic";
   const agents = gateway.agents.map((agent) => AGENT_LABELS[agent]).join(", ");
 
   return (

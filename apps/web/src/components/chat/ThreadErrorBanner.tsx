@@ -84,10 +84,12 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
   onDismiss,
   errorClass,
   errorCode,
+  provider,
 }: {
   error: string | null;
   errorClass?: OrchestrationV2ProviderFailureClass | null;
   errorCode?: string | null;
+  provider?: string | null;
   onDismiss?: () => void;
 }) {
   const gt = useGT();
@@ -104,6 +106,7 @@ export const ThreadErrorBanner = memo(function ThreadErrorBanner({
           <CircleAlertIcon />
         )}
         <AlertDescription>
+          {provider ? <p className="font-medium">{provider}</p> : null}
           {chatGptLimit ? (
             <div className="space-y-1">
               <p className="font-medium">

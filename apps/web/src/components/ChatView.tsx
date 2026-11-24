@@ -47,6 +47,7 @@ import {
   isThreadEnvironmentLocked,
   resolveDraftHeroState,
   resolveThreadErrorBanner,
+  threadErrorProviderLabel,
 } from "./ChatView.logic";
 import { useQueuedRunEdit } from "./chat/useQueuedRunEdit";
 import { recallCheckoutIsRepo, rememberCheckoutIsRepo } from "./ChatView.logic";
@@ -1418,6 +1419,15 @@ export default function ChatView(props: ChatViewProps) {
   });
   const selectedProvider = selectedProviderEntry?.driverKind ?? requestedDriverKind;
   const activeProviderInstanceId = selectedProviderEntry?.instanceId ?? null;
+  const errorRun =
+    serverRuntime?.lastErrorClass != null
+      ? serverProjection?.runs.find((run) => run.id === serverLatestRun?.runId)
+      : undefined;
+  const errorInstanceId = errorRun?.providerInstanceId ?? serverRuntime?.providerInstanceId;
+  const threadErrorProvider =
+    threadErrorIsServerRuntimeError && timelineThreadError !== null
+      ? threadErrorProviderLabel(errorInstanceId, providerInstanceEntries, messages)
+      : null;
   const activeProviderStatus = selectedProviderEntry?.snapshot ?? null;
   const activeUsageModel =
     [
@@ -3589,6 +3599,7 @@ export default function ChatView(props: ChatViewProps) {
               onOpenProviderSetup={openProviderSetupStable}
               threadId={activeThread.id}
               threadError={timelineThreadError}
+              threadErrorProvider={threadErrorProvider}
               threadErrorClass={
                 threadErrorIsServerRuntimeError ? (serverRuntime?.lastErrorClass ?? null) : null
               }

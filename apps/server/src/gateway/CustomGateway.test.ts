@@ -211,6 +211,102 @@ it.effect("add names the gateway after its url", () => {
   }).pipe(Effect.provide(layer));
 });
 
+it.effect("adding both formats reads one model list and saves one gateway with four agents", () => {
+  const { asked, layer } = setup(served);
+  return Effect.gen(function* () {
+    const gateways = yield* CustomGateway.CustomGateway;
+    const result = yield* gateways.add({ url: `${URL}/v1/`, format: "both", key: "k1" });
+    if (result.kind !== "added") return assert.fail(result.message);
+    assert.deepStrictEqual(result.gateway.agents, ["claude", "codex", "opencode", "pi"]);
+    assert.deepStrictEqual(asked, [{ url: `${URL}/v1/models`, authorization: "Bearer k1" }]);
+    assert.deepStrictEqual(yield* gateways.list, { gateways: [result.gateway] });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("extending either legacy format adds the other agent to the same saved gateway", () => {
+  const { layer, secrets, asked } = setup(served);
+  return Effect.gen(function* () {
+    const gateways = yield* CustomGateway.CustomGateway;
+    const settings = yield* ServerSettingsService;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { stateDir } = yield* ServerConfig.ServerConfig;
+    for (const format of ["openai", "anthropic"] as const) {
+      const added = yield* gateways.add({
+        url: `${URL}/v1`,
+        name: "Work",
+        format,
+        ...(format === "anthropic" ? { key: "k1" } : {}),
+        models: ["vendor/m1", "m2"],
+      });
+      if (added.kind !== "added") return assert.fail(added.message);
+      const id = added.gateway.id;
+      yield* gateways.setHiddenModels(id, ["m2"]);
+      if (format === "openai") {
+        const error = yield* gateways.add({ extendId: id }).pipe(Effect.flip);
+        assert.strictEqual(error.message, "Claude Code needs a key for this gateway.");
+        assert.strictEqual(
+          (yield* settings.getSettings).customGateways.find((g) => g.id === id)?.format,
+          "openai",
+        );
+      }
+
+      const extended = yield* gateways.add({
+        extendId: id,
+        ...(format === "openai" ? { key: "k1" } : {}),
+      });
+      if (extended.kind !== "added") return assert.fail(extended.message);
+      assert.deepInclude(extended.gateway, {
+        id,
+        name: "Work",
+        url: `${URL}/v1`,
+        format: "both",
+        hasKey: true,
+      });
+      assert.deepStrictEqual(extended.gateway.agents, ["claude", "codex", "opencode", "pi"]);
+      const piModels = yield* fs.readFileString(
+        path.join(stateDir, "pi-gateway", `gw-${id}-pi`, "models.json"),
+      );
+      assert.deepInclude(JSON.parse(piModels).providers[`gw_${id}`], {
+        baseUrl: `${URL}/v1`,
+        apiKey: "$CUSTOM_GATEWAY_API_KEY",
+        models: [{ id: "vendor/m1" }],
+      });
+      assert.deepStrictEqual(extended.gateway.hiddenModels, ["m2"]);
+      assert.deepStrictEqual(extended.gateway.models, ["vendor/m1"]);
+      const current = yield* settings.getSettings;
+      const claude = instance(current, `gw-${id}-claude`);
+      const codex = instance(current, `gw-${id}-codex`);
+      assert.includeDeepMembers(
+        [...(claude?.environment ?? [])],
+        [
+          { name: "ANTHROPIC_BASE_URL", value: URL, sensitive: false },
+          { name: "ANTHROPIC_API_KEY", value: "k1", sensitive: true },
+        ],
+      );
+      assert.includeDeepMembers(
+        [...(codex?.environment ?? [])],
+        [{ name: "CUSTOM_GATEWAY_API_KEY", value: "k1", sensitive: true }],
+      );
+      for (const agent of [claude, codex]) {
+        const config = agent?.config as { customModels?: unknown } | undefined;
+        assert.deepStrictEqual(config?.customModels, [{ slug: "vendor/m1" }]);
+      }
+      const inline = instance(current, `gw-${id}-opencode`)?.environment?.find(
+        (variable) => variable.name === "OPENCODE_CONFIG_CONTENT",
+      )?.value;
+      assert.include(
+        String(inline),
+        format === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible",
+      );
+      assert.deepStrictEqual(yield* gateways.add({ extendId: id }), extended);
+    }
+    assert.lengthOf((yield* gateways.list).gateways, 2);
+    assert.strictEqual(secrets.size, 2);
+    assert.lengthOf(asked, 0);
+  }).pipe(Effect.provide(layer));
+});
+
 it.effect("a refused model list is redacted and nothing is saved", () => {
   const { secrets, own, layer } = setup(() =>
     Response.json(
@@ -253,14 +349,16 @@ it.effect("typed ids save without asking", () => {
   }).pipe(Effect.provide(layer));
 });
 
-it.effect("an anthropic gateway without a key is refused and nothing is saved", () => {
+it.effect("formats that include Anthropic require a key before saving", () => {
   const { asked, layer } = setup(served);
   return Effect.gen(function* () {
     const gateways = yield* CustomGateway.CustomGateway;
-    const error = yield* Effect.flip(
-      gateways.add({ url: URL, format: "anthropic", key: "  ", models: ["a"] }),
-    );
-    assert.include(error.message, "needs a key");
+    for (const format of ["anthropic", "both"] as const) {
+      const error = yield* Effect.flip(
+        gateways.add({ url: URL, format, key: "  ", models: ["a"] }),
+      );
+      assert.include(error.message, "needs a key");
+    }
     assert.strictEqual(asked.length, 0);
     const settings = yield* (yield* ServerSettingsService).getSettings;
     assert.deepStrictEqual(settings.customGateways, []);

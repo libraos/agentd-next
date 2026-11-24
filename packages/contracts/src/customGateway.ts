@@ -5,7 +5,7 @@ import { isLibraosGatewayInstanceId } from "./libraosGateway.ts";
 // A gateway the user adds by URL (a company proxy, LiteLLM, OpenRouter): it becomes provider
 // instances for the agents that speak its format. The server keeps its key; clients see hasKey.
 
-export const CustomGatewayFormat = Schema.Literals(["openai", "anthropic"]);
+export const CustomGatewayFormat = Schema.Literals(["openai", "anthropic", "both"]);
 export type CustomGatewayFormat = typeof CustomGatewayFormat.Type;
 
 const GATEWAY_ID_PATTERN = /^[a-z0-9]{1,16}$/;
@@ -28,7 +28,11 @@ export type CustomGatewayAgent = typeof CustomGatewayAgent.Type;
 export const customGatewayAgentsOf = (
   format: CustomGatewayFormat,
 ): ReadonlyArray<CustomGatewayAgent> =>
-  format === "anthropic" ? ["claude", "opencode"] : ["codex", "opencode", "pi"];
+  format === "both"
+    ? ["claude", "codex", "opencode", "pi"]
+    : format === "anthropic"
+      ? ["claude", "opencode"]
+      : ["codex", "opencode", "pi"];
 
 /** What agentd's `[dispatch] TOOL_base_url` takes for a gateway: Claude Code an origin, the others `/v1`. */
 export function customGatewayWorkerUrl(agent: CustomGatewayAgent, url: string): string {
@@ -75,6 +79,12 @@ export const CustomGatewayAddInput = Schema.Struct({
   models: Schema.optional(Schema.Array(Bounded(256)).check(Schema.isMaxLength(500))),
 });
 export type CustomGatewayAddInput = typeof CustomGatewayAddInput.Type;
+
+export const CustomGatewaySaveInput = Schema.Union([
+  CustomGatewayAddInput,
+  Schema.Struct({ extendId: CustomGatewayId, key: Schema.optional(Bounded(4096)) }),
+]);
+export type CustomGatewaySaveInput = typeof CustomGatewaySaveInput.Type;
 
 export const CustomGatewayAddResult = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("added"), gateway: CustomGatewaySummary }),
