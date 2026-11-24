@@ -48,7 +48,7 @@ export const describeRunningServer = Effect.fn("cli.policy.describeRunningServer
 ) {
   const state = yield* readPersistedServerRuntimeState(statePath);
   if (Option.isNone(state) || !isProcessAlive(state.value.pid)) {
-    return "No AgentD Next server is running from this AgentD Next home. The installed policy applies when one starts.";
+    return "No LibraOS Next server is running from this LibraOS Next home. The installed policy applies when one starts.";
   }
   const { pid, startedAt, managedPolicy: loaded } = state.value;
   const server = `The running server (pid ${pid}, started ${startedAt})`;
@@ -64,7 +64,7 @@ export const describeRunningServer = Effect.fn("cli.policy.describeRunningServer
     loaded === null
       ? "no policy"
       : `${loaded.organization}'s policy from ${loaded.source} (fingerprint ${loaded.fingerprint})`;
-  return `${server} loaded ${what}. Restart AgentD Next to apply the installed policy.`;
+  return `${server} loaded ${what}. Restart LibraOS Next to apply the installed policy.`;
 });
 
 const showCommand = Command.make("show", projectLocationFlags).pipe(

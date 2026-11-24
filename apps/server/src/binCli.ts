@@ -72,7 +72,7 @@ const connectUnavailableCommand = Command.make("connect", {
 export const makeCli = ({ cloudEnabled = hasCloudPublicConfig } = {}) =>
   Command.make("libraos-next", { ...sharedServerCommandFlags }).pipe(
     Command.withDescription(
-      "Run AgentD Next in this terminal and open it in your browser. To use it from your other devices, run `libraos-next up`. The earlier names `agentd-next` and `t3` run this same command.",
+      "Run LibraOS Next in this terminal and open it in your browser. To use it from your other devices, run `libraos-next up`. The earlier names `agentd-next` and `t3` run this same command.",
     ),
     Command.withHandler(runDefaultServerCommand),
     Command.withSubcommands([

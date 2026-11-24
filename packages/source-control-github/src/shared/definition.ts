@@ -49,7 +49,7 @@ function isRepositoryPath(repository: string): boolean {
 
 /** Signing in through the AgentD Next for GitHub app lifts the per-user API rate limit to the app's. */
 export const APP_SIGN_IN: SourceControlAppSignIn = {
-  appName: "AgentD Next for GitHub",
+  appName: "LibraOS Next for GitHub",
   hosts: ["github.com"],
   installUrl: "https://github.com/apps/t3-code-for-github/installations/new",
   revokeUrl: "https://github.com/settings/apps/authorizations",

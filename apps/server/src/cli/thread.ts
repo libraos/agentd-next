@@ -60,7 +60,7 @@ export class ThreadServerNotRunningError extends Schema.TaggedError<ThreadServer
 ) {
   override readonly [Runtime.errorReported] = false;
   override get message(): string {
-    return `No running AgentD Next server uses ${this.baseDir}. Start AgentD Next, then retry.`;
+    return `No running LibraOS Next server uses ${this.baseDir}. Start LibraOS Next, then retry.`;
   }
 }
 
@@ -71,7 +71,7 @@ export class ThreadServerUnreachableError extends Schema.TaggedError<ThreadServe
   override readonly [Runtime.errorReported] = false;
   override get message(): string {
     const reason = this.cause instanceof Error ? ` ${this.cause.message}` : "";
-    return `Could not reach the AgentD Next server at ${this.origin}.${reason}`;
+    return `Could not reach the LibraOS Next server at ${this.origin}.${reason}`;
   }
 }
 
@@ -100,7 +100,7 @@ export class ThreadProjectNotFoundError extends Schema.TaggedError<ThreadProject
 ) {
   override readonly [Runtime.errorReported] = false;
   override get message(): string {
-    return `No AgentD Next project matches '${this.identifier}'. Pass a project id or a path inside a project.`;
+    return `No LibraOS Next project matches '${this.identifier}'. Pass a project id or a path inside a project.`;
   }
 }
 
@@ -113,7 +113,7 @@ export class ThreadNeedsInputError extends Schema.TaggedError<ThreadNeedsInputEr
   override readonly [Runtime.errorExitCode] = 2;
 
   override get message(): string {
-    return `Thread ${this.threadId} is waiting for an answer. Open it in AgentD Next to respond.`;
+    return `Thread ${this.threadId} is waiting for an answer. Open it in LibraOS Next to respond.`;
   }
 }
 

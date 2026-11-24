@@ -1286,7 +1286,7 @@ export const make = Effect.gen(function* () {
           };
         }
         default:
-          return yield* failure(input.action, `GitCafe cannot ${input.action} from AgentD Next.`);
+          return yield* failure(input.action, `GitCafe cannot ${input.action} from LibraOS Next.`);
       }
     }),
     updateChangeRequest: Effect.fn("GitCafePullRequestProvider.updateChangeRequest")(

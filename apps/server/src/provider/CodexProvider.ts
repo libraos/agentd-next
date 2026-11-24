@@ -978,7 +978,7 @@ const makePendingCodexProvider = Effect.fn("CodexProvider.makePendingCodexProvid
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Codex is disabled in AgentD Next settings.",
+        message: "Codex is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -1080,7 +1080,7 @@ const probeCodexProviderStatus = Effect.fn("checkCodexProviderStatus")(function*
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Codex is disabled in AgentD Next settings.",
+        message: "Codex is disabled in LibraOS Next settings.",
       },
     });
   }

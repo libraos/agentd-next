@@ -19,5 +19,5 @@ export function brokenVersionDetail(input: {
   if (input.advisory?.status !== "broken") return undefined;
   const target =
     input.advisory.recommendedVersion ?? input.advisory.recommendedRange ?? "a newer version";
-  return `${input.name} ${input.version} does not work with this AgentD Next release. ${input.action ?? `Update ${input.name}`} to ${target}, then retry.`;
+  return `${input.name} ${input.version} does not work with this LibraOS Next release. ${input.action ?? `Update ${input.name}`} to ${target}, then retry.`;
 }

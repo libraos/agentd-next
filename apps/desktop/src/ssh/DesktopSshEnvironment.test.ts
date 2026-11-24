@@ -12,14 +12,14 @@ import { resolveDesktopSshCliRunner } from "./DesktopSshEnvironment.ts";
 const packagedEnvironment = DesktopEnvironment.DesktopEnvironment.pipe(
   Effect.provide(
     DesktopEnvironment.layer({
-      dirname: "/Applications/AgentD Next.app/Contents/Resources/app.asar/dist-electron",
+      dirname: "/Applications/LibraOS Next.app/Contents/Resources/app.asar/dist-electron",
       homeDirectory: "/Users/alice",
       platform: "darwin",
       processArch: "arm64",
       appVersion: "0.0.22",
-      appPath: "/Applications/AgentD Next.app/Contents/Resources/app.asar",
+      appPath: "/Applications/LibraOS Next.app/Contents/Resources/app.asar",
       isPackaged: true,
-      resourcesPath: "/Applications/AgentD Next.app/Contents/Resources",
+      resourcesPath: "/Applications/LibraOS Next.app/Contents/Resources",
       runningUnderArm64Translation: false,
     }).pipe(
       Layer.provide(

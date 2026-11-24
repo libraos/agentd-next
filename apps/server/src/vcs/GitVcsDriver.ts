@@ -1144,9 +1144,9 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
     (excludePaths ?? []).map((relativePath) => `:(exclude,literal)${relativePath}`);
 
   const checkpointIdentity: NodeJS.ProcessEnv = {
-    GIT_AUTHOR_NAME: "AgentD Next",
+    GIT_AUTHOR_NAME: "LibraOS Next",
     GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
-    GIT_COMMITTER_NAME: "AgentD Next",
+    GIT_COMMITTER_NAME: "LibraOS Next",
     GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
   };
 
@@ -1267,9 +1267,9 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
         GIT_ALTERNATE_OBJECT_DIRECTORIES: quotedObjects.startsWith('"')
           ? quotedObjects
           : `"${quotedObjects}"`,
-        GIT_AUTHOR_NAME: "AgentD Next",
+        GIT_AUTHOR_NAME: "LibraOS Next",
         GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
-        GIT_COMMITTER_NAME: "AgentD Next",
+        GIT_COMMITTER_NAME: "LibraOS Next",
         GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
       };
 

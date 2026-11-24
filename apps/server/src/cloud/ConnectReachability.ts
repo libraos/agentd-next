@@ -80,21 +80,21 @@ export function classifyReachability(
     fix: string,
     hint: string | null = null,
   ): Unreachable => ({ status: "unreachable", checkedAt, cause, reason, hint, fix });
-  const restart = "Restart AgentD Next. If it stays, run `libraos-next connect` again.";
+  const restart = "Restart LibraOS Next. If it stays, run `libraos-next connect` again.";
 
   if (!facts.managedTunnelConfigured) {
     // A running server reads the link `t3 connect` stores only at startup.
     return fail(
       "not_linked",
       "The server has not set up a hosted relay tunnel.",
-      "Run `libraos-next connect`, then restart AgentD Next so it applies the link.",
+      "Run `libraos-next connect`, then restart LibraOS Next so it applies the link.",
     );
   }
   if (connector === null) {
     return fail(
       "connector_not_running",
       "The tunnel client (cloudflared) is not running.",
-      "Restart AgentD Next. If it stays down, check the server log for relay client errors.",
+      "Restart LibraOS Next. If it stays down, check the server log for relay client errors.",
     );
   }
   const status = endpoint?.kind === "status" ? endpoint.status : null;
@@ -126,8 +126,8 @@ export function classifyReachability(
   if (status === 502) {
     return fail(
       "origin_unreachable",
-      "The tunnel is up, but it cannot reach the AgentD Next server on this machine.",
-      "Restart AgentD Next so the tunnel uses the port the server listens on.",
+      "The tunnel is up, but it cannot reach the LibraOS Next server on this machine.",
+      "Restart LibraOS Next so the tunnel uses the port the server listens on.",
     );
   }
   if (endpoint === null || connector.readyConnections === 0) {
@@ -151,7 +151,7 @@ export function classifyReachability(
     return fail(
       "dns_failed",
       "The hosted relay address no longer points to this machine's tunnel (Cloudflare error 1016). The hosted relay may have removed this environment.",
-      "Link this environment again. Turn the hosted relay off and on in Settings > Sharing & access, or run `libraos-next connect link` and then restart AgentD Next.",
+      "Link this environment again. Turn the hosted relay off and on in Settings > Sharing & access, or run `libraos-next connect link` and then restart LibraOS Next.",
     );
   }
   if (status !== null) {

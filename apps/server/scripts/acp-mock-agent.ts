@@ -1404,9 +1404,9 @@ const program = Effect.gen(function* () {
             rawInput: { variant: "WebFetch", url: "https://t3.codes" },
             rawOutput: {
               type: "WebFetch",
-              Content: { url: "https://t3.codes", content: "AgentD Next page" },
+              Content: { url: "https://t3.codes", content: "LibraOS Next page" },
             },
-            content: [{ type: "content", content: { type: "text", text: "AgentD Next page" } }],
+            content: [{ type: "content", content: { type: "text", text: "LibraOS Next page" } }],
           },
           {
             sessionUpdate: "tool_call_update",

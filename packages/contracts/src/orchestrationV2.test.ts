@@ -710,19 +710,19 @@ describe("withMessageSenderNote", () => {
     [
       thread,
       "Hi",
-      '[AgentD Next: the agent in AgentD Next thread "t" sent this message, not the user.]\n\nHi',
+      '[LibraOS Next: the agent in LibraOS Next thread "t" sent this message, not the user.]\n\nHi',
     ],
     [
       thread,
       "",
-      '[AgentD Next: the agent in AgentD Next thread "t" sent this message, not the user.]',
+      '[LibraOS Next: the agent in LibraOS Next thread "t" sent this message, not the user.]',
     ],
     [thread, " /git/review staged", " /git/review staged"],
     [thread, "$deploy ship it", "$deploy ship it"],
     [
       thread,
       "$25 left",
-      '[AgentD Next: the agent in AgentD Next thread "t" sent this message, not the user.]\n\n$25 left',
+      '[LibraOS Next: the agent in LibraOS Next thread "t" sent this message, not the user.]\n\n$25 left',
     ],
     [
       {
@@ -735,17 +735,17 @@ describe("withMessageSenderNote", () => {
         },
       },
       "Hi",
-      '[AgentD Next: the agent in AgentD Next thread "r" on linked environment "e" sent this message, not the user.]\n\nHi',
+      '[LibraOS Next: the agent in LibraOS Next thread "r" on linked environment "e" sent this message, not the user.]\n\nHi',
     ],
     [
       { createdBy: "user", creationSource: "web", scheduledTaskId: ScheduledTaskId.make("s") },
       "Hi",
-      '[AgentD Next: scheduled task "s" sent this prompt, not the user typing in this chat.]\n\nHi',
+      '[LibraOS Next: scheduled task "s" sent this prompt, not the user typing in this chat.]\n\nHi',
     ],
     [
       { createdBy: "agent", creationSource: "mcp" },
       "Hi",
-      "[AgentD Next: this message came through AgentD Next's tools, not from the user typing in this chat.]\n\nHi",
+      "[LibraOS Next: this message came through LibraOS Next's tools, not from the user typing in this chat.]\n\nHi",
     ],
     [{ createdBy: "user", creationSource: "web" }, "Hi", "Hi"],
     [{ createdBy: "agent", creationSource: "server" }, "Hi", "Hi"],

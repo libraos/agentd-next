@@ -368,8 +368,8 @@ export const make = Effect.gen(function* () {
     return record(target, null, {
       text:
         unusable === null
-          ? `AgentD Next stopped watching pull request #${target.link.number} (${target.link.url}) because it failed to read it from the host ${READ_FAILURE_LIMIT} times in a row. Check it yourself, and call watch_pull_request only if it is still open.`
-          : `AgentD Next stopped watching pull request #${target.link.number} (${target.link.url}) because the AgentD Next server cannot use the host: ${unusable} Fix that on the server, then call watch_pull_request only if it is still open.`,
+          ? `LibraOS Next stopped watching pull request #${target.link.number} (${target.link.url}) because it failed to read it from the host ${READ_FAILURE_LIMIT} times in a row. Check it yourself, and call watch_pull_request only if it is still open.`
+          : `LibraOS Next stopped watching pull request #${target.link.number} (${target.link.url}) because the LibraOS Next server cannot use the host: ${unusable} Fix that on the server, then call watch_pull_request only if it is still open.`,
       notification: {
         source: { kind: "monitor" },
         outcome: "failed",

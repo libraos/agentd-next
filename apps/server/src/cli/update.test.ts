@@ -131,7 +131,7 @@ it.layer(NodeServices.layer)("libraos-next update under a managed policy", (it) 
   it.effect("refuses to update when updates are off", () =>
     Effect.gen(function* () {
       const error = yield* runWithPolicy({ mode: "off" });
-      assert.equal(error.message, "Example Corp manages AgentD Next updates.");
+      assert.equal(error.message, "Example Corp manages LibraOS Next updates.");
     }),
   );
 
@@ -148,7 +148,7 @@ it.layer(NodeServices.layer)("libraos-next update under a managed policy", (it) 
       for (const error of [byChannel, byVersion]) {
         assert.equal(
           error.message,
-          "Example Corp manages AgentD Next updates. Only stable releases can be installed.",
+          "Example Corp manages LibraOS Next updates. Only stable releases can be installed.",
         );
       }
     }),

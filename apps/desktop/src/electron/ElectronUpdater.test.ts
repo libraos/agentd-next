@@ -26,7 +26,7 @@ vi.hoisted(() => {
   electronModule.exports = {
     app: {
       getVersion: () => "1.0.0",
-      getName: () => "AgentD Next",
+      getName: () => "LibraOS Next",
       isPackaged: true,
       quit: () => undefined,
       once: () => undefined,

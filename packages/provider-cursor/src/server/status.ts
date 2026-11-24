@@ -53,7 +53,7 @@ export const buildInitialCursorProviderSnapshot = Effect.fn(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Cursor is disabled in AgentD Next settings.",
+        message: "Cursor is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -269,7 +269,7 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Cursor is disabled in AgentD Next settings.",
+        message: "Cursor is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -320,8 +320,8 @@ export const checkCursorProviderStatus = Effect.fn("checkCursorProviderStatus")(
     } else if (failure.planRequired) {
       message =
         authenticationType === "browser"
-          ? "Cursor needs a paid plan to run in AgentD Next. Upgrade this account or sign in with a different one."
-          : "Cursor needs a paid plan to run in AgentD Next. Upgrade the account that owns CURSOR_API_KEY or use a key from a paid account.";
+          ? "Cursor needs a paid plan to run in LibraOS Next. Upgrade this account or sign in with a different one."
+          : "Cursor needs a paid plan to run in LibraOS Next. Upgrade the account that owns CURSOR_API_KEY or use a key from a paid account.";
     }
     return buildServerProvider({
       presentation: CURSOR_PRESENTATION,

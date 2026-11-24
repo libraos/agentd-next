@@ -212,8 +212,8 @@ function formatCloudStatus(
           : !status.desired
             ? `Run \`${commands.link}\` to enable the hosted relay.`
             : publishOnly
-              ? "Start AgentD Next to provision the environment link."
-              : "Start AgentD Next to provision the environment link and launch its managed tunnel.";
+              ? "Start LibraOS Next to provision the environment link."
+              : "Start LibraOS Next to provision the environment link and launch its managed tunnel.";
 
   return [
     "Hosted relay",
@@ -381,7 +381,7 @@ export const waitForReachability = Effect.fn("cloud.cli.wait_for_reachability")(
   yield* Console.error(
     formatAlertBox(
       last === null
-        ? "✕ Could not check the hosted relay\n  The AgentD Next server on this machine did not answer.\n  Fix: run `libraos-next service status`, then `libraos-next connect status`."
+        ? "✕ Could not check the hosted relay\n  The LibraOS Next server on this machine did not answer.\n  Fix: run `libraos-next service status`, then `libraos-next connect status`."
         : formatReachabilityFailure(last),
     ),
   );
@@ -652,7 +652,7 @@ const connectLinkCommand = Command.make("link", {
           const serveCommand = yield* resolveHostCliHint("serve", flags.baseDir);
           yield* Console.log(
             flags.publishOnly
-              ? `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start AgentD Next to publish agent activity (no managed tunnel).`
+              ? `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start LibraOS Next to publish agent activity (no managed tunnel).`
               : `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start the server with \`${serveCommand}\` to make this machine reachable.`,
           );
         }
@@ -785,13 +785,13 @@ const connectPublishCommand = Command.make("publish", {
         // A desired managed link already covers publishing and must not be downgraded.
         if (yield* CliState.readCliDesiredCloudLink) {
           yield* Console.log(
-            "A hosted relay link is already pending. Start AgentD Next to finish provisioning it; publishing starts once it links.",
+            "A hosted relay link is already pending. Start LibraOS Next to finish provisioning it; publishing starts once it links.",
           );
           return;
         }
         yield* CliState.setCliDesiredCloudLink(true, "publish_only");
         yield* Console.log(
-          "Restart AgentD Next to finish authorizing this environment to publish (no managed tunnel is created).",
+          "Restart LibraOS Next to finish authorizing this environment to publish (no managed tunnel is created).",
         );
       }),
     ),

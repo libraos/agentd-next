@@ -412,7 +412,7 @@ export const buildInitialPiProviderSnapshot = Effect.fn(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Pi is disabled in AgentD Next settings.",
+        message: "Pi is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -451,7 +451,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Pi is disabled in AgentD Next settings.",
+        message: "Pi is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -530,7 +530,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         status: "error",
         auth: { status: "unknown" },
         message:
-          "AgentD Next could not determine the Pi version. Update Pi, then refresh its status.",
+          "LibraOS Next could not determine the Pi version. Update Pi, then refresh its status.",
       },
     });
   }
@@ -605,7 +605,7 @@ export const checkPiProviderStatus = Effect.fn("checkPiProviderStatus")(function
         status: "ready",
         auth: { status: "unknown" },
         message:
-          "Pi is available, but AgentD Next could not refresh its models and commands. The live session will retry startup.",
+          "Pi is available, but LibraOS Next could not refresh its models and commands. The live session will retry startup.",
       },
     });
   }

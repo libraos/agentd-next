@@ -1552,7 +1552,7 @@ effectIt.effect(
           failure: {
             class: "unknown",
             message:
-              "AgentD Next could not start this turn. Send the message again; if it keeps failing, check the server logs.",
+              "LibraOS Next could not start this turn. Send the message again; if it keeps failing, check the server logs.",
           },
         },
       ]);

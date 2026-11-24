@@ -933,7 +933,7 @@ process.exit(0);
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-            if (String(chunk).includes("owns this AgentD Next home")) refused.resolve();
+            if (String(chunk).includes("owns this LibraOS Next home")) refused.resolve();
             return true;
           }),
         ),
@@ -1024,7 +1024,7 @@ process.exit(0);
         yield* Effect.acquireRelease(
           Effect.sync(() =>
             vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-              if (String(chunk).includes("owns this AgentD Next home")) refused.resolve();
+              if (String(chunk).includes("owns this LibraOS Next home")) refused.resolve();
               return true;
             }),
           ),
@@ -1099,7 +1099,7 @@ process.exit(0);
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-            if (String(chunk).includes("owns this AgentD Next home")) refused.resolve();
+            if (String(chunk).includes("owns this LibraOS Next home")) refused.resolve();
             return true;
           }),
         ),

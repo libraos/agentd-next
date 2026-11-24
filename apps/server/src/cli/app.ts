@@ -61,7 +61,7 @@ export class DesktopAppUnreachableError extends Schema.TaggedError<DesktopAppUnr
   },
 ) {
   override get message(): string {
-    return "Could not reach the AgentD Next app. Start or update the desktop app on this machine, then run `libraos-next app` again. A running AgentD Next server is not enough.";
+    return "Could not reach the LibraOS Next app. Start or update the desktop app on this machine, then run `libraos-next app` again. A running LibraOS Next server is not enough.";
   }
 }
 
@@ -75,7 +75,7 @@ export class DesktopAppRequestFailedError extends Schema.TaggedError<DesktopAppR
   },
 ) {
   override get message(): string {
-    return `AgentD Next could not open ${this.workspaceRoot} (${this.code}).`;
+    return `LibraOS Next could not open ${this.workspaceRoot} (${this.code}).`;
   }
 }
 
@@ -267,7 +267,7 @@ const runAppCommand = Effect.fn("cli.app")(function* (flags: {
     });
   }
 
-  yield* Console.log(`Opened ${workspaceRoot} in AgentD Next.`);
+  yield* Console.log(`Opened ${workspaceRoot} in LibraOS Next.`);
 });
 
 export const appCommand = Command.make("app", {
@@ -277,6 +277,6 @@ export const appCommand = Command.make("app", {
     Argument.optional,
   ),
 }).pipe(
-  Command.withDescription("Open a project in the running AgentD Next app."),
+  Command.withDescription("Open a project in the running LibraOS Next app."),
   Command.withHandler(runAppCommand),
 );

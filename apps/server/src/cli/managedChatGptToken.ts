@@ -39,7 +39,7 @@ export async function runManagedChatGptTokenCli(args: ReadonlyArray<string>): Pr
   const result = await Effect.runPromiseExit(program);
   if (Exit.isFailure(result)) {
     process.stderr.write(
-      "Could not access the managed ChatGPT connection. Reconnect in AgentD Next.\n",
+      "Could not access the managed ChatGPT connection. Reconnect in LibraOS Next.\n",
     );
     process.exitCode = 1;
     return;

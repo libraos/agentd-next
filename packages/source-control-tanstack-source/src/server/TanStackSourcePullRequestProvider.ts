@@ -786,7 +786,7 @@ export const make = Effect.gen(function* () {
         default:
           return yield* failure(
             input.action,
-            `TanStack Source cannot ${input.action} from AgentD Next.`,
+            `TanStack Source cannot ${input.action} from LibraOS Next.`,
           );
       }
     }),

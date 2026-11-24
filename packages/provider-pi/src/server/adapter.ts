@@ -3300,7 +3300,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           const disposition = recordString(result, "disposition");
           if (disposition !== undefined && disposition !== "handled") {
             return yield* protocolError(
-              "AgentD Next's Pi extension did not apply the service tier",
+              "LibraOS Next's Pi extension did not apply the service tier",
             );
           }
           serviceTierMayBeSet = serviceTier !== null;

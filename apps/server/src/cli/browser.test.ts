@@ -134,6 +134,6 @@ it.effect.each([
     expect(result.loads).toEqual([LOAD]);
     expect(result.profile).toBe(input.written);
     expect(result.output).toContain(input.said);
-    expect(result.output).toContain("This host is ready for AgentD Next's browser.");
+    expect(result.output).toContain("This host is ready for LibraOS Next's browser.");
   }),
 );

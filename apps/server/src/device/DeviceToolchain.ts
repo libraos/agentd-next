@@ -43,7 +43,7 @@ export class DeviceToolchainInstallError extends Schema.TaggedError<DeviceToolch
 ) {
   override get message(): string {
     if (this.reason === "npm_not_found")
-      return "Device support needs npm, which is not on the AgentD Next server's PATH. Install npm (it comes with Node.js from nodejs.org), restart AgentD Next, then retry.";
+      return "Device support needs npm, which is not on the LibraOS Next server's PATH. Install npm (it comes with Node.js from nodejs.org), restart LibraOS Next, then retry.";
     const suffix = this.exitCode === undefined ? "" : ` (exit code ${this.exitCode})`;
     return `Installing ${this.tool} failed while ${this.step}${suffix}.`;
   }

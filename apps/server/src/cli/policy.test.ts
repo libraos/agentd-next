@@ -42,14 +42,14 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))((it) =>
           return yield* describeRunningServer(statePath, current);
         });
 
-      assert.include(yield* describeRunningServer(statePath, installed), "No AgentD Next server");
+      assert.include(yield* describeRunningServer(statePath, installed), "No LibraOS Next server");
       assert.include(yield* running(installed), "loaded this policy.");
       assert.include(
         yield* running(yield* loaded("Other Corp")),
         "loaded Other Corp's policy from /etc/t3code/policy.json",
       );
-      assert.include(yield* running(null), "loaded no policy. Restart AgentD Next");
-      assert.include(yield* running(installed, null), "Restart AgentD Next to apply");
+      assert.include(yield* running(null), "loaded no policy. Restart LibraOS Next");
+      assert.include(yield* running(installed, null), "Restart LibraOS Next to apply");
       assert.include(yield* running(null, null), "runs without a policy, as installed");
       assert.include(yield* running(undefined), "does not report which policy it loaded");
     }),

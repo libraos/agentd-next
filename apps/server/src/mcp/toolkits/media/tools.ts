@@ -99,7 +99,7 @@ export const MediaToolkit = Toolkit.make(
   mediaTool("media_list_models", {
     title: "List gateway models",
     description:
-      "List the custom gateway's models, to pick one for a video, speech or transcription. People using AgentD Next for marketing may not know model names; offer them the list.",
+      "List the custom gateway's models, to pick one for a video, speech or transcription. People using LibraOS Next for marketing may not know model names; offer them the list.",
     parameters: GatewayMediaModelsInput,
     success: GatewayMediaModelsResult,
     readonly: true,

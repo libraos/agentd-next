@@ -191,7 +191,7 @@ it.effect("links with a pairing code, and the peer holds its agents to the limit
       });
       // B lists the link under A's name, where it can be revoked.
       expect((yield* linkedSessions(b)).map((session) => session.client.label)).toEqual([
-        "AgentD Next · Laptop",
+        "LibraOS Next · Laptop",
       ]);
       expect(
         (yield* a.links.list).map(({ environmentId, status }) => [environmentId, status]),
@@ -200,8 +200,8 @@ it.effect("links with a pairing code, and the peer holds its agents to the limit
       // The caller's limits narrow the link's access; they never widen it.
       expect(
         yield* probe(a, { runtimeMode: "approval-required", interactionMode: "plan" }),
-      ).toEqual({ caller: "AgentD Next · Laptop", modes: "approval-required/plan" });
-      expect(yield* probe(a)).toEqual({ caller: "AgentD Next · Laptop", modes: "auto/default" });
+      ).toEqual({ caller: "LibraOS Next · Laptop", modes: "approval-required/plan" });
+      expect(yield* probe(a)).toEqual({ caller: "LibraOS Next · Laptop", modes: "auto/default" });
 
       // A refusal keeps the peer's reason.
       const notFound = yield* probe(a, undefined, "refuse").pipe(Effect.flip);
@@ -243,7 +243,7 @@ it.effect(
         expect(waiting.message).toContain("has Linked environments turned off");
         yield* b.settings.updateSettings({ linkedEnvironmentsEnabled: true });
         expect(yield* probe(a)).toEqual({
-          caller: "AgentD Next · Laptop",
+          caller: "LibraOS Next · Laptop",
           modes: "auto/default",
         });
       }),
@@ -846,7 +846,7 @@ it.effect("linking a picked machine that answers nowhere names it and links noth
 );
 
 it.live(
-  "linking an address with nothing listening says so, unlike one that is not AgentD Next",
+  "linking an address with nothing listening says so, unlike one that is not LibraOS Next",
   () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -866,7 +866,7 @@ it.live(
           a.links.link({ url, pairingCode: "unused", access: "auto" }).pipe(Effect.flip);
         expect((yield* linking(closed)).message).toBe(`${closed} did not answer (ECONNREFUSED).`);
         expect((yield* linking(notT3)).message).toBe(
-          `${notT3} answered, but not as an AgentD Next environment this version understands.`,
+          `${notT3} answered, but not as a LibraOS Next environment this version understands.`,
         );
         expect(yield* a.links.list).toEqual([]);
       }),

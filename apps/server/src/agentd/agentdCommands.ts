@@ -28,7 +28,8 @@ export class AgentdArgumentError extends Schema.TaggedError<AgentdArgumentError>
 ) {}
 
 function handoffId(value: string): string {
-  if (!HANDOFF_ID.test(value)) throw new AgentdArgumentError({ message: "not an agentd task id" });
+  if (!HANDOFF_ID.test(value))
+    throw new AgentdArgumentError({ message: "not a LibraOS Core task id" });
   return value;
 }
 
@@ -103,7 +104,9 @@ function jobApiUrl(value: string): string {
 export function agentdTicket(value: string): string {
   const ticket = value.trim();
   if (!TICKET.test(ticket)) {
-    throw new AgentdArgumentError({ message: "that is not an agentd ticket (one starts adt_)" });
+    throw new AgentdArgumentError({
+      message: "that is not a LibraOS Core ticket (one starts adt_)",
+    });
   }
   return ticket;
 }
