@@ -2498,7 +2498,7 @@ export class AgentdCliMissingError extends Schema.TaggedError<AgentdCliMissingEr
     return (
       "AGENTD_DIST_DIR is unset, so the installer would ship without agentd. Stage it: download an " +
       "agentd release's assets (agentd-<os>-<arch>[.exe], SKILL.md, SKILL-agentd.md, SHA256SUMS) " +
-      "into a folder and set AGENTD_DIST_DIR to it, e.g. `gh release download -R libraos/cli " +
+      "into a folder and set AGENTD_DIST_DIR to it, e.g. `gh release download -R libraos/libraos-core " +
       "-D DIR` (agentd/scripts/build-desktop.sh does this). For a local development build only, " +
       "set AGENTD_ALLOW_NO_BUNDLE=1."
     );

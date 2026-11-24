@@ -1,6 +1,6 @@
 # Hand a task to a worker
 
-With [LibraOS Core](https://github.com/libraos/cli) set up, you can hand a task from a
+With [LibraOS Core](https://github.com/libraos/libraos-core) set up, you can hand a task from a
 conversation to a background worker (Claude Code, Codex or opencode). LibraOS Core runs the worker
 on its own branch and checks the result; the task shows in **Background tasks**.
 
