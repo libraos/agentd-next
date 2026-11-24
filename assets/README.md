@@ -6,11 +6,11 @@ The three Icon Composer projects are the source of truth for full application ic
 - `nightly/app-icon.icon`
 - `prod/app-icon.icon`
 
-Each project uses `text.svg` for the AgentD mark imported from AgentD Desktop's Icon Composer project. Development, nightly, and production ship the same artwork and keep their existing filenames for the build tools. The decorative backgrounds remain inputs to the Android exporter.
+Each project uses `text.svg` for the LibraOS Next N (two segmented blue stems and a gold diagonal; the design source is `agentd/design/n-mark.svg`) on the navy fill set in `icon.json`. Development, nightly, and production ship the same artwork and keep their existing filenames for the build tools. The decorative backgrounds remain inputs to the Android exporter. The mobile app's icon, splash and in-app logo use the iOS PNGs and show the N too; its Android launcher and splash artwork still show the AgentD mark until `vp run icons:export:android` is rerun.
 
-To regenerate the imported AgentD Desktop PNGs and ICOs without macOS, run `node agentd/scripts/regenerate-brand-icons.mjs <agentd-desktop/resources>` with workspace dependencies installed. The development web exports are also copied to `apps/web/public` for the browser favicon, web app manifest icons, and splash screen.
+To regenerate the desktop and web PNGs and ICOs without macOS, run `node agentd/scripts/regenerate-brand-icons.mjs` with workspace dependencies installed. It renders the production `text.svg` on the navy rounded square as approved in `agentd/design/n-icon-preview.svg`: the iOS and Linux PNGs, the Windows ICOs, the web favicons and manifest icons, and the macOS PNGs in the safe-area layout described below, without Icon Composer's shadow. The development web exports are also copied to `apps/web/public` for the browser favicon, web app manifest icons, and splash screen. The DMG backgrounds in `apps/desktop/resources/dmg` carry their own copy of the mark.
 
-For a native Icon Composer export from the vector layers, run `vp run icons:export` from the repository root. `vp run icons:check` compares against that native export, not against the imported AgentD Desktop rasters.
+For a native Icon Composer export from the vector layers, run `vp run icons:export` from the repository root. `vp run icons:check` compares against that native export, not against the rasters the script renders.
 
 Exporting requires Icon Composer 2 or newer on macOS. The script selects the newest compatible exporter from Xcode or a standalone Icon Composer installation and pins design generation 26. Set `ICON_COMPOSER_TOOL` to the full path of `Icon Composer.app/Contents/Executables/ictool` to override automatic discovery.
 
@@ -49,7 +49,7 @@ Do not resize, composite, or otherwise post-process the exported PNGs.
 Verify every result is 1024×1024 and has the classic macOS safe area: an 824×824 opaque body inset 100px on every side, with only Icon Composer's native shadow extending beyond it.
 ```
 
-The initial AgentD Desktop PNG and ICO exports were replaced directly on Linux from the existing AgentD Desktop artwork. The macOS PNGs use the 824px body inset on the 1024px canvas; desktop packaging generates ICNS files from those PNGs on macOS. Use the native export workflow for subsequent Icon Composer changes.
+The tracked macOS PNGs are currently rendered on Linux by `agentd/scripts/regenerate-brand-icons.mjs`: an 824px navy rounded square inset 100px on the transparent 1024px canvas, with no shadow. Desktop packaging generates ICNS files from those PNGs on macOS. A native Icon Composer export made as above can replace them at any time.
 
 ## Android launcher and splash artwork
 
