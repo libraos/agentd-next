@@ -131,11 +131,11 @@ it("does not activate T3 until requested, then matches PID and title", async () 
   const snapshot = await captureNiriWindow(socketPath);
   expect(calls.some((call) => typeof call !== "string" && call.Action.FocusWindow)).toBe(false);
   windows = [
-    { ...window, id: 1, pid: 999, title: "AgentD Next" },
+    { ...window, id: 1, pid: 999, title: "LibraOS Next" },
     { ...window, id: 2, pid: process.pid, title: "Other T3" },
-    { ...window, id: 3, pid: process.pid, title: "AgentD Next" },
+    { ...window, id: 3, pid: process.pid, title: "LibraOS Next" },
   ];
-  await snapshot.feedback!.activate("AgentD Next");
+  await snapshot.feedback!.activate("LibraOS Next");
   expect(calls).toContainEqual({ Action: { FocusWindow: { id: 3 } } });
 });
 
@@ -147,18 +147,18 @@ it("waits for the restored T3 window to map instead of polling", async () => {
     if (request === "EventStream")
       send(socket, {
         WindowOpenedOrChanged: {
-          window: { ...window, id: 4, pid: process.pid, title: "AgentD Next" },
+          window: { ...window, id: 4, pid: process.pid, title: "LibraOS Next" },
         },
       });
   };
-  await snapshot.feedback!.activate("AgentD Next");
+  await snapshot.feedback!.activate("LibraOS Next");
   expect(calls).toContainEqual({ Action: { FocusWindow: { id: 4 } } });
 });
 
 it("rejects ambiguous activation targets", async () => {
   const snapshot = await captureNiriWindow(socketPath);
-  windows = [1, 2].map((id) => ({ ...window, id, pid: process.pid, title: "AgentD Next" }));
-  await expect(snapshot.feedback!.activate("AgentD Next")).rejects.toThrow("More than one");
+  windows = [1, 2].map((id) => ({ ...window, id, pid: process.pid, title: "LibraOS Next" }));
+  await expect(snapshot.feedback!.activate("LibraOS Next")).rejects.toThrow("More than one");
 });
 
 it("cancels pending activation when capture feedback is closed", async () => {
@@ -169,7 +169,7 @@ it("cancels pending activation when capture feedback is closed", async () => {
     await original(request, socket);
     if (request === "EventStream") started.resolve();
   };
-  const activation = expect(snapshot.feedback!.activate("AgentD Next")).rejects.toThrow(
+  const activation = expect(snapshot.feedback!.activate("LibraOS Next")).rejects.toThrow(
     "cancelled",
   );
   await started.promise;

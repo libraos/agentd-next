@@ -186,7 +186,7 @@ export const servePeer = <E, R, E2 = never, R2 = never>(
         .listSessions()
         .pipe(
           Effect.map((sessions) =>
-            sessions.filter((session) => session.client.label?.startsWith("AgentD Next · ")),
+            sessions.filter((session) => session.client.label?.startsWith("LibraOS Next · ")),
           ),
         ),
     };

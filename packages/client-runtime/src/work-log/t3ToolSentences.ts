@@ -242,7 +242,7 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     },
   ],
   [
-    "Create\nCreating\nCreated\nAgentD Next threads",
+    "Create\nCreating\nCreated\nLibraOS Next threads",
     {
       detail: msg(
         "{status, select, inProgress {Creating LibraOS Next threads} completed {Created LibraOS Next threads} failed {Failed to create LibraOS Next threads} declined {Declined to create LibraOS Next threads} stopped {Stopped creating LibraOS Next threads} other {Creating LibraOS Next threads}}",
@@ -258,7 +258,7 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     },
   ],
   [
-    "List\nListing\nListed\nAgentD Next threads",
+    "List\nListing\nListed\nLibraOS Next threads",
     {
       detail: msg(
         "{status, select, inProgress {Listing LibraOS Next threads} completed {Listed LibraOS Next threads} failed {Failed to list LibraOS Next threads} declined {Declined to list LibraOS Next threads} stopped {Stopped listing LibraOS Next threads} other {Listing LibraOS Next threads}}",
@@ -682,7 +682,7 @@ const T3_TOOL_SENTENCES: ReadonlyMap<string, T3ToolSentence> = new Map<string, T
     },
   ],
   [
-    "Update\nUpdating\nUpdated\nAgentD Next thread metadata",
+    "Update\nUpdating\nUpdated\nLibraOS Next thread metadata",
     {
       detail: msg(
         "{status, select, inProgress {Updating LibraOS Next thread metadata} completed {Updated LibraOS Next thread metadata} failed {Failed to update LibraOS Next thread metadata} declined {Declined to update LibraOS Next thread metadata} stopped {Stopped updating LibraOS Next thread metadata} other {Updating LibraOS Next thread metadata}}",

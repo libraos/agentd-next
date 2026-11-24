@@ -86,7 +86,7 @@ export const protectedResourceMetadata = (
   authorization_servers: [urls.issuer],
   scopes_supported: MCP_OAUTH_SCOPES,
   bearer_methods_supported: ["header"],
-  resource_name: "AgentD Next",
+  resource_name: "LibraOS Next",
 });
 
 export const authorizationServerMetadata = (

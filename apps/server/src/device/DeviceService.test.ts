@@ -506,14 +506,14 @@ describe("device setup consent", () => {
       exitCode: 1,
       stderr: "private diagnostics",
       expected:
-        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run AgentD Next on it and connect to that environment.",
+        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run LibraOS Next on it and connect to that environment.",
     },
     {
       name: "a Windows host returning 9009",
       exitCode: 9009,
       stderr: "private diagnostics",
       expected:
-        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run AgentD Next on it and connect to that environment.",
+        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run LibraOS Next on it and connect to that environment.",
     },
     {
       name: "missing Node on a Windows host with a POSIX shell",
@@ -755,7 +755,7 @@ it.effect.each([
     exitCode: 255,
     stderr: "Host key verification failed.\r\n",
     reason:
-      "SSH encountered an untrusted host key while connecting to probe.test from the machine running this AgentD Next server. Connect once with ssh from there to identify the host and verify its key before accepting it.",
+      "SSH encountered an untrusted host key while connecting to probe.test from the machine running this LibraOS Next server. Connect once with ssh from there to identify the host and verify its key before accepting it.",
   },
   {
     name: "unrecognized SSH failure",
@@ -1934,7 +1934,7 @@ it.effect.each(["exit", "missing"] as const)(
       expect(error.message).toBe(
         failure === "exit"
           ? "Device update device tool failed: The device command failed (exit code 243)."
-          : "Device update device tool failed: Device support needs npm, which is not on the AgentD Next server's PATH. Install npm (it comes with Node.js from nodejs.org), restart AgentD Next, then retry.",
+          : "Device update device tool failed: Device support needs npm, which is not on the LibraOS Next server's PATH. Install npm (it comes with Node.js from nodejs.org), restart LibraOS Next, then retry.",
       );
     }).pipe(
       Effect.provide(

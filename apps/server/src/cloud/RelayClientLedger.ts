@@ -193,7 +193,7 @@ export const make = Effect.fn("RelayClientLedger.make")(function* (input: {
   const stopOrphan = Effect.fn("RelayClientLedger.stopOrphan")(function* (client: ProcessIdentity) {
     let state = yield* compare(client);
     if (state !== "same") return state === "gone";
-    yield* Effect.logInfo("Stopping a relay client left by a previous AgentD Next server", {
+    yield* Effect.logInfo("Stopping a relay client left by a previous LibraOS Next server", {
       pid: client.pid,
     });
     for (const name of ["SIGTERM", "SIGKILL"] as const) {

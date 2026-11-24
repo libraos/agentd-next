@@ -208,7 +208,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       },
       {
         label: "a route turns off with no service to run",
-        prints: ["Run `libraos-next --base-dir <baseDir>` to use AgentD Next here."],
+        prints: ["Run `libraos-next --base-dir <baseDir>` to use LibraOS Next here."],
         installed: false,
         env: "T3CODE_LAN=true\n",
         args: ["--no-lan"],

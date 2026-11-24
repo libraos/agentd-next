@@ -2159,7 +2159,7 @@ it.effect.each([false, true])(
       platform: "macos",
       id: 42,
       title: "Setup",
-      owner: { name: "AgentD Next", processId: 123, path: "/Applications/AgentD Next.app" },
+      owner: { name: "LibraOS Next", processId: 123, path: "/Applications/LibraOS Next.app" },
       bounds: { x: 0, y: 0, width: 800, height: 600 },
     };
     activeWindowMock.mockReset().mockResolvedValue(active);

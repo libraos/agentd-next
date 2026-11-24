@@ -222,5 +222,5 @@ export const resolveServerEnvironmentLabel = Effect.fn("resolveServerEnvironment
     return hostname;
   }
 
-  return normalizeLabel(input.cwdBaseName) ?? "AgentD Next environment";
+  return normalizeLabel(input.cwdBaseName) ?? "LibraOS Next environment";
 });

@@ -180,7 +180,7 @@ const make = Effect.fn("GatewayMedia.make")(function* () {
       ? Effect.fail(
           failure(
             "thread_required",
-            "Media tools save into a thread's workspace, so they need an agent running inside AgentD Next.",
+            "Media tools save into a thread's workspace, so they need an agent running inside LibraOS Next.",
           ),
         )
       : Effect.succeed(scope.thread);

@@ -62,16 +62,16 @@ export function relayRetryAfterMillis(error: unknown): number | undefined {
 function recoveryHint(error: RelayProtectedError): string {
   switch (error._tag) {
     case "RelayEnvironmentLinkLimitExceededError":
-      return "Unlink an unused environment in the hosted relay, then restart AgentD Next on this machine.";
+      return "Unlink an unused environment in the hosted relay, then restart LibraOS Next on this machine.";
     case "RelayAuthInvalidError":
-      return "Run `libraos-next connect login` to check this machine's authorization. If the stored credential was revoked, sign out with `libraos-next connect logout`, then run `libraos-next connect` again. Restart AgentD Next after signing in.";
+      return "Run `libraos-next connect login` to check this machine's authorization. If the stored credential was revoked, sign out with `libraos-next connect logout`, then run `libraos-next connect` again. Restart LibraOS Next after signing in.";
     case "RelayEnvironmentLinkProofInvalidError":
       if (error.reason === "environment_key_mismatch") {
-        return "The hosted relay already has this environment linked with a different key. Unlink it in the hosted relay, then restart AgentD Next on this machine.";
+        return "The hosted relay already has this environment linked with a different key. Unlink it in the hosted relay, then restart LibraOS Next on this machine.";
       }
-      return "Check this machine's date and time, update AgentD Next, then restart it.";
+      return "Check this machine's date and time, update LibraOS Next, then restart it.";
     case "RelayEnvironmentLinkProofExpiredError":
-      return "Check this machine's date and time, update AgentD Next, then restart it.";
+      return "Check this machine's date and time, update LibraOS Next, then restart it.";
     default:
       return "Retry when the relay is available. If this continues, include the trace ID when reporting it.";
   }
@@ -88,7 +88,7 @@ export const filterRelayResponse = Effect.fn("cloud.filter_relay_response")(func
   const requestId = ray && /^[a-zA-Z0-9-]{1,128}$/.test(ray) ? ` Cloudflare Ray ID: ${ray}.` : "";
   const description = Option.isSome(decoded)
     ? `Hosted relay: ${decoded.value.message}. ${recoveryHint(decoded.value)} Trace ID: ${decoded.value.traceId}.`
-    : `The hosted relay returned HTTP ${response.status} without a recognized error response. Check relay access and any proxy or firewall restrictions, then restart AgentD Next.${requestId}`;
+    : `The hosted relay returned HTTP ${response.status} without a recognized error response. Check relay access and any proxy or firewall restrictions, then restart LibraOS Next.${requestId}`;
 
   // Only a schema-decoded expired-proof 401 is retryable for clock skew; every other 401 is permanent.
   if (

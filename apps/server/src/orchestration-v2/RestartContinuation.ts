@@ -342,8 +342,8 @@ export const continueRestartedRun = Effect.fn("RestartContinuation.continueResta
             input.cause === "provider_exit"
               ? "The agent runtime exited and stopped background work"
               : note.settled
-                ? "AgentD Next restarted and stopped background work"
-                : "AgentD Next restarted and resumed this turn",
+                ? "LibraOS Next restarted and stopped background work"
+                : "LibraOS Next restarted and resumed this turn",
           detail: text,
         },
         attachments: [],

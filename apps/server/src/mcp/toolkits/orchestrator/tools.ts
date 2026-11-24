@@ -258,7 +258,7 @@ const ThreadReadTool = Tool.make("thread_read", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Read an AgentD Next thread")
+  .annotate(Tool.Title, "Read a LibraOS Next thread")
   .annotate(Tool.Strict, true)
   .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)
@@ -277,7 +277,7 @@ const ThreadUpdateTool = Tool.make("thread_update", {
   failureMode: "return",
   dependencies: threadMetadataDependencies,
 })
-  .annotate(Tool.Title, "Update AgentD Next thread metadata")
+  .annotate(Tool.Title, "Update LibraOS Next thread metadata")
   .annotate(Tool.Destructive, true)
   .annotate(Tool.Idempotent, false);
 
@@ -290,7 +290,7 @@ const ThreadSendTool = Tool.make("thread_send", {
   failureMode: "return",
   dependencies: sendDependencies,
 })
-  .annotate(Tool.Title, "Send to an AgentD Next thread")
+  .annotate(Tool.Title, "Send to a LibraOS Next thread")
   .annotate(Tool.Destructive, true)
   .annotate(Tool.OpenWorld, true);
 
@@ -303,7 +303,7 @@ const ThreadWaitTool = Tool.make("thread_wait", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Wait for an AgentD Next thread")
+  .annotate(Tool.Title, "Wait for a LibraOS Next thread")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, true);
@@ -317,7 +317,7 @@ const ThreadInterruptTool = Tool.make("thread_interrupt", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Interrupt an AgentD Next thread")
+  .annotate(Tool.Title, "Interrupt a LibraOS Next thread")
   .annotate(Tool.Destructive, true);
 
 const EnvironmentLinksTool = Tool.make("environment_links", {

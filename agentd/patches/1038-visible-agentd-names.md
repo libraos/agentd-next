@@ -1,0 +1,270 @@
+# 1038: The last agentd names people read
+
+Part of the LibraOS rebrand (libraos/agentd-core#1038). The catalogs and user docs were renamed
+earlier (`1038-libraos-rename-i18n.md`, `1038-libraos-user-docs.md`); the server, CLI and package
+strings, the triage playbook and the engine's error messages still said AgentD Next or agentd.
+Here "AgentD Next" became "LibraOS Next" on every non-comment line under `apps/server/src`,
+`apps/desktop/src`, `packages/*/src` and `scripts/`, and engine errors say LibraOS Core. What stays
+and why: `agentd/design/next-agentd-names.md`.
+
+Not changed: comments; the Electron app name and the CLI launcher marker
+(`DesktopEnvironment.ts`, `DesktopCliShim.ts`); the profile migration's messages about the AgentD
+Next profile; `agentdServices.ts`'s check for the old AgentD Desktop path; MCP server names; model
+instructions that say "AgentD tools" or "AgentD skill"; the earlier names in release notes, docs and
+`installer.nsh`. The work-log rows for creating, listing and updating threads now match their tool
+labels again (`t3McpToolPresentation.ts` already said LibraOS Next).
+
+## Files
+
+- `agentd/design/next-agentd-names.md`: new; what was renamed and every kept name people can see.
+- `agentd/patches/1038-visible-agentd-names.md`: this file.
+- `apps/desktop/src/app/DesktopExitChildren.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/app/DesktopLifecycle.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/app/DesktopPreReadyPlatform.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/electron/ElectronUpdater.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/permissions/MacPermissionHelper.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/preview/BrowserImport/BrowserImport.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/preview/Passkeys.ts`: passkey dialog gets its own title, so Windows does not show Electron's AgentD Next app name.
+- `apps/desktop/src/snapShot/DesktopSnapShot.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/snapShot/LinuxSnapShot.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/snapShot/NiriSnapShot.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/ssh/DesktopSshEnvironment.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/telemetry/DesktopTelemetryPublisher.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/updates/DesktopUpdates.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/window/DesktopApplicationMenu.test.ts`: expectations follow the renamed text.
+- `apps/desktop/src/window/DesktopWindow.test.ts`: expectations follow the renamed text.
+- `apps/server/integration/TransferBudgetReport.integration.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/scripts/acp-mock-agent.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/agentd/AgentdBridge.test.ts`: expected engine errors and stop reasons follow the rename.
+- `apps/server/src/agentd/AgentdBridge.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/agentd/agentdCloud.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/agentd/agentdCommands.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/agentd/AgentdPlugins.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/agentd/AgentdTeamNode.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/agentd/cloudFailure.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/auth/McpOAuth.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/background/KeepAwake.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/binCli.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/acpMcpBridge.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/app.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/app.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/automaticPort.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/browser.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/browser.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/config.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/config.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/connect.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/doctor.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/doctor.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/environment.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/invocation.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/managedChatGptToken.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/pair.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/pair.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/policy.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/policy.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/runningServer.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/server.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/service.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/theme.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/thread.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/triage.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/uninstall.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/updateProgress.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/update.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/update.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cli/up.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cli/up.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/bootService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/cliAuthHtml.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/ConnectReachability.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/RelayClientLedger.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/relayResponse.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/cloud/selfUpdate.test.ts`: expectations follow the renamed text.
+- `apps/server/src/cloud/selfUpdate.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/desktopUpdate/DesktopAppUpdate.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/device/AgentDeviceShim.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/device/AgentDeviceTarget.test.ts`: expectations follow the renamed text.
+- `apps/server/src/device/DeviceService.test.ts`: expectations follow the renamed text.
+- `apps/server/src/device/DeviceToolchain.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/device/EasDeviceHost.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/device/SimlockDeviceHost.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/device/SshDeviceHost.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/diagnostics/ProcessDiagnostics.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/environment/ServerEnvironmentLabel.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/gateway/GatewayMedia.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/gateway/LibraosGateway.ts`: engine errors say LibraOS Core and suggest `libraos-core` commands.
+- `apps/server/src/mcp/AcpMcpStdioBridge.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcpApps/McpSignIn.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/McpHttpServer.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/McpInvocationContext.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/OrchestratorMcpService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/threadAccess.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/ThreadMetadataMcpService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/device/handlers.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/issues/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/media/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/orchestrator/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/pullRequests/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/theme/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/toolkits/toolSearch/tools.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/mcp/WorktreeMcpService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/Adapters/AcpAdapterV2.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/Adapters/OpenCode2AdapterV2.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/ContextHandoffService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/Orchestrator.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/ProviderAdapterRegistry.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/ProviderTurnControlService.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/ProviderTurnStartService.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/ProviderTurnStartService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/PullRequestWatchReactor.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/pullRequestWatch.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/pullRequestWatch.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/RestartBackgroundNote.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/RestartContinuation.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/orchestration-v2/runtimeLayer.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/SteeringCompletion.integration.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/command_output_streaming/codex_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/delegated_task_status/codex_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_auto_blocked_command/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_background_bash_fast_wake/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_background_bash/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_background_subagent/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_monitor/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/grok_prompt_error/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/kiro_model_switch/kiro_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/kiro_subagent_interrupt/kiro_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/kiro_unknown_model/kiro_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/multi_turn/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/multi_turn/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/muse_permission/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/muse_subagent_approval/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/muse_subagent_interrupt/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/muse_workflow/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/proposed_plan/cursor_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/queued_turn/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/simple/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/simple/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/subagent_v2/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/thread_fork_native_prior_turn/codex_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/todo_list/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/tool_call_read_only_on_request/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/turn_interrupt/grok_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/fixtures/turn_interrupt/muse_transcript.ndjson`: recorded fixture follows the renamed text.
+- `apps/server/src/orchestration-v2/testkit/OrchestratorReplayRecovery.integration.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/testkit/OrchestratorReplayRestartBackgroundNote.integration.test.ts`: expectations follow the renamed text.
+- `apps/server/src/orchestration-v2/UserFacingErrors.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/peer/PeerClientPairing.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/peer/PeerLinks.testkit.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/peer/PeerLinks.test.ts`: expectations follow the renamed text.
+- `apps/server/src/peer/PeerLinks.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/peer/PeerThreadRelay.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/persistence/DatabaseMaintenance.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/persistence/DatabaseStorage.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/persistence/Sqlite.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/policy/policyTemplates.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/preview/PreviewBrowserHost.test.ts`: expectations follow the renamed text.
+- `apps/server/src/preview/PreviewBrowserHost.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/preview/PreviewBrowser.test.ts`: expectations follow the renamed text.
+- `apps/server/src/preview/PreviewBrowser.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/preview/PreviewTunnel.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/preview/ServerBrowserPage.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/preview/ServerBrowser.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/project/ManagedProjectFolders.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/acp/AntigravityAcpSupport.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/AcpRegistrySessions.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/AntigravityInstallation.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/AntigravityProvider.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/ClaudeProvider.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/CodexAuthCallbackPage.ts`: the sign-in page brand reads LibraOS Next, not AgentD Desktop.
+- `apps/server/src/provider/CodexChatGptAuth.test.ts`: expectations follow the renamed text.
+- `apps/server/src/provider/CodexChatGptAuth.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/CodexInstallation.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/CodexManagedRuntime.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/CodexProvider.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/Drivers/AntigravityDriver.test.ts`: expectations follow the renamed text.
+- `apps/server/src/provider/ProviderAuthService.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/providerCompatibility.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/providerInstallation.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/provider/providerMaintenanceRunner.test.ts`: expectations follow the renamed text.
+- `apps/server/src/provider/providerMaintenanceRunner.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/pullRequest/PullRequestService.test.ts`: expectations follow the renamed text.
+- `apps/server/src/serverOwnership.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/serverRuntimeStartup.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/serverRuntimeState.test.ts`: expectations follow the renamed text.
+- `apps/server/src/serviceLauncher.test.ts`: expectations follow the renamed text.
+- `apps/server/src/serviceLauncher.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/startupAccess.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/textGeneration/OpenCode2TextGeneration.fixture.ts`: recorded fixture follows the renamed text.
+- `apps/server/src/textGeneration/textGeneratorDrivers.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/triage/triagePrompt.test.ts`: expectations follow the renamed text.
+- `apps/server/src/triage/triagePrompt.ts`: triage playbook names LibraOS Next; the two stay byte-identical.
+- `apps/server/src/vcs/GitVcsDriver.ts`: text people or their agents read says LibraOS Next.
+- `apps/server/src/ws.ts`: text people or their agents read says LibraOS Next.
+- `evals/mcp-tool-use/run.test.ts`: expectations follow the renamed text.
+- `.github/triage/PLAYBOOK.md`: triage playbook names LibraOS Next; the two stay byte-identical.
+- `packages/client-runtime/src/work-log/t3ToolSentences.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/browserImport.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/device.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/managedPolicy.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/orchestrationV2.test.ts`: expectations follow the renamed text.
+- `packages/contracts/src/orchestrationV2.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/preview.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/pullRequest.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/relay.ts`: text people or their agents read says LibraOS Next.
+- `packages/contracts/src/t3ProjectFile.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-acp-registry/src/server/driver.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-acp/src/server/adapter.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-acp/src/server/mcpOverAcpBridge.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/compatibility.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/failure.test.ts`: expectations follow the renamed text.
+- `packages/provider-core/src/server/failure.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/maintenanceResolver.test.ts`: expectations follow the renamed text.
+- `packages/provider-core/src/server/maintenanceResolver.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/orchestrationInstructions.test.ts`: expectations follow the renamed text.
+- `packages/provider-core/src/server/orchestrationInstructions.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/runtimeInstructions.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-core/src/server/textGenerationPrompts.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-cursor/src/server/adapter.test.ts`: expectations follow the renamed text.
+- `packages/provider-cursor/src/server/adapter.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-cursor/src/server/auth.test.ts`: expectations follow the renamed text.
+- `packages/provider-cursor/src/server/auth.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-cursor/src/server/driver.test.ts`: expectations follow the renamed text.
+- `packages/provider-cursor/src/server/status.test.ts`: expectations follow the renamed text.
+- `packages/provider-cursor/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-cursor/src/server/textGeneration.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-fx/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-grok/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-kiro/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-muse/src/server/adapter.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-muse/src/server/sdk.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-muse/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-muse/src/server/textGeneration.test.ts`: expectations follow the renamed text.
+- `packages/provider-muse/src/server/textGeneration.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/server/OpenCodeServerLedger.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/server/textGeneration.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/server/v2/adapter.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/server/v2/textGeneration.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-opencode/src/settings.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-pi/src/server/adapter.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-pi/src/server/mcpExtensionSource.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-pi/src/server/mcpInjection.test.ts`: expectations follow the renamed text.
+- `packages/provider-pi/src/server/mcpInjection.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-pi/src/server/status.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-pi/src/server/textGeneration.ts`: text people or their agents read says LibraOS Next.
+- `packages/provider-testing/src/replayWorkspace.test.ts`: expectations follow the renamed text.
+- `packages/provider-testing/src/replayWorkspace.ts`: text people or their agents read says LibraOS Next.
+- `packages/source-control-forgejo/src/server/ForgejoPullRequestProvider.ts`: text people or their agents read says LibraOS Next.
+- `packages/source-control-gitcafe/src/server/GitCafePullRequestProvider.ts`: text people or their agents read says LibraOS Next.
+- `packages/source-control-github/src/server/githubStackRebase.ts`: text people or their agents read says LibraOS Next.
+- `packages/source-control-github/src/shared/definition.ts`: text people or their agents read says LibraOS Next.
+- `packages/source-control-tanstack-source/src/server/TanStackSourcePullRequestProvider.ts`: text people or their agents read says LibraOS Next.
+- `packages/ssh/src/auth.ts`: text people or their agents read says LibraOS Next.
+- `packages/ssh/src/tunnel.test.ts`: expectations follow the renamed text.
+- `packages/ssh/src/tunnel.ts`: text people or their agents read says LibraOS Next.
+- `scripts/scenarios/branch-picker-sees-external-worktree.e2e.ts`: expectations follow the renamed text.
+- `apps/server/src/provider/agentContextBudget.json`: agent context grows by a few bytes, as "LibraOS Next" is one letter longer than "AgentD Next".

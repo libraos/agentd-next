@@ -168,8 +168,10 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
             }),
           )
           .pipe(
-            Effect.mapError(() => commandError(`agentd at ${binary} could not be started.`)),
-            Effect.catchDefect(() => Effect.fail(commandError("agentd could not be started."))),
+            Effect.mapError(() => commandError(`LibraOS Core at ${binary} could not be started.`)),
+            Effect.catchDefect(() =>
+              Effect.fail(commandError("LibraOS Core could not be started.")),
+            ),
           );
         yield* SubscriptionRef.update(node, (n): Node => ({ ...n, state: "waiting", note: null }));
         let said = "";
@@ -189,7 +191,7 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
           );
         yield* Effect.all([read(child.stdout), read(child.stderr)], { concurrency: 2 });
         const code = yield* child.exitCode.pipe(Effect.orElseSucceed(() => null));
-        return said || `agentd worker ended (${code ?? "unknown"}).`;
+        return said || `LibraOS Core worker ended (${code ?? "unknown"}).`;
       }),
     );
 
@@ -208,7 +210,7 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
       const note = Exit.isSuccess(exit)
         ? exit.value
         : Exit.findErrorOption(exit).pipe((error) =>
-            error._tag === "Some" ? error.value.message : "agentd worker failed.",
+            error._tag === "Some" ? error.value.message : "LibraOS Core worker failed.",
           );
       yield* SubscriptionRef.update(node, (n): Node => ({
         ...n,

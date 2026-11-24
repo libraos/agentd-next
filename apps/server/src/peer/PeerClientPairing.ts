@@ -169,10 +169,10 @@ const make = Effect.gen(function* () {
         return (
           client?.label ??
           ([client?.browser, client?.os].filter((part) => part !== undefined).join(" on ") ||
-            "AgentD Next client")
+            "LibraOS Next client")
         );
       }),
-      Effect.orElseSucceed(() => "AgentD Next client"),
+      Effect.orElseSucceed(() => "LibraOS Next client"),
     );
 
   /** Asks the linked environment for a pairing; `payload` says for whom. */

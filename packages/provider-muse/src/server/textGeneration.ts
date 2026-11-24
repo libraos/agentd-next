@@ -103,10 +103,10 @@ function museFailureDetail(cause: unknown): string {
   if (error?.quota !== undefined || isMuseUsageLimitFailure(error?.message))
     return "Muse Code usage limit reached. Try again after it resets.";
   if (error?.kind === "authRequired")
-    return "Muse Code is not signed in. Run `muse login` on this AgentD Next server host.";
+    return "Muse Code is not signed in. Run `muse login` on this LibraOS Next server host.";
   if (error?.kind === "modelError")
     return "Muse Code's model request failed. Try again or choose another Muse model.";
-  return "Muse Code text generation failed. Check Muse login and availability on this AgentD Next server host.";
+  return "Muse Code text generation failed. Check Muse login and availability on this LibraOS Next server host.";
 }
 
 async function generateMuseText(
@@ -149,7 +149,7 @@ async function generateMuseText(
       await host.connection.command("userInput/cancel", {
         sessionId,
         userInputId: request.userInputId,
-        reason: "AgentD Next text generation cannot request user input.",
+        reason: "LibraOS Next text generation cannot request user input.",
       });
     }
   };
@@ -198,7 +198,7 @@ async function generateMuseText(
   });
   host.connection.onProtocolError(rejectCompletion);
   host.connection.onServerRequest(async () => {
-    const error = new Error("AgentD Next text generation cannot approve interactive requests.");
+    const error = new Error("LibraOS Next text generation cannot approve interactive requests.");
     rejectCompletion(error);
     throw error;
   });

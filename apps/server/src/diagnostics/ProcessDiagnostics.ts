@@ -94,7 +94,7 @@ export const make = Effect.fn("makeProcessDiagnostics")(function* () {
           pid: input.pid,
           signal: input.signal,
           signaled: false,
-          message: Option.some("Refusing to signal the AgentD Next server process."),
+          message: Option.some("Refusing to signal the LibraOS Next server process."),
         };
       }
       const current = yield* telemetry.refresh.pipe(Effect.option);

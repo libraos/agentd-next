@@ -7,7 +7,7 @@ const T3_CODE_VISUALS_SECTION = `### Visuals and preview
 
 // Codex truncates entries over 4,000 bytes; keep each section self-contained and below that limit.
 export const T3_CODE_ORCHESTRATION_SECTIONS: ReadonlyArray<string> = [
-  `## AgentD Next orchestration
+  `## LibraOS Next orchestration
 
 Ordinary coding tasks need no AgentD tools.
 
@@ -33,7 +33,7 @@ ${T3_CODE_ORCHESTRATION_SECTIONS.join("\n\n")}
 
 // AgentD: with orchestration tools off (the default) the T3 task tools are not listed, and the
 // sections above made models report them unavailable and stop instead of using agentd.
-const T3_CODE_AGENTD_WORKER_SECTION = `## AgentD Next workers
+const T3_CODE_AGENTD_WORKER_SECTION = `## LibraOS Next workers
 
 This session has no T3 task tools: \`delegate_task\`, \`orchestrator_capabilities\`, \`task_*\` and \`thread_*\` are not offered here, so do not look for them or report them missing. To hand work to an AgentD worker, track it in AgentD, or run it in the background, use the AgentD skill (\`agentd\`) or the agentd MCP tools; agentd owns tasks, workers and approvals. A subagent inside this session uses your native tool (Claude \`Agent\`, Codex \`spawn_agent\`). If neither the AgentD skill nor agentd tools are available, say so and tell the user to set up AgentD from the AgentD page.`;
 
@@ -50,14 +50,14 @@ export const t3Instructions = (orchestration: boolean): string =>
 
 export const T3_CODE_BROWSER_TOOL_INSTRUCTIONS = `
 
-## AgentD Next browser
+## LibraOS Next browser
 
 When browser work was asked, \`preview_*\` is the browser you share with the user: \`preview_status\` first, then \`preview_open\` if no tab can be automated. Prefer snapshot locators over coordinates. Switch browsers only if the tools are absent or \`preview_open\` says unsupported, the user asks, or two preview calls fail on one step. Then quote the error and switch.
 `;
 
 const T3_CODE_DEVICE_TOOLS = ["device_list", "device_open", "device_screenshot", "device_close"];
 
-const deviceToolInstructions = (loadTools: string) => `## AgentD Next devices
+const deviceToolInstructions = (loadTools: string) => `## LibraOS Next devices
 
 When a task needs an iOS Simulator or Android Emulator, on this machine or on an SSH device host such as a remote Mac, use the device tools so the user can watch it in the Device panel.${loadTools}
 1. Call \`device_list\` unless you already have the device's \`hostId\` and \`id\`.
@@ -78,13 +78,13 @@ export const T3_CODE_DEVICE_TOOL_INSTRUCTIONS_WITH_TOOL_SEARCH = deviceToolInstr
 // its tools, so they need the terminal transport other harnesses never use.
 const T3_CODE_ACP_MCP_FALLBACK_INSTRUCTIONS = `ACP fallback: if the AgentD tools are absent and \`T3_ACP_MCP_NODE\` is present, call them through the terminal: \`ELECTRON_RUN_AS_NODE=1 "$T3_ACP_MCP_NODE" \${T3_ACP_MCP_ENTRYPOINT:+"$T3_ACP_MCP_ENTRYPOINT"} acp-mcp-call orchestrator_capabilities '{}'\` (\`T3_ACP_MCP_ENTRYPOINT\` is unset for a standalone executable). Delegate with \`acp-mcp-call delegate_task '{"task":"...","target":{"providerInstanceId":"...","model":"..."},"mode":"async","clientRequestId":"..."}'\`. On Windows, run \`T3_ACP_MCP_CALL\` instead and pipe the JSON to stdin, as in PowerShell \`'{}' | & $env:T3_ACP_MCP_CALL orchestrator_capabilities -\`, writing non-ASCII characters as \`\\uXXXX\` escapes.`;
 
-const T3_CODE_ACP_DEFAULT_MODE_INSTRUCTIONS = `## AgentD Next interaction mode: Default
+const T3_CODE_ACP_DEFAULT_MODE_INSTRUCTIONS = `## LibraOS Next interaction mode: Default
 
-Prefer making reasonable assumptions and carrying out the user's request. Ask a concise question only when a missing user decision would materially change the result. Treat this mode as active until AgentD Next supplies a different interaction-mode instruction.`;
+Prefer making reasonable assumptions and carrying out the user's request. Ask a concise question only when a missing user decision would materially change the result. Treat this mode as active until LibraOS Next supplies a different interaction-mode instruction.`;
 
-const T3_CODE_ACP_PLAN_MODE_INSTRUCTIONS = `## AgentD Next interaction mode: Plan
+const T3_CODE_ACP_PLAN_MODE_INSTRUCTIONS = `## LibraOS Next interaction mode: Plan
 
-Investigate with read-only actions and do not edit files or otherwise execute the implementation. Resolve discoverable facts before asking questions. When the requirements are decision complete, return a concrete implementation plan and do not start implementing it. Treat this mode as active until AgentD Next supplies a different interaction-mode instruction.`;
+Investigate with read-only actions and do not edit files or otherwise execute the implementation. Resolve discoverable facts before asking questions. When the requirements are decision complete, return a concrete implementation plan and do not start implementing it. Treat this mode as active until LibraOS Next supplies a different interaction-mode instruction.`;
 
 export interface T3AcpInstructionState {
   readonly interactionMode: ProviderInteractionMode;

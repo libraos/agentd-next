@@ -2571,7 +2571,7 @@ it.effect("steers a promoted scheduled delivery with the thread's current select
 
         const projection = yield* orchestrator.getThreadProjection(threadId);
         assert.deepEqual(steered, [
-          '[AgentD Next: scheduled task "task:scheduled" sent this prompt, not the user typing in this chat.]\n\nscheduled',
+          '[LibraOS Next: scheduled task "task:scheduled" sent this prompt, not the user typing in this chat.]\n\nscheduled',
         ]);
         assert.deepEqual(projection.thread.modelSelection, composerSelection);
       }).pipe(Effect.provide(layer));
@@ -3396,7 +3396,7 @@ it.effect("starts a restart that stops the running turn ahead of an older held q
             "first",
             ...["second", "do this instead"].map(
               (text) =>
-                `[AgentD Next: this message came through AgentD Next's tools, not from the user typing in this chat.]\n\n${text}`,
+                `[LibraOS Next: this message came through LibraOS Next's tools, not from the user typing in this chat.]\n\n${text}`,
             ),
           ],
         },
@@ -3520,7 +3520,7 @@ it.effect("replays an accepted steer after its target turn completes", () =>
       assert.equal(fresh._tag, "ThreadManagementNoSteerableRunError");
       yield* worker.drain();
       assert.deepEqual(steered, [
-        `[AgentD Next: this message came through AgentD Next's tools, not from the user typing in this chat.]\n\n${input.text}`,
+        `[LibraOS Next: this message came through LibraOS Next's tools, not from the user typing in this chat.]\n\n${input.text}`,
       ]);
       assert.lengthOf(started, 1);
     }).pipe(

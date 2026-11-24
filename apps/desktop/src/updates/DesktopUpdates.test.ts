@@ -42,8 +42,8 @@ const semver = requireFromUpdater("semver") as { parse: (version: string) => Run
 
 const releaseTitle = (version: string) =>
   version.includes("-nightly.")
-    ? `AgentD Next Nightly ${version} (0123456789ab)`
-    : `AgentD Next v${version}`;
+    ? `LibraOS Next Nightly ${version} (0123456789ab)`
+    : `LibraOS Next v${version}`;
 
 const releaseFeed = (...versions: ReadonlyArray<string>) =>
   parseXml(

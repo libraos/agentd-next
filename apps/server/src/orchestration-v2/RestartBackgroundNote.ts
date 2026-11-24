@@ -143,7 +143,7 @@ export function restartCancelledBackgroundWorkNote(
 ): string {
   const omitted = work.length - MAX_NOTE_ENTRIES;
   return [
-    `Note: ${cause === "provider_exit" ? "the agent runtime process exited" : "the AgentD Next server restarted"}, and this background work was cancelled before it finished. It will not report back on its own, so resume or restart what you still need and wait for its result:`,
+    `Note: ${cause === "provider_exit" ? "the agent runtime process exited" : "the LibraOS Next server restarted"}, and this background work was cancelled before it finished. It will not report back on its own, so resume or restart what you still need and wait for its result:`,
     ...work.slice(0, MAX_NOTE_ENTRIES).map((entry) => `- ${entry.kind}: ${entry.label}`),
     ...(omitted > 0 ? [`- and ${omitted} more`] : []),
   ].join("\n");

@@ -71,7 +71,7 @@ export const cascadeRebaseStack = Effect.fn("cascadeRebaseStack")(function* (inp
     GIT_CONFIG_KEY_0: `http.${remote}.extraheader`,
     GIT_CONFIG_VALUE_0: authorization,
     GIT_CONFIG_KEY_1: "user.name",
-    GIT_CONFIG_VALUE_1: "AgentD Next",
+    GIT_CONFIG_VALUE_1: "LibraOS Next",
     GIT_CONFIG_KEY_2: "user.email",
     GIT_CONFIG_VALUE_2: "noreply@t3.codes",
   };

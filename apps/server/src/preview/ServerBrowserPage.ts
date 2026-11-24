@@ -566,7 +566,7 @@ export const captureViewport = async (
           new ServerBrowserOperationError({
             tag: "PreviewAutomationExecutionError",
             message:
-              "The browser is not producing screenshot frames. For a desktop tab, show or restore the AgentD Next window and try again.",
+              "The browser is not producing screenshot frames. For a desktop tab, show or restore the LibraOS Next window and try again.",
           }),
         ),
       SCREENSHOT_TIMEOUT_MS,

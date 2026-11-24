@@ -183,15 +183,15 @@ function formatServiceStatus(
   protection?: ServiceProtection.ServiceProtectionState,
 ): string {
   if (!status.supported) {
-    return "AgentD Next service\n  Status: unavailable on this machine\n  Supported on: Linux with systemd, macOS with launchd, Windows with Task Scheduler";
+    return "LibraOS Next service\n  Status: unavailable on this machine\n  Supported on: Linux with systemd, macOS with launchd, Windows with Task Scheduler";
   }
   if (!status.installed) {
-    return `AgentD Next service\n  Status: not installed\n  Next: Run \`${commands.install}\`.`;
+    return `LibraOS Next service\n  Status: not installed\n  Next: Run \`${commands.install}\`.`;
   }
   if (status.otherBaseDir !== undefined) {
     return [
-      "AgentD Next service",
-      "  Status: installed for another AgentD Next home",
+      "LibraOS Next service",
+      "  Status: installed for another LibraOS Next home",
       `  Base dir: ${status.otherBaseDir}`,
       `  Next: Pass \`${BootService.formatBootServiceBaseDirOption(status.otherBaseDir)}\` to manage it.`,
     ].join("\n");
@@ -206,7 +206,7 @@ function formatServiceStatus(
     compareExactServiceVersions(status.installedVersion, cliVersion) > 0
   ) {
     return [
-      "AgentD Next service",
+      "LibraOS Next service",
       `  Status: installed · t3@${installedVersion} (newer than this t3@${cliVersion} CLI)`,
       `  Unit: ${status.unitPath}`,
       `  Logs: ${status.logPath}`,
@@ -216,7 +216,7 @@ function formatServiceStatus(
     ].join("\n");
   }
   return [
-    "AgentD Next service",
+    "LibraOS Next service",
     `  Status: ${status.current ? `installed · t3@${installedVersion}` : "needs an update or repair"}`,
     `  Unit: ${status.unitPath}`,
     `  Logs: ${status.logPath}`,
@@ -245,7 +245,7 @@ const serviceReconcileFlags = {
 
 const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pipe(
   Command.withDescription(
-    "Install AgentD Next as a background service for this user. `libraos-next up` also chooses how your other devices reach it.",
+    "Install LibraOS Next as a background service for this user. `libraos-next up` also chooses how your other devices reach it.",
   ),
   Command.withHandler((flags) =>
     runServiceCommand(
@@ -254,7 +254,7 @@ const serviceInstallCommand = Command.make("install", serviceReconcileFlags).pip
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
           yield* Console.log(
-            `AgentD Next service is already installed with t3@${packageJson.version} (${yield* resolveEntryPath}).`,
+            `LibraOS Next service is already installed with t3@${packageJson.version} (${yield* resolveEntryPath}).`,
           );
           return;
         }
@@ -281,7 +281,7 @@ const serviceUpdateCommand = Command.make("update", serviceReconcileFlags).pipe(
         const result = yield* reconcileService({ allowDowngrade: flags.allowDowngrade });
         if (!result.changed) {
           yield* Console.log(
-            `AgentD Next service is already using t3@${packageJson.version} (${yield* resolveEntryPath}).`,
+            `LibraOS Next service is already using t3@${packageJson.version} (${yield* resolveEntryPath}).`,
           );
           return;
         }
@@ -306,12 +306,12 @@ const serviceRestartCommand = Command.make("restart", projectLocationFlags).pipe
           status.installedVersion === undefined ? "" : ` on t3@${status.installedVersion}`;
         yield* Console.log(
           outcome === "restarted"
-            ? `Restarted the AgentD Next service${onVersion}.`
+            ? `Restarted the LibraOS Next service${onVersion}.`
             : outcome === "queued"
-              ? `Queued a restart of the AgentD Next service${onVersion}. This session runs inside the service and disconnects when it goes down.\nLogs: ${status.logPath}`
+              ? `Queued a restart of the LibraOS Next service${onVersion}. This session runs inside the service and disconnects when it goes down.\nLogs: ${status.logPath}`
               : status.otherBaseDir !== undefined
-                ? `The AgentD Next service serves ${status.otherBaseDir}, so it was not restarted. Pass \`${BootService.formatBootServiceBaseDirOption(status.otherBaseDir)}\` to restart it.`
-                : "AgentD Next service is not installed.",
+                ? `The LibraOS Next service serves ${status.otherBaseDir}, so it was not restarted. Pass \`${BootService.formatBootServiceBaseDirOption(status.otherBaseDir)}\` to restart it.`
+                : "LibraOS Next service is not installed.",
         );
       }),
     ),
@@ -319,7 +319,7 @@ const serviceRestartCommand = Command.make("restart", projectLocationFlags).pipe
 );
 
 const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).pipe(
-  Command.withDescription("Stop and remove the AgentD Next background service."),
+  Command.withDescription("Stop and remove the LibraOS Next background service."),
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
@@ -337,13 +337,13 @@ const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).
           path.resolve(installedBaseDir) !== path.resolve(baseDir)
         ) {
           yield* Console.log(
-            `The AgentD Next service serves ${installedBaseDir}, so it was not removed. Pass \`${BootService.formatBootServiceBaseDirOption(installedBaseDir)}\` to remove it.`,
+            `The LibraOS Next service serves ${installedBaseDir}, so it was not removed. Pass \`${BootService.formatBootServiceBaseDirOption(installedBaseDir)}\` to remove it.`,
           );
           return;
         }
         const removed = yield* service.uninstall;
         yield* Console.log(
-          removed ? "Removed the AgentD Next service." : "AgentD Next service is not installed.",
+          removed ? "Removed the LibraOS Next service." : "LibraOS Next service is not installed.",
         );
       }),
     ),
@@ -351,7 +351,7 @@ const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).
 );
 
 const serviceStatusCommand = Command.make("status", projectLocationFlags).pipe(
-  Command.withDescription("Show whether the AgentD Next background service is installed."),
+  Command.withDescription("Show whether the LibraOS Next background service is installed."),
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
@@ -398,7 +398,7 @@ const serviceProtectCommand = Command.make("protect", {
   ),
 }).pipe(
   Command.withDescription(
-    "Protect the AgentD Next server from agents under memory pressure (Linux with systemd). Asks for sudo.",
+    "Protect the LibraOS Next server from agents under memory pressure (Linux with systemd). Asks for sudo.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
@@ -407,7 +407,7 @@ const serviceProtectCommand = Command.make("protect", {
       // Before resolving config, which creates T3 directories that root would then own.
       if ((yield* HostProcess.UserId) === 0) {
         return yield* Console.log(
-          "Run `libraos-next service protect` as the user that runs AgentD Next, without sudo. It asks for sudo when it needs root.",
+          "Run `libraos-next service protect` as the user that runs LibraOS Next, without sudo. It asks for sudo when it needs root.",
         );
       }
       return yield* runServiceCommand(
@@ -430,7 +430,7 @@ const serviceProtectCommand = Command.make("protect", {
               }),
             );
             if (installed === undefined) {
-              return yield* Console.log("AgentD Next service protection is not set up.");
+              return yield* Console.log("LibraOS Next service protection is not set up.");
             }
             yield* Console.log(
               [
@@ -441,17 +441,17 @@ const serviceProtectCommand = Command.make("protect", {
                 ),
               ].join("\n"),
             );
-            if (!(yield* confirm(flags.yes, "Remove AgentD Next service protection?"))) return;
+            if (!(yield* confirm(flags.yes, "Remove LibraOS Next service protection?"))) return;
             yield* ServiceProtection.removeProtection(installed);
             return yield* Console.log(
-              "Removed AgentD Next service protection. The server's OOM score returns to normal after `libraos-next service restart`.",
+              "Removed LibraOS Next service protection. The server's OOM score returns to normal after `libraos-next service restart`.",
             );
           }
 
           yield* Console.log(
             [
-              "Keeps AgentD Next running when agents fill this machine's memory:",
-              "  - reserves memory for the AgentD Next server, so the kernel takes memory from agents first",
+              "Keeps LibraOS Next running when agents fill this machine's memory:",
+              "  - reserves memory for the LibraOS Next server, so the kernel takes memory from agents first",
               "  - makes the out-of-memory killer pick agents before the server",
               "It adds systemd drop-in files and changes nothing else. Undo with `libraos-next service protect --undo`.",
             ].join("\n"),
@@ -484,8 +484,8 @@ const serviceProtectCommand = Command.make("protect", {
           yield* ServiceProtection.applyProtection(plan);
           yield* Console.log(
             memoryController
-              ? "Protected AgentD Next. Memory protection applies now; the server takes its OOM score after `libraos-next service restart`. Undo with `libraos-next service protect --undo`."
-              : "Protected AgentD Next's OOM score; the server takes it after `libraos-next service restart`. Memory protection applies once the kernel's memory controller is enabled. Undo with `libraos-next service protect --undo`.",
+              ? "Protected LibraOS Next. Memory protection applies now; the server takes its OOM score after `libraos-next service restart`. Undo with `libraos-next service protect --undo`."
+              : "Protected LibraOS Next's OOM score; the server takes it after `libraos-next service restart`. Memory protection applies once the kernel's memory controller is enabled. Undo with `libraos-next service protect --undo`.",
           );
         }).pipe(Effect.provide(ProcessRunner.layer)),
       );
@@ -494,7 +494,7 @@ const serviceProtectCommand = Command.make("protect", {
 );
 
 export const serviceCommand = Command.make("service").pipe(
-  Command.withDescription("Manage the AgentD Next background service."),
+  Command.withDescription("Manage the LibraOS Next background service."),
   Command.withSubcommands([
     serviceInstallCommand,
     serviceRestartCommand,

@@ -716,7 +716,7 @@ const probeClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(functio
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Claude is disabled in AgentD Next settings.",
+        message: "Claude is disabled in LibraOS Next settings.",
       },
     });
   }
@@ -993,7 +993,7 @@ export const makePendingClaudeProvider = Effect.fn("ClaudeProvider.makePendingCl
           version: null,
           status: "warning",
           auth: { status: "unknown" },
-          message: "Claude is disabled in AgentD Next settings.",
+          message: "Claude is disabled in LibraOS Next settings.",
         },
       });
     }

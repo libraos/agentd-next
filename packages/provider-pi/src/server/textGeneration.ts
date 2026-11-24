@@ -56,7 +56,7 @@ export const makePiTextGeneration = Effect.fn("makePiTextGeneration")(function* 
             : null;
         const broken =
           version === null
-            ? "AgentD Next could not determine the Pi version. Update Pi and try again."
+            ? "LibraOS Next could not determine the Pi version. Update Pi and try again."
             : brokenVersionDetail({
                 name: "Pi",
                 version,

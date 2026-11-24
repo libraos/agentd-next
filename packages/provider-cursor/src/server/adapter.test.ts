@@ -926,8 +926,8 @@ describe("CursorAdapterV2", () => {
           lastProviderTurn = providerTurn.providerTurn;
         const sent = sentMessages.at(-1)!;
         return {
-          orchestration: sent.includes("## AgentD Next orchestration"),
-          devices: sent.includes("## AgentD Next devices"),
+          orchestration: sent.includes("## LibraOS Next orchestration"),
+          devices: sent.includes("## LibraOS Next devices"),
           runtime: sent.includes("<runtime_info>"),
         };
       });

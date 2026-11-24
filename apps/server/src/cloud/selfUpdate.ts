@@ -195,14 +195,14 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
         );
       }
       return yield* failWith(
-        "This server is managed by the AgentD Next app on its machine; update the desktop app to update it.",
+        "This server is managed by the LibraOS Next app on its machine; update the desktop app to update it.",
       );
     }
     // The target must accept the launcher that will run it, which can be older than this server.
     const launcherProtocol = launcher.protocol;
     if (capability === null || launcherProtocol === undefined) {
       return yield* failWith(
-        "Remote updates require the AgentD Next background service. Run `libraos-next service install` on the server machine.",
+        "Remote updates require the LibraOS Next background service. Run `libraos-next service install` on the server machine.",
       );
     }
 

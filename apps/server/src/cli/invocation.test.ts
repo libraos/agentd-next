@@ -160,11 +160,11 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
         resolveHostCliCommand("doctor", ["--base-dir", "C:\\Users\\Jane Doe\\.t3"]).pipe(
           Effect.provideService(
             HostProcess.ExecutablePath,
-            "C:\\Program Files\\AgentD Next\\t3.exe",
+            "C:\\Program Files\\LibraOS Next\\t3.exe",
           ),
           Effect.provideService(HostProcess.Arguments, [
-            "C:\\Program Files\\AgentD Next\\t3.exe",
-            "C:\\Program Files\\AgentD Next\\resources\\app.asar\\apps\\server\\dist\\bin.mjs",
+            "C:\\Program Files\\LibraOS Next\\t3.exe",
+            "C:\\Program Files\\LibraOS Next\\resources\\app.asar\\apps\\server\\dist\\bin.mjs",
           ]),
           Effect.provideService(HostProcess.IsExecutable, false),
           Effect.provideService(HostProcess.Platform, platform),

@@ -55,7 +55,7 @@ const make = Effect.gen(function* () {
     );
     if (runtime === undefined) return yield* stopped(input.server);
     if (runtime.mcpSignIn === undefined) {
-      return yield* fail(input.server, "This agent can't sign MCP servers in from AgentD Next.");
+      return yield* fail(input.server, "This agent can't sign MCP servers in from LibraOS Next.");
     }
     return { providerThread, mcpSignIn: runtime.mcpSignIn };
   });

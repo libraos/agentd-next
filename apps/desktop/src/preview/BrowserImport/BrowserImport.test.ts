@@ -58,7 +58,7 @@ const withImporter = Effect.fnUntraced(function* () {
         Layer.provide(DesktopManagedPolicy.layerTest()),
         Layer.provide(layerEnvironment),
         Layer.provide(Layer.succeed(HostProcess.Platform, "darwin")),
-        Layer.provide(Layer.succeed(HostProcess.ExecutablePath, "/Applications/AgentD Next.app")),
+        Layer.provide(Layer.succeed(HostProcess.ExecutablePath, "/Applications/LibraOS Next.app")),
         Layer.provide(NodeServices.layer),
       ),
     ),

@@ -148,7 +148,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       yield* fs.writeFile(keyFile, textEncoder.encode(`${key}\n`), { mode: 0o600 });
     },
     Effect.tapError(() => fs.remove(keyFile, { force: true }).pipe(Effect.ignore)),
-    Effect.catch(storageFailure("write agentd's key file")),
+    Effect.catch(storageFailure("write LibraOS Core's key file")),
   );
 
   // agentd writes [gateway], [dispatch] and its price list itself, and leaves a config that has
@@ -161,7 +161,8 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     if (!help.text.includes("--model-key")) {
       return {
         ok: false,
-        output: "This agentd cannot take a model key (init --model-key). Update agentd.",
+        output:
+          "This LibraOS Core cannot take a model key (init --model-key). Update LibraOS Core.",
       };
     }
     const home = yield* HostProcess.HomeDirectory;
@@ -185,7 +186,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
         Effect.map((output) => ({
           ok: !output.timedOut && output.code === 0,
           output: output.timedOut
-            ? "agentd init did not finish in time."
+            ? "libraos-core init did not finish in time."
             : `${output.stdout}${output.stderr}`.trim().slice(-OUTPUT_LIMIT),
         })),
       );
@@ -194,7 +195,8 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     Effect.catch((error) =>
       Effect.succeed({
         ok: false,
-        output: "message" in error && error.message ? error.message : "agentd could not be run.",
+        output:
+          "message" in error && error.message ? error.message : "LibraOS Core could not be run.",
       }),
     ),
   );
@@ -268,7 +270,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
         }
         yield* fs
           .remove(keyFile, { force: true })
-          .pipe(Effect.catch(storageFailure("remove agentd's key file")));
+          .pipe(Effect.catch(storageFailure("remove LibraOS Core's key file")));
         yield* withFiles(removePiGatewayAgentDir(piDir)).pipe(
           Effect.catch(storageFailure("remove the Pi agent's directory")),
         );

@@ -239,7 +239,7 @@ describe("DesktopPreReadyPlatform", () => {
               DesktopConfig.layerTest({
                 XDG_DATA_HOME: "/xdg",
                 APPIMAGE: "/Applications/current.AppImage",
-                T3CODE_DESKTOP_LAUNCHER_PATH: " /opt/AgentD Next/t3code ",
+                T3CODE_DESKTOP_LAUNCHER_PATH: " /opt/LibraOS Next/t3code ",
               }),
             ),
           ),
@@ -247,7 +247,7 @@ describe("DesktopPreReadyPlatform", () => {
         const entry = writeFileSyncMock.mock.calls.find(
           ([path]) => path === "/xdg/applications/com.libraos.next.desktop",
         )?.[1];
-        assert.include(entry, 'Exec="/opt/AgentD Next/t3code" %U');
+        assert.include(entry, 'Exec="/opt/LibraOS Next/t3code" %U');
       }),
     ).pipe(Effect.ensuring(Effect.sync(() => vi.unstubAllEnvs())));
   });

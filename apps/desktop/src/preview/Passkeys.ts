@@ -69,6 +69,8 @@ const chooseAccount = async (details: Electron.SelectWebauthnAccountDetails) => 
   if (details.accounts.length === 1) return onlyAccount?.credentialId;
   const options: Electron.MessageBoxOptions = {
     type: "none",
+    // Without a title, Windows shows Electron's app name, which stays AgentD Next for safeStorage.
+    title: m(msg("Choose a passkey")),
     message: m(msg("Choose a passkey")),
     detail: details.relyingPartyId,
     buttons: [...details.accounts.map(accountLabel), m(msg("Cancel"))],

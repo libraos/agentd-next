@@ -216,7 +216,7 @@ function decodeJson<S extends Schema.Top & { readonly DecodingServices: never }>
   const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(schema));
   return (stdout: string) =>
     decode(stdout).pipe(
-      Effect.mapError(() => commandError("agentd answered with JSON this app cannot read.")),
+      Effect.mapError(() => commandError("LibraOS Core answered with JSON this app cannot read.")),
     );
 }
 
@@ -239,7 +239,7 @@ function args(
   return Effect.try({
     try: build,
     catch: (error) =>
-      commandError(isArgumentError(error) ? error.message : "Invalid agentd input."),
+      commandError(isArgumentError(error) ? error.message : "Invalid LibraOS Core input."),
   });
 }
 
@@ -265,8 +265,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       return yield* new AgentdNotFoundError({
         message:
           configured === undefined
-            ? "agentd was not found on PATH."
-            : `agentd was not found at AGENTD_BIN (${configured}).`,
+            ? "LibraOS Core (libraos-core or agentd) was not found on PATH."
+            : `LibraOS Core was not found at AGENTD_BIN (${configured}).`,
         ...bundled,
       });
     }
@@ -295,24 +295,24 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
         Effect.mapError((error) =>
           error._tag === "ProcessSpawnError"
             ? new AgentdNotFoundError({
-                message: `agentd at ${command} could not be started.`,
+                message: `LibraOS Core at ${command} could not be started.`,
                 ...bundled,
               })
             : commandError(
                 error._tag === "ProcessTimeoutError"
-                  ? "agentd did not answer in time."
-                  : "agentd could not be read.",
+                  ? "LibraOS Core did not answer in time."
+                  : "LibraOS Core could not be read.",
               ),
         ),
       );
-    if (output.timedOut) return yield* commandError("agentd did not answer in time.");
+    if (output.timedOut) return yield* commandError("LibraOS Core did not answer in time.");
     const said = (output.stderr || output.stdout).trim();
     if (output.code === NOT_SET_UP_EXIT) {
-      return yield* commandError(said || "agentd is not set up yet.", true);
+      return yield* commandError(said || "LibraOS Core is not set up yet.", true);
     }
     // doctor exits non-zero when a check fails and still prints its whole report.
     if (output.code !== 0 && !options.jsonOnFailure) {
-      return yield* commandError(said || `agentd exited with ${output.code}.`);
+      return yield* commandError(said || `LibraOS Core exited with ${output.code}.`);
     }
     return output.stdout;
   });
@@ -412,12 +412,12 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     if (serviceDeps === null || problem === null) return { ok: true };
     if (problem.moves.length === 0)
       return yield* commandError(
-        "Repair isn’t available for these services. Run agentd install in a terminal.",
+        "Repair isn’t available for these services. Run libraos-core install in a terminal.",
       );
     const confirmed = new Set(input.moves);
     if (problem.moves.length !== confirmed.size || problem.moves.some((n) => !confirmed.has(n)))
       return yield* commandError(
-        "AgentD’s background services changed since you confirmed Repair. Check what it changes now and confirm again.",
+        "LibraOS Core’s background services changed since you confirmed Repair. Check what it changes now and confirm again.",
       );
     const installed = yield* provideFiles(repairServices(yield* serviceDeps, problem));
     // A service still on a missing or old agentd, or a watchdog systemd hasn't enabled, after
@@ -717,7 +717,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       ),
     );
     const id = created.handoff ?? created.id;
-    if (id === undefined) return yield* commandError("agentd new did not name the task it made.");
+    if (id === undefined) return yield* commandError("LibraOS Core did not name the task it made.");
     return yield* dispatch(id, input.worker, false);
   });
 
@@ -726,7 +726,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     const row = yield* listRow(input.blocking);
     if (row === null) {
       return yield* commandError(
-        `AgentD could not read task ${input.blocking}, so it was not released.`,
+        `LibraOS Core could not read task ${input.blocking}, so it was not released.`,
       );
     }
     // Releasing a task whose worker still runs would stop live work the person did not see.
@@ -738,7 +738,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     // agentd's decline is only for the session an offer is addressed to; a cancel by its sender
     // or an owner releases an offered or claimed task alike.
     if (row.state === "offered" || row.state === "claimed") {
-      const reason = `Released from AgentD Next to start ${input.id}`;
+      const reason = `Released from LibraOS Next to start ${input.id}`;
       yield* run(yield* args(() => agentdArgs.cancel(input.blocking, reason)));
     }
     return yield* dispatch(input.id, input.worker, false);
@@ -777,7 +777,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       Effect.flatMap(decodeWho),
     );
     if (!who.server || who.server_note) {
-      return yield* commandError("agentd could not look up team holdings.");
+      return yield* commandError("LibraOS Core could not look up team holdings.");
     }
     return who;
   });
@@ -960,7 +960,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
           const answer = yield* run(argv, { timeout: Duration.minutes(15) });
           const made = yield* decodeBackupCreated(answer).pipe(
             Effect.mapError(() =>
-              commandError("agentd's answer to backup create could not be read."),
+              commandError("LibraOS Core's answer to backup create could not be read."),
             ),
           );
           yield* Effect.forEach(

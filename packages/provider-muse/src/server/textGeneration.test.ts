@@ -241,7 +241,7 @@ it.layer(NodeServices.layer)("Muse text generation", (it) => {
         },
         {
           error: { kind: "authRequired" },
-          detail: "Muse Code is not signed in. Run `muse login` on this AgentD Next server host.",
+          detail: "Muse Code is not signed in. Run `muse login` on this LibraOS Next server host.",
         },
         {
           error: { kind: "modelError" },
@@ -250,7 +250,7 @@ it.layer(NodeServices.layer)("Muse text generation", (it) => {
         {
           error: { kind: "stepLimit" },
           detail:
-            "Muse Code text generation failed. Check Muse login and availability on this AgentD Next server host.",
+            "Muse Code text generation failed. Check Muse login and availability on this LibraOS Next server host.",
         },
         {
           reason: "upstream 429: quota exceeded for this key",
@@ -259,7 +259,7 @@ it.layer(NodeServices.layer)("Muse text generation", (it) => {
         {
           reason: "raw provider refusal",
           detail:
-            "Muse Code text generation failed. Check Muse login and availability on this AgentD Next server host.",
+            "Muse Code text generation failed. Check Muse login and availability on this LibraOS Next server host.",
         },
       ];
       for (const { error, reason, detail } of cases) {

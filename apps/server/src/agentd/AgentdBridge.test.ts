@@ -549,7 +549,7 @@ describe("AgentdBridge", () => {
               "body":{"goal":"On my plan","model_access":"subscription","codex_auth_file":"/private/auth.json"}
             }`),
             );
-          case "handoff done hof-abc456 --cancel --reason Stopped from AgentD Next":
+          case "handoff done hof-abc456 --cancel --reason Stopped from LibraOS Next":
             return Effect.succeed(output("{}"));
           default:
             return Effect.die(`unexpected agentd ${input.args.join(" ")}`);
@@ -592,7 +592,7 @@ describe("AgentdBridge", () => {
       expect(subscribed.cloud).toMatchObject({ modelAccess: "subscription", plan: "codex" });
       expect(JSON.stringify(subscribed)).not.toContain("/private/auth.json");
       expect(
-        yield* bridge.stopTask({ id: "hof-abc456", reason: "Stopped from AgentD Next" }),
+        yield* bridge.stopTask({ id: "hof-abc456", reason: "Stopped from LibraOS Next" }),
       ).toEqual({});
     }),
   );
@@ -611,13 +611,13 @@ describe("AgentdBridge", () => {
           case "handoff dispatch hof-0e3d000001 --tool codex":
             return Effect.succeed(
               calls.includes(
-                "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001",
+                "handoff done hof-b10c4ed001 --cancel --reason Released from LibraOS Next to start hof-0e3d000001",
               )
                 ? output("{}")
                 : { ...output("", 1), stderr: refusal },
             );
           case "handoff dispatch hof-0e3d000001 --tool codex --force":
-          case "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001":
+          case "handoff done hof-b10c4ed001 --cancel --reason Released from LibraOS Next to start hof-0e3d000001":
             return Effect.succeed(output("{}"));
           case "handoff list --json":
             return Effect.succeed(
@@ -678,7 +678,7 @@ describe("AgentdBridge", () => {
       });
       expect(calls).toEqual([
         "handoff list --json",
-        "handoff done hof-b10c4ed001 --cancel --reason Released from AgentD Next to start hof-0e3d000001",
+        "handoff done hof-b10c4ed001 --cancel --reason Released from LibraOS Next to start hof-0e3d000001",
         "handoff dispatch hof-0e3d000001 --tool codex",
       ]);
     }),
@@ -1320,7 +1320,7 @@ describe("AgentdBridge", () => {
       const refused = yield* Effect.flip(bridge.startTask(other));
       expect(refused).toMatchObject({ replaceSubmission: keys()[0] });
       expect(refused.message).toBe(
-        "AgentD hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
+        "LibraOS Core hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
       );
       expect(offers()).toHaveLength(2);
 
@@ -1509,7 +1509,7 @@ describe("AgentdBridge", () => {
       );
       claudeFile = output("config is locked", 1);
       expect((yield* Effect.flip(task("Claude, unreadable", { plan: "claude" }))).message).toBe(
-        "AgentD couldn’t read which Claude token is set up, so nothing was submitted. Try again.",
+        "LibraOS Core couldn’t read which Claude token is set up, so nothing was submitted. Try again.",
       );
       claudeFile = output('"/home/me/.secrets/claude-token"');
       expect(credentialFlags()).toEqual([
@@ -1539,12 +1539,12 @@ describe("AgentdBridge", () => {
       });
       yield* task("v0.1.14, on the configured Claude token", { plan: "claude" });
       expect((yield* Effect.flip(task("Too old", { plan: "codex" }))).message).toBe(
-        "This version of AgentD can’t run Codex on your ChatGPT plan. Run agentd upgrade, then try again.",
+        "This version of LibraOS Core can’t run Codex on your ChatGPT plan. Run libraos-core upgrade, then try again.",
       );
       help = "usage: agentd handoff offer [--cloud]";
       expect((yield* bridge.cloudSetup({ cwd, includeBalance: true })).subscription).toBeNull();
       expect((yield* Effect.flip(task("Older", { plan: "claude" }))).message).toBe(
-        "This version of AgentD can’t run Cloud Workers on your own subscription. Run agentd upgrade, then try again.",
+        "This version of LibraOS Core can’t run Cloud Workers on your own subscription. Run libraos-core upgrade, then try again.",
       );
       expect(credentialFlags()).toHaveLength(5);
       expect(credentialFlags()[4]).toEqual([
@@ -1599,7 +1599,7 @@ describe("AgentdBridge", () => {
         problem: "setup",
       });
       expect((yield* Effect.flip(bridge.cloudConfigure({ key, url: libraos }))).message).toBe(
-        "This version of AgentD can’t set up Cloud Workers. Run agentd upgrade, then try again.",
+        "This version of LibraOS Core can’t set up Cloud Workers. Run libraos-core upgrade, then try again.",
       );
       expect(setups()).toEqual([]);
 
@@ -2033,7 +2033,7 @@ describe("AgentdBridge", () => {
         ],
         [
           "--model-access subscription is not offered through an agentd server",
-          "Submit cloud tasks from a local AgentD session, not through a team server.",
+          "Submit cloud tasks from a local LibraOS Core session, not through a team server.",
         ],
         [
           "the Claude subscription is not enabled for this account",

@@ -3178,7 +3178,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       assert.equal(ended?.status, "failed");
       assert.equal(
         ended?.status === "failed" ? ended.failure.message : undefined,
-        "OpenCode is waiting on a request AgentD Next couldn't answer.",
+        "OpenCode is waiting on a request LibraOS Next couldn't answer.",
       );
     }),
   );

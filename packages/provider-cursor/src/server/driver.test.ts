@@ -91,7 +91,7 @@ it.layer(layerTest)("CursorDriver", (it) => {
               Response.json(
                 request.url.endsWith("/v1/me")
                   ? {
-                      apiKeyName: "AgentD Next",
+                      apiKeyName: "LibraOS Next",
                       createdAt: "2026-01-01T00:00:00.000Z",
                       userEmail: "cursor@example.com",
                     }
@@ -201,7 +201,7 @@ it.layer(layerTest)("CursorDriver", (it) => {
               Response.json(
                 failUser
                   ? { error: { message: "Cursor is unreachable" } }
-                  : { apiKeyName: "AgentD Next", createdAt: "2026-01-01T00:00:00.000Z" },
+                  : { apiKeyName: "LibraOS Next", createdAt: "2026-01-01T00:00:00.000Z" },
                 { status: failUser ? 503 : 200 },
               ),
             );

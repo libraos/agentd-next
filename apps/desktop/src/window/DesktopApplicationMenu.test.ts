@@ -37,7 +37,7 @@ const environmentInput = {
 
 const layerElectronApp = Layer.succeed(ElectronApp.ElectronApp, {
   metadata: Effect.die("unexpected metadata read"),
-  name: Effect.succeed("AgentD Next"),
+  name: Effect.succeed("LibraOS Next"),
   systemLocale: Effect.succeed("en-US"),
   preferredSystemLanguages: Effect.succeed(["en-US"]),
   whenReady: Effect.void,

@@ -134,7 +134,7 @@ export const make = Effect.fn("desktopUpdate.desktopAppUpdate.make")(function* (
         return { targetVersion: report.state.currentVersion, method: "desktop-app" as const };
       }
       return yield* failWith(
-        `The AgentD Next app on this machine is already up to date on ${report.state.currentVersion}.`,
+        `The LibraOS Next app on this machine is already up to date on ${report.state.currentVersion}.`,
       );
     }
     const reason = report.reason ?? report.state.message ?? "The desktop app update failed.";
@@ -155,7 +155,7 @@ export const make = Effect.fn("desktopUpdate.desktopAppUpdate.make")(function* (
     function* (reportProgress, trackSwitch) {
       if (!available) {
         return yield* failWith(
-          "This server was not started by the AgentD Next app, so it cannot drive a desktop update.",
+          "This server was not started by the LibraOS Next app, so it cannot drive a desktop update.",
         );
       }
       if (yield* Ref.getAndSet(inFlight, true)) {
@@ -177,7 +177,7 @@ export const make = Effect.fn("desktopUpdate.desktopAppUpdate.make")(function* (
             .requestDesktopUpdate(requestId, trackSwitch)
             .pipe(
               Effect.mapError((error) =>
-                failWith("Could not reach the AgentD Next app on this machine.", error),
+                failWith("Could not reach the LibraOS Next app on this machine.", error),
               ),
             );
           return yield* consumeReports(
@@ -214,7 +214,7 @@ export const make = Effect.fn("desktopUpdate.desktopAppUpdate.make")(function* (
         });
         yield* Effect.uninterruptible(
           receiver.commitDesktopUpdate(requestId).pipe(
-            Effect.mapError((error) => failWith("Could not reach the AgentD Next app.", error)),
+            Effect.mapError((error) => failWith("Could not reach the LibraOS Next app.", error)),
             Effect.tap(() => onHandoffAccepted()),
           ),
         );

@@ -425,7 +425,7 @@ describe("libraos-next pair", () => {
         const rendered = String(
           typeof error === "object" && error !== null && "cause" in error ? error.cause : error,
         );
-        assert.include(rendered, "No running AgentD Next server found.");
+        assert.include(rendered, "No running LibraOS Next server found.");
         for (const subcommand of ["serve", "connect"]) {
           const { command } = yield* resolveHostCliCommand(subcommand, ["--base-dir", baseDir]);
           assert.include(rendered, `\`${command}\``);
@@ -465,7 +465,7 @@ describe("libraos-next pair", () => {
           ),
         );
 
-        assert.include(String(error), "No running AgentD Next server found.");
+        assert.include(String(error), "No running LibraOS Next server found.");
         assert.notInclude(String(error), sharedHome);
         assert.deepEqual(NodeFS.readdirSync(NodePath.join(sharedHome, "userdata")), [
           "server-runtime.json",
