@@ -214,6 +214,8 @@ jobs:
         run: |
           cd dist
           sha256sum -c SHA256SUMS
+          # The app's update prompt lists the notes' last lines first, each cut at 220 characters
+          # (apps/desktop/src/updates/releaseNotes.ts), so AgentD Next installs read the last line.
           cat > notes.md <<EOF
           LibraOS Next $VERSION, with LibraOS Core (agentd) $AGENTD_RELEASE and its Skills inside.
 
@@ -234,9 +236,11 @@ jobs:
 
           The app checks for updates at launch and every four hours and asks before installing. On macOS it opens this page instead; install the new version by hand. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
 
-          Coming from AgentD Next (the earlier name)? LibraOS Next is a new app beside it: the first start copies its window settings and sign-in, and threads, settings and the background service carry over. Once LibraOS Next works, uninstall AgentD Next (on macOS, delete it from Applications); its data is left in place.
+          Coming from AgentD Next (the earlier name)? Its update installs LibraOS Next in its place: on Windows AgentD Next is uninstalled, the AppImage is replaced in the same file, and the .deb removes the \`agentd-desktop\` package (start LibraOS Next from the applications menu afterwards). On macOS, install LibraOS Next from this page and delete AgentD Next from Applications. The first start copies AgentD Next's window settings and sign-in; threads, settings and the background service carry over, and AgentD Next's own data is left in place.
 
           Check a download against \`SHA256SUMS\`.
+
+          AgentD Next is now LibraOS Next. On Windows and Linux this update installs LibraOS Next in its place; on macOS, download it from this page. Your threads and settings carry over.
           EOF
           gh release create "$TAG" -R "$REPO" --draft --verify-tag \
             --title "LibraOS Next $VERSION" --notes-file notes.md \

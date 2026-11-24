@@ -65,6 +65,8 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
 const DESKTOP_APP_ID = "com.libraos.next";
 const DESKTOP_PACKAGE_NAME = "libraos-next";
+/** AgentD Next's (and AgentD Desktop's) Debian package. */
+const PREVIOUS_DEB_PACKAGE_NAME = "agentd-desktop";
 // AgentD Next's scheme still opens the app (packages/shared/src/desktopIdentity.ts).
 const DESKTOP_LINK_SCHEMES = [
   "libraos-next",
@@ -3176,6 +3178,11 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       packageName: DESKTOP_PACKAGE_NAME,
       // FPM runs outside the staged app directory, so source paths must be absolute.
       fpm: [
+        // dpkg then removes AgentD Next's package; left beside it, its updater relaunches it and offers this release again.
+        "--conflicts",
+        PREVIOUS_DEB_PACKAGE_NAME,
+        "--replaces",
+        PREVIOUS_DEB_PACKAGE_NAME,
         `${path.join(repoRoot, `apps/desktop/resources/linux/${DESKTOP_APP_ID}.metainfo.xml`)}=/usr/share/metainfo/${DESKTOP_APP_ID}.metainfo.xml`,
         `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/${DESKTOP_PACKAGE_NAME}/copyright`,
       ],

@@ -31,10 +31,11 @@ earlier do not check: install 0.2.0 by hand once.
 
 Earlier releases carry earlier names in their file names: AgentD Next
 (`AgentD-Next-…`), and up to 0.1.10-agentd.6 AgentD Desktop (`AgentD-Desktop-…`).
-An AgentD Next install does not update itself to LibraOS Next: install LibraOS
-Next once by hand ([Updating](./updating.md)). Its first start copies
+AgentD Next 0.2.x updates itself to LibraOS Next on Windows and Linux; on macOS,
+install LibraOS Next by hand and delete AgentD Next
+([From AgentD Next](./updating.md#from-agentd-next)). Its first start copies
 AgentD Next's window settings and sign-in, and AgentD Next's own folder is left
-as it was; once LibraOS Next works, you can uninstall AgentD Next.
+as it was.
 
 Check the download against `SHA256SUMS` before opening it, for example with
 `sha256sum` on Linux or `shasum -a 256` on macOS. A matching checksum shows the

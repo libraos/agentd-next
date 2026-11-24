@@ -2,30 +2,40 @@
 
 ## Update the desktop app
 
-LibraOS Next releases have no automatic update feed. **Settings → About** says
-"Automatic updates are not available because no update feed is configured."
-To update, download the new installer from the
-[releases page](https://github.com/libraos/next/releases), check it
-against `SHA256SUMS`, and install it over the old version (see
-[Install LibraOS Next](./install.md#desktop-app)). Your threads, settings and data
-stay, since the new version uses the same app id and data folder.
+The desktop app checks the [releases page](https://github.com/libraos/next/releases)
+at launch and every four hours, and asks before installing a new release
+(**Settings → About** also has **Check for Updates**). On Windows and Linux (the
+AppImage or the `.deb`) it downloads the update, checks it against the checksum the
+release lists, and installs it. On macOS, where builds are not notarized, it opens
+the release page instead: download the new version, check it against `SHA256SUMS`,
+and install it over the old one (see [Install LibraOS Next](./install.md#desktop-app)).
+Your threads, settings and data stay, since the new version uses the same app id
+and data folder.
 
 ### From AgentD Next
 
-LibraOS Next is the new name of AgentD Next, and it installs as a new app beside
-it: an AgentD Next install does not update itself to LibraOS Next. Install
-LibraOS Next once by hand. On its first start it copies the app data of AgentD
-Next and leaves AgentD Next's own copy as it is, so your threads and settings
-carry over. Delete AgentD Next once LibraOS Next works for you; after that,
-updates install over LibraOS Next as above.
+LibraOS Next is the new name of AgentD Next, and AgentD Next 0.2.x offers LibraOS
+Next as its next update. What it does depends on the system:
 
-On macOS, a version that carried an earlier name, `AgentD Desktop.app` or
-`AgentD Next.app`, stays in Applications after you install `LibraOS Next.app`.
-Delete the old app.
+- **Windows:** the update installs LibraOS Next, uninstalls AgentD Next and starts
+  LibraOS Next. Installing LibraOS Next by hand also uninstalls AgentD Next.
+- **Linux, AppImage:** the update replaces the AppImage file with LibraOS Next and
+  starts it.
+- **Linux, `.deb`:** the update installs the `libraos-next` package, which removes
+  the `agentd-desktop` package. AgentD Next then closes without starting again:
+  start LibraOS Next from your applications menu.
+- **macOS:** the update opens the LibraOS Next release page. Install
+  `LibraOS Next.app`, then delete `AgentD Next.app` (or `AgentD Desktop.app`, an
+  earlier name) from Applications; while it is there, it keeps offering the update.
+
+On its first start LibraOS Next copies AgentD Next's window settings and sign-in
+and leaves AgentD Next's own copy as it is. Threads, settings and the background
+service carry over, since both apps use the same data folder. Do not run AgentD
+Next and LibraOS Next at the same time: only one of them can run the local server.
 
 An administrator can point the desktop app at their own update mirror with the
 managed policy's `updates.feedUrl` ([Managed policy](./managed-policy.md#updates)).
-With a mirror set, the desktop app checks it and installs updates itself.
+With a mirror set, the desktop app checks the mirror instead.
 
 ## Update a server
 
