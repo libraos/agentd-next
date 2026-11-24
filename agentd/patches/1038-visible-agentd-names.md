@@ -267,3 +267,4 @@ labels again (`t3McpToolPresentation.ts` already said LibraOS Next).
 - `packages/ssh/src/tunnel.test.ts`: expectations follow the renamed text.
 - `packages/ssh/src/tunnel.ts`: text people or their agents read says LibraOS Next.
 - `scripts/scenarios/branch-picker-sees-external-worktree.e2e.ts`: expectations follow the renamed text.
+- `apps/server/src/provider/agentContextBudget.json`: agent context grows by a few bytes, as "LibraOS Next" is one letter longer than "AgentD Next".
