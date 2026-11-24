@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { AgentdTaskRow, ScopedThreadRef } from "@t3tools/contracts";
+import type { AgentdTaskRow, EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { T, Var } from "gt-react";
 
@@ -17,14 +17,12 @@ import { SessionBackgroundTaskRow } from "./SessionBackgroundTaskRow";
 
 const EMPTY_ROWS: readonly AgentdTaskRow[] = [];
 
-export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
-  const { environmentId } = threadRef;
-  const { data, error, failure, isPending } = useAgentdTasks(environmentId);
-  const projection = useQuietThreadProjection(threadRef)?.projection ?? null;
-  const sessionTasks = deriveThreadPendingBackgroundTasks(projection);
-  const streamsOutput = useCommandOutputStreaming(environmentId);
-  const rows = data ?? EMPTY_ROWS;
-  const sectionsAtom = Atom.make((get) => {
+const taskSections = Atom.family((environmentId: EnvironmentId) =>
+  Atom.make((get) => {
+    const rows = AsyncResult.getOrElse(
+      get(agentdEnvironment.tasks({ environmentId, input: {} })),
+      () => EMPTY_ROWS,
+    );
     const running: AgentdTaskRow[] = [];
     const queued: AgentdTaskRow[] = [];
     const waiting: AgentdTaskRow[] = [];
@@ -47,8 +45,17 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
       else running.push(row);
     }
     return { running, queued, waiting, finished };
-  });
-  const { running, queued, waiting, finished } = useAtomValue(sectionsAtom);
+  }),
+);
+
+export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
+  const { environmentId } = threadRef;
+  const { data, error, failure, isPending } = useAgentdTasks(environmentId);
+  const projection = useQuietThreadProjection(threadRef)?.projection ?? null;
+  const sessionTasks = deriveThreadPendingBackgroundTasks(projection);
+  const streamsOutput = useCommandOutputStreaming(environmentId);
+  const rows = data ?? EMPTY_ROWS;
+  const { running, queued, waiting, finished } = useAtomValue(taskSections(environmentId));
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-3 text-sm">

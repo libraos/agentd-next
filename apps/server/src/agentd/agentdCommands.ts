@@ -123,6 +123,8 @@ function subscriptionFile(cloud: AgentdCloudTaskInput["cloud"]): ReadonlyArray<s
     : ["--claude-token-file", text("Claude token file", cloud.claudeTokenFile)];
 }
 
+export const HANDOFF_PAGE_SIZE = 20;
+
 export const agentdArgs = {
   version: () => ["version"],
   doctor: () => ["doctor", "--json"],
@@ -144,8 +146,17 @@ export const agentdArgs = {
     model === "" ? "" : text("model", model),
   ],
   budgetPrices: () => ["config", "get", "budget.prices"],
-  list: () => ["handoff", "list", "--json"],
-  listOffered: () => ["handoff", "list", "--state", "offered", "--limit", "100", "--json"],
+  list: () => ["handoff", "list", "--limit", String(HANDOFF_PAGE_SIZE), "--json"],
+  listOffered: (viewer: string | null) => [
+    "handoff",
+    "list",
+    "--state",
+    "offered",
+    "--limit",
+    String(HANDOFF_PAGE_SIZE),
+    ...(viewer === null ? [] : ["--user", text("user", viewer)]),
+    "--json",
+  ],
   show: (id: string) => ["handoff", "show", handoffId(id), "--json"],
   approvals: () => ["approval", "list", "--state", "pending", "--json"],
   inbox: () => ["inbox", "list", "--mine", "--json"],

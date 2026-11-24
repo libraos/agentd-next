@@ -139,6 +139,18 @@ export const AgentdHandoffShowJson = Schema.Struct({
   queue_reason: NullableString,
   lease_started: NullableString,
   dispatched: NullableString,
+  history: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Array(
+        Schema.Struct({
+          state: Schema.String,
+          created: NullableString,
+          kind: NullableString,
+          note: NullableString,
+        }),
+      ),
+    ),
+  ),
   worker_cwd: NullableString,
   origin: Schema.optionalKey(Schema.NullOr(Schema.Struct({ dir: NullableString }))),
   budget: NullableString,
@@ -399,6 +411,7 @@ export const AgentdTask = Schema.Struct({
   hasLog: Schema.Boolean,
   started: Schema.NullOr(Schema.String),
   created: NullableString,
+  queueBlock: Schema.optionalKey(Schema.String),
   queuePickup: Schema.optionalKey(Schema.Literals(["recipient", "remote", "remote-eligible"])),
   startFolder: NullableString,
   updated: Schema.NullOr(Schema.String),

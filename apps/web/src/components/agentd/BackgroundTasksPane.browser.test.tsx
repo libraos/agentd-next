@@ -1,5 +1,7 @@
 import "~/index.css";
 
+import { RegistryProvider } from "@effect/atom-react";
+import { recordServerClock } from "@t3tools/client-runtime/clock";
 import {
   EMPTY_COMMAND_OUTPUT,
   applyCommandOutputFrame,
@@ -19,12 +21,21 @@ import { page, userEvent } from "vite-plus/test/browser";
 import { act, fakeTimers, render } from "../../../test/render";
 import type * as AgentdState from "../../lib/agentdState";
 import { ConfirmDialogHost } from "../ConfirmDialogHost";
-import { BackgroundTasksPane } from "./BackgroundTasksPane";
+import { BackgroundTasksPane as Pane } from "./BackgroundTasksPane";
+
+function BackgroundTasksPane(props: Parameters<typeof Pane>[0]) {
+  return (
+    <RegistryProvider>
+      <Pane {...props} />
+    </RegistryProvider>
+  );
+}
 
 const bridge = vi.hoisted(() => ({
   useAgentdTasks: vi.fn<typeof AgentdState.useAgentdTasks>(),
   useAgentdTask: vi.fn<typeof AgentdState.useAgentdTask>(),
   useAgentdTaskOutput: vi.fn<typeof AgentdState.useAgentdTaskOutput>(),
+  sectionTaskRead: vi.fn<(id: string) => void>(),
   retryStart: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["retryStart"]>(),
   stopTask: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["stopTask"]>(),
   projects: vi.fn<() => ReadonlyArray<Record<string, unknown>>>(() => []),
@@ -38,7 +49,10 @@ vi.mock("../../lib/agentdState", async () => {
     ...bridge,
     agentdEnvironment: {
       retryStart: { permissionAtom: () => canStop },
+      tasks: ({ environmentId }: { environmentId: EnvironmentId }) =>
+        Atom.make(AsyncResult.success(bridge.useAgentdTasks(environmentId).data ?? [])),
       task: ({ input: { id } }: { input: { id: string } }) => {
+        bridge.sectionTaskRead(id);
         const { data } = bridge.useAgentdTask(id);
         return Atom.make(AsyncResult.success(data));
       },
@@ -286,6 +300,77 @@ it("shows queue age without spending time budget and keeps the running timer liv
   expect(queuedText).toContain("Queued for 4 days");
 });
 
+it("shows stopped and waiting tasks without charging their queue time", async () => {
+  setup();
+  const stopped = { ...finished, state: "cancelled", runsOn: "local" as const, cloudState: null };
+  const held = { ...running, state: "held", workerRunning: false };
+  bridge.useAgentdTasks.mockReturnValue(answer([stopped, held]));
+  bridge.useAgentdTask.mockImplementation((id) =>
+    answer(taskDetails(id === stopped.id ? stopped : held, { started: null, budget: "30m" })),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  const stoppedRow = screen.getByRole("button", { name: /Check the widget/ });
+  await expect.element(stoppedRow.getByText("Stopped", { exact: true })).toBeVisible();
+  await expect.element(stoppedRow.getByText("Duration unavailable")).not.toBeInTheDocument();
+  await expect.element(stoppedRow.getByRole("progressbar")).not.toBeInTheDocument();
+  const heldRow = screen.getByRole("button", { name: /Build the widget/ });
+  await expect.element(heldRow.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+});
+
+it("refreshes queued details even if the list row stays the same", async () => {
+  const queued = setupQueuedTasks();
+  const refresh = vi.fn<() => void>();
+  bridge.useAgentdTask.mockImplementation((id) =>
+    id === queued.id
+      ? { ...answer(taskDetails(queued, { startFolder: "/work/widget" })), refresh }
+      : answer(null),
+  );
+  using _timers = fakeTimers({ now: new Date("2026-11-22T09:00:59Z") });
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByRole("heading", { name: "Queued 2" })).toBeVisible();
+  expect(refresh).not.toHaveBeenCalled();
+  await act(() => vi.advanceTimersByTime(1_000));
+  expect(refresh).toHaveBeenCalledOnce();
+});
+
+it("shares one section subscription across panes in the same environment", async () => {
+  setupQueuedTasks();
+  const otherThread = { ...threadRef, threadId: ThreadId.make("other-background-thread") };
+  const panes = () => (
+    <RegistryProvider>
+      <Pane threadRef={threadRef} />
+      <Pane threadRef={otherThread} />
+    </RegistryProvider>
+  );
+  await using screen = await render(panes());
+  await expect.element(screen.getByRole("heading", { name: "Queued 2" }).last()).toBeVisible();
+  expect(bridge.sectionTaskRead).toHaveBeenCalledTimes(3);
+  bridge.sectionTaskRead.mockClear();
+  await screen.rerender(panes());
+  expect(bridge.sectionTaskRead).not.toHaveBeenCalled();
+});
+
+it("uses the environment clock for queue age", async () => {
+  setupQueuedTasks();
+  const now = Date.parse("2026-11-22T09:00:00Z");
+  using _timers = fakeTimers({ now });
+  recordServerClock(threadRef.environmentId, {
+    serverTimeMs: now + 60 * 60_000,
+    requestedAtMs: now,
+    receivedAtMs: now,
+  });
+  try {
+    await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+    await expect.element(screen.getByText("Queued for 1 hour", { exact: true })).toBeVisible();
+  } finally {
+    recordServerClock(threadRef.environmentId, {
+      serverTimeMs: undefined,
+      requestedAtMs: now,
+      receivedAtMs: now,
+    });
+  }
+});
+
 it("offers Start with only for the unassigned task and keeps Stop available", async () => {
   const queued = setupQueuedTasks();
   bridge.retryStart.mockResolvedValue(
@@ -339,12 +424,16 @@ it("explains targeted and remote offers without offering a local start", async (
   const queued = setupQueuedTasks();
   const addressed = { ...queued, id: "hof-123123", title: "Addressed offer" };
   const remote = { ...queued, id: "hof-323123", title: "Remote offer" };
-  bridge.useAgentdTasks.mockReturnValue(answer([addressed, remote]));
+  const blocked = { ...queued, id: "hof-423123", title: "Blocked offer" };
+  const queueBlock = "spec before code: missing spec";
+  bridge.useAgentdTasks.mockReturnValue(answer([addressed, remote, blocked]));
   bridge.useAgentdTask.mockImplementation((id) =>
     answer(
       id === addressed.id
         ? taskDetails(addressed, { queuePickup: "recipient", startFolder: "/work/widget" })
-        : taskDetails(remote, { queuePickup: "remote", startFolder: "/work/widget" }),
+        : id === remote.id
+          ? taskDetails(remote, { queuePickup: "remote", startFolder: "/work/widget" })
+          : taskDetails(blocked, { queueBlock, startFolder: "/work/widget" }),
     ),
   );
   await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
@@ -352,6 +441,7 @@ it("explains targeted and remote offers without offering a local start", async (
     .element(screen.getByText("Waiting for the recipient to pick up this task"))
     .toBeVisible();
   await expect.element(screen.getByText("Waiting for a remote worker")).toBeVisible();
+  await expect.element(screen.getByText(queueBlock)).toBeVisible();
   expect(screen.getByRole("button", { name: "Start with…" }).all()).toHaveLength(0);
 });
 

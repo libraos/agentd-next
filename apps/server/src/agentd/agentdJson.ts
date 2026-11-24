@@ -146,29 +146,55 @@ function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
   return nonEmpty(show.lease_device) === null ? "local" : "team";
 }
 
-function queuePickup(show: AgentdHandoffShowJson): AgentdTask["queuePickup"] {
+function queuePickup(
+  show: AgentdHandoffShowJson,
+  viewer: string | null,
+): AgentdTask["queuePickup"] {
   if (show.state !== "offered") return undefined;
-  if (show.to_session !== "any" || nonEmpty(show.to_user) !== null) return "recipient";
+  const recipient = nonEmpty(show.to_user);
+  if (show.to_session !== "any" || (recipient !== null && recipient !== viewer)) return "recipient";
   if (show.required_labels?.length || nonEmpty(show.body?.labels) !== null) return "remote";
-  if (!show.project || show.worker_cwd || show.role || show.dispatched || show.cloud_state) {
+  if (
+    recipient !== null ||
+    !show.project ||
+    show.worker_cwd ||
+    show.role ||
+    show.dispatched ||
+    show.cloud_state
+  ) {
     return undefined;
   }
-  // Core's live fleet reason distinguishes a worker queue from a project with no fleet.
-  if (show.queue_reason?.startsWith("no live worker serves project ")) return undefined;
-  return show.queue_reason ? "remote" : "remote-eligible";
+  if (!show.queue_reason) return "remote-eligible";
+  // Core also reports gates before checking the worker census.
+  return /^(?:awaiting eligible worker poll$|worker drain:|no matching node takes server work now:|(?:worker|verification) capacity limit:|worker concurrency limit: all matching workers are full$)/.test(
+    show.queue_reason,
+  )
+    ? "remote"
+    : undefined;
 }
 
 export function queuedStartFolder(show: AgentdHandoffShowJson): string | null {
   return nonEmpty(show.worker_cwd) ?? nonEmpty(show.origin?.dir);
 }
 
-export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
+export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): AgentdTask {
   const goal = show.body?.goal ?? "";
   const verdict = show.verdict ?? null;
   const total = show.cost?.total ?? null;
   const cloudState = nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state);
   const modelAccess = nonEmpty(show.body?.model_access);
-  const pickup = queuePickup(show);
+  const pickup = queuePickup(show, viewer);
+  const queueReason = nonEmpty(show.queue_reason);
+  const queueBlock =
+    show.state === "offered" &&
+    queueReason !== null &&
+    /^(?:spec before code:|(?:project|person) concurrency limit:)/.test(queueReason)
+      ? queueReason
+      : null;
+  // A direct claim writes an empty-note transition without dispatch or lease timestamps.
+  const claim = show.history?.findLast(
+    (event) => event.state === "claimed" && event.note === "" && !event.kind,
+  );
   return {
     id: show.id,
     title: nonEmpty(show.title) ?? goal,
@@ -204,9 +230,10 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
     ...optionalWait(show),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
-    started: nonEmpty(show.dispatched) ?? nonEmpty(show.lease_started) ?? nonEmpty(show.created),
+    started: nonEmpty(show.dispatched) ?? nonEmpty(show.lease_started) ?? nonEmpty(claim?.created),
     ...(nonEmpty(show.created) === null ? {} : { created: nonEmpty(show.created) }),
     ...(pickup === undefined ? {} : { queuePickup: pickup }),
+    ...(queueBlock === null ? {} : { queueBlock }),
     updated: nonEmpty(show.updated),
     ...(cloudState === null
       ? {}

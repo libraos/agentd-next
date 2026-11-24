@@ -71,6 +71,7 @@ const SHOW_JSON = `{
   "total": { "estimate": true, "inference_usd": 2.87, "lines": 1, "partial": false, "usd": 2.87 }
  },
  "created": "2026-11-18T06:24:58+00:00",
+ "dispatched": "2026-11-18T06:25:04+00:00",
  "id": "hof-a6e5f4e329",
  "lease_branch": null,
  "lease_device": null,
@@ -190,7 +191,7 @@ describe("AgentdBridge", () => {
           return Effect.succeed(output("opencode\r\n"));
         // agentd prints an empty table while no model has a price.
         if (key === "config get budget.prices") return Effect.succeed(output("{}\n"));
-        if (key === "handoff list --json") return Effect.succeed(output(LIST_JSON));
+        if (key === "handoff list --limit 20 --json") return Effect.succeed(output(LIST_JSON));
         if (key === "handoff show hof-a6e5f4e329 --json") return Effect.succeed(output(SHOW_JSON));
         return Effect.die(`unexpected agentd ${key}`);
       });
@@ -294,7 +295,7 @@ describe("AgentdBridge", () => {
         note: null,
         project: "acme/api",
         hasLog: true,
-        started: "2026-11-18T06:24:58+00:00",
+        started: "2026-11-18T06:25:04+00:00",
         created: "2026-11-18T06:24:58+00:00",
         updated: "2026-11-18T06:47:57+00:00",
       });
@@ -528,7 +529,7 @@ describe("AgentdBridge", () => {
                 `[{"id":"in-01","kind":"blocked","title":"Which release?","from":"les","claimer":"claude-abc"}]`,
               ),
             );
-          case "handoff list --json":
+          case "handoff list --limit 20 --json":
             return Effect.succeed(
               output(`[
               {"id":"hof-abc123","state":"claimed","goal":"Run tests","claimer":"wrk-build-box"},
@@ -612,27 +613,49 @@ describe("AgentdBridge", () => {
         created: "2026-11-20T09:00:00+00:00",
       };
       let details: Record<string, unknown> = queued;
-      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
-        const line = input.args.join(" ");
-        calls.push(line);
-        switch (line) {
-          case "handoff show hof-0e3d000001 --json":
-            return Effect.succeed(output(JSON.stringify(details)));
-          case "handoff list --json":
-            return Effect.succeed(output("[]"));
-          case `session join --id agentd-new --tool other --label agentd new --wake pull --cwd ${cwd}`:
-          case `handoff dispatch hof-0e3d000001 --tool codex --cwd ${cwd} --session agentd-new`:
-          case `handoff dispatch hof-0e3d000001 --tool codex --force --cwd ${cwd} --session agentd-new`:
-            return Effect.succeed(output("{}"));
-          default:
-            return Effect.die(`unexpected agentd ${line}`);
-        }
-      });
+      const bridge = yield* makeBridge(
+        { AGENTD_BIN: process.execPath, AGENTD_USER: "work-account" },
+        (input) => {
+          const line = input.args.join(" ");
+          calls.push(line);
+          switch (line) {
+            case "handoff show hof-0e3d000001 --json":
+              return Effect.succeed(output(JSON.stringify(details)));
+            case "handoff list --limit 20 --json":
+              return Effect.succeed(output("[]"));
+            case `session join --id agentd-new --tool other --label agentd new --wake pull --cwd ${cwd}`:
+            case `handoff dispatch hof-0e3d000001 --tool codex --cwd ${cwd} --session agentd-new`:
+            case `handoff dispatch hof-0e3d000001 --tool codex --force --cwd ${cwd} --session agentd-new`:
+              return Effect.succeed(output("{}"));
+            default:
+              return Effect.die(`unexpected agentd ${line}`);
+          }
+        },
+      );
       const input = { id: queued.id, worker: "codex", action: "queued" } as const;
       details = { ...queued, state: "claimed", dispatched: "2026-11-24T09:00:00+00:00" };
       expect(yield* bridge.task({ id: queued.id })).toMatchObject({
         started: "2026-11-24T09:00:00+00:00",
         created: queued.created,
+      });
+      for (const state of ["cancelled", "blocked", "held"]) {
+        details = { ...queued, state };
+        expect(yield* bridge.task({ id: queued.id })).toMatchObject({
+          started: null,
+          created: queued.created,
+        });
+      }
+      details = {
+        ...queued,
+        state: "claimed",
+        history: [
+          { state: "offered", created: queued.created },
+          { state: "claimed", note: "", created: "2026-11-23T09:00:00+00:00" },
+          { state: "claimed", note: "Reported progress", created: "2026-11-24T09:00:00+00:00" },
+        ],
+      };
+      expect(yield* bridge.task({ id: queued.id })).toMatchObject({
+        started: "2026-11-23T09:00:00+00:00",
       });
       details = { ...queued, origin: { dir: "another-checkout" }, worker_cwd: cwd };
       expect(yield* bridge.retryStart(input)).toEqual({ id: queued.id, started: true, note: null });
@@ -652,9 +675,36 @@ describe("AgentdBridge", () => {
       expect(calls.at(-1)).toBe(
         `handoff dispatch hof-0e3d000001 --tool codex --force --cwd ${cwd} --session agentd-new`,
       );
+      details = {
+        ...queued,
+        project: "libraos/next",
+        check_cmd: "git status --short",
+        queue_reason: "awaiting check approval",
+      };
+      expect(yield* bridge.retryStart(input)).toEqual({ id: queued.id, started: true, note: null });
+      details = { ...queued, to_user: "work-account" };
+      expect(yield* bridge.retryStart(input)).toMatchObject({ started: true });
+      for (const queueReason of [
+        "spec before code: missing spec",
+        "project concurrency limit: libraos/next",
+      ]) {
+        details = { ...queued, project: "libraos/next", queue_reason: queueReason };
+        expect(yield* bridge.task({ id: queued.id })).toMatchObject({ queueBlock: queueReason });
+        expect(yield* Effect.flip(bridge.retryStart(input))).toMatchObject({
+          message: queueReason,
+        });
+      }
       for (const [changed, pickup] of [
         [{ to_session: "codex-other" }, "recipient"],
         [{ to_user: "alice" }, "recipient"],
+        [{ to_user: "work-account" }, undefined],
+        [{ to_user: "work-account", required_labels: ["gpu=a100"] }, "remote"],
+        [{ project: "libraos/next", queue_reason: "awaiting check approval" }, undefined],
+        [{ project: "libraos/next", queue_reason: "spec before code: missing spec" }, undefined],
+        [
+          { project: "libraos/next", queue_reason: "project concurrency limit: libraos/next" },
+          undefined,
+        ],
         [{ project: "libraos/next", required_labels: ["gpu=a100"] }, "remote"],
         [{ project: "libraos/next", queue_reason: "awaiting eligible worker poll" }, "remote"],
         [{ project: "libraos/next" }, "remote-eligible"],
@@ -712,19 +762,39 @@ describe("AgentdBridge", () => {
         state: index === 0 ? "offered" : "done",
       }));
       const older = { id: "hof-abcdef", state: "offered" };
-      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
-        const key = input.args.join(" ");
-        if (key === "handoff list --json") return Effect.succeed(output(JSON.stringify(recent)));
-        if (key === "handoff list --state offered --limit 100 --json") {
-          return Effect.succeed(output(JSON.stringify([recent[0], older])));
-        }
-        return Effect.die(`unexpected agentd ${key}`);
-      });
-      const listed = yield* Stream.runHead(bridge.subscribeTasks);
-      expect(listed._tag === "Some" ? listed.value.map((row) => row.id) : []).toEqual([
-        ...recent.map((row) => row.id),
-        older.id,
-      ]);
+      const firstOffered = yield* Deferred.make<void>();
+      let olderReads = 0;
+      let recentReads = 0;
+      const bridge = yield* makeBridge(
+        { AGENTD_BIN: process.execPath, AGENTD_USER: "work-account" },
+        (input) => {
+          const key = input.args.join(" ");
+          if (key === "handoff list --limit 20 --json") {
+            const current = recentReads++ === 0 ? recent : recent.slice(1).concat(recent[0]!);
+            return Effect.succeed(output(JSON.stringify(current)));
+          }
+          if (key === "handoff list --state offered --limit 20 --user work-account --json") {
+            olderReads++;
+            return Deferred.succeed(firstOffered, undefined).pipe(
+              Effect.as(output(JSON.stringify([recent[0], older]))),
+            );
+          }
+          return Deferred.succeed(firstOffered, undefined).pipe(
+            Effect.andThen(Effect.die(`unexpected agentd ${key}`)),
+          );
+        },
+      );
+      const lists = yield* bridge.subscribeTasks.pipe(
+        Stream.take(2),
+        Stream.runCollect,
+        Effect.forkChild,
+      );
+      yield* Deferred.await(firstOffered);
+      yield* TestClock.adjust("5 seconds");
+      const [first, second] = yield* Fiber.join(lists);
+      expect(first?.map((row) => row.id)).toEqual([...recent.map((row) => row.id), older.id]);
+      expect(second?.at(-1)?.id).toBe(older.id);
+      expect(olderReads).toBe(1);
     }),
   );
 
@@ -750,7 +820,7 @@ describe("AgentdBridge", () => {
           case "handoff dispatch hof-0e3d000001 --tool codex --force":
           case "handoff done hof-b10c4ed001 --cancel --reason Released from LibraOS Next to start hof-0e3d000001":
             return Effect.succeed(output("{}"));
-          case "handoff list --json":
+          case "handoff list --limit 20 --json":
             return Effect.succeed(
               output(
                 JSON.stringify([
@@ -808,7 +878,7 @@ describe("AgentdBridge", () => {
         started: true,
       });
       expect(calls).toEqual([
-        "handoff list --json",
+        "handoff list --limit 20 --json",
         "handoff done hof-b10c4ed001 --cancel --reason Released from LibraOS Next to start hof-0e3d000001",
         "handoff dispatch hof-0e3d000001 --tool codex",
       ]);
@@ -826,7 +896,7 @@ describe("AgentdBridge", () => {
       const firstListed = yield* Deferred.make<void>();
       const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
         const key = input.args.join(" ");
-        if (key === "handoff list --json") {
+        if (key === "handoff list --limit 20 --json") {
           const answer = listed;
           listed = row("running");
           return Deferred.succeed(firstListed, undefined).pipe(Effect.as(output(answer)));

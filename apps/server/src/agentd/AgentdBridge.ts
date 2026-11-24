@@ -70,7 +70,12 @@ import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { makeAgentdCloud } from "./agentdCloud.ts";
 import { makeCloudReview } from "./agentdCloudReview.ts";
-import { AgentdArgumentError, agentdArgs, agentdTicket } from "./agentdCommands.ts";
+import {
+  AgentdArgumentError,
+  agentdArgs,
+  agentdTicket,
+  HANDOFF_PAGE_SIZE,
+} from "./agentdCommands.ts";
 import * as AgentdJson from "./agentdJson.ts";
 import { AGENTD_BACKUP_FILE, agentdBackupFileName } from "./agentdBackup.ts";
 import { blockingRefusal } from "./blockedStart.ts";
@@ -249,6 +254,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const pathService = yield* Path.Path;
   const env = yield* HostProcess.Environment;
+  const configuredUser = env.AGENTD_USER?.trim() || null;
+  const hostUser = yield* HostProcess.Username;
+  const taskViewer = configuredUser ?? (hostUser?.split("\\").at(-1) || null);
   const platform = yield* HostProcess.Platform;
 
   // Set by the desktop app beside the AGENTD_BIN of the agentd it carries.
@@ -453,13 +461,19 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     );
   });
 
-  const readTasks = Effect.gen(function* () {
-    const recent = yield* run(agentdArgs.list()).pipe(Effect.flatMap(decodeList));
-    if (recent.length < 20) return recent.map(AgentdJson.agentdTaskRow);
-    const offered = yield* run(agentdArgs.listOffered()).pipe(
+  const [readOlderOffers, invalidateOlderOffers] = yield* Effect.cachedInvalidateWithTTL(
+    args(() => agentdArgs.listOffered(configuredUser)).pipe(
+      Effect.flatMap((argv) => run(argv)),
       Effect.flatMap(decodeList),
       Effect.orElseSucceed(() => []),
-    );
+    ),
+    "30 seconds",
+  );
+
+  const readTasks = Effect.gen(function* () {
+    const recent = yield* run(agentdArgs.list()).pipe(Effect.flatMap(decodeList));
+    if (recent.length < HANDOFF_PAGE_SIZE) return recent.map(AgentdJson.agentdTaskRow);
+    const offered = yield* readOlderOffers;
     const recentIds = new Set(recent.map((row) => row.id));
     return [...recent, ...offered.filter((row) => !recentIds.has(row.id))].map(
       AgentdJson.agentdTaskRow,
@@ -732,7 +746,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
 
   const queuedCheckout = Effect.fn("AgentdBridge.queuedCheckout")(function* (id: string) {
     const show = yield* readShow(id);
-    const task = AgentdJson.agentdTask(show);
+    const task = AgentdJson.agentdTask(show, taskViewer);
     if (
       task.state !== "offered" ||
       show.worker_running ||
@@ -759,6 +773,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
         queuedStartRefusal: "has-recipient",
       });
     }
+    if (task.queueBlock !== undefined) return yield* commandError(task.queueBlock);
     const cwd = AgentdJson.queuedStartFolder(show);
     if (cwd && pathService.isAbsolute(cwd)) {
       const isDirectory = yield* fs.stat(cwd).pipe(
@@ -782,8 +797,11 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       if (input.worker === "claude") yield* ensureClaudeTrust(cwd, consent);
       yield* run(yield* args(() => agentdArgs.appSession(cwd)));
     }
-    if (input.action === "queued") return yield* dispatch(input.id, input.worker, false, cwd);
-    if (input.action === "force") return yield* dispatch(input.id, input.worker, true, cwd);
+    if (input.action === "queued" || input.action === "force") {
+      return yield* dispatch(input.id, input.worker, input.action === "force", cwd).pipe(
+        Effect.tap(() => invalidateOlderOffers),
+      );
+    }
     const row = yield* listRow(input.blocking);
     if (row === null) {
       return yield* commandError(
@@ -946,7 +964,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     subscribeTasks,
     task: Effect.fn("AgentdBridge.task")(function* (input) {
       const show = yield* readShow(input.id);
-      const task = AgentdJson.agentdTask(show);
+      const task = AgentdJson.agentdTask(show, taskViewer);
       const log = show.worker_log ?? "";
       const cwd = AgentdJson.queuedStartFolder(show);
       const details =
@@ -967,6 +985,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     subscribeTaskOutput,
     stopTask: Effect.fn("AgentdBridge.stopTask")(function* (input) {
       yield* run(yield* args(() => agentdArgs.cancel(input.id, input.reason)));
+      yield* invalidateOlderOffers;
       return {};
     }),
     startTask,

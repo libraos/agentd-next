@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { secondTick } from "@t3tools/client-runtime/clock";
+import { minuteTick, secondTick, toServerClock } from "@t3tools/client-runtime/clock";
 import type { AgentdRunsOn, AgentdTask, AgentdTaskRow, EnvironmentId } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/orchestrationTimingCopy";
 import { T, useGT, useLocale, useMessages, Var } from "gt-react";
@@ -85,10 +85,17 @@ function TaskDuration(props: {
   );
 }
 
-function QueueWait({ created }: { readonly created: string | null }) {
+function QueueWait({
+  created,
+  environmentId,
+}: {
+  readonly created: string | null;
+  readonly environmentId: EnvironmentId;
+}) {
   const resolve = useMessages();
   const minute = useNowMinute();
-  const { label, long } = queuedAgentdTaskWait(created, Date.parse(`${minute}Z`), resolve);
+  const now = toServerClock(environmentId, Date.parse(`${minute}Z`));
+  const { label, long } = queuedAgentdTaskWait(created, now, resolve);
   return (
     <>
       {label === null ? null : <span className="italic">{label}</span>}
@@ -315,7 +322,11 @@ export function StopTaskButton(props: {
   );
 }
 
-export function useAgentdTaskDetails(row: AgentdTaskRow, environmentId: EnvironmentId | null) {
+export function useAgentdTaskDetails(
+  row: AgentdTaskRow,
+  environmentId: EnvironmentId | null,
+  refreshQueue = false,
+) {
   const { data, error, refresh } = useAgentdTask(row.id, environmentId);
   const task = data?.state === row.state ? data : null;
   const snapshot = JSON.stringify([
@@ -334,6 +345,11 @@ export function useAgentdTaskDetails(row: AgentdTaskRow, environmentId: Environm
     lastSnapshot.current = snapshot;
     refresh();
   }, [refresh, snapshot]);
+
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- worker availability can change independently of the handoff row
+  useEffect(() => {
+    if (refreshQueue) return minuteTick.subscribe(refresh);
+  }, [refreshQueue, refresh]);
 
   return { task, error };
 }
@@ -458,7 +474,7 @@ export function AgentdBackgroundTaskRow(props: {
   const live = section === "running";
   const gt = useGT();
   const resolve = useMessages();
-  const { task, error } = useAgentdTaskDetails(row, environmentId);
+  const { task, error } = useAgentdTaskDetails(row, environmentId, queued);
 
   const title = task?.goal?.trim() || row.title || gt("Untitled task");
   const worker = workerName(task?.workerTool ?? row.workerTool);
@@ -466,7 +482,8 @@ export function AgentdBackgroundTaskRow(props: {
   const cloud = location === "cloud";
   const pickup = task?.queuePickup;
   const status = { ...row, workerState: row.workerState ?? task?.workerState ?? null };
-  const elapsedMs = useElapsedMs(queued ? null : task, live);
+  const elapsedMs = useElapsedMs(queued ? null : task, live && task?.started != null);
+  const showBudget = task !== null && !cloud && (!finished || task.started !== null);
   return (
     <BackgroundTaskCard
       title={title}
@@ -483,7 +500,9 @@ export function AgentdBackgroundTaskRow(props: {
           )}
           {queued ? (
             task || worker !== null ? (
-              <span>{queuedAgentdTaskReason(worker, pickup, resolve)}</span>
+              <span className="wrap-anywhere">
+                {task?.queueBlock ?? queuedAgentdTaskReason(worker, pickup, resolve)}
+              </span>
             ) : null
           ) : !finished && (!cloud || worker !== null) ? (
             <span>{worker ?? <T>Agent unknown</T>}</span>
@@ -494,8 +513,11 @@ export function AgentdBackgroundTaskRow(props: {
             </span>
           )}
           {queued ? (
-            <QueueWait created={task?.created ?? task?.started ?? row.started} />
-          ) : (finished || live) && (task !== null || error !== null) ? (
+            <QueueWait
+              created={task?.created ?? task?.started ?? row.started}
+              environmentId={environmentId}
+            />
+          ) : (finished && task?.started != null) || (live && (task !== null || error !== null)) ? (
             <TaskDuration
               started={task?.started ?? null}
               ended={task?.updated ?? null}
@@ -521,7 +543,7 @@ export function AgentdBackgroundTaskRow(props: {
           {cloud && task?.note ? (
             <span className="basis-full wrap-anywhere text-destructive">{task.note}</span>
           ) : null}
-          {task && !cloud ? (
+          {showBudget ? (
             <TaskBudgetBar task={task} finished={finished} elapsedMs={elapsedMs} />
           ) : null}
         </>
@@ -531,6 +553,7 @@ export function AgentdBackgroundTaskRow(props: {
           <div className="flex flex-wrap justify-end gap-1">
             {queued &&
             task?.startFolder &&
+            task.queueBlock === undefined &&
             worker === null &&
             pickup !== "recipient" &&
             pickup !== "remote" ? (
@@ -557,7 +580,7 @@ export function AgentdBackgroundTaskRow(props: {
       {task && !cloud && !finished && task.workerState === "blocked" ? (
         <TaskWaiting task={task} />
       ) : null}
-      {task && !cloud ? (
+      {showBudget ? (
         <TaskBudgetDetails task={task} finished={finished} elapsedMs={elapsedMs} />
       ) : null}
       {finished ? (
