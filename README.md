@@ -1,6 +1,6 @@
 # LibraOS Next
 
-LibraOS Next is an IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Core](https://github.com/libraos/libraos-core) runs, each with a goal, acceptance criteria, a check and a budget.
+LibraOS Next is an IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Core](https://github.com/libraos/engine) runs, each with a goal, acceptance criteria, a check and a budget.
 
 It is BYOK (bring your own key): the app is free, includes no model access and sells none. You use the agent accounts and API keys you already have, and it favours no agent. LibraOS Core is the authority on tasks, approvals and workers: the app shows them and keeps no copy of its own as the truth.
 
@@ -89,7 +89,7 @@ The key stays on that environment, and **Disconnect** removes it. LibraOS Core w
 
 ## Run it from source
 
-You need [LibraOS Core](https://github.com/libraos/libraos-core) on `PATH`, as `libraos-core` or under its earlier name `agentd` (the installers bring their own), and the agents you want to use installed and signed in.
+You need [LibraOS Core](https://github.com/libraos/engine) on `PATH`, as `libraos-core` or under its earlier name `agentd` (the installers bring their own), and the agents you want to use installed and signed in.
 
 Install [Vite+](https://viteplus.dev/guide/), which provides the `vp` command and the pinned Node version:
 
@@ -108,7 +108,7 @@ Open the pairing URL the dev runner prints. To run the Electron app instead, use
 
 ## Build the installers
 
-Pushing a tag `v<version>` matching `apps/desktop/package.json` (for example `v0.2.0`) runs `.github/workflows/release.yml`. It builds the installers listed above, each with the same LibraOS Core release and its Skills inside, and adds them with `SHA256SUMS` and the updater's `latest*.yml` to a draft release. Installed apps are offered a release once it is published as the latest. Review the draft before publishing it. A manual run builds the same files as workflow artifacts without creating a release. The workflow picks the bundled LibraOS Core version from the manual input, then the `AGENTD_RELEASE` repository variable, then the latest release from `libraos/libraos-core`.
+Pushing a tag `v<version>` matching `apps/desktop/package.json` (for example `v0.2.0`) runs `.github/workflows/release.yml`. It builds the installers listed above, each with the same LibraOS Core release and its Skills inside, and adds them with `SHA256SUMS` and the updater's `latest*.yml` to a draft release. Installed apps are offered a release once it is published as the latest. Review the draft before publishing it. A manual run builds the same files as workflow artifacts without creating a release. The workflow picks the bundled LibraOS Core version from the manual input, then the `AGENTD_RELEASE` repository variable, then the latest release from `libraos/engine`.
 
 To build on your own machine, use `agentd/scripts/build-desktop.sh linux`, `win` or `mac`. The Linux and Windows builds run in Docker, so a Linux host builds both; the Mac build needs a Mac. [agentd/design/build.md](./agentd/design/build.md) has the details.
 
