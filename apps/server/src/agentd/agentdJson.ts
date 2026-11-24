@@ -179,6 +179,13 @@ export function queuedStartFolder(show: AgentdHandoffShowJson): string | null {
   return nonEmpty(show.worker_cwd) ?? nonEmpty(show.origin?.dir);
 }
 
+// Core's lease and command parks clear through unpark and command approval, respectively.
+function requiredParkAction(reason: string): AgentdTask["parkAction"] {
+  if (/^(?:breaker|budget|undelivered|diverged): /.test(reason)) return "unpark";
+  if (reason.startsWith("repository command: ")) return "approval";
+  return undefined;
+}
+
 export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): AgentdTask {
   const goal = show.body?.goal ?? "";
   const verdict = show.verdict ?? null;
@@ -188,6 +195,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
   const pickup = queuePickup(show, viewer);
   const queueReason = nonEmpty(show.queue_reason);
   const parked = nonEmpty(show.parked);
+  const parkAction = parked === null ? undefined : requiredParkAction(parked);
   const queueBlock =
     show.state === "offered" &&
     queueReason !== null &&
@@ -251,6 +259,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
     ...(nonEmpty(show.created) === null ? {} : { created: nonEmpty(show.created) }),
     ...(queuedSince === null ? {} : { queuedSince }),
     ...(parked === null ? {} : { parked }),
+    ...(parkAction === undefined ? {} : { parkAction }),
     ...(pickup === undefined ? {} : { queuePickup: pickup }),
     ...(queueBlock === null ? {} : { queueBlock }),
     updated: nonEmpty(show.updated),

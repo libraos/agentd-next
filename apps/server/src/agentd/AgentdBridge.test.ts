@@ -714,6 +714,20 @@ describe("AgentdBridge", () => {
         yield* Effect.flip(bridge.retryStart(forceParked));
         expect(calls).toEqual(["handoff show hof-0e3d000001 --json"]);
       }
+      for (const [reason, parkAction, message] of [
+        ["breaker: too many failed attempts", "unpark", /handoff unpark/],
+        ["budget: worker spent its budget", "unpark", /handoff unpark/],
+        ["undelivered: commit did not reach origin", "unpark", /handoff unpark/],
+        ["diverged: branch diverged from origin", "unpark", /handoff unpark/],
+        ["repository command: setup requires approval", "approval", /Core Inbox/],
+      ] as const) {
+        details = { ...parked, parked: reason };
+        calls.length = 0;
+        const failure = yield* Effect.flip(bridge.retryStart(forceParked));
+        expect(failure.message).toMatch(message);
+        expect(calls).toEqual(["handoff show hof-0e3d000001 --json"]);
+        expect(yield* bridge.task({ id: queued.id })).toMatchObject({ parked: reason, parkAction });
+      }
 
       details = { ...queued, origin: { dir: "another-checkout" }, worker_cwd: cwd };
       expect(yield* bridge.retryStart(input)).toEqual({ id: queued.id, started: true, note: null });

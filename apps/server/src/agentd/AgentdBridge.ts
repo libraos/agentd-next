@@ -750,6 +750,14 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   ) {
     const show = yield* readShow(id);
     const task = AgentdJson.agentdTask(show, taskViewer);
+    if (task.parkAction === "unpark") {
+      return yield* commandError(
+        "Release this task in a LibraOS Core terminal with handoff unpark.",
+      );
+    }
+    if (task.parkAction === "approval") {
+      return yield* commandError("Check the LibraOS Core Inbox for a command approval.");
+    }
     if (
       task.state !== "offered" ||
       show.worker_running ||

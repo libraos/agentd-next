@@ -13437,5 +13437,7 @@
   "36065867b7adee54": "Wartet auf einen Remote-Worker",
   "713a94447aee2972": "Eine Spezifikation ist erforderlich: {details}",
   "2cd8d4fbd716bf5a": "Limit für gleichzeitige Aufgaben im Projekt erreicht: {details}",
-  "d424b7f77b6e69ca": "Limit für gleichzeitige Aufgaben dieser Person erreicht: {details}"
+  "d424b7f77b6e69ca": "Limit für gleichzeitige Aufgaben dieser Person erreicht: {details}",
+  "43fa372a3881f08b": "Gib diese Aufgabe in einem LibraOS-Core-Terminal wieder frei.",
+  "be964c739d43b9db": "Prüfe im Posteingang von LibraOS Core, ob eine Befehlsfreigabe aussteht."
 }

@@ -13443,5 +13443,7 @@
   "36065867b7adee54": "Väntar på en fjärrarbetare",
   "713a94447aee2972": "En specifikation behövs: {details}",
   "2cd8d4fbd716bf5a": "Gränsen för samtidiga uppgifter i projektet har nåtts: {details}",
-  "d424b7f77b6e69ca": "Gränsen för personens samtidiga uppgifter har nåtts: {details}"
+  "d424b7f77b6e69ca": "Gränsen för personens samtidiga uppgifter har nåtts: {details}",
+  "43fa372a3881f08b": "Frigör uppgiften i en LibraOS Core-terminal.",
+  "be964c739d43b9db": "Kontrollera om en begäran om kommandogodkännande finns i inkorgen i LibraOS Core."
 }

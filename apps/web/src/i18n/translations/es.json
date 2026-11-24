@@ -13432,5 +13432,7 @@
   "36065867b7adee54": "En espera de un trabajador remoto",
   "713a94447aee2972": "Se necesita una especificación: {details}",
   "2cd8d4fbd716bf5a": "Se alcanzó el límite de tareas simultáneas del proyecto: {details}",
-  "d424b7f77b6e69ca": "Se alcanzó el límite de tareas simultáneas de la persona: {details}"
+  "d424b7f77b6e69ca": "Se alcanzó el límite de tareas simultáneas de la persona: {details}",
+  "43fa372a3881f08b": "Desbloquea esta tarea en un terminal de LibraOS Core.",
+  "be964c739d43b9db": "Busca una solicitud de aprobación de comando en la bandeja de entrada de LibraOS Core."
 }

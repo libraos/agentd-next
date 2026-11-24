@@ -414,6 +414,7 @@ export const AgentdTask = Schema.Struct({
   created: NullableString,
   queuedSince: NullableString,
   parked: Schema.optionalKey(Schema.String),
+  parkAction: Schema.optionalKey(Schema.Literals(["unpark", "approval"])),
   queueBlock: Schema.optionalKey(Schema.String),
   queuePickup: Schema.optionalKey(Schema.Literals(["recipient", "remote", "remote-eligible"])),
   startFolder: NullableString,

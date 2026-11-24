@@ -445,6 +445,31 @@ it("shows Core's park reason in Waiting and explicitly force-starts the task", a
   });
 });
 
+it.each([
+  ["budget: worker spent its budget", "unpark", "Release this task in a LibraOS Core terminal."],
+  [
+    "repository command: setup requires approval",
+    "approval",
+    "Check the LibraOS Core Inbox for a command approval.",
+  ],
+] as const)("shows the required next step for %s", async (reason, parkAction, nextStep) => {
+  const parked = setupQueuedTasks();
+  bridge.useAgentdTasks.mockReturnValue(answer([parked]));
+  bridge.useAgentdTask.mockReturnValue(
+    answer(taskDetails(parked, { parked: reason, parkAction, startFolder: "/work/widget" })),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByRole("heading", { name: "Waiting 1" })).toBeVisible();
+  await expect.element(screen.getByText(reason, { exact: true })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Start anyway" }).all()).toHaveLength(0);
+  await expect.element(screen.getByText(nextStep, { exact: true })).toBeVisible();
+  if (parkAction === "unpark") {
+    await expect
+      .element(screen.getByText(`libraos-core handoff unpark ${parked.id}`, { exact: true }))
+      .toBeVisible();
+  }
+});
+
 it("shows the wait since requeue instead of the original offer", async () => {
   const requeued = setupQueuedTasks();
   bridge.useAgentdTasks.mockReturnValue(answer([requeued]));

@@ -483,6 +483,7 @@ export function AgentdBackgroundTaskRow(props: {
   const cloud = location === "cloud";
   const pickup = task?.queuePickup;
   const parked = !finished && !cloud ? task?.parked : undefined;
+  const parkAction = parked ? task?.parkAction : undefined;
   const queueBlock = task?.queueBlock;
   const status = { ...row, workerState: row.workerState ?? task?.workerState ?? null };
   const elapsedMs = useElapsedMs(queued ? null : task, live && task?.started != null);
@@ -515,6 +516,18 @@ export function AgentdBackgroundTaskRow(props: {
             <span>{worker ?? <T>Agent unknown</T>}</span>
           ) : null}
           {parked ? <span className="wrap-anywhere">{parked}</span> : null}
+          {parkAction === "unpark" ? (
+            <span className="wrap-anywhere">
+              <span>
+                <T>Release this task in a LibraOS Core terminal.</T>
+              </span>{" "}
+              <code>libraos-core handoff unpark {row.id}</code>
+            </span>
+          ) : parkAction === "approval" ? (
+            <span>
+              <T>Check the LibraOS Core Inbox for a command approval.</T>
+            </span>
+          ) : null}
           {location === null || cloud || (queued && pickup) ? null : (
             <span>
               <AgentdTaskLocation location={location} />
@@ -561,6 +574,7 @@ export function AgentdBackgroundTaskRow(props: {
           <div className="flex flex-wrap justify-end gap-1">
             {(queued || (parked && row.state === "offered" && !row.workerRunning)) &&
             task?.startFolder &&
+            parkAction === undefined &&
             task.queueBlock === undefined &&
             (parked || worker === null) &&
             pickup !== "recipient" &&
