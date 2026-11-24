@@ -8,7 +8,7 @@ LibraOS Next is a fork of [T3 Code](https://github.com/pingdotgg/t3code) (`pingd
 git remote add upstream https://github.com/pingdotgg/t3code.git   # once
 ```
 
-`origin` is `libraos/agentd-next`. `upstream` is only fetched from, never pushed to.
+`origin` is `libraos/next`. `upstream` is only fetched from, never pushed to.
 
 ## What we keep from upstream
 

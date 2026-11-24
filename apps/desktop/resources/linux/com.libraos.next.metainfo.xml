@@ -29,7 +29,7 @@
   <categories>
     <category>Development</category>
   </categories>
-  <url type="homepage">https://github.com/libraos/agentd-next</url>
-  <url type="bugtracker">https://github.com/libraos/agentd-next/issues</url>
-  <url type="vcs-browser">https://github.com/libraos/agentd-next</url>
+  <url type="homepage">https://github.com/libraos/next</url>
+  <url type="bugtracker">https://github.com/libraos/next/issues</url>
+  <url type="vcs-browser">https://github.com/libraos/next</url>
 </component>

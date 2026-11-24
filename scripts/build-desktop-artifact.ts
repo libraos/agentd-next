@@ -2495,7 +2495,7 @@ export class AgentdCliMissingError extends Schema.TaggedError<AgentdCliMissingEr
     return (
       "AGENTD_DIST_DIR is unset, so the installer would ship without agentd. Stage it: download an " +
       "agentd release's assets (agentd-<os>-<arch>[.exe], SKILL.md, SKILL-agentd.md, SHA256SUMS) " +
-      "into a folder and set AGENTD_DIST_DIR to it, e.g. `gh release download -R libraos/agentd " +
+      "into a folder and set AGENTD_DIST_DIR to it, e.g. `gh release download -R libraos/cli " +
       "-D DIR` (agentd/scripts/build-desktop.sh does this). For a local development build only, " +
       "set AGENTD_ALLOW_NO_BUNDLE=1."
     );
@@ -3008,7 +3008,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       name: DESKTOP_PACKAGE_NAME,
       description: "LibraOS Next is a desktop app for coding agents.",
       author: { name: "LibraOS" },
-      homepage: "https://github.com/libraos/agentd-next",
+      homepage: "https://github.com/libraos/next",
       ...(platform === "linux" ? { desktopName: `${DESKTOP_APP_ID}.desktop` } : {}),
       // Squirrel.Mac refuses an update to an ad-hoc signed app; the updater links the release.
       ...(platform === "mac" && !signed ? { agentdUpdateInstall: "release-page" } : {}),

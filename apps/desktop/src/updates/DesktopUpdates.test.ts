@@ -583,8 +583,7 @@ describe("DesktopUpdates", () => {
       platform: "darwin",
       files: {
         "/repo/package.json": JSON.stringify({ agentdUpdateInstall: "release-page" }),
-        "/missing/resources/app-update.yml":
-          "provider: github\nowner: libraos\nrepo: agentd-next\n",
+        "/missing/resources/app-update.yml": "provider: github\nowner: libraos\nrepo: next\n",
       },
       checkForUpdates: Effect.sync(() => {
         harness.emit("update-available", { version: "1.2.4" });
@@ -602,7 +601,7 @@ describe("DesktopUpdates", () => {
         assert.isFalse(result.completed);
         assert.equal(harness.downloadCount(), 0);
         assert.deepEqual(harness.openedUrls(), [
-          "https://github.com/libraos/agentd-next/releases/tag/v1.2.4",
+          "https://github.com/libraos/next/releases/tag/v1.2.4",
         ]);
       }),
     ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));

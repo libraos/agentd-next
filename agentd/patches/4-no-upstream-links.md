@@ -69,7 +69,7 @@ two of those tests failed on base for that reason.
 
 `scripts/build-desktop-artifact.ts` writes a publish feed only when
 `T3CODE_DESKTOP_UPDATE_REPOSITORY` is set. `agentd/scripts/build-desktop.sh` sets it to our own
-releases, `libraos/agentd-next` (patch 144), never upstream's.
+releases, `libraos/next` (patch 144), never upstream's.
 
 ## Remote hosts
 

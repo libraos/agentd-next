@@ -178,7 +178,7 @@ export function AgentdPage() {
                             Follow the{" "}
                             <a
                               className="underline"
-                              href="https://github.com/libraos/agentd#installation"
+                              href="https://github.com/libraos/cli#installation"
                               target="_blank"
                               rel="noreferrer"
                             >

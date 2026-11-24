@@ -616,7 +616,17 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         "agentd-desktop",
         "agentd-desktop-dev",
       ]);
-    }),
+      assert.nestedPropertyVal(linux, "extraMetadata.homepage", "https://github.com/libraos/next");
+      assert.deepStrictEqual(linux.publish, [
+        { provider: "github", owner: "libraos", repo: "next", releaseType: "release" },
+      ]);
+    }).pipe(
+      Effect.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromEnv({ env: { T3CODE_DESKTOP_UPDATE_REPOSITORY: "libraos/next" } }),
+        ),
+      ),
+    ),
   );
 
   it.effect("names updatable AppImages without a version and apart per channel", () =>

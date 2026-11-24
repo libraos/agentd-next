@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       agentd_release:
-        description: "libraos/agentd release to bundle, e.g. v0.1.13 (empty: the latest)"
+        description: "libraos/cli release to bundle, e.g. v0.1.13 (empty: the latest)"
         required: false
         default: ""
 
@@ -57,8 +57,8 @@ jobs:
           VAR_RELEASE: ${{ vars.AGENTD_RELEASE }}
         run: |
           release=${INPUT_RELEASE:-$VAR_RELEASE}
-          release=${release:-$(gh release view -R libraos/agentd --json tagName -q .tagName)}
-          gh release view "$release" -R libraos/agentd --json tagName -q .tagName
+          release=${release:-$(gh release view -R libraos/cli --json tagName -q .tagName)}
+          gh release view "$release" -R libraos/cli --json tagName -q .tagName
           echo "release=$release" >> "$GITHUB_OUTPUT"
 
   build:

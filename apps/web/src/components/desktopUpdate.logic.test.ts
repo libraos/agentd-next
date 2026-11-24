@@ -96,6 +96,15 @@ describe("desktop update button state", () => {
 });
 
 describe("desktop update UI helpers", () => {
+  it("links the configured repository's releases", () => {
+    expect(getDesktopUpdateReleaseHistoryUrl("libraos/next")).toBe(
+      "https://github.com/libraos/next/releases",
+    );
+    expect(getDesktopUpdateReleaseUrl("1.2.3", "libraos/next")).toBe(
+      "https://github.com/libraos/next/releases/tag/v1.2.3",
+    );
+  });
+
   it.each(["", "owner/repo/extra", "owner#notes/repo", "owner/repo?tab=notes"])(
     "has no release page without a valid configured repository: %s",
     (repository) => {
