@@ -744,7 +744,10 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return yield* dispatch(id, input.worker, false);
   });
 
-  const queuedCheckout = Effect.fn("AgentdBridge.queuedCheckout")(function* (id: string) {
+  const queuedCheckout = Effect.fn("AgentdBridge.queuedCheckout")(function* (
+    id: string,
+    parked: boolean,
+  ) {
     const show = yield* readShow(id);
     const task = AgentdJson.agentdTask(show, taskViewer);
     if (
@@ -754,8 +757,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       task.workerState ||
       task.budgetState === "stopped" ||
       task.budgetState === "budget_exceeded" ||
-      (show.a2a_state && show.a2a_state !== "submitted") ||
-      task.workerTool !== null ||
+      (task.parked !== undefined) !== parked ||
+      (!parked &&
+        ((show.a2a_state && show.a2a_state !== "submitted") || task.workerTool !== null)) ||
       task.runsOn !== "local" ||
       task.cloud ||
       task.queuePickup === "remote"
@@ -790,15 +794,17 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   });
 
   const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
+    const resolvingConflict = "blocking" in input;
+    const parked = input.action === "parked";
     const cwd =
-      input.action === "queued" || input.queued ? yield* queuedCheckout(input.id) : undefined;
+      !resolvingConflict || input.queued ? yield* queuedCheckout(input.id, parked) : undefined;
     if (cwd !== undefined) {
-      const consent = input.action === "queued" ? (input.trustedFolder ?? false) : false;
+      const consent = "trustedFolder" in input ? (input.trustedFolder ?? false) : false;
       if (input.worker === "claude") yield* ensureClaudeTrust(cwd, consent);
       yield* run(yield* args(() => agentdArgs.appSession(cwd)));
     }
-    if (input.action === "queued" || input.action === "force") {
-      return yield* dispatch(input.id, input.worker, input.action === "force", cwd).pipe(
+    if (!resolvingConflict || input.action === "force") {
+      return yield* dispatch(input.id, input.worker, input.action !== "queued", cwd).pipe(
         Effect.tap(() => invalidateOlderOffers),
       );
     }

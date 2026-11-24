@@ -40,7 +40,7 @@ const taskSections = Atom.family((environmentId: EnvironmentId) =>
         runsOn: task?.runsOn ?? row.runsOn,
         workerState: row.workerState ?? task?.workerState ?? null,
       };
-      if (isWaitingAgentdTask(status, task?.budgetState)) waiting.push(row);
+      if (task?.parked || isWaitingAgentdTask(status, task?.budgetState)) waiting.push(row);
       else if (isQueuedAgentdTask(status)) queued.push(row);
       else running.push(row);
     }

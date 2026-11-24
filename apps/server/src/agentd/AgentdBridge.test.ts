@@ -540,6 +540,7 @@ describe("AgentdBridge", () => {
             return Effect.succeed(
               output(`{
               "id":"hof-abc456", "state":"done", "cloud_state":"failed",
+              "created":"2026-11-20T09:00:00Z",
               "worker_branch":"agentd/hof-abc456",
               "body":{"goal":"Check docs","model_access":"byok","anthropic_key_file":"/private/model-key"},
               "cloud":{"state":"failed","worker_usd":0.75,"inference_usd":0,"total_usd":0.75,
@@ -550,6 +551,8 @@ describe("AgentdBridge", () => {
             return Effect.succeed(
               output(`{
               "id":"hof-abc789", "state":"claimed", "cloud_state":"running",
+              "created":"2026-11-20T09:00:00Z",
+              "history":[{"state":"claimed","note":"held for the cloud Job API","created":"2026-11-20T09:00:01Z"}],
               "body":{"goal":"On my plan","model_access":"subscription","codex_auth_file":"/private/auth.json"}
             }`),
             );
@@ -580,6 +583,7 @@ describe("AgentdBridge", () => {
       const task = yield* bridge.task({ id: "hof-abc456" });
       expect(task).toMatchObject({
         runsOn: "cloud",
+        started: "2026-11-20T09:00:00Z",
         branch: "agentd/hof-abc456",
         cloud: {
           state: "failed",
@@ -593,6 +597,7 @@ describe("AgentdBridge", () => {
       });
       expect(JSON.stringify(task)).not.toContain("/private/model-key");
       const subscribed = yield* bridge.task({ id: "hof-abc789" });
+      expect(subscribed.started).toBe("2026-11-20T09:00:00Z");
       expect(subscribed.cloud).toMatchObject({ modelAccess: "subscription", plan: "codex" });
       expect(JSON.stringify(subscribed)).not.toContain("/private/auth.json");
       expect(
@@ -657,6 +662,59 @@ describe("AgentdBridge", () => {
       expect(yield* bridge.task({ id: queued.id })).toMatchObject({
         started: "2026-11-23T09:00:00+00:00",
       });
+      const reofferedAt = "2026-11-24T09:00:00+00:00";
+      details = {
+        ...queued,
+        history: [
+          { state: "offered", created: queued.created },
+          { state: "claimed", created: "2026-11-23T09:00:00+00:00", note: "" },
+          {
+            state: "offered",
+            created: reofferedAt,
+            note: "the watchdog will start its worker again",
+          },
+          {
+            state: "offered",
+            created: "2026-11-24T09:01:00+00:00",
+            note: "not dispatched: folder busy",
+          },
+        ],
+      };
+      expect(yield* bridge.task({ id: queued.id })).toMatchObject({
+        queuedSince: reofferedAt,
+      });
+
+      const parked = { ...queued, project: "libraos/next", parked: "4 worker rounds, the limit" };
+      details = {
+        ...parked,
+        worker: "codex",
+        worker_cwd: cwd,
+        origin: null,
+        a2a_state: "input-required",
+      };
+      expect(yield* bridge.task({ id: queued.id })).toMatchObject({
+        parked: parked.parked,
+        startFolder: cwd,
+      });
+      expect((yield* bridge.task({ id: queued.id })).queuePickup).toBeUndefined();
+      const forceParked = { ...input, action: "parked" } as const;
+      expect(yield* bridge.retryStart(forceParked)).toMatchObject({ started: true });
+      expect(calls.at(-1)).toBe(
+        `handoff dispatch hof-0e3d000001 --tool codex --force --cwd ${cwd} --session agentd-new`,
+      );
+      for (const changed of [
+        { parked: null },
+        { claimer: "codex-ab1234" },
+        { to_user: "alice" },
+        { required_labels: ["gpu=a100"] },
+        { worker_cwd: `${cwd}/missing-queued-checkout` },
+      ]) {
+        details = { ...parked, ...changed };
+        calls.length = 0;
+        yield* Effect.flip(bridge.retryStart(forceParked));
+        expect(calls).toEqual(["handoff show hof-0e3d000001 --json"]);
+      }
+
       details = { ...queued, origin: { dir: "another-checkout" }, worker_cwd: cwd };
       expect(yield* bridge.retryStart(input)).toEqual({ id: queued.id, started: true, note: null });
       expect(calls.slice(-2)).toEqual([
@@ -707,7 +765,8 @@ describe("AgentdBridge", () => {
         ],
         [{ project: "libraos/next", required_labels: ["gpu=a100"] }, "remote"],
         [{ project: "libraos/next", queue_reason: "awaiting eligible worker poll" }, "remote"],
-        [{ project: "libraos/next" }, "remote-eligible"],
+        [{ project: "libraos/next" }, undefined],
+        [{ project: "libraos/next", via_run: 1 }, undefined],
         [
           { project: "libraos/next", queue_reason: "no live worker serves project libraos/next" },
           undefined,
@@ -725,6 +784,7 @@ describe("AgentdBridge", () => {
         { worker_running: true },
         { worker_state: "blocked" },
         { start_tool: "claude" },
+        { parked: "Environment setup failed" },
         { worker: "codex" },
         { worker_tool: "codex" },
         { cloud_state: "queued" },

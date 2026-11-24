@@ -35,10 +35,12 @@ export function StartQueuedTaskMenu({
   id,
   environmentId,
   cwd,
+  force,
 }: {
   readonly id: string;
   readonly environmentId: EnvironmentId;
   readonly cwd: string;
+  readonly force: boolean;
 }) {
   const gt = useGT();
   const resolve = useMessages();
@@ -54,9 +56,10 @@ export function StartQueuedTaskMenu({
   if (!canStart) return null;
 
   const handleResult = (worker: AgentdWorkerTool, result: AgentdStartTaskResult) => {
-    setConflict(result.blocking ? { worker, blocking: result.blocking } : null);
+    const blocking = force ? undefined : result.blocking;
+    setConflict(blocking ? { worker, blocking } : null);
     setError(
-      result.started || result.blocking
+      result.started || blocking
         ? null
         : (result.note ?? gt("LibraOS Core could not start the task.")),
     );
@@ -67,7 +70,12 @@ export function StartQueuedTaskMenu({
     setPending(true);
     const result = await retryStart({
       environmentId,
-      input: { id, action: "queued", worker, ...(trustedFolder ? { trustedFolder } : {}) },
+      input: {
+        id,
+        action: force ? "parked" : "queued",
+        worker,
+        ...(trustedFolder ? { trustedFolder } : {}),
+      },
     });
     setPending(false);
     if (result._tag === "Failure") {
@@ -99,7 +107,7 @@ export function StartQueuedTaskMenu({
     <>
       <Menu>
         <MenuTrigger render={<Button size="xs" variant="ghost" />} disabled={pending}>
-          <T>Start with…</T>
+          {force ? <T>Start anyway</T> : <T>Start with…</T>}
         </MenuTrigger>
         <MenuPopup align="end">
           <MenuGroup>

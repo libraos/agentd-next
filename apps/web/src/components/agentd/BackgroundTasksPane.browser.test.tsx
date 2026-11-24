@@ -420,6 +420,49 @@ it("moves blocked and budget-stopped offers into Waiting without a running clock
   expect(screen.getByText(/^[0-9]+[hms]/).all()).toHaveLength(0);
 });
 
+it("shows Core's park reason in Waiting and explicitly force-starts the task", async () => {
+  const parked = setupQueuedTasks();
+  const reason = "4 worker rounds, the limit";
+  bridge.useAgentdTasks.mockReturnValue(answer([parked]));
+  bridge.useAgentdTask.mockReturnValue(
+    answer(
+      taskDetails(parked, { parked: reason, workerTool: "codex", startFolder: "/work/widget" }),
+    ),
+  );
+  bridge.retryStart.mockResolvedValue(
+    AsyncResult.success({ id: parked.id, started: true, note: null }),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByRole("heading", { name: "Waiting 1" })).toBeVisible();
+  await expect.element(screen.getByText("Waiting for a person", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText(reason, { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Stop", exact: true })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Start anyway" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Codex", exact: true }));
+  expect(bridge.retryStart).toHaveBeenCalledExactlyOnceWith({
+    environmentId: threadRef.environmentId,
+    input: { id: parked.id, action: "parked", worker: "codex" },
+  });
+});
+
+it("shows the wait since requeue instead of the original offer", async () => {
+  const requeued = setupQueuedTasks();
+  bridge.useAgentdTasks.mockReturnValue(answer([requeued]));
+  bridge.useAgentdTask.mockReturnValue(
+    answer(
+      taskDetails(requeued, {
+        workerTool: "codex",
+        created: "2026-11-18T09:00:00Z",
+        queuedSince: "2026-11-22T08:59:00Z",
+      }),
+    ),
+  );
+  using _timers = fakeTimers({ now: new Date("2026-11-22T09:00:00Z") });
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByText("Queued for 1 minute", { exact: true })).toBeVisible();
+  await expect.element(screen.getByText("Waiting a long time")).not.toBeInTheDocument();
+});
+
 it("explains targeted and remote offers without offering a local start", async () => {
   const queued = setupQueuedTasks();
   const addressed = { ...queued, id: "hof-123123", title: "Addressed offer" };
@@ -430,7 +473,11 @@ it("explains targeted and remote offers without offering a local start", async (
   bridge.useAgentdTask.mockImplementation((id) =>
     answer(
       id === addressed.id
-        ? taskDetails(addressed, { queuePickup: "recipient", startFolder: "/work/widget" })
+        ? taskDetails(addressed, {
+            queuePickup: "recipient",
+            queueBlock: "project concurrency limit: libraos/next",
+            startFolder: "/work/widget",
+          })
         : id === remote.id
           ? taskDetails(remote, { queuePickup: "remote", startFolder: "/work/widget" })
           : taskDetails(blocked, { queueBlock, startFolder: "/work/widget" }),
@@ -441,7 +488,7 @@ it("explains targeted and remote offers without offering a local start", async (
     .element(screen.getByText("Waiting for the recipient to pick up this task"))
     .toBeVisible();
   await expect.element(screen.getByText("Waiting for a remote worker")).toBeVisible();
-  await expect.element(screen.getByText(queueBlock)).toBeVisible();
+  await expect.element(screen.getByText("Needs a specification: missing spec")).toBeVisible();
   expect(screen.getByRole("button", { name: "Start with…" }).all()).toHaveLength(0);
 });
 

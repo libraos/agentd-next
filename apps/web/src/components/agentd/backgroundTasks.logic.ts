@@ -112,10 +112,23 @@ export function queuedAgentdTaskReason(
 ): string {
   if (pickup === "recipient") return resolve(msg("Waiting for the recipient to pick up this task"));
   if (pickup === "remote") return resolve(msg("Waiting for a remote worker"));
-  if (pickup === "remote-eligible") return resolve(msg("A remote worker may pick up this task"));
   return worker === null
     ? resolve(msg("Won't start on its own: no agent chosen"))
     : resolve(msg("Waiting for a {worker} worker"), { worker });
+}
+
+export function queueBlockLabel(reason: string, resolve: MessageResolver): string {
+  const details = reason.slice(reason.indexOf(":") + 1).trim();
+  if (reason.startsWith("spec before code:")) {
+    return resolve(msg("Needs a specification: {details}"), { details });
+  }
+  if (reason.startsWith("project concurrency limit:")) {
+    return resolve(msg("Reached the project’s concurrent task limit: {details}"), { details });
+  }
+  if (reason.startsWith("person concurrency limit:")) {
+    return resolve(msg("Reached the person’s concurrent task limit: {details}"), { details });
+  }
+  return reason;
 }
 
 export function queuedAgentdTaskWait(

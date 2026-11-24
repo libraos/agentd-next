@@ -13434,5 +13434,7 @@
   "36329a2d69e8a374": "Não foi possível iniciar a tarefa",
   "a2947c86f59136c0": "Aguardando o destinatário assumir a tarefa",
   "36065867b7adee54": "Aguardando um worker remoto",
-  "71cf6daf9c9c074d": "Um worker remoto pode assumir esta tarefa"
+  "713a94447aee2972": "É necessária uma especificação: {details}",
+  "2cd8d4fbd716bf5a": "O limite de tarefas simultâneas do projeto foi atingido: {details}",
+  "d424b7f77b6e69ca": "O limite de tarefas simultâneas da pessoa foi atingido: {details}"
 }

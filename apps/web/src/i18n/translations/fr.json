@@ -13434,5 +13434,7 @@
   "36329a2d69e8a374": "Impossible de démarrer la tâche",
   "a2947c86f59136c0": "En attente de la prise en charge par le destinataire",
   "36065867b7adee54": "En attente d’un worker distant",
-  "71cf6daf9c9c074d": "Un worker distant peut prendre en charge cette tâche"
+  "713a94447aee2972": "Une spécification est nécessaire : {details}",
+  "2cd8d4fbd716bf5a": "Limite de tâches simultanées du projet atteinte : {details}",
+  "d424b7f77b6e69ca": "Limite de tâches simultanées de la personne atteinte : {details}"
 }

@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { minuteTick, secondTick, toServerClock } from "@t3tools/client-runtime/clock";
 import type { AgentdRunsOn, AgentdTask, AgentdTaskRow, EnvironmentId } from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/orchestrationTimingCopy";
-import { T, useGT, useLocale, useMessages, Var } from "gt-react";
+import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react";
 import { CheckIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
@@ -23,6 +23,7 @@ import {
   type AgentdTaskBudgetTone,
   finishedAgentdTaskLabel,
   queuedAgentdTaskReason,
+  queueBlockLabel,
   queuedAgentdTaskWait,
   runningAgentdTaskLabel,
 } from "./backgroundTasks.logic";
@@ -481,6 +482,8 @@ export function AgentdBackgroundTaskRow(props: {
   const location = task?.runsOn ?? (row.runsOn === "cloud" ? row.runsOn : null);
   const cloud = location === "cloud";
   const pickup = task?.queuePickup;
+  const parked = !finished && !cloud ? task?.parked : undefined;
+  const queueBlock = task?.queueBlock;
   const status = { ...row, workerState: row.workerState ?? task?.workerState ?? null };
   const elapsedMs = useElapsedMs(queued ? null : task, live && task?.started != null);
   const showBudget = task !== null && !cloud && (!finished || task.started !== null);
@@ -495,18 +498,23 @@ export function AgentdBackgroundTaskRow(props: {
             <span className="font-medium text-foreground">
               {finished
                 ? finishedAgentdTaskLabel(row.state, task?.verdict ?? null, resolve)
-                : runningAgentdTaskLabel(status, task?.budgetState ?? null, resolve)}
+                : parked
+                  ? resolve(msg("Waiting for a person"))
+                  : runningAgentdTaskLabel(status, task?.budgetState ?? null, resolve)}
             </span>
           )}
           {queued ? (
             task || worker !== null ? (
               <span className="wrap-anywhere">
-                {task?.queueBlock ?? queuedAgentdTaskReason(worker, pickup, resolve)}
+                {queueBlock && pickup !== "recipient"
+                  ? queueBlockLabel(queueBlock, resolve)
+                  : queuedAgentdTaskReason(worker, pickup, resolve)}
               </span>
             ) : null
           ) : !finished && (!cloud || worker !== null) ? (
             <span>{worker ?? <T>Agent unknown</T>}</span>
           ) : null}
+          {parked ? <span className="wrap-anywhere">{parked}</span> : null}
           {location === null || cloud || (queued && pickup) ? null : (
             <span>
               <AgentdTaskLocation location={location} />
@@ -514,7 +522,7 @@ export function AgentdBackgroundTaskRow(props: {
           )}
           {queued ? (
             <QueueWait
-              created={task?.created ?? task?.started ?? row.started}
+              created={task?.queuedSince ?? task?.created ?? task?.started ?? row.started}
               environmentId={environmentId}
             />
           ) : (finished && task?.started != null) || (live && (task !== null || error !== null)) ? (
@@ -551,16 +559,17 @@ export function AgentdBackgroundTaskRow(props: {
       action={
         !finished ? (
           <div className="flex flex-wrap justify-end gap-1">
-            {queued &&
+            {(queued || (parked && row.state === "offered" && !row.workerRunning)) &&
             task?.startFolder &&
             task.queueBlock === undefined &&
-            worker === null &&
+            (parked || worker === null) &&
             pickup !== "recipient" &&
             pickup !== "remote" ? (
               <StartQueuedTaskMenu
                 id={row.id}
                 environmentId={environmentId}
                 cwd={task.startFolder}
+                force={Boolean(parked)}
               />
             ) : null}
             <StopTaskButton id={row.id} title={title} environmentId={environmentId} />

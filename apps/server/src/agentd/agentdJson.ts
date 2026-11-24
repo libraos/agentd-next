@@ -142,7 +142,7 @@ function optionalWait(show: AgentdHandoffShowJson): { waitingFor?: string } {
 }
 
 function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
-  if (nonEmpty(show.cloud_state) !== null) return "cloud";
+  if ((nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state)) !== null) return "cloud";
   return nonEmpty(show.lease_device) === null ? "local" : "team";
 }
 
@@ -160,11 +160,13 @@ function queuePickup(
     show.worker_cwd ||
     show.role ||
     show.dispatched ||
-    show.cloud_state
+    show.cloud_state ||
+    show.cloud?.state ||
+    show.parked ||
+    !show.queue_reason
   ) {
     return undefined;
   }
-  if (!show.queue_reason) return "remote-eligible";
   // Core also reports gates before checking the worker census.
   return /^(?:awaiting eligible worker poll$|worker drain:|no matching node takes server work now:|(?:worker|verification) capacity limit:|worker concurrency limit: all matching workers are full$)/.test(
     show.queue_reason,
@@ -185,6 +187,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
   const modelAccess = nonEmpty(show.body?.model_access);
   const pickup = queuePickup(show, viewer);
   const queueReason = nonEmpty(show.queue_reason);
+  const parked = nonEmpty(show.parked);
   const queueBlock =
     show.state === "offered" &&
     queueReason !== null &&
@@ -195,6 +198,16 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
   const claim = show.history?.findLast(
     (event) => event.state === "claimed" && event.note === "" && !event.kind,
   );
+  // Core can log diagnostics against an offer without requeueing it.
+  const history = show.history ?? [];
+  const lastNonOffer = history.findLastIndex((event) => !event.kind && event.state !== "offered");
+  const queuedSince =
+    show.state === "offered" && lastNonOffer >= 0
+      ? nonEmpty(
+          history.slice(lastNonOffer + 1).find((event) => !event.kind && event.state === "offered")
+            ?.created,
+        )
+      : null;
   return {
     id: show.id,
     title: nonEmpty(show.title) ?? goal,
@@ -230,8 +243,14 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
     ...optionalWait(show),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
-    started: nonEmpty(show.dispatched) ?? nonEmpty(show.lease_started) ?? nonEmpty(claim?.created),
+    started:
+      nonEmpty(show.dispatched) ??
+      nonEmpty(show.lease_started) ??
+      nonEmpty(claim?.created) ??
+      (cloudState === null ? null : nonEmpty(show.created)),
     ...(nonEmpty(show.created) === null ? {} : { created: nonEmpty(show.created) }),
+    ...(queuedSince === null ? {} : { queuedSince }),
+    ...(parked === null ? {} : { parked }),
     ...(pickup === undefined ? {} : { queuePickup: pickup }),
     ...(queueBlock === null ? {} : { queueBlock }),
     updated: nonEmpty(show.updated),

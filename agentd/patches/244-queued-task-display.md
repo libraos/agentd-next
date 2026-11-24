@@ -11,5 +11,5 @@
 - `apps/web/src/i18n/translations/sv.json` — add the queue status and start action messages.
 - `apps/web/src/i18n/translations/zh.json` — add the queue status and start action messages.
 
-- `packages/contracts/src/agentd.ts` — carry Core timestamps, claim history, queue pickup, and blocking reasons across the bridge.
-- `docs/user/workers.md` — explain how to start or stop a queued local task.
+- `packages/contracts/src/agentd.ts` — carry Core timestamps, claim history, queue pickup, and parked-task state and restart requests across the bridge.
+- `docs/user/workers.md` — explain how to start, retry, or stop a queued local task.

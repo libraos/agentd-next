@@ -137,6 +137,7 @@ export const AgentdHandoffShowJson = Schema.Struct({
   a2a_state: NullableString,
   required_labels: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
   queue_reason: NullableString,
+  parked: NullableString,
   lease_started: NullableString,
   dispatched: NullableString,
   history: Schema.optionalKey(
@@ -411,6 +412,8 @@ export const AgentdTask = Schema.Struct({
   hasLog: Schema.Boolean,
   started: Schema.NullOr(Schema.String),
   created: NullableString,
+  queuedSince: NullableString,
+  parked: Schema.optionalKey(Schema.String),
   queueBlock: Schema.optionalKey(Schema.String),
   queuePickup: Schema.optionalKey(Schema.Literals(["recipient", "remote", "remote-eligible"])),
   startFolder: NullableString,
@@ -556,7 +559,7 @@ export const AgentdRetryStartInput = Schema.Union([
   Schema.Struct({
     id: AgentdHandoffId,
     worker: AgentdWorkerTool,
-    action: Schema.Literal("queued"),
+    action: Schema.Literals(["queued", "parked"]),
     trustedFolder: Schema.optionalKey(AbsolutePath),
   }),
 ]);
