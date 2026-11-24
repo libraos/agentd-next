@@ -33,6 +33,9 @@ export class AgentdCommandError extends Schema.TaggedError<AgentdCommandError>()
     wrongKeyFile: Schema.optionalKey(Schema.Literals(["anthropic", "openai"])),
     /** The folder Claude Code hasn't been allowed to work in; Start asks before trusting it. */
     untrustedFolder: Schema.optionalKey(Schema.String),
+    queuedStartRefusal: Schema.optionalKey(
+      Schema.Literals(["no-longer-queued", "has-recipient", "no-checkout"]),
+    ),
   },
 ) {}
 
@@ -68,6 +71,7 @@ export const AgentdHandoffListJsonRow = Schema.Struct({
   state: Schema.String,
   worker_state: NullableString,
   worker_running: Schema.optionalKey(Schema.Boolean),
+  a2a_state: NullableString,
   worker_cwd: NullableString,
   claimer: NullableString,
   claimer_user: NullableString,
@@ -90,6 +94,7 @@ export const AgentdHandoffShowJson = Schema.Struct({
     Schema.NullOr(
       Schema.Struct({
         goal: NullableString,
+        labels: NullableString,
         model_access: NullableString,
         /** Set on a subscription job: the credential file each plan reads (a path, never its contents). */
         claude_token_file: NullableString,
@@ -124,10 +129,36 @@ export const AgentdHandoffShowJson = Schema.Struct({
       }),
     ),
   ),
+  to_session: NullableString,
+  to_user: NullableString,
+  role: NullableString,
+  claimer: NullableString,
+  worker_running: Schema.optionalKey(Schema.Boolean),
+  a2a_state: NullableString,
+  required_labels: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
+  queue_reason: NullableString,
+  parked: NullableString,
+  lease_started: NullableString,
+  dispatched: NullableString,
+  history: Schema.optionalKey(
+    Schema.NullOr(
+      Schema.Array(
+        Schema.Struct({
+          state: Schema.String,
+          created: NullableString,
+          kind: NullableString,
+          note: NullableString,
+        }),
+      ),
+    ),
+  ),
+  worker_cwd: NullableString,
+  origin: Schema.optionalKey(Schema.NullOr(Schema.Struct({ dir: NullableString }))),
   budget: NullableString,
   budget_state: NullableString,
   worker_state: NullableString,
   worker_tool: NullableString,
+  worker: NullableString,
   start_tool: NullableString,
   worker_branch: NullableString,
   lease_branch: NullableString,
@@ -341,6 +372,7 @@ export const AgentdTaskRow = Schema.Struct({
   branch: Schema.NullOr(Schema.String),
   updated: Schema.NullOr(Schema.String),
   cloudState: NullableString,
+  a2aState: NullableString,
   cloudUsd: NullableNumber,
 });
 export type AgentdTaskRow = typeof AgentdTaskRow.Type;
@@ -379,6 +411,13 @@ export const AgentdTask = Schema.Struct({
   project: Schema.NullOr(Schema.String),
   hasLog: Schema.Boolean,
   started: Schema.NullOr(Schema.String),
+  created: NullableString,
+  queuedSince: NullableString,
+  parked: Schema.optionalKey(Schema.String),
+  parkAction: Schema.optionalKey(Schema.Literals(["unpark", "approval"])),
+  queueBlock: Schema.optionalKey(Schema.String),
+  queuePickup: Schema.optionalKey(Schema.Literals(["recipient", "remote", "remote-eligible"])),
+  startFolder: NullableString,
   updated: Schema.NullOr(Schema.String),
   cloud: Schema.optionalKey(
     Schema.Struct({
@@ -509,13 +548,22 @@ export const AgentdStartTaskResult = Schema.Struct({
 });
 export type AgentdStartTaskResult = typeof AgentdStartTaskResult.Type;
 
-/** Dispatch an offered task again: after releasing the task that held its directory, or forced. */
-export const AgentdRetryStartInput = Schema.Struct({
-  id: AgentdHandoffId,
-  worker: AgentdWorkerTool,
-  action: Schema.Literals(["release", "force"]),
-  blocking: AgentdHandoffId,
-});
+/** Dispatch an existing offered task, optionally resolving a conflict from an earlier start. */
+export const AgentdRetryStartInput = Schema.Union([
+  Schema.Struct({
+    id: AgentdHandoffId,
+    worker: AgentdWorkerTool,
+    action: Schema.Literals(["release", "force"]),
+    blocking: AgentdHandoffId,
+    queued: Schema.optionalKey(Schema.Literal(true)),
+  }),
+  Schema.Struct({
+    id: AgentdHandoffId,
+    worker: AgentdWorkerTool,
+    action: Schema.Literals(["queued", "parked"]),
+    trustedFolder: Schema.optionalKey(AbsolutePath),
+  }),
+]);
 export type AgentdRetryStartInput = typeof AgentdRetryStartInput.Type;
 
 export const AgentdPeopleInput = Schema.Struct({

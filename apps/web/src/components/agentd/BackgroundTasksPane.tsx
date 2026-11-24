@@ -1,13 +1,52 @@
-import type { ScopedThreadRef } from "@t3tools/contracts";
+import { useAtomValue } from "@effect/atom-react";
+import type { AgentdTaskRow, EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { T, Var } from "gt-react";
 
-import { useAgentdTasks } from "../../lib/agentdState";
+import { agentdEnvironment, useAgentdTasks } from "../../lib/agentdState";
 import { useQuietThreadProjection } from "../../state/entities";
 import { deriveThreadPendingBackgroundTasks } from "../ChatView.logic";
 import { useCommandOutputStreaming } from "../chat/CommandOutputPanel";
 import { AgentdBackgroundTaskRow } from "./AgentdBackgroundTaskRow";
-import { isFinishedAgentdTask } from "./backgroundTasks.logic";
+import {
+  isFinishedAgentdTask,
+  isQueuedAgentdTask,
+  isWaitingAgentdTask,
+} from "./backgroundTasks.logic";
 import { SessionBackgroundTaskRow } from "./SessionBackgroundTaskRow";
+
+const EMPTY_ROWS: readonly AgentdTaskRow[] = [];
+
+const taskSections = Atom.family((environmentId: EnvironmentId) =>
+  Atom.make((get) => {
+    const rows = AsyncResult.getOrElse(
+      get(agentdEnvironment.tasks({ environmentId, input: {} })),
+      () => EMPTY_ROWS,
+    );
+    const running: AgentdTaskRow[] = [];
+    const queued: AgentdTaskRow[] = [];
+    const waiting: AgentdTaskRow[] = [];
+    const finished: AgentdTaskRow[] = [];
+    for (const row of rows) {
+      if (isFinishedAgentdTask(row.state)) {
+        finished.push(row);
+        continue;
+      }
+      const result = get(agentdEnvironment.task({ environmentId, input: { id: row.id } }));
+      const details = AsyncResult.getOrElse(result, () => null);
+      const task = details?.state === row.state ? details : null;
+      const status = {
+        ...row,
+        runsOn: task?.runsOn ?? row.runsOn,
+        workerState: row.workerState ?? task?.workerState ?? null,
+      };
+      if (task?.parked || isWaitingAgentdTask(status, task?.budgetState)) waiting.push(row);
+      else if (isQueuedAgentdTask(status)) queued.push(row);
+      else running.push(row);
+    }
+    return { running, queued, waiting, finished };
+  }),
+);
 
 export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   const { environmentId } = threadRef;
@@ -15,9 +54,8 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
   const projection = useQuietThreadProjection(threadRef)?.projection ?? null;
   const sessionTasks = deriveThreadPendingBackgroundTasks(projection);
   const streamsOutput = useCommandOutputStreaming(environmentId);
-  const rows = data ?? [];
-  const running = rows.filter((row) => !isFinishedAgentdTask(row.state));
-  const finished = rows.filter((row) => isFinishedAgentdTask(row.state));
+  const rows = data ?? EMPTY_ROWS;
+  const { running, queued, waiting, finished } = useAtomValue(taskSections(environmentId));
 
   return (
     <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-3 text-sm">
@@ -57,11 +95,49 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
                     key={row.id}
                     row={row}
                     environmentId={environmentId}
-                    finished={false}
+                    section="running"
                   />
                 ))}
               </ul>
             )}
+          </section>
+        ) : null}
+        {queued.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-xs font-medium text-muted-foreground">
+              <T>
+                Queued <Var>{queued.length}</Var>
+              </T>
+            </h2>
+            <ul className="space-y-1.5">
+              {queued.map((row) => (
+                <AgentdBackgroundTaskRow
+                  key={row.id}
+                  row={row}
+                  environmentId={environmentId}
+                  section="queued"
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        {waiting.length > 0 ? (
+          <section className="space-y-2">
+            <h2 className="text-xs font-medium text-muted-foreground">
+              <T>
+                Waiting <Var>{waiting.length}</Var>
+              </T>
+            </h2>
+            <ul className="space-y-1.5">
+              {waiting.map((row) => (
+                <AgentdBackgroundTaskRow
+                  key={row.id}
+                  row={row}
+                  environmentId={environmentId}
+                  section="waiting"
+                />
+              ))}
+            </ul>
           </section>
         ) : null}
         {data !== null && data.length > 0 ? (
@@ -82,7 +158,7 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
                     key={row.id}
                     row={row}
                     environmentId={environmentId}
-                    finished
+                    section="finished"
                   />
                 ))}
               </ul>

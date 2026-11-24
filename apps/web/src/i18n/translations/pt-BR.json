@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13395,5 +13393,50 @@
   "27d76249d09eb69f": "Guia de revisão pronto",
   "faa3bb26abb39c93": "O guia de revisão falhou",
   "b7df38b7d8792d78": "Abrir guia",
-  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão"
+  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão",
+  "864f9438f3e5a492": "Esperando há muito tempo",
+  "f0e8f441d0a36f07": [
+    "Na fila: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "76dd87237a697b61": "Iniciar com…",
+  "86c28db793e779c6": "Não iniciará por conta própria: nenhum agente foi escolhido",
+  "8d7eea7da969c3dd": "Aguardando um executor de {worker}",
+  "fd2765bb89d940c8": "Na fila há {count, plural, one {{count} dia} other {{count} dias}}",
+  "5450243e54af24ca": "Na fila há {count, plural, one {{count} hora} other {{count} horas}}",
+  "cea29f889a31981d": "Na fila há {count, plural, one {{count} minuto} other {{count} minutos}}",
+  "3bbede5bac09058a": "Na fila há menos de um minuto",
+  "9090c8b2e973fa26": "Esta tarefa não está mais aguardando um agente.",
+  "0fdac573aa09e72b": "Esta tarefa foi enviada para uma sessão específica.",
+  "9d82c78119594a68": "Não há uma cópia de trabalho local disponível para esta tarefa.",
+  "d66b817f2fe5b694": "Tempo desde o início da tarefa",
+  "ea46cd53004e3b7b": "Tempo do início da tarefa até a última atualização",
+  "768e2441d65ac1e2": [
+    "Em espera ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Diretório de trabalho: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Não foi possível iniciar a tarefa",
+  "a2947c86f59136c0": "Aguardando o destinatário assumir a tarefa",
+  "36065867b7adee54": "Aguardando um worker remoto",
+  "713a94447aee2972": "É necessária uma especificação: {details}",
+  "2cd8d4fbd716bf5a": "O limite de tarefas simultâneas do projeto foi atingido: {details}",
+  "d424b7f77b6e69ca": "O limite de tarefas simultâneas da pessoa foi atingido: {details}",
+  "43fa372a3881f08b": "Libere esta tarefa em um terminal do LibraOS Core.",
+  "be964c739d43b9db": "Verifique se há um pedido de aprovação de comando na caixa de entrada do LibraOS Core."
 }

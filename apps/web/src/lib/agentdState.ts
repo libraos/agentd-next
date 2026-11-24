@@ -137,6 +137,7 @@ export function useAgentdPermissionMode(target: EnvironmentId | null) {
 export function useAgentdCommands() {
   return {
     startTask: useAtomCommand(agentdEnvironment.startTask),
+    retryStart: useAtomCommand(agentdEnvironment.retryStart, { reportFailure: false }),
     stopTask: useAtomCommand(agentdEnvironment.stopTask),
     connectAgent: useAtomCommand(agentdEnvironment.connectAgent),
     joinTeam: useAtomCommand(agentdEnvironment.joinTeam),

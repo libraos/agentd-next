@@ -44,7 +44,7 @@ function text(name: string, value: string): string {
   return value;
 }
 
-const CLOUD_SESSION = "agentd-new";
+const APP_SESSION = "agentd-new";
 
 const AGE_RECIPIENT = /^age1[02-9ac-hj-np-z]{58}$/;
 
@@ -123,6 +123,8 @@ function subscriptionFile(cloud: AgentdCloudTaskInput["cloud"]): ReadonlyArray<s
     : ["--claude-token-file", text("Claude token file", cloud.claudeTokenFile)];
 }
 
+export const HANDOFF_PAGE_SIZE = 20;
+
 export const agentdArgs = {
   version: () => ["version"],
   doctor: () => ["doctor", "--json"],
@@ -144,7 +146,17 @@ export const agentdArgs = {
     model === "" ? "" : text("model", model),
   ],
   budgetPrices: () => ["config", "get", "budget.prices"],
-  list: () => ["handoff", "list", "--json"],
+  list: () => ["handoff", "list", "--limit", String(HANDOFF_PAGE_SIZE), "--json"],
+  listOffered: (viewer: string | null) => [
+    "handoff",
+    "list",
+    "--state",
+    "offered",
+    "--limit",
+    String(HANDOFF_PAGE_SIZE),
+    ...(viewer === null ? [] : ["--user", text("user", viewer)]),
+    "--json",
+  ],
   show: (id: string) => ["handoff", "show", handoffId(id), "--json"],
   approvals: () => ["approval", "list", "--state", "pending", "--json"],
   inbox: () => ["inbox", "list", "--mine", "--json"],
@@ -175,13 +187,14 @@ export const agentdArgs = {
     "--no-start",
   ],
   // force starts past an open task holding the directory or issue, after the person chose to.
-  dispatch: (id: string, worker: AgentdWorkerTool, force = false) => [
+  dispatch: (id: string, worker: AgentdWorkerTool, force: boolean, queuedCwd?: string) => [
     "handoff",
     "dispatch",
     handoffId(id),
     "--tool",
     worker,
     ...(force ? ["--force"] : []),
+    ...(queuedCwd === undefined ? [] : ["--cwd", absolute(queuedCwd), "--session", APP_SESSION]),
   ],
   connectAgent: (input: AgentdConnectAgentInput) => [
     "connect",
@@ -240,11 +253,11 @@ export const agentdArgs = {
     type,
     "--json",
   ],
-  cloudSession: (cwd: string) => [
+  appSession: (cwd: string) => [
     "session",
     "join",
     "--id",
-    CLOUD_SESSION,
+    APP_SESSION,
     "--tool",
     "other",
     "--label",
@@ -310,7 +323,7 @@ export const agentdArgs = {
     "--to",
     "any",
     "--session",
-    CLOUD_SESSION,
+    APP_SESSION,
     "--budget",
     input.cloud.budget,
     "--model-access",

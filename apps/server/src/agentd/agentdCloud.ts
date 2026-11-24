@@ -720,7 +720,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
     const argv = yield* args(() =>
       agentdArgs.cloudOffer(input, project, submission, fingerprint),
     ).pipe(Effect.tapError(() => release(submission, attempt)));
-    yield* agentd(() => agentdArgs.cloudSession(input.cwd)).pipe(
+    yield* agentd(() => agentdArgs.appSession(input.cwd)).pipe(
       Effect.catchTags({
         AgentdCommandError: (error) =>
           Effect.fail(

@@ -5,10 +5,50 @@ import {
   agentdTaskBudgetUse,
   finishedAgentdTaskLabel,
   isFinishedAgentdTask,
+  isQueuedAgentdTask,
+  queuedAgentdTaskReason,
+  queuedAgentdTaskWait,
   runningAgentdTaskLabel,
 } from "./backgroundTasks.logic";
 
 describe("background task states", () => {
+  it.each([
+    ["offered", null, false, "local", true],
+    ["offered", null, true, "local", false],
+    ["offered", "blocked", false, "local", false],
+    ["offered", null, false, "cloud", false],
+    ["blocked", null, false, "local", false],
+    ["done", null, false, "local", false],
+  ] as const)(
+    "classifies %s / %s / %s / %s as queued: %s",
+    (state, workerState, workerRunning, runsOn, queued) => {
+      expect(isQueuedAgentdTask({ state, workerState, workerRunning, runsOn })).toBe(queued);
+    },
+  );
+
+  it.each([
+    [null, "Won't start on its own: no agent chosen"],
+    ["Codex", "Waiting for a Codex worker"],
+    ["Claude Code", "Waiting for a Claude Code worker"],
+  ])("explains why a task with agent %s is queued", (worker, reason) => {
+    expect(queuedAgentdTaskReason(worker)).toBe(reason);
+  });
+
+  it.each([
+    [null, null, false],
+    [-60_000, "Queued for less than a minute", false],
+    [60_000, "Queued for 1 minute", false],
+    [20 * 60_000, "Queued for 20 minutes", false],
+    [2 * 3_600_000, "Queued for 2 hours", false],
+    [86_400_000, "Queued for 1 day", false],
+    [86_400_001, "Queued for 1 day", true],
+    [4 * 86_400_000, "Queued for 4 days", true],
+  ])("describes a wait of %s ms", (elapsed, label, long) => {
+    const now = Date.UTC(2026, 10, 24);
+    const created = elapsed === null ? null : new Date(now - elapsed).toISOString();
+    expect(queuedAgentdTaskWait(created, now)).toEqual({ label, long });
+  });
+
   it.each([
     ["offered", false],
     ["claimed", false],

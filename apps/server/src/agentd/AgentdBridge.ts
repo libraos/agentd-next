@@ -70,7 +70,12 @@ import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { makeAgentdCloud } from "./agentdCloud.ts";
 import { makeCloudReview } from "./agentdCloudReview.ts";
-import { AgentdArgumentError, agentdArgs, agentdTicket } from "./agentdCommands.ts";
+import {
+  AgentdArgumentError,
+  agentdArgs,
+  agentdTicket,
+  HANDOFF_PAGE_SIZE,
+} from "./agentdCommands.ts";
 import * as AgentdJson from "./agentdJson.ts";
 import { AGENTD_BACKUP_FILE, agentdBackupFileName } from "./agentdBackup.ts";
 import { blockingRefusal } from "./blockedStart.ts";
@@ -249,6 +254,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const pathService = yield* Path.Path;
   const env = yield* HostProcess.Environment;
+  const configuredUser = env.AGENTD_USER?.trim() || null;
+  const hostUser = yield* HostProcess.Username;
+  const taskViewer = configuredUser ?? (hostUser?.split("\\").at(-1) || null);
   const platform = yield* HostProcess.Platform;
 
   // Set by the desktop app beside the AGENTD_BIN of the agentd it carries.
@@ -453,10 +461,24 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     );
   });
 
-  const readTasks = run(agentdArgs.list()).pipe(
-    Effect.flatMap(decodeList),
-    Effect.map((rows) => rows.map(AgentdJson.agentdTaskRow)),
+  const [readOlderOffers, invalidateOlderOffers] = yield* Effect.cachedInvalidateWithTTL(
+    args(() => agentdArgs.listOffered(configuredUser)).pipe(
+      Effect.flatMap((argv) => run(argv)),
+      Effect.flatMap(decodeList),
+      Effect.orElseSucceed(() => []),
+    ),
+    "30 seconds",
   );
+
+  const readTasks = Effect.gen(function* () {
+    const recent = yield* run(agentdArgs.list()).pipe(Effect.flatMap(decodeList));
+    if (recent.length < HANDOFF_PAGE_SIZE) return recent.map(AgentdJson.agentdTaskRow);
+    const offered = yield* readOlderOffers;
+    const recentIds = new Set(recent.map((row) => row.id));
+    return [...recent, ...offered.filter((row) => !recentIds.has(row.id))].map(
+      AgentdJson.agentdTaskRow,
+    );
+  });
 
   const eula: AgentdBridge["Service"]["eula"] = run(agentdArgs.eula()).pipe(
     Effect.map((text) => ({ version: AgentdJson.eulaVersion(text), text })),
@@ -643,7 +665,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   // Claude Code checks the main checkout, also for a worktree, then the folder and its parents.
   const ensureClaudeTrust = Effect.fn("AgentdBridge.ensureClaudeTrust")(function* (
     cwd: string,
-    consent: boolean,
+    consent: boolean | string,
   ) {
     const commonDir = yield* runner
       .run({
@@ -658,7 +680,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       );
     const folder = projectFolder(cwd, commonDir, pathService);
     if ((yield* claudeTrust.trusted(folder)) || (yield* claudeTrust.trusted(cwd))) return;
-    if (!consent)
+    if (consent !== true && consent !== folder)
       return yield* new AgentdCommandError({
         message: `Claude Code hasn’t been allowed to work in ${folder} yet.`,
         notSetUp: false,
@@ -693,8 +715,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     id: string,
     worker: AgentdWorkerTool,
     force: boolean,
+    queuedCwd?: string,
   ) {
-    return yield* run(yield* args(() => agentdArgs.dispatch(id, worker, force))).pipe(
+    return yield* run(yield* args(() => agentdArgs.dispatch(id, worker, force, queuedCwd))).pipe(
       Effect.as<AgentdStartTaskResult>({ id, started: true, note: null }),
       Effect.catchTags({ AgentdCommandError: (error) => refused(id, error.message) }),
     );
@@ -721,8 +744,78 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return yield* dispatch(id, input.worker, false);
   });
 
+  const queuedCheckout = Effect.fn("AgentdBridge.queuedCheckout")(function* (
+    id: string,
+    parked: boolean,
+  ) {
+    const show = yield* readShow(id);
+    const task = AgentdJson.agentdTask(show, taskViewer);
+    if (task.parkAction === "unpark") {
+      return yield* commandError(
+        "Release this task in a LibraOS Core terminal with handoff unpark.",
+      );
+    }
+    if (task.parkAction === "approval") {
+      return yield* commandError("Check the LibraOS Core Inbox for a command approval.");
+    }
+    if (
+      task.state !== "offered" ||
+      show.worker_running ||
+      show.claimer ||
+      task.workerState ||
+      task.budgetState === "stopped" ||
+      task.budgetState === "budget_exceeded" ||
+      (task.parked !== undefined) !== parked ||
+      (!parked &&
+        ((show.a2a_state && show.a2a_state !== "submitted") || task.workerTool !== null)) ||
+      task.runsOn !== "local" ||
+      task.cloud ||
+      task.queuePickup === "remote"
+    ) {
+      return yield* new AgentdCommandError({
+        message: "This task is no longer waiting for an agent.",
+        notSetUp: false,
+        queuedStartRefusal: "no-longer-queued",
+      });
+    }
+    if (task.queuePickup === "recipient") {
+      return yield* new AgentdCommandError({
+        message: "This task is addressed to a specific session.",
+        notSetUp: false,
+        queuedStartRefusal: "has-recipient",
+      });
+    }
+    if (task.queueBlock !== undefined) return yield* commandError(task.queueBlock);
+    const cwd = AgentdJson.queuedStartFolder(show);
+    if (cwd && pathService.isAbsolute(cwd)) {
+      const isDirectory = yield* fs.stat(cwd).pipe(
+        Effect.map((info) => info.type === "Directory"),
+        Effect.orElseSucceed(() => false),
+      );
+      if (isDirectory) return cwd;
+    }
+    return yield* new AgentdCommandError({
+      message: "No local checkout is available for this task.",
+      notSetUp: false,
+      queuedStartRefusal: "no-checkout",
+    });
+  });
+
   const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
-    if (input.action === "force") return yield* dispatch(input.id, input.worker, true);
+    const resolvingConflict = "blocking" in input;
+    const parked = input.action === "parked";
+    const cwd =
+      !resolvingConflict || input.queued ? yield* queuedCheckout(input.id, parked) : undefined;
+    if (cwd !== undefined) {
+      const consent = "trustedFolder" in input ? (input.trustedFolder ?? false) : false;
+      if (input.worker === "claude") yield* ensureClaudeTrust(cwd, consent);
+      yield* run(yield* args(() => agentdArgs.appSession(cwd)));
+    }
+    if (!resolvingConflict || input.action === "force") {
+      return yield* dispatch(input.id, input.worker, input.action !== "queued", cwd).pipe(
+        Effect.tap(() => invalidateOlderOffers),
+      );
+    }
     const row = yield* listRow(input.blocking);
     if (row === null) {
       return yield* commandError(
@@ -741,7 +834,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       const reason = `Released from LibraOS Next to start ${input.id}`;
       yield* run(yield* args(() => agentdArgs.cancel(input.blocking, reason)));
     }
-    return yield* dispatch(input.id, input.worker, false);
+    return yield* dispatch(input.id, input.worker, false, cwd);
   });
 
   const people = Effect.fn("AgentdBridge.people")(function* (input: AgentdPeopleInput) {
@@ -885,9 +978,14 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     subscribeTasks,
     task: Effect.fn("AgentdBridge.task")(function* (input) {
       const show = yield* readShow(input.id);
-      const task = AgentdJson.agentdTask(show);
+      const task = AgentdJson.agentdTask(show, taskViewer);
       const log = show.worker_log ?? "";
-      if (task.workerState !== "blocked" || task.workerTool !== "claude") return task;
+      const cwd = AgentdJson.queuedStartFolder(show);
+      const details =
+        task.state === "offered" && cwd && pathService.isAbsolute(cwd)
+          ? { ...task, startFolder: cwd }
+          : task;
+      if (task.workerState !== "blocked" || task.workerTool !== "claude") return details;
       const head =
         log === ""
           ? ""
@@ -896,11 +994,12 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
               Effect.map((bytes) => new TextDecoder().decode(bytes)),
               Effect.orElseSucceed(() => ""),
             );
-      return { ...task, attachCommand: claudeAttachCommand(head) };
+      return { ...details, attachCommand: claudeAttachCommand(head) };
     }),
     subscribeTaskOutput,
     stopTask: Effect.fn("AgentdBridge.stopTask")(function* (input) {
       yield* run(yield* args(() => agentdArgs.cancel(input.id, input.reason)));
+      yield* invalidateOlderOffers;
       return {};
     }),
     startTask,

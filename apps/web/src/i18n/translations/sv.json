@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13402,5 +13400,50 @@
   "27d76249d09eb69f": "Granskningsguiden är klar",
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
-  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide"
+  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
+  "864f9438f3e5a492": "Har väntat länge",
+  "f0e8f441d0a36f07": [
+    "I kö: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "76dd87237a697b61": "Starta med…",
+  "86c28db793e779c6": "Startar inte automatiskt: ingen agent har valts",
+  "8d7eea7da969c3dd": "Väntar på en arbetsprocess för {worker}",
+  "fd2765bb89d940c8": "I kö i {count, plural, one {{count} dag} other {{count} dagar}}",
+  "5450243e54af24ca": "I kö i {count, plural, one {{count} timme} other {{count} timmar}}",
+  "cea29f889a31981d": "I kö i {count, plural, one {{count} minut} other {{count} minuter}}",
+  "3bbede5bac09058a": "I kö i mindre än en minut",
+  "9090c8b2e973fa26": "Uppgiften väntar inte längre på en agent.",
+  "0fdac573aa09e72b": "Uppgiften skickades till en specifik session.",
+  "9d82c78119594a68": "Det finns ingen lokal arbetskopia för uppgiften.",
+  "d66b817f2fe5b694": "Tid sedan uppgiften startade",
+  "ea46cd53004e3b7b": "Tid från uppgiftens start till den senaste uppdateringen",
+  "768e2441d65ac1e2": [
+    "Väntar ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Arbetskatalog: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Det gick inte att starta uppgiften",
+  "a2947c86f59136c0": "Väntar på att mottagaren tar uppgiften",
+  "36065867b7adee54": "Väntar på en fjärrarbetare",
+  "713a94447aee2972": "En specifikation behövs: {details}",
+  "2cd8d4fbd716bf5a": "Gränsen för samtidiga uppgifter i projektet har nåtts: {details}",
+  "d424b7f77b6e69ca": "Gränsen för personens samtidiga uppgifter har nåtts: {details}",
+  "43fa372a3881f08b": "Frigör uppgiften i en LibraOS Core-terminal.",
+  "be964c739d43b9db": "Kontrollera om en begäran om kommandogodkännande finns i inkorgen i LibraOS Core."
 }

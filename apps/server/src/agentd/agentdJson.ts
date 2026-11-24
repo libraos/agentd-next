@@ -117,6 +117,7 @@ export function agentdTaskRow(row: AgentdHandoffListJsonRow): AgentdTaskRow {
     state: row.state,
     workerState: nonEmpty(row.worker_state) ?? cloudState,
     workerRunning: row.worker_running === true,
+    ...(nonEmpty(row.a2a_state) === null ? {} : { a2aState: nonEmpty(row.a2a_state) }),
     workerTool: toolOfSession(row.claimer),
     ...(workerName === null || runsOn === "cloud" ? {} : { workerName }),
     ...(nonEmpty(row.worker_cwd) === null ? {} : { workerCwd: nonEmpty(row.worker_cwd) }),
@@ -141,23 +142,90 @@ function optionalWait(show: AgentdHandoffShowJson): { waitingFor?: string } {
 }
 
 function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
-  if (nonEmpty(show.cloud_state) !== null) return "cloud";
+  if ((nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state)) !== null) return "cloud";
   return nonEmpty(show.lease_device) === null ? "local" : "team";
 }
 
-export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
+function queuePickup(
+  show: AgentdHandoffShowJson,
+  viewer: string | null,
+): AgentdTask["queuePickup"] {
+  if (show.state !== "offered") return undefined;
+  const recipient = nonEmpty(show.to_user);
+  if (show.to_session !== "any" || (recipient !== null && recipient !== viewer)) return "recipient";
+  if (show.required_labels?.length || nonEmpty(show.body?.labels) !== null) return "remote";
+  if (
+    recipient !== null ||
+    !show.project ||
+    show.worker_cwd ||
+    show.role ||
+    show.dispatched ||
+    show.cloud_state ||
+    show.cloud?.state ||
+    show.parked ||
+    !show.queue_reason
+  ) {
+    return undefined;
+  }
+  // Core also reports gates before checking the worker census.
+  return /^(?:awaiting eligible worker poll$|worker drain:|no matching node takes server work now:|(?:worker|verification) capacity limit:|worker concurrency limit: all matching workers are full$)/.test(
+    show.queue_reason,
+  )
+    ? "remote"
+    : undefined;
+}
+
+export function queuedStartFolder(show: AgentdHandoffShowJson): string | null {
+  return nonEmpty(show.worker_cwd) ?? nonEmpty(show.origin?.dir);
+}
+
+// Core's lease and command parks clear through unpark and command approval, respectively.
+function requiredParkAction(reason: string): AgentdTask["parkAction"] {
+  if (/^(?:breaker|budget|undelivered|diverged): /.test(reason)) return "unpark";
+  if (reason.startsWith("repository command: ")) return "approval";
+  return undefined;
+}
+
+export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): AgentdTask {
   const goal = show.body?.goal ?? "";
   const verdict = show.verdict ?? null;
   const total = show.cost?.total ?? null;
   const cloudState = nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state);
   const modelAccess = nonEmpty(show.body?.model_access);
+  const pickup = queuePickup(show, viewer);
+  const queueReason = nonEmpty(show.queue_reason);
+  const parked = nonEmpty(show.parked);
+  const parkAction = parked === null ? undefined : requiredParkAction(parked);
+  const queueBlock =
+    show.state === "offered" &&
+    queueReason !== null &&
+    /^(?:spec before code:|(?:project|person) concurrency limit:)/.test(queueReason)
+      ? queueReason
+      : null;
+  // A direct claim writes an empty-note transition without dispatch or lease timestamps.
+  const claim = show.history?.findLast(
+    (event) => event.state === "claimed" && event.note === "" && !event.kind,
+  );
+  // Core can log diagnostics against an offer without requeueing it.
+  const history = show.history ?? [];
+  const lastNonOffer = history.findLastIndex((event) => !event.kind && event.state !== "offered");
+  const queuedSince =
+    show.state === "offered" && lastNonOffer >= 0
+      ? nonEmpty(
+          history.slice(lastNonOffer + 1).find((event) => !event.kind && event.state === "offered")
+            ?.created,
+        )
+      : null;
   return {
     id: show.id,
     title: nonEmpty(show.title) ?? goal,
     goal,
     state: show.state,
     workerState: nonEmpty(show.worker_state),
-    workerTool: nonEmpty(show.worker_tool) ?? nonEmpty(show.start_tool),
+    workerTool:
+      nonEmpty(show.worker_tool) ??
+      nonEmpty(show.start_tool) ??
+      (show.state === "offered" ? nonEmpty(show.worker) : null),
     runsOn: runsOn(show),
     accept: show.accept ?? [],
     check: nonEmpty(show.check_cmd),
@@ -183,7 +251,17 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
     ...optionalWait(show),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
-    started: nonEmpty(show.created),
+    started:
+      nonEmpty(show.dispatched) ??
+      nonEmpty(show.lease_started) ??
+      nonEmpty(claim?.created) ??
+      (cloudState === null ? null : nonEmpty(show.created)),
+    ...(nonEmpty(show.created) === null ? {} : { created: nonEmpty(show.created) }),
+    ...(queuedSince === null ? {} : { queuedSince }),
+    ...(parked === null ? {} : { parked }),
+    ...(parkAction === undefined ? {} : { parkAction }),
+    ...(pickup === undefined ? {} : { queuePickup: pickup }),
+    ...(queueBlock === null ? {} : { queueBlock }),
     updated: nonEmpty(show.updated),
     ...(cloudState === null
       ? {}

@@ -1,4 +1,5 @@
 import type {
+  AgentdTask,
   AgentdTaskRow,
   AgentdTaskVerdict,
   EnvironmentId,
@@ -61,20 +62,123 @@ export function isFinishedAgentdTask(state: string): boolean {
   return state === "done" || state === "delivered" || state === "cancelled" || state === "declined";
 }
 
+export function isQueuedAgentdTask(
+  row: Pick<AgentdTaskRow, "state" | "workerRunning" | "workerState" | "runsOn" | "a2aState">,
+): boolean {
+  return (
+    row.state === "offered" &&
+    !row.workerRunning &&
+    row.runsOn !== "cloud" &&
+    !row.workerState &&
+    (row.a2aState == null || row.a2aState === "submitted")
+  );
+}
+
+function needsPerson(
+  { a2aState, workerState }: Pick<AgentdTaskRow, "a2aState" | "workerState">,
+  budgetState: string | null | undefined,
+): boolean {
+  return (
+    a2aState === "auth-required" ||
+    a2aState === "input-required" ||
+    a2aState === "failed" ||
+    workerState === "blocked" ||
+    workerState === "suspect" ||
+    workerState === "waiting_answer" ||
+    budgetState === "budget_exceeded"
+  );
+}
+
+export function isWaitingAgentdTask(
+  row: Pick<AgentdTaskRow, "state" | "workerState" | "runsOn" | "a2aState">,
+  budgetState?: string | null,
+): boolean {
+  return (
+    row.runsOn !== "cloud" &&
+    (needsPerson(row, budgetState) ||
+      budgetState === "stopped" ||
+      row.workerState === "stopped" ||
+      row.workerState === "gone" ||
+      row.state === "held" ||
+      row.state === "checkpoint" ||
+      row.state === "blocked")
+  );
+}
+
+export function queuedAgentdTaskReason(
+  worker: string | null,
+  pickup?: AgentdTask["queuePickup"],
+  resolve: MessageResolver = m,
+): string {
+  if (pickup === "recipient") return resolve(msg("Waiting for the recipient to pick up this task"));
+  if (pickup === "remote") return resolve(msg("Waiting for a remote worker"));
+  return worker === null
+    ? resolve(msg("Won't start on its own: no agent chosen"))
+    : resolve(msg("Waiting for a {worker} worker"), { worker });
+}
+
+export function queueBlockLabel(reason: string, resolve: MessageResolver): string {
+  const details = reason.slice(reason.indexOf(":") + 1).trim();
+  if (reason.startsWith("spec before code:")) {
+    return resolve(msg("Needs a specification: {details}"), { details });
+  }
+  if (reason.startsWith("project concurrency limit:")) {
+    return resolve(msg("Reached the project’s concurrent task limit: {details}"), { details });
+  }
+  if (reason.startsWith("person concurrency limit:")) {
+    return resolve(msg("Reached the person’s concurrent task limit: {details}"), { details });
+  }
+  return reason;
+}
+
+export function queuedAgentdTaskWait(
+  created: string | null,
+  now: number,
+  resolve: MessageResolver = m,
+): { label: string | null; long: boolean } {
+  const elapsed = now - Date.parse(created ?? "");
+  if (!Number.isFinite(elapsed)) return { label: null, long: false };
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const long = elapsed > day;
+  if (elapsed >= day) {
+    return {
+      label: resolve(msg("Queued for {count, plural, one {{count} day} other {{count} days}}"), {
+        count: Math.floor(elapsed / day),
+      }),
+      long,
+    };
+  }
+  if (elapsed >= hour) {
+    return {
+      label: resolve(msg("Queued for {count, plural, one {{count} hour} other {{count} hours}}"), {
+        count: Math.floor(elapsed / hour),
+      }),
+      long,
+    };
+  }
+  if (elapsed >= minute) {
+    return {
+      label: resolve(
+        msg("Queued for {count, plural, one {{count} minute} other {{count} minutes}}"),
+        {
+          count: Math.floor(elapsed / minute),
+        },
+      ),
+      long,
+    };
+  }
+  return { label: resolve(msg("Queued for less than a minute")), long };
+}
+
 export function runningAgentdTaskLabel(
-  {
-    state,
-    workerState,
-    workerRunning,
-  }: Pick<AgentdTaskRow, "state" | "workerState" | "workerRunning">,
+  row: Pick<AgentdTaskRow, "state" | "workerState" | "workerRunning" | "a2aState">,
   budgetState: string | null,
   resolve: MessageResolver = m,
 ): string {
-  if (
-    workerState === "blocked" ||
-    workerState === "waiting_answer" ||
-    budgetState === "budget_exceeded"
-  ) {
+  const { state, workerState, workerRunning } = row;
+  if (needsPerson(row, budgetState)) {
     return resolve(msg("Waiting for a person"));
   }
   if (workerState === "gone") return resolve(msg("Worker exited"));
@@ -82,7 +186,8 @@ export function runningAgentdTaskLabel(
   if (workerRunning) return resolve(msg("Running", { $context: "status of background work" }));
   if (state === "blocked") return resolve(msg("Waiting for other tasks"));
   if (state === "offered") return resolve(msg("Queued", { $context: "status of background work" }));
-  if (state === "held") return resolve(msg("On hold", { $context: "status of background work" }));
+  if (state === "held" || state === "checkpoint")
+    return resolve(msg("On hold", { $context: "status of background work" }));
   return resolve(msg("Assigned", { $context: "status of background work" }));
 }
 

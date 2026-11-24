@@ -9,8 +9,7 @@ import type {
 import { T, useGT } from "gt-react";
 import { useState } from "react";
 
-import { agentdEnvironment } from "~/lib/agentdState";
-import { useAtomCommand } from "~/state/use-atom-command";
+import { agentdEnvironment, useAgentdCommands } from "~/lib/agentdState";
 import { Button } from "../ui/button";
 
 /**
@@ -22,18 +21,20 @@ export function BlockedTaskStart({
   taskId,
   worker,
   blocking,
+  queued,
   onResult,
 }: {
   readonly environmentId: EnvironmentId;
   readonly taskId: string;
   readonly worker: AgentdWorkerTool;
   readonly blocking: AgentdBlockingTask;
+  readonly queued?: true;
   /** Started, or refused again (perhaps by another task). */
   readonly onResult: (result: AgentdStartTaskResult) => void;
 }) {
   const gt = useGT();
   const canStart = useAtomValue(agentdEnvironment.retryStart.permissionAtom(environmentId));
-  const retryStart = useAtomCommand(agentdEnvironment.retryStart, { reportFailure: false });
+  const { retryStart } = useAgentdCommands();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +43,7 @@ export function BlockedTaskStart({
     setError(null);
     const result = await retryStart({
       environmentId,
-      input: { id: taskId, worker, action, blocking: blocking.id },
+      input: { id: taskId, worker, action, blocking: blocking.id, ...(queued ? { queued } : {}) },
     });
     setBusy(false);
     if (result._tag === "Failure") {
