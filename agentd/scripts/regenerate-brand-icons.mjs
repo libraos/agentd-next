@@ -69,28 +69,31 @@ for (const [name, size] of [
   publicIcons.set(name, await renderIcon(size));
 }
 
-// The iOS PNGs belong to the mobile app, which keeps its own mark.
-for (const [brand, linux, mac, windows] of [
+for (const [brand, ios, linux, mac, windows] of [
   [
     "development",
+    BRAND_ASSET_PATHS.developmentIosIconPng,
     BRAND_ASSET_PATHS.developmentUniversalIconPng,
     BRAND_ASSET_PATHS.developmentDesktopIconPng,
     BRAND_ASSET_PATHS.developmentWindowsIconIco,
   ],
   [
     "nightly",
+    BRAND_ASSET_PATHS.nightlyIosIconPng,
     BRAND_ASSET_PATHS.nightlyLinuxIconPng,
     BRAND_ASSET_PATHS.nightlyMacIconPng,
     BRAND_ASSET_PATHS.nightlyWindowsIconIco,
   ],
   [
     "production",
+    BRAND_ASSET_PATHS.productionIosIconPng,
     BRAND_ASSET_PATHS.productionLinuxIconPng,
     BRAND_ASSET_PATHS.productionMacIconPng,
     BRAND_ASSET_PATHS.productionWindowsIconIco,
   ],
 ]) {
   for (const [file, bytes] of [
+    [ios, universalPng],
     [linux, universalPng],
     [mac, macPng],
     [windows, windowsIco],
