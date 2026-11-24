@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13412,16 +13410,7 @@
       "v": "v"
     }
   ],
-  "30f6f44cf9088f44": "Start begärd",
   "76dd87237a697b61": "Starta med…",
-  "2d2c04b2e94679d0": [
-    "Det gick inte att starta uppgiften: ",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    }
-  ],
   "86c28db793e779c6": "Startar inte automatiskt: ingen agent har valts",
   "8d7eea7da969c3dd": "Väntar på en arbetsprocess för {worker}",
   "fd2765bb89d940c8": "I kö i {count, plural, one {{count} dag} other {{count} dagar}}",
@@ -13430,5 +13419,27 @@
   "3bbede5bac09058a": "I kö i mindre än en minut",
   "9090c8b2e973fa26": "Uppgiften väntar inte längre på en agent.",
   "0fdac573aa09e72b": "Uppgiften skickades till en specifik session.",
-  "9d82c78119594a68": "Det finns ingen lokal arbetskopia för uppgiften."
+  "9d82c78119594a68": "Det finns ingen lokal arbetskopia för uppgiften.",
+  "d66b817f2fe5b694": "Tid sedan uppgiften startade",
+  "ea46cd53004e3b7b": "Tid från uppgiftens start till den senaste uppdateringen",
+  "768e2441d65ac1e2": [
+    "Väntar ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Arbetskatalog: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Det gick inte att starta uppgiften",
+  "a2947c86f59136c0": "Väntar på att mottagaren tar uppgiften",
+  "36065867b7adee54": "Väntar på en fjärrarbetare",
+  "71cf6daf9c9c074d": "En fjärrarbetare kan ta den här uppgiften"
 }

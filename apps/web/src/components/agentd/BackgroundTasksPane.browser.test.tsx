@@ -4,7 +4,14 @@ import {
   EMPTY_COMMAND_OUTPUT,
   applyCommandOutputFrame,
 } from "@t3tools/client-runtime/state/command-output";
-import { EnvironmentId, ThreadId, type AgentdTask, type AgentdTaskRow } from "@t3tools/contracts";
+import {
+  AgentdCommandError,
+  EnvironmentId,
+  ThreadId,
+  type AgentdTask,
+  type AgentdTaskRow,
+} from "@t3tools/contracts";
+import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -31,6 +38,10 @@ vi.mock("../../lib/agentdState", async () => {
     ...bridge,
     agentdEnvironment: {
       retryStart: { permissionAtom: () => canStop },
+      task: ({ input: { id } }: { input: { id: string } }) => {
+        const { data } = bridge.useAgentdTask(id);
+        return Atom.make(AsyncResult.success(data));
+      },
       stopTask: { permissionAtom: () => canStop },
       cloudReview: (target: unknown) => target,
     },
@@ -103,6 +114,7 @@ function taskDetails(row: AgentdTaskRow, extras: Partial<AgentdTask>): AgentdTas
     project: null,
     hasLog: true,
     started: "2026-11-18T09:00:00Z",
+    created: "2026-11-18T09:00:00Z",
     updated: row.updated,
     ...extras,
   };
@@ -232,10 +244,10 @@ function setupQueuedTasks() {
   bridge.useAgentdTask.mockImplementation((id) =>
     answer(
       id === running.id
-        ? taskDetails(running, { started: "2026-11-22T08:59:55Z" })
+        ? taskDetails(running, { started: "2026-11-22T08:59:55Z", budget: "30m" })
         : id === assigned.id
-          ? taskDetails(assigned, { workerTool: "codex", started: "2026-11-22T08:40:00Z" })
-          : taskDetails(queued, { budget: "30m", started: "2026-11-18T09:00:00Z" }),
+          ? taskDetails(assigned, { workerTool: "codex", created: "2026-11-22T08:40:00Z" })
+          : taskDetails(queued, { budget: "30m", startFolder: "/work/widget" }),
     ),
   );
   return queued;
@@ -261,7 +273,10 @@ it("shows queue age without spending time budget and keeps the running timer liv
     .element(assignedRow.getByText("Queued for 20 minutes", { exact: true }))
     .toBeVisible();
   await expect
-    .element(screen.getByRole("progressbar", { name: "Budget used" }))
+    .element(queuedRow.getByRole("progressbar", { name: "Budget used" }))
+    .toHaveAttribute("aria-valuenow", "0");
+  await expect
+    .element(runningRow.getByRole("progressbar", { name: "Budget used" }))
     .toHaveAttribute("aria-valuenow", "0");
   await expect.element(runningRow.getByText("5s", { exact: true })).toBeVisible();
   const queuedText = queuedRow.element().textContent;
@@ -284,11 +299,138 @@ it("offers Start with only for the unassigned task and keeps Stop available", as
   expect(start.all()).toHaveLength(1);
   await userEvent.click(start);
   await userEvent.click(page.getByRole("menuitem", { name: "Codex", exact: true }));
-  await expect.element(screen.getByRole("button", { name: "Start requested" })).toBeDisabled();
+  await expect.element(start).toBeEnabled();
   expect(bridge.retryStart).toHaveBeenCalledExactlyOnceWith({
     environmentId: threadRef.environmentId,
     input: { id: queued.id, action: "queued", worker: "codex" },
   });
+});
+
+it("moves blocked and budget-stopped offers into Waiting without a running clock", async () => {
+  const queued = setupQueuedTasks();
+  const blocked = { ...queued, id: "hof-132abc", title: "Blocked offer", workerRunning: true };
+  const onHold = { ...queued, id: "hof-142abc", title: "Held offer", state: "held" };
+  bridge.useAgentdTasks.mockReturnValue(answer([queued, blocked, onHold]));
+  bridge.useAgentdTask.mockImplementation((id) =>
+    answer(
+      id === onHold.id
+        ? taskDetails(onHold, {})
+        : id === blocked.id
+          ? taskDetails(blocked, { workerState: "blocked" })
+          : taskDetails(queued, { budgetState: "budget_exceeded", startFolder: "/work/widget" }),
+    ),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByRole("heading", { name: "Running 0" })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Waiting 3" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: /Queued/ }).all()).toHaveLength(0);
+  expect(screen.getByRole("button", { name: "Start with…" }).all()).toHaveLength(0);
+  await expect
+    .element(screen.getByRole("button", { name: /Blocked offer Waiting for a person/ }))
+    .toBeVisible();
+  await expect.element(screen.getByRole("button", { name: /Held offer On hold/ })).toBeVisible();
+  await expect
+    .element(screen.getByRole("button", { name: /Plan the widget Waiting for a person/ }))
+    .toBeVisible();
+  expect(screen.getByText(/^[0-9]+[hms]/).all()).toHaveLength(0);
+});
+
+it("explains targeted and remote offers without offering a local start", async () => {
+  const queued = setupQueuedTasks();
+  const addressed = { ...queued, id: "hof-123123", title: "Addressed offer" };
+  const remote = { ...queued, id: "hof-323123", title: "Remote offer" };
+  bridge.useAgentdTasks.mockReturnValue(answer([addressed, remote]));
+  bridge.useAgentdTask.mockImplementation((id) =>
+    answer(
+      id === addressed.id
+        ? taskDetails(addressed, { queuePickup: "recipient", startFolder: "/work/widget" })
+        : taskDetails(remote, { queuePickup: "remote", startFolder: "/work/widget" }),
+    ),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect
+    .element(screen.getByText("Waiting for the recipient to pick up this task"))
+    .toBeVisible();
+  await expect.element(screen.getByText("Waiting for a remote worker")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Start with…" }).all()).toHaveLength(0);
+});
+
+it("shows the selected checkout and retries Claude only after folder consent", async () => {
+  const queued = setupQueuedTasks();
+  bridge.retryStart
+    .mockResolvedValueOnce(
+      AsyncResult.failure(
+        Cause.fail(
+          new AgentdCommandError({
+            message: "Untrusted",
+            notSetUp: false,
+            untrustedFolder: "/work/main-widget",
+          }),
+        ),
+      ),
+    )
+    .mockResolvedValueOnce(AsyncResult.success({ id: queued.id, started: true, note: null }));
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await userEvent.click(screen.getByRole("button", { name: "Start with…" }));
+  await expect.element(page.getByText("Working directory: /work/widget")).toBeVisible();
+  await userEvent.click(page.getByRole("menuitem", { name: "Claude Code" }));
+  await expect
+    .element(page.getByRole("alertdialog", { name: "Let Claude Code work in /work/main-widget?" }))
+    .toBeVisible();
+  await userEvent.click(page.getByRole("button", { name: "Trust folder" }));
+  await expect.element(screen.getByRole("button", { name: "Start with…" })).toBeEnabled();
+  expect(bridge.retryStart.mock.calls.map(([call]) => call.input)).toEqual([
+    { id: queued.id, action: "queued", worker: "claude" },
+    { id: queued.id, action: "queued", worker: "claude", trustedFolder: "/work/main-widget" },
+  ]);
+});
+
+it("offers the same folder conflict choices for a queued start", async () => {
+  const queued = setupQueuedTasks();
+  const blocking = { id: "hof-889abc", state: "offered", goal: "Another task", running: false };
+  bridge.retryStart
+    .mockResolvedValueOnce(
+      AsyncResult.success({ id: queued.id, started: false, note: "Folder busy", blocking }),
+    )
+    .mockResolvedValueOnce(AsyncResult.success({ id: queued.id, started: true, note: null }));
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await userEvent.click(screen.getByRole("button", { name: "Start with…" }));
+  await userEvent.click(page.getByRole("menuitem", { name: "Codex", exact: true }));
+  const dialog = page.getByRole("alertdialog", { name: "Couldn't start task" });
+  await expect.element(dialog.getByRole("button", { name: "Release it" })).toBeEnabled();
+  await userEvent.click(dialog.getByRole("button", { name: "Start anyway" }));
+  expect(bridge.retryStart).toHaveBeenLastCalledWith({
+    environmentId: threadRef.environmentId,
+    input: { id: queued.id, action: "force", worker: "codex", blocking: blocking.id, queued: true },
+  });
+  await expect.element(dialog).not.toBeInTheDocument();
+});
+
+it.each([
+  ["no-longer-queued", "This task is no longer waiting for an agent."],
+  ["has-recipient", "This task was sent to a specific session."],
+  ["no-checkout", "No local checkout is available for this task."],
+] as const)("presents the full refusal for %s and allows dismissal", async (refusal, message) => {
+  setupQueuedTasks();
+  bridge.retryStart.mockResolvedValue(
+    AsyncResult.failure(
+      Cause.fail(
+        new AgentdCommandError({
+          message: "Core refusal",
+          notSetUp: false,
+          queuedStartRefusal: refusal,
+        }),
+      ),
+    ),
+  );
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  const start = screen.getByRole("button", { name: "Start with…" });
+  await userEvent.click(start);
+  await userEvent.click(page.getByRole("menuitem", { name: "Codex", exact: true }));
+  const dialog = page.getByRole("alertdialog", { name: "Couldn't start task" });
+  await expect.element(dialog.getByText(message)).toBeVisible();
+  await userEvent.click(dialog.getByRole("button", { name: "Close" }));
+  await expect.element(start).toBeEnabled();
 });
 
 it("offers Review changes from a git checkout of the task's repository and opens its pull request", async () => {

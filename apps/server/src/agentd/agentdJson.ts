@@ -117,6 +117,7 @@ export function agentdTaskRow(row: AgentdHandoffListJsonRow): AgentdTaskRow {
     state: row.state,
     workerState: nonEmpty(row.worker_state) ?? cloudState,
     workerRunning: row.worker_running === true,
+    ...(nonEmpty(row.a2a_state) === null ? {} : { a2aState: nonEmpty(row.a2a_state) }),
     workerTool: toolOfSession(row.claimer),
     ...(workerName === null || runsOn === "cloud" ? {} : { workerName }),
     ...(nonEmpty(row.worker_cwd) === null ? {} : { workerCwd: nonEmpty(row.worker_cwd) }),
@@ -145,12 +146,29 @@ function runsOn(show: AgentdHandoffShowJson): AgentdRunsOn {
   return nonEmpty(show.lease_device) === null ? "local" : "team";
 }
 
+function queuePickup(show: AgentdHandoffShowJson): AgentdTask["queuePickup"] {
+  if (show.state !== "offered") return undefined;
+  if (show.to_session !== "any" || nonEmpty(show.to_user) !== null) return "recipient";
+  if (show.required_labels?.length || nonEmpty(show.body?.labels) !== null) return "remote";
+  if (!show.project || show.worker_cwd || show.role || show.dispatched || show.cloud_state) {
+    return undefined;
+  }
+  // Core's live fleet reason distinguishes a worker queue from a project with no fleet.
+  if (show.queue_reason?.startsWith("no live worker serves project ")) return undefined;
+  return show.queue_reason ? "remote" : "remote-eligible";
+}
+
+export function queuedStartFolder(show: AgentdHandoffShowJson): string | null {
+  return nonEmpty(show.worker_cwd) ?? nonEmpty(show.origin?.dir);
+}
+
 export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
   const goal = show.body?.goal ?? "";
   const verdict = show.verdict ?? null;
   const total = show.cost?.total ?? null;
   const cloudState = nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state);
   const modelAccess = nonEmpty(show.body?.model_access);
+  const pickup = queuePickup(show);
   return {
     id: show.id,
     title: nonEmpty(show.title) ?? goal,
@@ -186,7 +204,9 @@ export function agentdTask(show: AgentdHandoffShowJson): AgentdTask {
     ...optionalWait(show),
     project: nonEmpty(show.project),
     hasLog: nonEmpty(show.worker_log) !== null,
-    started: nonEmpty(show.created),
+    started: nonEmpty(show.dispatched) ?? nonEmpty(show.lease_started) ?? nonEmpty(show.created),
+    ...(nonEmpty(show.created) === null ? {} : { created: nonEmpty(show.created) }),
+    ...(pickup === undefined ? {} : { queuePickup: pickup }),
     updated: nonEmpty(show.updated),
     ...(cloudState === null
       ? {}

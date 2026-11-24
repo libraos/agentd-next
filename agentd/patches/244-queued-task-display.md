@@ -10,3 +10,6 @@
 - `apps/web/src/i18n/translations/ru.json` — add the queue status and start action messages.
 - `apps/web/src/i18n/translations/sv.json` — add the queue status and start action messages.
 - `apps/web/src/i18n/translations/zh.json` — add the queue status and start action messages.
+
+- `packages/contracts/src/agentd.ts` — carry Core timestamps, queue pickup and task status across the bridge.
+- `docs/user/workers.md` — explain how to start or stop a queued local task.

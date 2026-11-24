@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13405,16 +13403,7 @@
       "v": "v"
     }
   ],
-  "30f6f44cf9088f44": "Início solicitado",
   "76dd87237a697b61": "Iniciar com…",
-  "2d2c04b2e94679d0": [
-    "Não foi possível iniciar a tarefa: ",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    }
-  ],
   "86c28db793e779c6": "Não iniciará por conta própria: nenhum agente foi escolhido",
   "8d7eea7da969c3dd": "Aguardando um executor de {worker}",
   "fd2765bb89d940c8": "Na fila há {count, plural, one {{count} dia} other {{count} dias}}",
@@ -13423,5 +13412,27 @@
   "3bbede5bac09058a": "Na fila há menos de um minuto",
   "9090c8b2e973fa26": "Esta tarefa não está mais aguardando um agente.",
   "0fdac573aa09e72b": "Esta tarefa foi enviada para uma sessão específica.",
-  "9d82c78119594a68": "Não há uma cópia de trabalho local disponível para esta tarefa."
+  "9d82c78119594a68": "Não há uma cópia de trabalho local disponível para esta tarefa.",
+  "d66b817f2fe5b694": "Tempo desde o início da tarefa",
+  "ea46cd53004e3b7b": "Tempo do início da tarefa até a última atualização",
+  "768e2441d65ac1e2": [
+    "Em espera ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Diretório de trabalho: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Não foi possível iniciar a tarefa",
+  "a2947c86f59136c0": "Aguardando o destinatário assumir a tarefa",
+  "36065867b7adee54": "Aguardando um worker remoto",
+  "71cf6daf9c9c074d": "Um worker remoto pode assumir esta tarefa"
 }

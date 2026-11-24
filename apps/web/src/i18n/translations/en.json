@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13414,16 +13412,7 @@
       "v": "v"
     }
   ],
-  "30f6f44cf9088f44": "Start requested",
   "76dd87237a697b61": "Start with…",
-  "2d2c04b2e94679d0": [
-    "Couldn't start task: ",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    }
-  ],
   "86c28db793e779c6": "Won't start on its own: no agent chosen",
   "8d7eea7da969c3dd": "Waiting for a {worker} worker",
   "fd2765bb89d940c8": "Queued for {count, plural, one {{count} day} other {{count} days}}",
@@ -13432,5 +13421,27 @@
   "3bbede5bac09058a": "Queued for less than a minute",
   "9090c8b2e973fa26": "This task is no longer waiting for an agent.",
   "0fdac573aa09e72b": "This task was sent to a specific session.",
-  "9d82c78119594a68": "No local checkout is available for this task."
+  "9d82c78119594a68": "No local checkout is available for this task.",
+  "d66b817f2fe5b694": "Time since the task started",
+  "ea46cd53004e3b7b": "Time from task start to last update",
+  "768e2441d65ac1e2": [
+    "Waiting ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Working directory: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Couldn't start task",
+  "a2947c86f59136c0": "Waiting for the recipient to pick up this task",
+  "36065867b7adee54": "Waiting for a remote worker",
+  "71cf6daf9c9c074d": "A remote worker may pick up this task"
 }

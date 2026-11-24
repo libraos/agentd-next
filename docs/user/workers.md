@@ -14,6 +14,11 @@ For a worker on your machine, the working directory must be a Git repository on 
 From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
 checkout alone.
 
+In **Background tasks**, a queued local task with no agent chosen waits until someone
+starts it. Use **Start with…** to choose an agent for the working directory shown in the
+menu, or **Stop** to cancel the task. Tasks addressed to a recipient or waiting for a remote
+worker show who can pick them up.
+
 ## Get a task card from the conversation
 
 In **Hand to a worker**, choose **Draft from this conversation**. The session's agent

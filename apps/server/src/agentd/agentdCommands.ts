@@ -145,6 +145,7 @@ export const agentdArgs = {
   ],
   budgetPrices: () => ["config", "get", "budget.prices"],
   list: () => ["handoff", "list", "--json"],
+  listOffered: () => ["handoff", "list", "--state", "offered", "--limit", "100", "--json"],
   show: (id: string) => ["handoff", "show", handoffId(id), "--json"],
   approvals: () => ["approval", "list", "--state", "pending", "--json"],
   inbox: () => ["inbox", "list", "--mine", "--json"],

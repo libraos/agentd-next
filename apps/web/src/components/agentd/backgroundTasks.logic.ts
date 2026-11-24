@@ -1,4 +1,5 @@
 import type {
+  AgentdTask,
   AgentdTaskRow,
   AgentdTaskVerdict,
   EnvironmentId,
@@ -62,23 +63,56 @@ export function isFinishedAgentdTask(state: string): boolean {
 }
 
 export function isQueuedAgentdTask(
-  row: Pick<AgentdTaskRow, "state" | "workerRunning" | "workerState" | "runsOn">,
+  row: Pick<AgentdTaskRow, "state" | "workerRunning" | "workerState" | "runsOn" | "a2aState">,
 ): boolean {
   return (
     row.state === "offered" &&
     !row.workerRunning &&
     row.runsOn !== "cloud" &&
-    row.workerState !== "blocked" &&
-    row.workerState !== "waiting_answer" &&
-    row.workerState !== "gone" &&
-    row.workerState !== "stopped"
+    !row.workerState &&
+    (row.a2aState == null || row.a2aState === "submitted")
+  );
+}
+
+function needsPerson(
+  { a2aState, workerState }: Pick<AgentdTaskRow, "a2aState" | "workerState">,
+  budgetState: string | null | undefined,
+): boolean {
+  return (
+    a2aState === "auth-required" ||
+    a2aState === "input-required" ||
+    a2aState === "failed" ||
+    workerState === "blocked" ||
+    workerState === "suspect" ||
+    workerState === "waiting_answer" ||
+    budgetState === "budget_exceeded"
+  );
+}
+
+export function isWaitingAgentdTask(
+  row: Pick<AgentdTaskRow, "state" | "workerState" | "runsOn" | "a2aState">,
+  budgetState?: string | null,
+): boolean {
+  return (
+    row.runsOn !== "cloud" &&
+    (needsPerson(row, budgetState) ||
+      budgetState === "stopped" ||
+      row.workerState === "stopped" ||
+      row.workerState === "gone" ||
+      row.state === "held" ||
+      row.state === "checkpoint" ||
+      row.state === "blocked")
   );
 }
 
 export function queuedAgentdTaskReason(
   worker: string | null,
+  pickup?: AgentdTask["queuePickup"],
   resolve: MessageResolver = m,
 ): string {
+  if (pickup === "recipient") return resolve(msg("Waiting for the recipient to pick up this task"));
+  if (pickup === "remote") return resolve(msg("Waiting for a remote worker"));
+  if (pickup === "remote-eligible") return resolve(msg("A remote worker may pick up this task"));
   return worker === null
     ? resolve(msg("Won't start on its own: no agent chosen"))
     : resolve(msg("Waiting for a {worker} worker"), { worker });
@@ -126,19 +160,12 @@ export function queuedAgentdTaskWait(
 }
 
 export function runningAgentdTaskLabel(
-  {
-    state,
-    workerState,
-    workerRunning,
-  }: Pick<AgentdTaskRow, "state" | "workerState" | "workerRunning">,
+  row: Pick<AgentdTaskRow, "state" | "workerState" | "workerRunning" | "a2aState">,
   budgetState: string | null,
   resolve: MessageResolver = m,
 ): string {
-  if (
-    workerState === "blocked" ||
-    workerState === "waiting_answer" ||
-    budgetState === "budget_exceeded"
-  ) {
+  const { state, workerState, workerRunning } = row;
+  if (needsPerson(row, budgetState)) {
     return resolve(msg("Waiting for a person"));
   }
   if (workerState === "gone") return resolve(msg("Worker exited"));
@@ -146,7 +173,8 @@ export function runningAgentdTaskLabel(
   if (workerRunning) return resolve(msg("Running", { $context: "status of background work" }));
   if (state === "blocked") return resolve(msg("Waiting for other tasks"));
   if (state === "offered") return resolve(msg("Queued", { $context: "status of background work" }));
-  if (state === "held") return resolve(msg("On hold", { $context: "status of background work" }));
+  if (state === "held" || state === "checkpoint")
+    return resolve(msg("On hold", { $context: "status of background work" }));
   return resolve(msg("Assigned", { $context: "status of background work" }));
 }
 

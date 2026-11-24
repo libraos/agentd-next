@@ -453,10 +453,18 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     );
   });
 
-  const readTasks = run(agentdArgs.list()).pipe(
-    Effect.flatMap(decodeList),
-    Effect.map((rows) => rows.map(AgentdJson.agentdTaskRow)),
-  );
+  const readTasks = Effect.gen(function* () {
+    const recent = yield* run(agentdArgs.list()).pipe(Effect.flatMap(decodeList));
+    if (recent.length < 20) return recent.map(AgentdJson.agentdTaskRow);
+    const offered = yield* run(agentdArgs.listOffered()).pipe(
+      Effect.flatMap(decodeList),
+      Effect.orElseSucceed(() => []),
+    );
+    const recentIds = new Set(recent.map((row) => row.id));
+    return [...recent, ...offered.filter((row) => !recentIds.has(row.id))].map(
+      AgentdJson.agentdTaskRow,
+    );
+  });
 
   const eula: AgentdBridge["Service"]["eula"] = run(agentdArgs.eula()).pipe(
     Effect.map((text) => ({ version: AgentdJson.eulaVersion(text), text })),
@@ -722,51 +730,60 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return yield* dispatch(id, input.worker, false);
   });
 
-  const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
-    if (input.action === "queued") {
-      const show = yield* readShow(input.id);
-      const task = AgentdJson.agentdTask(show);
-      const row = yield* listRow(input.id);
-      if (
-        task.state !== "offered" ||
-        row?.state !== "offered" ||
-        row.worker_running ||
-        row.claimer ||
-        task.workerState === "blocked" ||
-        task.workerState === "waiting_answer" ||
-        task.workerState === "gone" ||
-        task.workerState === "stopped" ||
-        task.workerTool !== null ||
-        task.runsOn !== "local" ||
-        task.cloud ||
-        row.cloud_state
-      ) {
-        return yield* new AgentdCommandError({
-          message: "This task is no longer waiting for an agent.",
-          notSetUp: false,
-          queuedStartRefusal: "no-longer-queued",
-        });
-      }
-      if (show.to_session !== "any") {
-        return yield* new AgentdCommandError({
-          message: "This task is addressed to a specific session.",
-          notSetUp: false,
-          queuedStartRefusal: "has-recipient",
-        });
-      }
-      const cwd = show.worker_cwd || show.origin?.dir;
-      if (!cwd || !pathService.isAbsolute(cwd)) {
-        return yield* new AgentdCommandError({
-          message: "No local checkout is available for this task.",
-          notSetUp: false,
-          queuedStartRefusal: "no-checkout",
-        });
-      }
-      if (input.worker === "claude") yield* ensureClaudeTrust(cwd, input.trustedFolder ?? false);
-      yield* run(yield* args(() => agentdArgs.appSession(cwd)));
-      return yield* dispatch(input.id, input.worker, false, cwd);
+  const queuedCheckout = Effect.fn("AgentdBridge.queuedCheckout")(function* (id: string) {
+    const show = yield* readShow(id);
+    const task = AgentdJson.agentdTask(show);
+    if (
+      task.state !== "offered" ||
+      show.worker_running ||
+      show.claimer ||
+      task.workerState ||
+      task.budgetState === "stopped" ||
+      task.budgetState === "budget_exceeded" ||
+      (show.a2a_state && show.a2a_state !== "submitted") ||
+      task.workerTool !== null ||
+      task.runsOn !== "local" ||
+      task.cloud ||
+      task.queuePickup === "remote"
+    ) {
+      return yield* new AgentdCommandError({
+        message: "This task is no longer waiting for an agent.",
+        notSetUp: false,
+        queuedStartRefusal: "no-longer-queued",
+      });
     }
-    if (input.action === "force") return yield* dispatch(input.id, input.worker, true);
+    if (task.queuePickup === "recipient") {
+      return yield* new AgentdCommandError({
+        message: "This task is addressed to a specific session.",
+        notSetUp: false,
+        queuedStartRefusal: "has-recipient",
+      });
+    }
+    const cwd = AgentdJson.queuedStartFolder(show);
+    if (cwd && pathService.isAbsolute(cwd)) {
+      const isDirectory = yield* fs.stat(cwd).pipe(
+        Effect.map((info) => info.type === "Directory"),
+        Effect.orElseSucceed(() => false),
+      );
+      if (isDirectory) return cwd;
+    }
+    return yield* new AgentdCommandError({
+      message: "No local checkout is available for this task.",
+      notSetUp: false,
+      queuedStartRefusal: "no-checkout",
+    });
+  });
+
+  const retryStart = Effect.fn("AgentdBridge.retryStart")(function* (input: AgentdRetryStartInput) {
+    const cwd =
+      input.action === "queued" || input.queued ? yield* queuedCheckout(input.id) : undefined;
+    if (cwd !== undefined) {
+      const consent = input.action === "queued" ? (input.trustedFolder ?? false) : false;
+      if (input.worker === "claude") yield* ensureClaudeTrust(cwd, consent);
+      yield* run(yield* args(() => agentdArgs.appSession(cwd)));
+    }
+    if (input.action === "queued") return yield* dispatch(input.id, input.worker, false, cwd);
+    if (input.action === "force") return yield* dispatch(input.id, input.worker, true, cwd);
     const row = yield* listRow(input.blocking);
     if (row === null) {
       return yield* commandError(
@@ -785,7 +802,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       const reason = `Released from LibraOS Next to start ${input.id}`;
       yield* run(yield* args(() => agentdArgs.cancel(input.blocking, reason)));
     }
-    return yield* dispatch(input.id, input.worker, false);
+    return yield* dispatch(input.id, input.worker, false, cwd);
   });
 
   const people = Effect.fn("AgentdBridge.people")(function* (input: AgentdPeopleInput) {
@@ -931,7 +948,12 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       const show = yield* readShow(input.id);
       const task = AgentdJson.agentdTask(show);
       const log = show.worker_log ?? "";
-      if (task.workerState !== "blocked" || task.workerTool !== "claude") return task;
+      const cwd = AgentdJson.queuedStartFolder(show);
+      const details =
+        task.state === "offered" && cwd && pathService.isAbsolute(cwd)
+          ? { ...task, startFolder: cwd }
+          : task;
+      if (task.workerState !== "blocked" || task.workerTool !== "claude") return details;
       const head =
         log === ""
           ? ""
@@ -940,7 +962,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
               Effect.map((bytes) => new TextDecoder().decode(bytes)),
               Effect.orElseSucceed(() => ""),
             );
-      return { ...task, attachCommand: claudeAttachCommand(head) };
+      return { ...details, attachCommand: claudeAttachCommand(head) };
     }),
     subscribeTaskOutput,
     stopTask: Effect.fn("AgentdBridge.stopTask")(function* (input) {

@@ -71,6 +71,7 @@ export const AgentdHandoffListJsonRow = Schema.Struct({
   state: Schema.String,
   worker_state: NullableString,
   worker_running: Schema.optionalKey(Schema.Boolean),
+  a2a_state: NullableString,
   worker_cwd: NullableString,
   claimer: NullableString,
   claimer_user: NullableString,
@@ -93,6 +94,7 @@ export const AgentdHandoffShowJson = Schema.Struct({
     Schema.NullOr(
       Schema.Struct({
         goal: NullableString,
+        labels: NullableString,
         model_access: NullableString,
         /** Set on a subscription job: the credential file each plan reads (a path, never its contents). */
         claude_token_file: NullableString,
@@ -128,6 +130,15 @@ export const AgentdHandoffShowJson = Schema.Struct({
     ),
   ),
   to_session: NullableString,
+  to_user: NullableString,
+  role: NullableString,
+  claimer: NullableString,
+  worker_running: Schema.optionalKey(Schema.Boolean),
+  a2a_state: NullableString,
+  required_labels: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
+  queue_reason: NullableString,
+  lease_started: NullableString,
+  dispatched: NullableString,
   worker_cwd: NullableString,
   origin: Schema.optionalKey(Schema.NullOr(Schema.Struct({ dir: NullableString }))),
   budget: NullableString,
@@ -348,6 +359,7 @@ export const AgentdTaskRow = Schema.Struct({
   branch: Schema.NullOr(Schema.String),
   updated: Schema.NullOr(Schema.String),
   cloudState: NullableString,
+  a2aState: NullableString,
   cloudUsd: NullableNumber,
 });
 export type AgentdTaskRow = typeof AgentdTaskRow.Type;
@@ -386,6 +398,9 @@ export const AgentdTask = Schema.Struct({
   project: Schema.NullOr(Schema.String),
   hasLog: Schema.Boolean,
   started: Schema.NullOr(Schema.String),
+  created: NullableString,
+  queuePickup: Schema.optionalKey(Schema.Literals(["recipient", "remote", "remote-eligible"])),
+  startFolder: NullableString,
   updated: Schema.NullOr(Schema.String),
   cloud: Schema.optionalKey(
     Schema.Struct({
@@ -523,6 +538,7 @@ export const AgentdRetryStartInput = Schema.Union([
     worker: AgentdWorkerTool,
     action: Schema.Literals(["release", "force"]),
     blocking: AgentdHandoffId,
+    queued: Schema.optionalKey(Schema.Literal(true)),
   }),
   Schema.Struct({
     id: AgentdHandoffId,

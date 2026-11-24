@@ -1,42 +1,75 @@
 import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { AgentdCommandError, type AgentdWorkerTool, type EnvironmentId } from "@t3tools/contracts";
+import {
+  AgentdCommandError,
+  type AgentdBlockingTask,
+  type AgentdStartTaskResult,
+  type AgentdWorkerTool,
+  type EnvironmentId,
+} from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import { T, useGT, useMessages, Var } from "gt-react";
 import { useState } from "react";
 
 import { agentdEnvironment, useAgentdCommands } from "../../lib/agentdState";
 import { formatEnvironmentQueryError } from "../../state/query";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { BlockedTaskStart } from "./BlockedTaskStart";
 import { ClaudeTrustDialog } from "./ClaudeTrustDialog";
+import { TASK_WORKERS } from "./startTask.logic";
 
 const isCommandError = Schema.is(AgentdCommandError);
+const workers = Object.keys(TASK_WORKERS) as AgentdWorkerTool[];
 
 export function StartQueuedTaskMenu({
   id,
   environmentId,
+  cwd,
 }: {
   readonly id: string;
   readonly environmentId: EnvironmentId;
+  readonly cwd: string;
 }) {
   const gt = useGT();
   const resolve = useMessages();
   const canStart = useAtomValue(agentdEnvironment.retryStart.permissionAtom(environmentId));
   const { retryStart } = useAgentdCommands();
-  const [status, setStatus] = useState<"idle" | "pending" | "requested">("idle");
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<{
+    worker: AgentdWorkerTool;
+    blocking: AgentdBlockingTask;
+  } | null>(null);
   const [folder, setFolder] = useState<string | null>(null);
   if (!canStart) return null;
 
+  const handleResult = (worker: AgentdWorkerTool, result: AgentdStartTaskResult) => {
+    setConflict(result.blocking ? { worker, blocking: result.blocking } : null);
+    setError(
+      result.started || result.blocking
+        ? null
+        : (result.note ?? gt("LibraOS Core could not start the task.")),
+    );
+  };
+
   const start = async (worker: AgentdWorkerTool, trustedFolder?: string) => {
     setFolder(null);
-    setError(null);
-    setStatus("pending");
+    setPending(true);
     const result = await retryStart({
       environmentId,
       input: { id, action: "queued", worker, ...(trustedFolder ? { trustedFolder } : {}) },
     });
+    setPending(false);
     if (result._tag === "Failure") {
       const failure = squashAtomCommandFailure(result);
       if (isCommandError(failure) && failure.untrustedFolder !== undefined) {
@@ -57,27 +90,32 @@ export function StartQueuedTaskMenu({
             setError(formatEnvironmentQueryError(result.cause, resolve));
         }
       }
-      setStatus("idle");
       return;
     }
-    if (result.value.started) {
-      setStatus("requested");
-      return;
-    }
-    setError(result.value.note ?? gt("LibraOS Core could not start the task."));
-    setStatus("idle");
+    handleResult(worker, result.value);
   };
 
   return (
     <>
       <Menu>
-        <MenuTrigger render={<Button size="xs" variant="ghost" />} disabled={status !== "idle"}>
-          {status === "requested" ? <T>Start requested</T> : <T>Start with…</T>}
+        <MenuTrigger render={<Button size="xs" variant="ghost" />} disabled={pending}>
+          <T>Start with…</T>
         </MenuTrigger>
         <MenuPopup align="end">
-          <MenuItem onClick={() => void start("claude")}>Claude Code</MenuItem>
-          <MenuItem onClick={() => void start("codex")}>Codex</MenuItem>
-          <MenuItem onClick={() => void start("opencode")}>opencode</MenuItem>
+          <MenuGroup>
+            <MenuGroupLabel>
+              <span className="block max-w-xs wrap-anywhere">
+                <T>
+                  Working directory: <Var>{cwd}</Var>
+                </T>
+              </span>
+            </MenuGroupLabel>
+            {workers.map((worker) => (
+              <MenuItem key={worker} onClick={() => void start(worker)}>
+                {TASK_WORKERS[worker]}
+              </MenuItem>
+            ))}
+          </MenuGroup>
         </MenuPopup>
       </Menu>
       <ClaudeTrustDialog
@@ -85,13 +123,38 @@ export function StartQueuedTaskMenu({
         onTrust={() => void start("claude", folder ?? undefined)}
         onCancel={() => setFolder(null)}
       />
-      {error ? (
-        <p className="max-w-32 basis-full wrap-anywhere text-xs text-destructive" role="alert">
-          <T>
-            Couldn&apos;t start task: <Var>{error}</Var>
-          </T>
-        </p>
-      ) : null}
+      <AlertDialog
+        open={error !== null || conflict !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setError(null);
+          setConflict(null);
+        }}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              <T>Couldn&apos;t start task</T>
+            </AlertDialogTitle>
+            {error === null ? null : <AlertDialogDescription>{error}</AlertDialogDescription>}
+            {conflict === null ? null : (
+              <BlockedTaskStart
+                environmentId={environmentId}
+                taskId={id}
+                worker={conflict.worker}
+                blocking={conflict.blocking}
+                queued
+                onResult={(result) => handleResult(conflict.worker, result)}
+              />
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline" />}>
+              <T>Close</T>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </>
   );
 }

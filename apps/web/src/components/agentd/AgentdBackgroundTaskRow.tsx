@@ -22,7 +22,6 @@ import {
   agentdTaskBudgetUse,
   type AgentdTaskBudgetTone,
   finishedAgentdTaskLabel,
-  isQueuedAgentdTask,
   queuedAgentdTaskReason,
   queuedAgentdTaskWait,
   runningAgentdTaskLabel,
@@ -77,9 +76,9 @@ function TaskDuration(props: {
       </TooltipTrigger>
       <TooltipPopup>
         {props.live ? (
-          <T>Time since the task was created</T>
+          <T>Time since the task started</T>
         ) : (
-          <T>Time from task creation to last update</T>
+          <T>Time from task start to last update</T>
         )}
       </TooltipPopup>
     </Tooltip>
@@ -451,9 +450,12 @@ export function AgentdCloudTaskSummary({
 export function AgentdBackgroundTaskRow(props: {
   readonly row: AgentdTaskRow;
   readonly environmentId: EnvironmentId;
-  readonly finished: boolean;
+  readonly section: "running" | "queued" | "waiting" | "finished";
 }) {
-  const { row, environmentId, finished } = props;
+  const { row, environmentId, section } = props;
+  const queued = section === "queued";
+  const finished = section === "finished";
+  const live = section === "running";
   const gt = useGT();
   const resolve = useMessages();
   const { task, error } = useAgentdTaskDetails(row, environmentId);
@@ -462,14 +464,9 @@ export function AgentdBackgroundTaskRow(props: {
   const worker = workerName(task?.workerTool ?? row.workerTool);
   const location = task?.runsOn ?? (row.runsOn === "cloud" ? row.runsOn : null);
   const cloud = location === "cloud";
-  const queued =
-    !finished &&
-    isQueuedAgentdTask({
-      ...row,
-      runsOn: location ?? row.runsOn,
-      workerState: task?.workerState ?? row.workerState,
-    });
-  const elapsedMs = useElapsedMs(queued ? null : task, !finished && !queued);
+  const pickup = task?.queuePickup;
+  const status = { ...row, workerState: row.workerState ?? task?.workerState ?? null };
+  const elapsedMs = useElapsedMs(queued ? null : task, live);
   return (
     <BackgroundTaskCard
       title={title}
@@ -481,28 +478,28 @@ export function AgentdBackgroundTaskRow(props: {
             <span className="font-medium text-foreground">
               {finished
                 ? finishedAgentdTaskLabel(row.state, task?.verdict ?? null, resolve)
-                : runningAgentdTaskLabel(row, task?.budgetState ?? null, resolve)}
+                : runningAgentdTaskLabel(status, task?.budgetState ?? null, resolve)}
             </span>
           )}
           {queued ? (
             task || worker !== null ? (
-              <span>{queuedAgentdTaskReason(worker, resolve)}</span>
+              <span>{queuedAgentdTaskReason(worker, pickup, resolve)}</span>
             ) : null
           ) : !finished && (!cloud || worker !== null) ? (
             <span>{worker ?? <T>Agent unknown</T>}</span>
           ) : null}
-          {location === null || cloud ? null : (
+          {location === null || cloud || (queued && pickup) ? null : (
             <span>
               <AgentdTaskLocation location={location} />
             </span>
           )}
           {queued ? (
-            <QueueWait created={task?.started ?? row.started} />
-          ) : task !== null || error !== null ? (
+            <QueueWait created={task?.created ?? task?.started ?? row.started} />
+          ) : (finished || live) && (task !== null || error !== null) ? (
             <TaskDuration
               started={task?.started ?? null}
               ended={task?.updated ?? null}
-              live={!finished}
+              live={live}
             />
           ) : null}
           {finished && task && !cloud ? (
@@ -532,8 +529,16 @@ export function AgentdBackgroundTaskRow(props: {
       action={
         !finished ? (
           <div className="flex flex-wrap justify-end gap-1">
-            {queued && task && worker === null ? (
-              <StartQueuedTaskMenu id={row.id} environmentId={environmentId} />
+            {queued &&
+            task?.startFolder &&
+            worker === null &&
+            pickup !== "recipient" &&
+            pickup !== "remote" ? (
+              <StartQueuedTaskMenu
+                id={row.id}
+                environmentId={environmentId}
+                cwd={task.startFolder}
+              />
             ) : null}
             <StopTaskButton id={row.id} title={title} environmentId={environmentId} />
           </div>
@@ -563,7 +568,7 @@ export function AgentdBackgroundTaskRow(props: {
         ) : null
       ) : (
         <AgentdTaskOutput
-          id={task?.hasLog === false ? null : row.id}
+          id={task?.hasLog || (task === null && !queued) ? row.id : null}
           environmentId={environmentId}
         />
       )}

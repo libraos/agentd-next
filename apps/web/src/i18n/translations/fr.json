@@ -3074,8 +3074,6 @@
   "abd9c2f2f7ff4520": "Team node",
   "ab66c74b757d9a6b": "Cloud Worker",
   "f249c9c6c66372ac": "Duration unavailable",
-  "f64a5cb2f1b67bc2": "Time since the task was created",
-  "e1faf94075f4dbdf": "Time from task creation to last update",
   "c02864b51cd0643d": "Cost unavailable",
   "9180c906dd218a94": [
     "Estimated cost: ",
@@ -13405,16 +13403,7 @@
       "v": "v"
     }
   ],
-  "30f6f44cf9088f44": "Démarrage demandé",
   "76dd87237a697b61": "Démarrer avec…",
-  "2d2c04b2e94679d0": [
-    "Impossible de démarrer la tâche : ",
-    {
-      "i": 1,
-      "k": "_gt_value_1",
-      "v": "v"
-    }
-  ],
   "86c28db793e779c6": "Ne démarrera pas toute seule : aucun agent sélectionné",
   "8d7eea7da969c3dd": "En attente d’un processus de travail {worker}",
   "fd2765bb89d940c8": "En file d’attente depuis {count, plural, one {{count} jour} other {{count} jours}}",
@@ -13423,5 +13412,27 @@
   "3bbede5bac09058a": "En file d’attente depuis moins d’une minute",
   "9090c8b2e973fa26": "Cette tâche n’est plus en attente d’un agent.",
   "0fdac573aa09e72b": "Cette tâche a été envoyée à une session précise.",
-  "9d82c78119594a68": "Aucune copie de travail locale n’est disponible pour cette tâche."
+  "9d82c78119594a68": "Aucune copie de travail locale n’est disponible pour cette tâche.",
+  "d66b817f2fe5b694": "Temps écoulé depuis le démarrage de la tâche",
+  "ea46cd53004e3b7b": "Temps du démarrage de la tâche à la dernière mise à jour",
+  "768e2441d65ac1e2": [
+    "En attente ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "43be26ba004b212b": [
+    "Répertoire de travail : ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
+  "36329a2d69e8a374": "Impossible de démarrer la tâche",
+  "a2947c86f59136c0": "En attente de la prise en charge par le destinataire",
+  "36065867b7adee54": "En attente d’un worker distant",
+  "71cf6daf9c9c074d": "Un worker distant peut prendre en charge cette tâche"
 }
