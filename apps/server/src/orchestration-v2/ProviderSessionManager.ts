@@ -53,6 +53,7 @@ import {
 } from "../observability/Metrics.ts";
 import { ProviderWorkspaceMissingError } from "../provider/Errors.ts";
 import * as ProviderInstallationGate from "../provider/ProviderInstallationGate.ts";
+import * as AgentdPlugins from "../agentd/AgentdPlugins.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
 import * as ServerSettings from "../serverSettings.ts";
@@ -496,6 +497,7 @@ export const layerWithOptions = (
       /** Unreadable settings must preserve explicit browser-access opt-outs. */
       const serverSettings = yield* Effect.serviceOption(ServerSettings.ServerSettingsService);
       const projectService = yield* Effect.serviceOption(ProjectService.ProjectService);
+      const agentdPlugins = yield* Effect.serviceOption(AgentdPlugins.AgentdPluginsService);
       const eventSink = yield* EventSink.EventSinkV2;
       const commandOutput = yield* CommandOutputHub.CommandOutputHub;
       const promptSuggestionStore = yield* SubscriptionRef.make<
@@ -716,6 +718,16 @@ export const layerWithOptions = (
                 });
                 yield* mcpSessions.set({
                   ...credential.config,
+                  ...(Option.isNone(agentdPlugins)
+                    ? {}
+                    : {
+                        pluginMcpServers: projectionStore.getThread(threadId).pipe(
+                          Effect.flatMap((thread) =>
+                            agentdPlugins.value.mcpServers(thread.projectId),
+                          ),
+                          Effect.orElseSucceed(() => ({})),
+                        ),
+                      }),
                   hasPendingWake: projectionStore
                     .getThreadRecords(threadId, ["runs", "subagents"])
                     .pipe(

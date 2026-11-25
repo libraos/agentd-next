@@ -96,7 +96,7 @@ describe("redaction plugin hook", () => {
     const manifest = decodePluginManifest(
       NodeFS.readFileSync(NodePath.join(PLUGIN, "agentd-plugin.json"), "utf8"),
     );
-    expect(manifest._tag === "Some" && manifest.value.hooks["before-send"]).toEqual({
+    expect(manifest._tag === "Some" && manifest.value.hooks?.["before-send"]).toEqual({
       command: ["python3", "hook.py"],
       timeoutSeconds: 60,
       attachmentFiles: true,

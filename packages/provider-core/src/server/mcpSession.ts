@@ -20,6 +20,14 @@ export interface McpProviderSessionConfig {
   readonly agentDeviceEnvironment?: Readonly<Record<string, string>>;
   /** True while a delegated task this thread started will wake it with its result. */
   readonly hasPendingWake?: Effect.Effect<boolean>;
+  /** Stdio servers that plugins on in the thread's project add, by name; read at each launch. */
+  readonly pluginMcpServers?: Effect.Effect<Readonly<Record<string, McpStdioServer>>>;
+}
+
+export interface McpStdioServer {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env: Readonly<Record<string, string>>;
 }
 
 export function withAgentDeviceEnvironment(

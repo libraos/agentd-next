@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 
 import {
   hookInput,
+  mcpServerEnv,
   mergePlaceholders,
+  parsePluginManifest,
   parseHookOutput,
   placeholdersIn,
   pluginEnabled,
@@ -190,6 +192,86 @@ describe("plugin settings", () => {
     expect(withoutPlugin(withPluginEnabled(off, "y", true, "p"), "x")).toEqual({
       enabled: {},
       projects: { p: { y: true } },
+    });
+  });
+});
+
+describe("a manifest with MCP servers and settings", () => {
+  const valid = {
+    schemaVersion: 1,
+    id: "outreach",
+    name: "Outreach",
+    version: "0.1.0",
+    settings: [
+      { name: "outreach_url", label: "Outreach URL", secret: false, default: "http://localhost" },
+      { name: "outreach_token", label: "API key", secret: true },
+    ],
+    contributes: {
+      mcpServers: {
+        outreach: {
+          command: "outreach",
+          args: ["mcp"],
+          settings: {
+            OUTREACH_URL: "outreach_url",
+            OUTREACH_API_KEY_FILE: { setting: "outreach_token", file: true as const },
+          },
+        },
+      },
+    },
+  };
+  const parse = (value: unknown) => parsePluginManifest(JSON.stringify(value));
+  const server = valid.contributes.mcpServers.outreach;
+  const withServer = (changed: object) => ({
+    ...valid,
+    contributes: { mcpServers: { outreach: changed } },
+  });
+
+  it("parses, with no hooks", () => {
+    expect(parse(valid)).toMatchObject({ _tag: "Valid", manifest: valid });
+  });
+
+  it.each([
+    ["an unknown top-level field", { ...valid, permissions: ["all"] }, "permissions"],
+    ["an unknown server field", withServer({ ...server, cwd: "/" }), "cwd"],
+    ["a server without a command", withServer({ args: ["mcp"] }), "command"],
+    ["a server outside the plugin", withServer({ ...server, command: "../x" }), "not safe"],
+    [
+      "a secret setting with a default",
+      { ...valid, settings: [valid.settings[0], { ...valid.settings[1], default: "k" }] },
+      "secret and cannot have a default",
+    ],
+    [
+      "a secret setting given as a plain env value",
+      withServer({ ...server, settings: { OUTREACH_API_KEY: "outreach_token" } }),
+      "given as a file",
+    ],
+    [
+      "a setting that is not declared",
+      withServer({ ...server, settings: { OUTREACH_URL: "nope" } }),
+      "not a declared setting",
+    ],
+    [
+      "a server name with a dot",
+      { ...valid, contributes: { mcpServers: { "out.reach": server } } },
+      "out.reach",
+    ],
+  ])("refuses %s", (_label, manifest, reason) => {
+    const parsed = parse(manifest);
+    expect(parsed._tag).toBe("Invalid");
+    expect(parsed._tag === "Invalid" && parsed.reasons.join("\n")).toContain(reason);
+  });
+
+  it("gives a server its settings as env, a file setting as its path, or leaves it out", () => {
+    const value = (setting: { readonly name: string }) =>
+      setting.name === "outreach_token" ? "secret" : undefined;
+    const file = (setting: string) => `/state/${setting}`;
+    expect(mcpServerEnv(server, valid.settings, value, file)).toEqual({
+      _tag: "Ready",
+      env: { OUTREACH_URL: "http://localhost", OUTREACH_API_KEY_FILE: "/state/outreach_token" },
+    });
+    expect(mcpServerEnv(server, valid.settings, () => undefined, file)).toEqual({
+      _tag: "Missing",
+      settings: ["outreach_token"],
     });
   });
 });

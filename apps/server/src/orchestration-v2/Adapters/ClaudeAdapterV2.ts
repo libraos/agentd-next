@@ -2860,6 +2860,8 @@ export function claudeMcpQueryOverrides(input: {
   readonly mcpSession: McpProviderSession.McpProviderSessionConfig | undefined;
   readonly readOnlySandbox: boolean;
   readonly allowedTools?: ReadonlyArray<string>;
+  /** Plugins' stdio servers; set on this query only, never in ~/.claude.json or settings. */
+  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.McpStdioServer>>;
 }): {
   readonly allowedTools?: ReadonlyArray<string>;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
@@ -2881,6 +2883,17 @@ export function claudeMcpQueryOverrides(input: {
       ]),
     ),
     mcpServers: {
+      ...Object.fromEntries(
+        Object.entries(input.pluginMcpServers ?? {}).map(([name, server]) => [
+          name,
+          {
+            type: "stdio" as const,
+            command: server.command,
+            args: [...server.args],
+            env: { ...server.env },
+          },
+        ]),
+      ),
       [APP_MCP_SERVER_NAME]: {
         type: "http",
         url: session.endpoint,
@@ -13556,8 +13569,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 return pendingWake !== undefined && (yield* pendingWake) ? { continue: false } : {};
               }),
             );
+          const pluginMcpServers =
+            mcpSession?.pluginMcpServers === undefined ? {} : yield* mcpSession.pluginMcpServers;
           const mcpOverrides = claudeMcpQueryOverrides({
             mcpSession,
+            pluginMcpServers,
             readOnlySandbox:
               sandboxPolicyKindForClaudeRuntimePolicy(turnInput.runtimePolicy) === "readOnly",
             ...(queryPolicy.allowedTools === undefined

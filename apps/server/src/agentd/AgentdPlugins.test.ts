@@ -1,14 +1,17 @@
 // @effect-diagnostics nodeBuiltinImport:off - the scripted hook reads its file as a hook process would.
 import * as NodeFS from "node:fs";
 
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import {
   type ChatAttachment,
   CommandId,
+  EnvironmentId,
   MessageId,
   type OrchestrationV2Command,
   ProjectId,
+  ProviderInstanceId,
   ThreadId,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -22,8 +25,11 @@ import * as Path from "effect/Path";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
+import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import * as ClaudeAdapterV2 from "../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
+import * as CodexAdapterV2 from "../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as AgentdPlugins from "./AgentdPlugins.ts";
 import { PLUGIN_CATALOG_URL } from "./pluginCatalog.ts";
 import { gitBlobId } from "./skillCatalog.ts";
@@ -78,6 +84,33 @@ const REPO_FILES: Record<string, Uint8Array> = {
   ),
   "plugins/setup/hook.sh": text(HOOKS.pass!),
   "plugins/setup/setup.sh": text(SETUP_SCRIPT),
+  // The outreach shape: a URL setting as env, its API key as a file.
+  "plugins/mcp/agentd-plugin.json": text(
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "mcp",
+      name: "Plugin mcp",
+      version: "1.0.0",
+      settings: [
+        { name: "outreach_url", label: "Outreach URL", secret: false },
+        { name: "outreach_token", label: "API key", secret: true },
+      ],
+      contributes: {
+        mcpServers: {
+          outreach: {
+            command: "./server.sh",
+            args: ["mcp"],
+            env: { OUTREACH_LOG: "quiet" },
+            settings: {
+              OUTREACH_URL: "outreach_url",
+              OUTREACH_API_KEY_FILE: { setting: "outreach_token", file: true },
+            },
+          },
+        },
+      },
+    }),
+  ),
+  "plugins/mcp/server.sh": text("#!/bin/sh\nexit 0\n"),
 };
 const entry = (id: string) => ({
   id,
@@ -91,7 +124,7 @@ const entry = (id: string) => ({
 });
 const CATALOG = JSON.stringify({
   version: 1,
-  plugins: [...Object.keys(HOOKS), "setup"].map(entry),
+  plugins: [...Object.keys(HOOKS), "setup", "mcp"].map(entry),
 });
 const TREE_URL = `https://api.github.com/repos/owner/repo/git/trees/${COMMIT}?recursive=1`;
 const rawUrl = (path: string) => `https://raw.githubusercontent.com/owner/repo/${COMMIT}/${path}`;
@@ -187,8 +220,9 @@ const harness = (
     return { fs, path, config, service, cache, enable, send };
   });
 
-const dependencies = ServerConfig.layerTest("/tmp", { prefix: "agentd-plugins-" }).pipe(
-  Layer.provideMerge(NodeServices.layer),
+const dependencies = ServerSecretStore.layer.pipe(
+  Layer.provideMerge(ServerConfig.layerTest("/tmp", { prefix: "agentd-plugins-" })),
+  Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
 );
 
 const dispatch = {
@@ -881,4 +915,130 @@ it.effect("python3 falls back to py -3, then python, on Windows only, past a Sto
       expect(yield* find(platform, dirs), `${platform} ${dirs.join(" ")}`).toEqual(expected);
     }
   }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("attaches a plugin's MCP servers to Claude and Codex launches only where it is on", () =>
+  Effect.gen(function* () {
+    const h = yield* harness();
+    const SENTINEL = "sentinel-key-6f1e2d";
+    const other = ProjectId.make("project-2");
+    yield* h.service.install({ id: "mcp" });
+    const listed = (yield* h.service.list({})).plugins.find((plugin) => plugin.id === "mcp");
+    expect(listed).toMatchObject({
+      hooks: [],
+      mcpServers: [
+        {
+          name: "outreach",
+          command: "./server.sh",
+          args: ["mcp"],
+          env: ["OUTREACH_LOG", "OUTREACH_URL", "OUTREACH_API_KEY_FILE"],
+          missing: ["outreach_url", "outreach_token"],
+        },
+      ],
+      settings: [
+        { name: "outreach_url", secret: false, set: false },
+        { name: "outreach_token", secret: true, set: false },
+      ],
+    });
+    yield* h.service.setEnabled({ id: "mcp", enabled: true });
+    // On, but a server missing a setting is not given to anyone.
+    expect(yield* h.service.mcpServers(PROJECT)).toEqual({});
+
+    const saved = yield* h.service.setSettings({
+      id: "mcp",
+      values: { outreach_url: "https://outreach.example", outreach_token: SENTINEL },
+    });
+    expect(saved.plugins.find((plugin) => plugin.id === "mcp")?.settings).toEqual([
+      {
+        name: "outreach_url",
+        label: "Outreach URL",
+        secret: false,
+        value: "https://outreach.example",
+        set: true,
+      },
+      { name: "outreach_token", label: "API key", secret: true, set: true },
+    ]);
+    expect(
+      (yield* h.service.setSettings({ id: "mcp", values: { nope: "x" } }).pipe(Effect.flip)).reason,
+    ).toBe("invalid");
+    yield* h.service.setEnabled({ id: "mcp", enabled: false, projectId: other });
+
+    const servers = yield* h.service.mcpServers(PROJECT);
+    const keyFile = h.path.join(
+      h.config.stateDir,
+      "plugins",
+      "secret-files",
+      "mcp",
+      "outreach_token",
+    );
+    expect(servers).toEqual({
+      outreach: {
+        command: h.path.join(h.cache, "mcp", "1.0.0", "server.sh"),
+        args: ["mcp"],
+        env: {
+          OUTREACH_LOG: "quiet",
+          OUTREACH_URL: "https://outreach.example",
+          OUTREACH_API_KEY_FILE: keyFile,
+        },
+      },
+    });
+    expect(yield* h.fs.readFileString(keyFile)).toBe(SENTINEL);
+    expect((yield* h.fs.stat(keyFile)).mode & 0o777).toBe(0o600);
+    expect(yield* h.service.mcpServers(other)).toEqual({});
+
+    const mcpSession = {
+      environmentId: EnvironmentId.make("environment-1"),
+      threadId: THREAD,
+      providerSessionId: "mcp-session-1",
+      providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+      endpoint: "http://127.0.0.1:43123/mcp",
+      authorizationHeader: "Bearer t",
+      browserToolsAvailable: true,
+    };
+    const launches = (pluginMcpServers: typeof servers) => ({
+      claude: ClaudeAdapterV2.claudeMcpQueryOverrides({
+        mcpSession,
+        readOnlySandbox: false,
+        pluginMcpServers,
+      }).mcpServers,
+      codex: CodexAdapterV2.codexThreadRuntimeParams({
+        threadId: THREAD,
+        mcpSession,
+        pluginMcpServers,
+      }).config,
+    });
+    const on = launches(servers);
+    expect(on.claude?.outreach).toEqual({ type: "stdio", ...servers.outreach });
+    expect(on.codex["mcp_servers.outreach"]).toEqual({
+      ...servers.outreach,
+      env: { ...servers.outreach!.env, T3CODE_THREAD_ID: THREAD },
+    });
+    const off = launches(yield* h.service.mcpServers(other));
+    expect(off.claude).not.toHaveProperty("outreach");
+    expect(off.codex).not.toHaveProperty("mcp_servers.outreach");
+
+    // The key is only in the secret store and the server's key file: not in a setting, the
+    // listing a client gets, or what either provider is launched with.
+    const settingsText = yield* h.fs.readFileString(
+      h.path.join(h.config.stateDir, "plugins", "settings.json"),
+    );
+    for (const seen of [
+      settingsText,
+      JSON.stringify(yield* h.service.list({ projectId: PROJECT })),
+      JSON.stringify(on),
+    ]) {
+      expect(seen).not.toContain(SENTINEL);
+    }
+    // Nothing is written to the user's own agent configuration in this run's home.
+    for (const file of [".claude.json", ".claude/settings.json", ".codex/config.toml"]) {
+      expect(yield* h.fs.exists(h.path.join(h.config.baseDir, file))).toBe(false);
+    }
+
+    yield* h.service.remove({ id: "mcp" });
+    expect(yield* h.fs.exists(keyFile)).toBe(false);
+    yield* h.service.install({ id: "mcp" });
+    expect(
+      (yield* h.service.list({})).plugins.find((plugin) => plugin.id === "mcp")?.settings,
+    ).toMatchObject([{ set: false }, { set: false }]);
+  }).pipe(Effect.provide(dependencies)),
 );
