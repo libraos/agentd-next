@@ -219,6 +219,34 @@ export function resolveHookCommand(
     : { _tag: "Unsafe" };
 }
 
+export interface HookProgram {
+  readonly name: string;
+  readonly args: ReadonlyArray<string>;
+  /** Pass over WindowsApps matches: Windows ships python.exe and python3.exe there as Store stubs. */
+  readonly skipWindowsApps: boolean;
+}
+
+/** The programs to look up on PATH for a hook's program name, in order. */
+export function hookPrograms(
+  platform: NodeJS.Platform,
+  name: string,
+  args: ReadonlyArray<string>,
+): ReadonlyArray<HookProgram> {
+  if (platform !== "win32" || name.toLowerCase() !== "python3") {
+    return [{ name, args, skipWindowsApps: false }];
+  }
+  // A python.org install puts py and python on PATH, but not python3.
+  return [
+    { name, args, skipWindowsApps: true },
+    { name: "py", args: ["-3", ...args], skipWindowsApps: false },
+    { name: "python", args, skipWindowsApps: true },
+  ];
+}
+
+export function isWindowsAppsPath(file: string): boolean {
+  return /[\\/]microsoft[\\/]windowsapps[\\/]/i.test(file);
+}
+
 const HookAttachmentOut = Schema.Struct({
   id: Schema.String,
   text: Schema.String,

@@ -23,7 +23,7 @@ import {
   type ThreadId,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
-import { resolveCommandPath } from "@t3tools/shared/shell";
+import { resolveCommandPath, resolveCommandPaths } from "@t3tools/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -70,6 +70,8 @@ import {
   decodePluginManifest,
   decodePluginSetupRecord,
   hookInput,
+  hookPrograms,
+  isWindowsAppsPath,
   lastLine,
   parseHookOutput,
   parsePluginCatalog,
@@ -105,6 +107,40 @@ import {
 export const BeforeSendChecked = Context.Reference<ReadonlySet<CommandId>>(
   "t3/agentd/AgentdPlugins/BeforeSendChecked",
   { defaultValue: () => new Set() },
+);
+
+/** A hook's program found on PATH, trying python3's Windows stand-ins, or null when none is. */
+export const findHookProgram = Effect.fn("AgentdPlugins.findHookProgram")(
+  function* (
+    platform: NodeJS.Platform,
+    env: NodeJS.ProcessEnv,
+    name: string,
+    args: ReadonlyArray<string>,
+  ) {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    for (const program of hookPrograms(platform, name, args)) {
+      const matches = program.skipWindowsApps
+        ? yield* resolveCommandPaths(program.name, {
+            env,
+            until: (match) => !isWindowsAppsPath(match),
+          })
+        : [yield* resolveCommandPath(program.name, { env })];
+      for (const match of matches) {
+        if (match === null) continue;
+        // A Store install of Python leaves its package folder beside the alias; the stub does not.
+        const usable =
+          !program.skipWindowsApps ||
+          !isWindowsAppsPath(match) ||
+          (yield* fs.readDirectory(path.dirname(match)).pipe(Effect.orElseSucceed(() => []))).some(
+            (entry) => entry.startsWith("PythonSoftwareFoundation.Python."),
+          );
+        if (usable) return { command: match, args: program.args };
+      }
+    }
+    return null;
+  },
+  (effect, platform) => Effect.provideService(effect, HostProcess.Platform, platform),
 );
 
 /** How to send a held message again once the person confirms it. */
@@ -367,13 +403,10 @@ const make = Effect.gen(function* () {
       const exists = yield* fs.exists(resolved.path).pipe(Effect.orElseSucceed(() => false));
       return exists ? { command: resolved.path, args: resolved.args } : null;
     }
-    const found = yield* resolveCommandPath(resolved.name, { env: host.env }).pipe(
+    return yield* findHookProgram(host.platform, host.env, resolved.name, resolved.args).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
-      Effect.provideService(HostProcess.Platform, host.platform),
-      Effect.orElseSucceed(() => null),
     );
-    return found === null ? null : { command: found, args: resolved.args };
   });
 
   /** The project's enabled before-send hooks, installed or not, in id order. */

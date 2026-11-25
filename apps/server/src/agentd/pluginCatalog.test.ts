@@ -8,6 +8,7 @@ import {
   pluginEnabled,
   readPluginSettings,
   replacementName,
+  hookPrograms,
   resolveHookCommand,
   withoutPlugin,
   withPluginEnabled,
@@ -153,6 +154,28 @@ describe("resolveHookCommand", () => {
     [["-rf"], { _tag: "Unsafe" }],
   ])("%j", (argv, expected) => {
     expect(resolveHookCommand("linux", "/p", argv)).toEqual(expected);
+  });
+});
+
+describe("hookPrograms", () => {
+  const py = { name: "py", args: ["-3", "hook.py"], skipWindowsApps: false };
+  const python = { name: "python", args: ["hook.py"], skipWindowsApps: true };
+  it.each([
+    [
+      "win32",
+      "python3",
+      [{ name: "python3", args: ["hook.py"], skipWindowsApps: true }, py, python],
+    ],
+    [
+      "win32",
+      "Python3",
+      [{ name: "Python3", args: ["hook.py"], skipWindowsApps: true }, py, python],
+    ],
+    ["win32", "node", [{ name: "node", args: ["hook.py"], skipWindowsApps: false }]],
+    ["linux", "python3", [{ name: "python3", args: ["hook.py"], skipWindowsApps: false }]],
+    ["darwin", "python3", [{ name: "python3", args: ["hook.py"], skipWindowsApps: false }]],
+  ] as const)("%s %s", (platform, name, expected) => {
+    expect(hookPrograms(platform, name, ["hook.py"])).toEqual(expected);
   });
 });
 
