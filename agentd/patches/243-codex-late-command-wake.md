@@ -12,3 +12,4 @@ place, with its exit code and output.
 - `apps/server/src/orchestration-v2/ProviderSessionManager.test.ts`: the orchestration-on full sets now include `background-wait` (the test adapter is Codex).
 - `apps/server/src/provider/CodexDeveloperInstructions.test.ts`: no `background_wait` line without orchestration tools.
 - `apps/server/src/provider/agentContextBudget.json`: Codex's additional context grows by the `background_wait` line.
+- `apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.test.ts`: upstream's "settles a command Codex never completed once its terminal is gone" expects no continuation, since the agent never waited on that command.

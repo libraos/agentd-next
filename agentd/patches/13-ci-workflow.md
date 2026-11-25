@@ -53,6 +53,7 @@ upstream's private task cache.
 - `ISSUE_TEMPLATE/`: linked upstream's Discussions and its `t3 triage` reports.
 - `SECURITY.md`: sent vulnerability reports to upstream's security address.
 - `VOUCHED.td`, `TRIAGE_EXEMPTIONS.td`: upstream's lists of trusted contributors and maintainers.
+- `scripts/vercel-deployment-output.test.cjs`: read the deleted `web-preview.yml` and upstream's Vercel steps in `release.yml`, which ours does not have, so it could only fail.
 
 ## Kept
 

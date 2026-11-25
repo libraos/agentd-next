@@ -734,6 +734,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       addRows(
         rankModelPickerSearch(rows, searchQuery, ({ model }) => ({
           name: model.name,
+          slug: model.slug,
           ...(model.shortName ? { shortName: model.shortName } : {}),
           ...(model.subProvider ? { subProvider: model.subProvider } : {}),
           driverKind: model.driverKind,

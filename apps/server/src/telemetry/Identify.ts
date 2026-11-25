@@ -12,11 +12,10 @@ import { CLOUD_LINKED_USER_ID } from "../cloud/config.ts";
 import * as ServerConfig from "../config.ts";
 
 /**
- * Who an install belongs to, from strongest to weakest. `connect` is the T3
- * Connect account. `openai` and `claude` are kept for older events; nothing records them now. `device` is a
- * client device that connected.
+ * Who an install belongs to, from strongest to weakest. `connect` is the hosted
+ * relay account. `device` is a client device that connected.
  */
-export const TelemetryOwnerSource = Schema.Literals(["connect", "openai", "claude", "device"]);
+export const TelemetryOwnerSource = Schema.Literals(["connect", "device"]);
 export type TelemetryOwnerSource = typeof TelemetryOwnerSource.Type;
 
 export interface TelemetryOwner {
@@ -25,26 +24,21 @@ export interface TelemetryOwner {
   readonly ownerId: string;
 }
 
-export const TelemetryIdentitySource = Schema.Literal("anonymous");
-export type TelemetryIdentitySource = typeof TelemetryIdentitySource.Type;
-
 class TelemetryIdentityReadError extends Schema.TaggedError<TelemetryIdentityReadError>()(
   "TelemetryIdentityReadError",
   {
-    source: TelemetryIdentitySource,
     filePath: Schema.String,
     cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
-    return `Failed to read ${this.source} telemetry identity at '${this.filePath}'.`;
+    return `Failed to read anonymous telemetry identity at '${this.filePath}'.`;
   }
 }
 
 export class TelemetryAnonymousIdGenerationError extends Schema.TaggedError<TelemetryAnonymousIdGenerationError>()(
   "TelemetryAnonymousIdGenerationError",
   {
-    source: Schema.Literal("anonymous"),
     filePath: Schema.String,
     cause: Schema.Defect(),
   },
@@ -57,7 +51,6 @@ export class TelemetryAnonymousIdGenerationError extends Schema.TaggedError<Tele
 export class TelemetryAnonymousIdPersistenceError extends Schema.TaggedError<TelemetryAnonymousIdPersistenceError>()(
   "TelemetryAnonymousIdPersistenceError",
   {
-    source: Schema.Literal("anonymous"),
     filePath: Schema.String,
     cause: Schema.Defect(),
   },
@@ -83,9 +76,6 @@ const getTelemetryIdentityCauseAnnotations = (cause: unknown) => {
       platformReason: cause.reason._tag,
     };
   }
-  if (cause instanceof Schema.SchemaError) {
-    return { causeKind: "schema" };
-  }
   return { causeKind: "other" };
 };
 
@@ -93,31 +83,20 @@ const logTelemetryIdentityError = (error: TelemetryIdentityError) =>
   Effect.logWarning(error.message).pipe(
     Effect.annotateLogs({
       errorTag: error._tag,
-      source: error.source,
-      ...("filePath" in error ? { filePath: error.filePath } : {}),
+      filePath: error.filePath,
       ...getTelemetryIdentityCauseAnnotations(error.cause),
       ...(error.stack === undefined ? {} : { errorStack: error.stack }),
     }),
   );
 
-const readIdentityFile = (
-  fileSystem: FileSystem.FileSystem,
-  source: TelemetryIdentitySource,
-  filePath: string,
-) =>
+const readIdentityFile = (fileSystem: FileSystem.FileSystem, filePath: string) =>
   fileSystem.readFileString(filePath).pipe(
     Effect.asSome,
     Effect.catchTags({
       PlatformError: (cause) =>
         isNotFoundError(cause)
           ? Effect.succeed(Option.none<string>())
-          : Effect.fail(
-              new TelemetryIdentityReadError({
-                source,
-                filePath,
-                cause,
-              }),
-            ),
+          : Effect.fail(new TelemetryIdentityReadError({ filePath, cause })),
     }),
   );
 
@@ -125,7 +104,7 @@ const upsertAnonymousId = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const { anonymousIdPath } = yield* ServerConfig.ServerConfig;
 
-  const existing = yield* readIdentityFile(fileSystem, "anonymous", anonymousIdPath);
+  const existing = yield* readIdentityFile(fileSystem, anonymousIdPath);
   if (Option.isSome(existing)) {
     return existing.value;
   }
@@ -135,7 +114,6 @@ const upsertAnonymousId = Effect.gen(function* () {
     Effect.mapError(
       (cause) =>
         new TelemetryAnonymousIdGenerationError({
-          source: "anonymous",
           filePath: anonymousIdPath,
           cause,
         }),
@@ -145,7 +123,6 @@ const upsertAnonymousId = Effect.gen(function* () {
     Effect.mapError(
       (cause) =>
         new TelemetryAnonymousIdPersistenceError({
-          source: "anonymous",
           filePath: anonymousIdPath,
           cause,
         }),
@@ -156,27 +133,27 @@ const upsertAnonymousId = Effect.gen(function* () {
 });
 
 /**
- * `distinctId` and `installId` are both the hash of a random id kept in the state directory.
- * Agent login files are never read. A null id (the id file could not be kept) disables telemetry.
+ * `distinctId` and `installId` are the same hash of a random id kept in the state
+ * directory. Identity never comes from a provider's sign-in files or account. Both
+ * names are sent because the ingest side reads each. Null disables telemetry.
  */
-export const getTelemetryIdentity = Effect.gen(function* () {
-  const installId = yield* upsertAnonymousId.pipe(
-    Effect.map(hashTelemetryId),
-    Effect.catch((error) => logTelemetryIdentityError(error).pipe(Effect.as(null))),
-  );
-  return { distinctId: installId, installId };
-});
+export const getTelemetryIdentity = upsertAnonymousId.pipe(
+  Effect.map(hashTelemetryId),
+  Effect.catch((error) => logTelemetryIdentityError(error).pipe(Effect.as(null))),
+  Effect.map((installId) => ({ distinctId: installId, installId })),
+  Effect.withSpan("getTelemetryIdentity"),
+);
 
 /**
- * Owners the server knows without a client: the linked hosted relay account. Agent
- * login files are never read. Clients add `connect` and `device` owners when they connect.
+ * The owner the server can read without a client: the linked hosted relay
+ * account. Clients add `connect` and `device` owners when they connect.
  */
 export const getServerOwners = Effect.gen(function* () {
   const secrets = yield* ServerSecretStore.ServerSecretStore;
   const connectUser = yield* secrets.get(CLOUD_LINKED_USER_ID).pipe(
     Effect.map(Option.map((bytes) => new TextDecoder().decode(bytes))),
     Effect.catch((cause) =>
-      Effect.logWarning("Failed to read the linked the hosted relay account for telemetry", {
+      Effect.logWarning("Failed to read the linked hosted relay account for telemetry", {
         errorTag: cause._tag,
       }).pipe(Effect.as(Option.none<string>())),
     ),
@@ -184,4 +161,4 @@ export const getServerOwners = Effect.gen(function* () {
   return Option.isSome(connectUser) && connectUser.value.trim() !== ""
     ? [{ source: "connect", ownerId: hashTelemetryId(connectUser.value) } satisfies TelemetryOwner]
     : [];
-});
+}).pipe(Effect.withSpan("getServerOwners"));

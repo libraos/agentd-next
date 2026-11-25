@@ -5,4 +5,6 @@ export const productProfile = {
   pullRequests: false,
   sharingAndAccess: false,
   mobileApp: false,
+  workflows: false,
+  agentFeedback: false,
 };

@@ -171,6 +171,7 @@ A few settings need care:
     "webhookTasks": false,
     "browserCookieImport": false,
     "previewTunnel": false,
+    "worktreeLayoutCommands": false,
     "telemetry": false,
     "providers": {
       "allowedDrivers": ["claudeAgent", "codex"],
@@ -250,6 +251,7 @@ so restart LibraOS Next after that.
 
 - `webhookTasks: false`: scheduled tasks cannot use webhook triggers. Existing webhook tasks stay
   but do not run, and cannot be turned back on. Users can still edit or delete them.
+  Workflow webhooks are refused too.
 - `browserCookieImport: false`: users cannot import cookies from another browser into LibraOS Next's
   browser.
 - `skillCatalog: false`: the Skills catalogue is never fetched, and no Skill can be installed from
@@ -258,6 +260,11 @@ so restart LibraOS Next after that.
   Browser tabs stream from it instead, and port forwarding and **Open on this device** are
   unavailable. This wins over the user's
   [Preview tunnel setting](./remote-access.md#browser-on-a-remote-environment).
+- `worktreeLayoutCommands: false`: LibraOS Next does not run the
+  [worktree layout commands](./multi-repo-projects.md#lay-the-folder-out-yourself) a project's
+  `t3.json` declares, whether or not a user approved them. Such a project gets no new worktree
+  threads; existing thread folders are restored as plain checkouts and removed without the
+  project's `remove` command.
 - `telemetry: false`: the server and desktop app send no [product usage data](./telemetry.md) or
   relay connection traces. A policy cannot turn them on.
 

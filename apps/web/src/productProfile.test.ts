@@ -11,12 +11,14 @@ import { Route as IssuesRoute } from "./routes/_chat.issues";
 import { Route as PullRequestsRoute } from "./routes/_chat.pull-requests";
 import { Route as AccessRoute } from "./routes/_chat.settings.access";
 import { Route as ScheduledTasksRoute } from "./routes/_chat.settings.scheduled-tasks";
+import { Route as WorkflowsRoute } from "./routes/_chat.workflows";
 
 const hiddenPages = [
   ["/issues", "issues", IssuesRoute],
   ["/pull-requests", "pullRequests", PullRequestsRoute],
   ["/settings/access", "sharingAndAccess", AccessRoute],
   ["/settings/scheduled-tasks", "scheduledTasks", ScheduledTasksRoute],
+  ["/workflows", "workflows", WorkflowsRoute],
 ] as const;
 
 function routerFor(path: (typeof hiddenPages)[number][0]) {
