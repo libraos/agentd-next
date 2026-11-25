@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import {
   chooseAgentdBinary,
+  findAgentdOnPath,
   parseAgentdVersion,
   resolveBundledAgentdPath,
 } from "./agentdBinary.ts";
@@ -60,20 +61,31 @@ describe("parseAgentdVersion", () => {
     assert.equal(parseAgentdVersion("agentd v0.1.11 547cf3a6616b\n"), "v0.1.11");
     assert.equal(parseAgentdVersion("agentd v0.2.0-rc.1\n"), "v0.2.0-rc.1");
     assert.equal(parseAgentdVersion("libraos-core v0.3.0 0d0b360a58c0\n"), "v0.3.0");
+    assert.equal(parseAgentdVersion("libraos-engine v0.4.0 0d0b360a58c0\n"), "v0.4.0");
     assert.equal(parseAgentdVersion("agentd dev\n"), null);
     assert.equal(parseAgentdVersion("something v1.0.0"), null);
   });
 });
 
+const desktopEnvironment = (path: Path.Path, resourcesPath: string) =>
+  DesktopEnvironment.DesktopEnvironment.of({
+    isDevelopment: false,
+    isPackaged: true,
+    platform: "linux",
+    path,
+    resourcesPath,
+  } as unknown as DesktopEnvironment.DesktopEnvironment["Service"]);
+
 it.layer(NodeServices.layer)("resolveBundledAgentdPath", (it) => {
   it.effect.each([
+    { bundled: ["libraos-engine", "libraos-core", "agentd"], expected: "libraos-engine" },
     { bundled: ["libraos-core", "agentd"], expected: "libraos-core" },
     { bundled: ["agentd"], expected: "agentd" },
   ])("runs $expected when the app carries $bundled", ({ bundled, expected }) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const resourcesPath = yield* fs.makeTempDirectoryScoped({ prefix: "libraos-core-bundle-" });
+      const resourcesPath = yield* fs.makeTempDirectoryScoped({ prefix: "libraos-engine-bundle-" });
       yield* fs.makeDirectory(path.join(resourcesPath, "agentd"));
       for (const name of bundled) {
         yield* fs.writeFileString(path.join(resourcesPath, "agentd", name), "");
@@ -81,16 +93,40 @@ it.layer(NodeServices.layer)("resolveBundledAgentdPath", (it) => {
       const resolved = yield* resolveBundledAgentdPath().pipe(
         Effect.provideService(
           DesktopEnvironment.DesktopEnvironment,
-          DesktopEnvironment.DesktopEnvironment.of({
-            isDevelopment: false,
-            isPackaged: true,
-            platform: "linux",
-            path,
-            resourcesPath,
-          } as unknown as DesktopEnvironment.DesktopEnvironment["Service"]),
+          desktopEnvironment(path, resourcesPath),
         ),
       );
       assert.deepStrictEqual(resolved, Option.some(path.join(resourcesPath, "agentd", expected)));
+    }).pipe(Effect.scoped),
+  );
+});
+
+it.layer(NodeServices.layer)("findAgentdOnPath", (it) => {
+  it.effect.each([
+    { onPath: [["agentd"], ["libraos-core"], ["libraos-engine"]], expected: [2, "libraos-engine"] },
+    { onPath: [["agentd"], ["libraos-core"], []], expected: [1, "libraos-core"] },
+    { onPath: [[], ["agentd"], []], expected: [1, "agentd"] },
+    { onPath: [[], [], []], expected: null },
+  ] as const)("finds $expected on PATH $onPath", ({ onPath, expected }) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "libraos-engine-path-" });
+      const dirs = onPath.map((_, index) => path.join(root, `bin${index}`));
+      for (const [index, names] of onPath.entries()) {
+        yield* fs.makeDirectory(dirs[index]!);
+        for (const name of names) yield* fs.writeFileString(path.join(dirs[index]!, name), "");
+      }
+      const found = yield* findAgentdOnPath({ PATH: ["relative", ...dirs].join(":") }).pipe(
+        Effect.provideService(
+          DesktopEnvironment.DesktopEnvironment,
+          desktopEnvironment(path, root),
+        ),
+      );
+      assert.deepStrictEqual(
+        found,
+        expected === null ? Option.none() : Option.some(path.join(dirs[expected[0]]!, expected[1])),
+      );
     }).pipe(Effect.scoped),
   );
 });

@@ -22,15 +22,16 @@ const executableFile = (name: string, platform: NodeJS.Platform): string =>
 export const agentdBinaryName = (platform: NodeJS.Platform): string =>
   executableFile("agentd", platform);
 
-/** LibraOS Engine's executable first, then `agentd`, its earlier name. */
+/** LibraOS Engine's executable first, then its earlier names `libraos-core` and `agentd`. */
 const coreBinaryNames = (platform: NodeJS.Platform): readonly string[] =>
-  ["libraos-core", "agentd"].map((name) => executableFile(name, platform));
+  ["libraos-engine", "libraos-core", "agentd"].map((name) => executableFile(name, platform));
 
-/** The version in `agentd version` output ("agentd v0.1.11 547cf3a6616b", or "libraos-core v…"), else null. */
+/** The version in `agentd version` output ("agentd v0.1.11 547cf3a6616b", "libraos-engine v…"), else null. */
 export const parseAgentdVersion = (output: string): string | null => {
-  const match = /^\s*(?:libraos-core|agentd)\s+(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(
-    output,
-  );
+  const match =
+    /^\s*(?:libraos-engine|libraos-core|agentd)\s+(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(
+      output,
+    );
   return match ? match[1]! : null;
 };
 
@@ -98,7 +99,8 @@ export const resolveBundledAgentdPath = Effect.fn("desktop.agentdBinary.resolveB
   },
 );
 
-const findAgentdOnPath = Effect.fn("desktop.agentdBinary.findOnPath")(function* (
+/** The newest name anywhere on PATH wins over an earlier name in an earlier directory. */
+export const findAgentdOnPath = Effect.fn("desktop.agentdBinary.findOnPath")(function* (
   env: NodeJS.ProcessEnv,
 ) {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
@@ -107,11 +109,12 @@ const findAgentdOnPath = Effect.fn("desktop.agentdBinary.findOnPath")(function* 
   const pathKey = windows
     ? (Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH")
     : "PATH";
-  const names = coreBinaryNames(environment.platform);
-  for (const dir of (env[pathKey] ?? "").split(windows ? ";" : ":")) {
-    // A relative PATH entry would resolve against the app's working directory.
-    if (!environment.path.isAbsolute(dir)) continue;
-    for (const name of names) {
+  // A relative PATH entry would resolve against the app's working directory.
+  const dirs = (env[pathKey] ?? "")
+    .split(windows ? ";" : ":")
+    .filter((dir) => environment.path.isAbsolute(dir));
+  for (const name of coreBinaryNames(environment.platform)) {
+    for (const dir of dirs) {
       const candidate = environment.path.join(dir, name);
       if (yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false))) {
         return Option.some(candidate);
