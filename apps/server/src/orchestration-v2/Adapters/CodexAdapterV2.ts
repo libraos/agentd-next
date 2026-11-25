@@ -1640,10 +1640,13 @@ export function codexThreadRuntimeParams(input: {
             [`shell_environment_policy.set.${PortScanner.AGENT_THREAD_ENV}`]: input.threadId,
             // Codex starts the user's stdio MCP servers per thread, outside the shell policy.
             ...Object.fromEntries(
-              (input.stdioMcpServers ?? []).map((name) => [
-                `mcp_servers.${name}.env.${PortScanner.AGENT_THREAD_ENV}`,
-                input.threadId,
-              ]),
+              (input.stdioMcpServers ?? [])
+                // A plugin's server of the same name replaces the user's for this thread.
+                .filter((name) => !Object.hasOwn(input.pluginMcpServers ?? {}, name))
+                .map((name) => [
+                  `mcp_servers.${name}.env.${PortScanner.AGENT_THREAD_ENV}`,
+                  input.threadId,
+                ]),
             ),
           }),
       ...Object.fromEntries(
