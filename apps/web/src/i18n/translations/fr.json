@@ -13556,5 +13556,12 @@
   "2de9a58927866c76": "Confiez-le à un worker ou continuez dans ce chat. Rien ne démarre sans votre confirmation.",
   "ba3c32789a5c3863": "Exécuter en local",
   "9bef49e4dda4870b": "Exécuter dans le cloud",
-  "25d7a2ef0703a41a": "Rester dans le chat"
+  "25d7a2ef0703a41a": "Rester dans le chat",
+  "aa2c4dfbbe7e3172": "Environnement : {names}",
+  "96f92e13ce6d567f": "Non fourni aux agents tant que ces réglages ne sont pas définis : {names}",
+  "ed9d6a125a8ba5f9": "Enregistré ; saisissez pour remplacer",
+  "f090f9c45d12cf61": "Effacer {label}",
+  "147a0f8e08c7758d": "Tant que ce plugin est activé, les agents Claude Code et Codex lancés ici reçoivent ces serveurs MCP. Les autres agents ne les reçoivent pas.",
+  "4f113bb0bc732b3d": "Effacer",
+  "d1401da889332862": "Enregistrer les réglages"
 }

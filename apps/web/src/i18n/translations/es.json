@@ -13552,5 +13552,12 @@
   "2de9a58927866c76": "Pásalo a un worker o sigue en este chat. Nada empieza hasta que lo confirmes.",
   "ba3c32789a5c3863": "Ejecutar en local",
   "9bef49e4dda4870b": "Ejecutar en la nube",
-  "25d7a2ef0703a41a": "Seguir en el chat"
+  "25d7a2ef0703a41a": "Seguir en el chat",
+  "aa2c4dfbbe7e3172": "Entorno: {names}",
+  "96f92e13ce6d567f": "No se da a los agentes hasta que se configuren: {names}",
+  "ed9d6a125a8ba5f9": "Guardado; escribe para reemplazar",
+  "f090f9c45d12cf61": "Borrar {label}",
+  "147a0f8e08c7758d": "Mientras este plugin esté activado, los agentes de Claude Code y Codex iniciados aquí reciben estos servidores MCP. Otros agentes no los reciben.",
+  "4f113bb0bc732b3d": "Borrar",
+  "d1401da889332862": "Guardar ajustes"
 }

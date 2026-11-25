@@ -22,6 +22,7 @@ import {
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
+import { AgentdPluginContributions } from "./AgentdPluginContributions";
 import { AgentdLoading, AgentdReadError } from "./AgentdPageReads";
 
 const SETUP_POLL_MS = 2_000;
@@ -111,7 +112,7 @@ function PluginRow({
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{plugin.name}</span>
         <span className="text-muted-foreground">{plugin.installedVersion ?? plugin.version}</span>
-        {plugin.state === "missing" && setUp ? (
+        {plugin.state === "missing" && setUp && plugin.hooks.length > 0 ? (
           <Badge variant="error">
             <T>Hook missing: sends stop</T>
           </Badge>
@@ -199,6 +200,15 @@ function PluginRow({
       {setup === undefined || setup.status === "ready" ? null : (
         <p className="text-muted-foreground">{setup.description}</p>
       )}
+      {installed ? (
+        <AgentdPluginContributions
+          plugin={plugin}
+          disabled={!canChange || busy}
+          onSave={(values) =>
+            void run(() => commands.setSettings({ environmentId, input: { ...input, values } }))
+          }
+        />
+      ) : null}
       {setup?.status === "running" ? (
         <p aria-live="polite" className="text-muted-foreground text-xs wrap-anywhere">
           {setup.progress ?? gt("Starting setup…")}
