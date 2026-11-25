@@ -1,5 +1,7 @@
 # Android notifications
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app.
+
 The Android app receives Firebase Cloud Messaging (FCM) data messages. The relay sends them directly through FCM HTTP v1; an Expo Push account is not required.
 
 ## Android compatibility and automated checks

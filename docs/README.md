@@ -1,8 +1,8 @@
-# T3 Code docs
+# LibraOS Next docs
 
-## Using T3 Code
+## Using LibraOS Next
 
-- [Install T3 Code](./user/install.md)
+- [Install LibraOS Next](./user/install.md)
 - [Messages and context](./user/composer.md)
 - [Working with threads](./user/thread-sidebar.md)
 - [Permission modes](./user/permission-modes.md)
@@ -17,7 +17,7 @@
 - [SnapShots](./user/snap-shot.md)
 - [Visual replies](./user/html-renders.md)
 - [Import browser sessions](./user/browser-import.md)
-- [Use T3 Code as your default browser](./user/default-browser.md)
+- [Use LibraOS Next as your default browser](./user/default-browser.md)
 - [Devices](./user/devices.md)
 - [Usage and limits](./user/usage.md)
 - [Secrets](./user/secrets.md)
@@ -25,21 +25,23 @@
 - [Remote access](./user/remote-access.md)
 - [Outside agents (MCP)](./user/outside-agents.md)
 - [Running in the background](./user/background-service.md)
-- [Updating T3 Code](./user/updating.md)
+- [Updating LibraOS Next](./user/updating.md)
 - [Triage an issue](./user/triage.md)
 - [Hand a task to a worker](./user/workers.md)
 - Provider guides: [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md) · [OpenCode](./user/providers-opencode.md) · [Antigravity](./user/providers-antigravity.md) · [Kiro](./user/providers-kiro.md) · [Pi](./user/providers-pi.md) · [Muse Code](./user/providers-muse.md) · [fx](./user/providers-fx.md)
 
 ---
 
-## Working on T3 Code
+## Working on LibraOS Next
 
 Start with the [development runbook](./operations/development.md) and
 [contribution policy](../CONTRIBUTING.md).
 
 Internal notes preserve architectural decisions, constraints, and implementation traps that the
 source alone does not explain. Most code changes do not need an internal documentation update. Follow the
-[documentation rules](../AGENTS.md#documentation) before adding one.
+[documentation rules](../AGENTS.md#documentation) before adding one. Pages
+that open with a note describe upstream, not this fork; [patch 142](../agentd/patches/142-docs-sorting.md)
+lists which.
 
 - [Architecture overview](./internals/overview.md)
 - [Glossary](./internals/glossary.md)
@@ -53,7 +55,6 @@ source alone does not explain. Most code changes do not need an internal documen
 - [Resource telemetry](./internals/resource-telemetry.md)
 - [Product analytics](./internals/product-analytics.md)
 - [Environment auth](./internals/environment-auth.md)
-- [T3 Connect](./internals/t3-connect.md)
 - [Assistant citations](./internals/assistant-citations.md)
 - [Mobile layout](./internals/mobile-layout.md)
 - [Mobile navigation](./internals/mobile-navigation.md)
@@ -66,8 +67,4 @@ source alone does not explain. Most code changes do not need an internal documen
 
 - [Development and local builds](./operations/development.md)
 - [Scenarios: real-app proof for a fix](./operations/scenarios.md)
-- [T3 Connect setup](./operations/connect-setup.md)
-- [Release](./operations/release.md)
 - [Observability](./operations/observability.md)
-- [Relay observability](./operations/relay-observability.md)
-- [Mobile app store screenshots](./operations/mobile-app-store-screenshots.md)

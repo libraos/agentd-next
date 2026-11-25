@@ -1,5 +1,7 @@
 # Mobile app-store screenshot harness
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app and publishes nothing to app stores.
+
 > For maintainers. Using T3 Code? See [docs/user](../user/).
 
 The screenshot harness runs the real mobile application against three disposable local T3

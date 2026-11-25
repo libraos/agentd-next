@@ -1,5 +1,7 @@
 # Relay observability
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: it covers upstream's hosted relay, which LibraOS Next does not run.
+
 > For maintainers. Using T3 Code? See [docs/user](../user/).
 
 The relay Alchemy stack owns a shared Axiom trace setup:

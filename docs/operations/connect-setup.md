@@ -1,5 +1,7 @@
 # T3 Connect setup
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: T3 Connect is upstream's hosted relay, and LibraOS Next releases have none configured.
+
 Deployment and client configuration for T3 Connect. The [architecture note](../internals/t3-connect.md)
 explains the trust boundaries; the [relay README](../../infra/relay/README.md#deployment) owns relay
 provisioning instructions.
