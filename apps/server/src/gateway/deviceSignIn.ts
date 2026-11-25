@@ -1,7 +1,7 @@
 import type { LibraosGatewayAccount } from "@t3tools/contracts";
 
 // LibraOS Cloud's device sign-in (RFC 8628, client agentd-desktop) and the Gateway key a sign-in
-// token may create (libraos/cloud#524). Answers are read here so the service only moves bytes.
+// token may create. Answers are read here so the service only moves bytes.
 
 export const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 /** RFC 8628 §3.5: each slow_down adds five seconds to the interval. */
