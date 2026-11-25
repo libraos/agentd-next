@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
 import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 
@@ -180,6 +181,26 @@ function httpsFallbackUrl(
   if (input.protocol === "ssh" || cloneUrlProtocol(prepared.cloneUrl) !== "ssh") return null;
   if (prepared.repository?.sshUrl === prepared.cloneUrl) return prepared.repository.url;
   return cloneUrlForProtocol(prepared.cloneUrl, "https");
+}
+
+// A spawn ENOENT means git never started; the clone's parent directory exists by then.
+function isGitNotInstalled(cause: unknown): boolean {
+  if (!isGitCommandError(cause) || !(cause.cause instanceof PlatformError.PlatformError)) {
+    return false;
+  }
+  const reason = cause.cause.reason;
+  return reason._tag === "NotFound" && reason.method === "spawn";
+}
+
+function gitNotInstalledDetail(platform: NodeJS.Platform): string {
+  switch (platform) {
+    case "win32":
+      return "Git is not installed. Install it with `winget install --id Git.Git`, then try again.";
+    case "darwin":
+      return "Git is not installed. Install it with `xcode-select --install`, then try again.";
+    default:
+      return "Git is not installed. Install the git package from your distribution, for example `sudo apt install git` or `sudo dnf install git`, then try again.";
+  }
 }
 
 const isSshRejection = (error: SourceControlRepositoryError) =>
@@ -388,6 +409,7 @@ export const make = Effect.gen(function* () {
     const normalizedCloneUrl = cloneUrl.replace(/^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)\?/i, "$1/?");
     const provider = input.provider ?? SourceControlProviderKind.make("unknown");
     const timeoutMs = options?.timeoutMs === undefined ? CLONE_TIMEOUT_MS : options.timeoutMs;
+    const platform = yield* HostProcess.Platform;
     const clone = git
       .execute({
         operation: "SourceControlRepositoryService.cloneRepository",
@@ -408,8 +430,9 @@ export const make = Effect.gen(function* () {
             new SourceControlRepositoryError({
               operation: "cloneRepository",
               provider,
-              detail:
-                stderrTail.length > 0
+              detail: isGitNotInstalled(cause)
+                ? gitNotInstalledDetail(platform)
+                : stderrTail.length > 0
                   ? stderrTail.join(" ")
                   : "The repository could not be cloned.",
               cause,

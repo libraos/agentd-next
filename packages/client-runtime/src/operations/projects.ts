@@ -196,8 +196,14 @@ export function buildAddProjectRemoteSourceReadiness(
   const providerByKind = new Map(
     (discovery?.sourceControlProviders ?? []).map((provider) => [provider.kind, provider]),
   );
+  // Discovery that has not answered yet must not block the URL source.
+  const git = discovery?.versionControlSystems.find((system) => system.kind === "git");
+  const urlReadiness: AddProjectRemoteSourceReadinessEntry =
+    git?.status === "missing"
+      ? { ready: false, hint: sourceControlInstallHintText(git.installHint, resolve) }
+      : READY;
   return (source) => {
-    if (source === "url") return READY;
+    if (source === "url") return urlReadiness;
     const provider = providerByKind.get(source);
     if (!provider) return { ready: false, hint: resolve(UNAVAILABLE_HINT) };
     if (provider.status !== "available") {

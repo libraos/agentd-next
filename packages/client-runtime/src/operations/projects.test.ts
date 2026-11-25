@@ -1,8 +1,10 @@
 import { SourceControlProviderKind } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, type SourceControlDiscoveryResult } from "@t3tools/contracts";
+import * as Option from "effect/Option";
 
 import {
+  buildAddProjectRemoteSourceReadiness,
   findExistingAddProject,
   getCloneDestinationForPickedFolder,
   getCloneDestinationPath,
@@ -34,6 +36,33 @@ describe("add project shared logic", () => {
     expect(sortAddProjectProviderSources(ready, { gitlab: true, github: false })).toEqual([
       "gitlab",
     ]);
+  });
+
+  it("asks for Git setup before cloning a URL only when discovery found no git", () => {
+    const discovery = (status: "available" | "missing"): SourceControlDiscoveryResult => ({
+      versionControlSystems: [
+        {
+          kind: "git",
+          label: "Git",
+          implemented: true,
+          status,
+          version: Option.none(),
+          installHint:
+            "Install Git from https://git-scm.com/downloads or with your package manager.",
+          detail: Option.none(),
+        },
+      ],
+      sourceControlProviders: [],
+    });
+    expect(buildAddProjectRemoteSourceReadiness(discovery("missing"))("url")).toEqual({
+      ready: false,
+      hint: "Install Git from https://git-scm.com/downloads or with your package manager.",
+    });
+    expect(buildAddProjectRemoteSourceReadiness(discovery("available"))("url")).toEqual({
+      ready: true,
+      hint: null,
+    });
+    expect(buildAddProjectRemoteSourceReadiness(null)("url")).toEqual({ ready: true, hint: null });
   });
 
   it("asks for a repository name when GitHub input is only an owner path", () => {
