@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { AgreementMarkdown } from "./AgreementMarkdown";
+import { installAgentdBeforeSetup } from "./agentdSetupInstall.logic";
 import { offerAccountLink } from "./agentdVisibility.logic";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
 import { PermissionModeChoice } from "./WorkerPermissionMode";
@@ -108,6 +109,7 @@ function AgentdSetupDialog({
   const setup = useAgentdSetup(environmentId);
   const status = useAgentdStatus(environmentId);
   const canSetUp = useCanSetUpAgentd(environmentId);
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
   const startSetup = useAtomCommand(agentdEnvironment.setupStart, { reportFailure: false });
   // The run this dialog's Accept started; "starting" until the server names it.
   const [attempt, setAttempt] = useState<number | "starting" | null>(null);
@@ -219,6 +221,11 @@ function AgentdSetupDialog({
     appAtomRegistry.set(openedFor, environmentId);
     setAttempt("starting");
     setStartError(null);
+    await installAgentdBeforeSetup({
+      environmentId,
+      primaryEnvironmentId,
+      bridge: window.desktopBridge,
+    });
     const result = await startSetup({
       environmentId,
       input: askPermissionMode && permissionMode !== null ? { permissionMode } : {},

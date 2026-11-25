@@ -1232,6 +1232,8 @@ export interface DesktopBridge {
     uninstall: () => Promise<DesktopCliCommandState>;
     addToPath: () => Promise<DesktopCliCommandState>;
   };
+  /** Installs the bundled agentd and its Skills, as after first run; absent in older desktop builds. */
+  installAgentd?: () => Promise<void>;
   webLinks: {
     setReady: (ready: boolean) => Promise<void>;
     onOpen: (listener: (url: string) => void) => () => void;

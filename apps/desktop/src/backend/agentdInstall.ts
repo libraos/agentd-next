@@ -1,6 +1,7 @@
 // Installs the bundled agentd and its two Skills where agentd's install.sh / install.ps1 would, so
-// a terminal and the person's agents get the same agentd the app uses. Runs only after first-run
-// consent (see libraos/agentd-desktop#13) and never without a bundle. No client config is changed.
+// a terminal and the person's agents get the same agentd the app uses. Runs only after consent (first
+// run, see libraos/agentd-desktop#13, or Set up LibraOS Engine's Accept) and never without a bundle.
+// No client config is changed.
 import { AgentdInstallRecord } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as DateTime from "effect/DateTime";
@@ -8,6 +9,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
@@ -65,6 +67,9 @@ const envValue = (env: NodeJS.ProcessEnv, name: string, windows: boolean) => {
 
 export const installRecordPath = (environment: DesktopEnvironment.DesktopEnvironment["Service"]) =>
   environment.path.join(environment.stateDir, "agentd-install.json");
+
+// Launch, first-run consent and Set up LibraOS Engine's Accept can overlap; passes share temp names.
+const installPasses = Semaphore.makeUnsafe(1);
 
 export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterConsent")(
   function* () {
@@ -269,4 +274,5 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
   },
   (effect) =>
     effect.pipe(Effect.catchCause((cause) => logWarning("could not install agentd", { cause }))),
+  installPasses.withPermits(1),
 );

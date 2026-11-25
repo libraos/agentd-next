@@ -1,6 +1,6 @@
 # 55: Install agentd and its Skills for the terminal and the agents, after consent
 
-After the person continues past first run (`onboardingCompletedAt` is set), the desktop app puts its bundled agentd where `install.sh` / `install.ps1` would and the two agentd Skills into each installed client. Nothing is written before that, and nothing on a build without a bundle (dev).
+After the person continues past first run (`onboardingCompletedAt` is set), or accepts in Set up LibraOS Engine (#77), the desktop app puts its bundled agentd where `install.sh` / `install.ps1` would and the two agentd Skills into each installed client. Nothing is written before that, and nothing on a build without a bundle (dev).
 
 New, ours:
 
