@@ -123,7 +123,7 @@ it("shows Boring sidebar device preferences read-only while a project is selecte
     { router: "/settings/labs" },
   );
 
-  for (const name of ["Boring sidebar (group by project)", "Two-line folder rows"]) {
+  for (const name of ["Group sessions by project", "Two-line folder rows"]) {
     expect(screen.getByRole("switch", { name }).element().closest("[inert]")).not.toBeNull();
   }
 });
