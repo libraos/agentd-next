@@ -161,7 +161,10 @@ it("does not start telemetry or create local state without cache credentials", a
   }
 });
 
-it("installs without masking .profile and configures CI through bash", async () => {
+// oxlint-disable-next-line t3code/no-global-process-runtime -- Skipped on Windows: tests the POSIX bash setup (BASH_ENV, ~/.profile).
+const itPosix = it.skipIf(process.platform === "win32");
+
+itPosix("installs without masking .profile and configures CI through bash", async () => {
   const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "task-cache-login-"));
   const server = NodeHttp.createServer((_request, response) => response.writeHead(204).end());
   const run = (args: string[], env: NodeJS.ProcessEnv) =>
