@@ -640,7 +640,7 @@ export const ClientSettingsSchema = Schema.Struct({
   agentdDefaultBudget: AgentdDefaultBudget.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_AGENTD_BUDGET)),
   ),
-  // Environment ids whose "Try a worker" card was shown or dismissed.
+  // Environment ids where "Try a worker" was set to never show again.
   agentdFirstTaskShown: Schema.Record(Schema.String, Schema.Boolean).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),

@@ -20,6 +20,7 @@ import { useQuietThreadShell } from "~/state/entities";
 import { threadEnvironment } from "~/state/threads";
 import { useOrchestrationCommand } from "~/state/use-orchestration-command";
 import { Button } from "../ui/button";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { toastManager } from "../ui/toast";
 import { useAgentdState, useCloudWorkersLinked } from "./AgentdIndicator";
 import { agentdTaskBelongsToProject } from "./backgroundTasks.logic";
@@ -44,6 +45,8 @@ const firstTaskThread = Atom.make<Readonly<Record<string, string>>>({}).pipe(
   Atom.keepAlive,
   Atom.withLabel("agentd:first-task-thread"),
 );
+// Environments where "Try a worker" was hidden for now; it returns on the next run.
+const firstTaskHidden = keysAtom("agentd:first-task-hidden");
 
 function addKey(atom: typeof fired, key: string) {
   const current = appAtomRegistry.get(atom);
@@ -65,7 +68,7 @@ interface NudgeProps {
   readonly gitStatus: { readonly isRepo: boolean; readonly refName: string | null } | null;
 }
 
-/** Above a Code thread's composer: "Try a worker" once per environment, then worker offers. */
+/** Above a Code thread's composer: "Try a worker" until it is put away, then worker offers. */
 export function AgentdThreadNudges(props: NudgeProps) {
   if (props.threadRef === null || !props.codeThread) return null;
   return <Nudges {...props} threadRef={props.threadRef} />;
@@ -82,32 +85,35 @@ function Nudges({
   const key = scopedThreadKey(threadRef);
   const agentd = useAgentdState(environmentId);
   const agentdSetUp = agentd.state === "on" || agentd.state === "attention";
-  const shown = useClientSettings((settings) => settings.agentdFirstTaskShown[environmentId]);
+  const neverShowAgain = useClientSettings(
+    (settings) => settings.agentdFirstTaskShown[environmentId] === true,
+  );
+  const hiddenThisSession = useAtomValue(firstTaskHidden)[environmentId] === true;
   const firstThread = useAtomValue(firstTaskThread)[environmentId];
   const hydrated = useClientSettingsHydrated();
   const firstEligible =
     hydrated &&
-    firstThread === undefined &&
     showFirstTaskCard({
-      shownForEnvironment: shown === true,
+      neverShowAgain,
+      hiddenThisSession,
       codeThread: true,
       agentdOn: agentd.state === "on",
       isRepo: gitStatus?.isRepo,
     });
+  const claimThread = firstEligible && firstThread === undefined;
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- records the once-per-environment card in synced client settings the first time it shows
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- claims this thread as the environment's one "Try a worker" thread in the run-wide atom
   useEffect(() => {
-    if (!firstEligible) return;
+    if (!claimThread) return;
     appAtomRegistry.set(firstTaskThread, {
       ...appAtomRegistry.get(firstTaskThread),
       [environmentId]: key,
     });
-    void updateClientSettings({
-      agentdFirstTaskShown: { ...getClientSettings().agentdFirstTaskShown, [environmentId]: true },
-    });
-  }, [firstEligible, environmentId, key]);
+  }, [claimThread, environmentId, key]);
 
-  if (firstThread === key) return <FirstTaskCard threadRef={threadRef} />;
+  if (firstEligible && firstThread === key) {
+    return <FirstTaskCard threadRef={threadRef} />;
+  }
   return (
     <WorkerOfferHost
       threadRef={threadRef}
@@ -122,9 +128,8 @@ function Nudges({
 }
 
 function FirstTaskCard({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
-  const [closed, setClosed] = useState(false);
   const gt = useGT();
-  if (closed) return null;
+  const { environmentId } = threadRef;
   return (
     <section
       aria-label={gt("Try a worker")}
@@ -135,23 +140,37 @@ function FirstTaskCard({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
           <T>Try a worker</T>
         </p>
         <p className="text-muted-foreground text-xs">
-          <T>
-            Hand a task to a worker with a goal, a check and a budget. It runs in the background
-            while you keep working here.
-          </T>
+          <T>Give a worker a task to run in the background while you keep working in this chat.</T>
+        </p>
+        <p className="text-muted-foreground text-xs">
+          <T>For example, one worker can run tests while another updates the docs.</T>
         </p>
         <Button size="xs" variant="outline" onClick={() => openStartTaskDialog(threadRef)}>
           <T>Hand to a worker</T>
         </Button>
       </div>
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        aria-label={gt("Dismiss")}
-        onClick={() => setClosed(true)}
-      >
-        <XIcon />
-      </Button>
+      <Menu>
+        <MenuTrigger render={<Button size="icon-xs" variant="ghost" aria-label={gt("Dismiss")} />}>
+          <XIcon />
+        </MenuTrigger>
+        <MenuPopup align="end">
+          <MenuItem onClick={() => addKey(firstTaskHidden, environmentId)}>
+            <T>Hide for now</T>
+          </MenuItem>
+          <MenuItem
+            onClick={() =>
+              void updateClientSettings({
+                agentdFirstTaskShown: {
+                  ...getClientSettings().agentdFirstTaskShown,
+                  [environmentId]: true,
+                },
+              })
+            }
+          >
+            <T>Never show again</T>
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
     </section>
   );
 }
