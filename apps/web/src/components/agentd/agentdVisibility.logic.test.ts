@@ -7,6 +7,7 @@ import {
   OFFER_AFTER_MS,
   parseDefaultBudget,
   projectHasRunningWorker,
+  showFirstTaskCard,
   workerOffer,
   workerOfferSignal,
 } from "./agentdVisibility.logic";
@@ -82,6 +83,28 @@ describe("projectHasRunningWorker", () => {
     expect(projectHasRunningWorker([row({ runsOn: "cloud", state: "claimed" })], mine)).toBe(true);
     expect(projectHasRunningWorker([row({ state: "claimed" })], mine)).toBe(false);
     expect(projectHasRunningWorker([row({ workerRunning: true })], () => false)).toBe(false);
+  });
+});
+
+describe("showFirstTaskCard", () => {
+  const shows = {
+    neverShowAgain: false,
+    hiddenThisSession: false,
+    codeThread: true,
+    agentdOn: true,
+    isRepo: true,
+  } as const;
+
+  it.each([
+    [{}, true],
+    [{ hiddenThisSession: true }, false],
+    [{ neverShowAgain: true }, false],
+    [{ agentdOn: false }, false],
+    [{ codeThread: false }, false],
+    [{ isRepo: undefined }, false],
+    [{ isRepo: false }, false],
+  ] as const)("%j shows the card: %s", (change, expected) => {
+    expect(showFirstTaskCard({ ...shows, ...change })).toBe(expected);
   });
 });
 

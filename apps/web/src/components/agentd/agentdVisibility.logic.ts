@@ -72,14 +72,19 @@ export function workerOffer(input: {
   return "local";
 }
 
-/** The "Try a worker" card: once per environment, while agentd is healthy, in a Code thread in a git project. */
+/**
+ * The "Try a worker" card: while agentd is healthy, in a Code thread in a git project, until the
+ * person hides it for this run or chooses Never show again for the environment.
+ */
 export function showFirstTaskCard(input: {
-  readonly shownForEnvironment: boolean;
+  readonly neverShowAgain: boolean;
+  readonly hiddenThisSession: boolean;
   readonly codeThread: boolean;
   readonly agentdOn: boolean;
   readonly isRepo: boolean | undefined;
 }): boolean {
-  return !input.shownForEnvironment && input.codeThread && input.agentdOn && input.isRepo === true;
+  if (input.neverShowAgain || input.hiddenThisSession) return false;
+  return input.codeThread && input.agentdOn && input.isRepo === true;
 }
 
 /** The budget Hand to a worker fills when agentd has no estimate, from Settings → Workers. */
