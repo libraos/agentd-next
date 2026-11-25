@@ -18,7 +18,7 @@ Windows and Linux use the same UI flags and URL routes; no filesystem paths, she
 - `apps/web/src/components/onboarding/WelcomePage.tsx` — gates the other mobile promotion and its link to Sharing & access.
 - `apps/web/src/components/onboarding/WelcomePage.import.browser.test.tsx` — checks that phone setup is hidden by default and still works when enabled.
 - `apps/web/src/components/settings/ConnectionsSettings.tsx` — hides pull request routing settings while keeping environment connections.
-- `apps/web/src/components/settings/LabsSettingsPanel.tsx` — hides guest sharing controls that link to Sharing & access.
+- `apps/web/src/components/settings/LabsSettingsPanel.tsx` — hides guest sharing controls that link to Sharing & access, the Workflows switches (`workflows`) and Agent feedback (`agentFeedback`).
 - `apps/web/src/components/settings/ScheduledTasksSettings.tsx` — keeps webhook delivery status but hides its settings link when Sharing & access is off.
 - `apps/web/src/components/settings/SettingsPanels.tsx` — hides the mobile app promotion and pull request panel settings while retaining diff settings.
 - `apps/web/src/components/settings/SourceControlSettings.tsx` — hides issue tracker connections without hiding Git and source control providers.
@@ -29,3 +29,9 @@ Windows and Linux use the same UI flags and URL routes; no filesystem paths, she
 - `apps/web/src/routes/_chat.pull-requests.tsx` — redirects disabled Pull requests visits to chat.
 - `apps/web/src/routes/_chat.settings.access.tsx` — redirects disabled Sharing & access visits to chat.
 - `apps/web/src/routes/_chat.settings.scheduled-tasks.tsx` — redirects disabled Scheduled tasks visits to chat.
+- `apps/web/src/routes/_chat.workflows.tsx` — redirects disabled Workflows visits to chat.
+- `apps/web/src/components/workflows/useWorkflowEnvironmentIds.ts` — no environment offers workflows while the profile hides them, so the command palette has no Open workflows.
+- `apps/web/src/components/ChatView.tsx` — a workflow step thread does not link back to its run while workflows are hidden.
+- `apps/mobile/src/features/agentd/productProfile.ts` (new) — the phone's switches for workflows and agent feedback.
+- `apps/mobile/src/Stack.tsx` — the workflow run screen has no deep link while workflows are hidden (its tab is already off the tab bar upstream).
+- `apps/mobile/src/features/settings/ThreadSettingsSections.tsx` — hides the Agent feedback section.

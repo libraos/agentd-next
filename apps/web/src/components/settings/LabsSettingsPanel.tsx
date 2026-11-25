@@ -1,17 +1,35 @@
+import { msg } from "gt-react";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import { useAuth } from "@clerk/react";
 import { Link } from "@tanstack/react-router";
+import {
+  AgentFeedbackMode,
+  DEFAULT_WORKFLOW_SKIPPED_RUNS_KEPT,
+  MAX_WORKFLOW_SKIPPED_RUNS_KEPT,
+} from "@t3tools/contracts";
 import { T, useGT, useMessages } from "gt-react";
 
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 import { productProfile } from "~/productProfile";
 import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
 import { Button } from "../ui/button";
+import { NumberField, NumberFieldGroup, NumberFieldInput } from "../ui/number-field";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { commitNumberFieldOnEnter } from "./commitNumberFieldOnEnter";
 import { ScopedSwitch } from "./ScopedSwitch";
-import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
+import {
+  SettingResetButton,
+  SettingsPageContainer,
+  SettingsRow,
+  SettingsSection,
+} from "./settingsLayout";
 import { useSearchableSetting } from "./settingsSearch";
-import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
+import {
+  useScopedSettings,
+  useScopedSettingsMixed,
+  useUpdateScopedSettings,
+} from "./useScopedSettings";
 import { useOptionalSettingsScope, useSettingsScope } from "./SettingsScopeContext";
 import { firstManagedDenial, usePrimaryManagedPolicy } from "~/state/managedPolicy";
 
@@ -26,9 +44,16 @@ export function LabsSettingsPanel() {
         {productProfile.sharingAndAccess &&
           (hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />)}
         <LinkedEnvironmentsRow />
+        {productProfile.workflows && (
+          <>
+            <WorkflowsRow />
+            <WorkflowSkippedRunsRow />
+          </>
+        )}
         <PromptSuggestionsRow />
         <SimlockHostsRow />
         <FastWorktreeCheckoutRow />
+        {productProfile.agentFeedback && <AgentFeedbackRow />}
       </SettingsSection>
     </SettingsPageContainer>
   );
@@ -188,6 +213,86 @@ function LinkedEnvironmentsRow() {
   );
 }
 
+function WorkflowsRow() {
+  const searchableSetting = useSearchableSetting();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  const gt = useGT();
+  return (
+    <SettingsRow
+      serverScoped
+      {...searchableSetting("workflows-beta")}
+      settingKeys={["workflowsEnabled"]}
+      description={gt(
+        "Run multi-step workflows from files in the workflows folder of this server's LibraOS Next home. Open them from the command palette. While off, nothing in that folder runs; runs wait until it is on again.",
+      )}
+      control={
+        <ScopedSwitch
+          settingKeys={["workflowsEnabled"]}
+          checked={settings.workflowsEnabled}
+          onCheckedChange={(checked) => updateSettings({ workflowsEnabled: Boolean(checked) })}
+          aria-label={gt("Workflows")}
+        />
+      }
+    />
+  );
+}
+
+const NO_GROUPING: Intl.NumberFormatOptions = { useGrouping: false };
+
+export function WorkflowSkippedRunsRow() {
+  const searchableSetting = useSearchableSetting();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  const mixed = useScopedSettingsMixed(["workflowSkippedRunsKept"]);
+  const gt = useGT();
+  if (!settings.workflowsEnabled) return null;
+  const kept = settings.workflowSkippedRunsKept;
+  return (
+    <SettingsRow
+      serverScoped
+      {...searchableSetting("workflow-skipped-runs")}
+      settingKeys={["workflowSkippedRunsKept"]}
+      description={gt(
+        "How many skipped runs each workflow keeps in its history. Older skipped runs are deleted; runs that did something are always kept.",
+      )}
+      resetAction={
+        mixed || kept !== DEFAULT_WORKFLOW_SKIPPED_RUNS_KEPT ? (
+          <SettingResetButton
+            ariaLabel={gt("Reset skipped runs kept to default")}
+            onClick={() =>
+              updateSettings({ workflowSkippedRunsKept: DEFAULT_WORKFLOW_SKIPPED_RUNS_KEPT })
+            }
+          />
+        ) : null
+      }
+      control={
+        <div className="w-24">
+          <NumberField
+            value={mixed ? null : kept}
+            min={0}
+            max={MAX_WORKFLOW_SKIPPED_RUNS_KEPT}
+            format={NO_GROUPING}
+            size="sm"
+            onValueCommitted={(value) => {
+              if (value === null || !Number.isInteger(value) || (!mixed && value === kept)) return;
+              updateSettings({ workflowSkippedRunsKept: value });
+            }}
+          >
+            <NumberFieldGroup>
+              <NumberFieldInput
+                aria-label={gt("Skipped runs kept")}
+                placeholder={mixed ? gt("Mixed") : undefined}
+                onKeyDown={commitNumberFieldOnEnter}
+              />
+            </NumberFieldGroup>
+          </NumberField>
+        </div>
+      }
+    />
+  );
+}
+
 function PromptSuggestionsRow() {
   const searchableSetting = useSearchableSetting();
   const settings = useScopedSettings();
@@ -289,6 +394,77 @@ function FastWorktreeCheckoutRow() {
           onCheckedChange={(checked) => updateSettings({ fastWorktreeCheckout: Boolean(checked) })}
           aria-label={gt("Fast worktree checkout")}
         />
+      }
+    />
+  );
+}
+
+/** Shows only when every machine in scope honors it; older servers drop the setting. */
+const AGENT_FEEDBACK_MODES = AgentFeedbackMode.literals;
+const AGENT_FEEDBACK_MODE_LABELS: Record<AgentFeedbackMode, string> = {
+  off: msg("Off"),
+  "on-request": msg("When I ask"),
+  auto: msg("Automatic"),
+};
+const AGENT_FEEDBACK_MODE_DESCRIPTIONS: Record<AgentFeedbackMode, string> = {
+  off: msg("Agents send no feedback to the LibraOS Next team."),
+  "on-request": msg(
+    "When you ask, agents show you a short report about LibraOS Next and send it to the LibraOS Next team if you approve.",
+  ),
+  auto: msg(
+    "Agents also report LibraOS Next problems they hit on their own, such as an AgentD tool that failed.",
+  ),
+};
+
+function AgentFeedbackRow() {
+  const searchableSetting = useSearchableSetting();
+  const { scope, connectedEnvironments } = useSettingsScope();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  const gt = useGT();
+  const m = useMessages();
+  const mixed = useScopedSettingsMixed(["agentFeedback"]);
+  if (
+    scope.kind === "project" ||
+    scope.kind === "checkout" ||
+    connectedEnvironments.length === 0 ||
+    connectedEnvironments.some(
+      (environment) => environment.serverConfig?.environment.capabilities.agentFeedback !== true,
+    )
+  )
+    return null;
+  return (
+    <SettingsRow
+      serverScoped
+      {...searchableSetting("agent-feedback")}
+      settingKeys={["agentFeedback"]}
+      description={
+        mixed
+          ? gt("The selected machines use different agent feedback modes.")
+          : m(AGENT_FEEDBACK_MODE_DESCRIPTIONS[settings.agentFeedback.mode])
+      }
+      control={
+        <Select
+          value={mixed ? null : settings.agentFeedback.mode}
+          onValueChange={(mode) => {
+            if (mode !== null) updateSettings({ agentFeedback: { mode } });
+          }}
+        >
+          <SelectTrigger size="sm" className="w-full sm:w-40" aria-label={gt("Agent feedback")}>
+            <SelectValue>
+              {(mode: AgentFeedbackMode | null) =>
+                mode === null ? gt("Mixed") : m(AGENT_FEEDBACK_MODE_LABELS[mode])
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectPopup align="end" alignItemWithTrigger={false}>
+            {AGENT_FEEDBACK_MODES.map((mode) => (
+              <SelectItem key={mode} hideIndicator value={mode}>
+                {m(AGENT_FEEDBACK_MODE_LABELS[mode])}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </Select>
       }
     />
   );

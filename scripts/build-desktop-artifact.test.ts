@@ -657,41 +657,44 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     ),
   );
 
-  it.effect("declares Calendar access and ad-hoc signs unsigned macOS builds", () =>
-    Effect.gen(function* () {
-      for (const version of ["0.1.0", "0.1.1-nightly.20261019.1"]) {
-        for (const signed of [false, true]) {
-          const config = yield* createBuildConfig(
-            "mac",
-            "dmg",
-            version,
-            signed,
-            false,
-            undefined,
-            undefined,
-          );
-          const mac = config.mac as { extendInfo: Record<string, unknown> } & Record<
-            string,
-            unknown
-          >;
-          if (signed) {
-            assert.notProperty(mac, "identity");
-          } else {
-            assert.strictEqual(mac.identity, "-");
-            assert.strictEqual(mac.hardenedRuntime, false);
-            assert.strictEqual(mac.notarize, false);
-          }
-          for (const key of [
-            "NSCalendarsUsageDescription",
-            "NSCalendarsFullAccessUsageDescription",
-            "NSCalendarsWriteOnlyAccessUsageDescription",
-          ]) {
-            assert.isString(mac.extendInfo[key], `${version}, signed=${signed}: ${key}`);
-            assert.isNotEmpty(mac.extendInfo[key]);
+  it.effect(
+    "declares Calendar and Apple Events access and ad-hoc signs unsigned macOS builds",
+    () =>
+      Effect.gen(function* () {
+        for (const version of ["0.1.0", "0.1.1-nightly.20261019.1"]) {
+          for (const signed of [false, true]) {
+            const config = yield* createBuildConfig(
+              "mac",
+              "dmg",
+              version,
+              signed,
+              false,
+              undefined,
+              undefined,
+            );
+            const mac = config.mac as { extendInfo: Record<string, unknown> } & Record<
+              string,
+              unknown
+            >;
+            if (signed) {
+              assert.notProperty(mac, "identity");
+            } else {
+              assert.strictEqual(mac.identity, "-");
+              assert.strictEqual(mac.hardenedRuntime, false);
+              assert.strictEqual(mac.notarize, false);
+            }
+            for (const key of [
+              "NSCalendarsUsageDescription",
+              "NSCalendarsFullAccessUsageDescription",
+              "NSCalendarsWriteOnlyAccessUsageDescription",
+              "NSAppleEventsUsageDescription",
+            ]) {
+              assert.isString(mac.extendInfo[key], `${version}, signed=${signed}: ${key}`);
+              assert.isNotEmpty(mac.extendInfo[key]);
+            }
           }
         }
-      }
-    }),
+      }),
   );
 
   // pnpm writes "set this to true or false" placeholders into allowBuilds when a
@@ -1745,6 +1748,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");
+    assert.match(
+      entitlements,
+      /<key>com\.apple\.security\.automation\.apple-events<\/key>\s*<true\/>/u,
+    );
     assert.match(entitlements, /<key>com\.apple\.security\.device\.camera<\/key>\s*<true\/>/u);
     assert.match(entitlements, /<key>com\.apple\.security\.device\.audio-input<\/key>\s*<true\/>/u);
     assert.notInclude(entitlements, "keychain-access-groups");

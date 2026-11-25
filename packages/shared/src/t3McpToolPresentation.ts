@@ -387,6 +387,7 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   ),
   queue: tool(["Manage", "Managing", "Managed", "queued messages"], "queue-edit"),
   pending_request: tool(["Handle", "Handling", "Handled", "pending questions"], "question-respond"),
+  workflow: tool(["Use", "Using", "Used", "workflow runs"], "thread-send"),
   submit_output: tool(["Submit", "Submitting", "Submitted", "the result"], "thread-send"),
   queue_list: tool(["List", "Listing", "Listed", "queued messages"], "queue-list"),
   queue_read: tool(["Read", "Reading", "Read", "a queued message"], "queue-read"),

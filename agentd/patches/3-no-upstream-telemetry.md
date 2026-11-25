@@ -1,6 +1,7 @@
 # #3 No telemetry and no upstream fetches by default
 
-- `apps/server/src/telemetry/AnalyticsService.ts`: dropped the default PostHog key and `ingest.t3.codes` host; analytics is off unless `T3CODE_POSTHOG_KEY` and `T3CODE_POSTHOG_HOST` are both set. `T3CODE_TELEMETRY_ENABLED` and the managed `telemetry` policy still turn it off.
+- `apps/server/src/telemetry/AnalyticsService.ts`: dropped the default PostHog key and `ingest.t3.codes` host; analytics is off unless `T3CODE_POSTHOG_KEY` and `T3CODE_POSTHOG_HOST` are both set. `T3CODE_TELEMETRY_ENABLED` and the managed `telemetry` policy still turn it off. Agent feedback reports (#35871) go through the same service, so they send nothing without an endpoint either; their mode defaults to off and the setting is hidden (patch 5).
+- `apps/server/src/telemetry/Identify.ts`, `Identify.test.ts`: upstream's code (#272's rule is now upstream's: the install id never comes from agent login files); the test also records file reads and asserts none under the home folder.
 - `apps/server/src/provider/ModelManifest.ts`: no hourly fetch from `raw.githubusercontent.com/pingdotgg`; the bundled manifest is used unless `T3CODE_MODEL_MANIFEST_URL` is set.
 - `apps/server/src/provider/ModelManifest.test.ts`: fetch tests set the URL; one row asserts no fetch without it.
 - `apps/web/src/components/GitHubStarPrompt.tsx`, `GitHubStarPrompt.test.ts`: removed the star prompt (it called the server to check and star `pingdotgg/t3code`).

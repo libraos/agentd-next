@@ -9,6 +9,7 @@ import * as NodePath from "node:path";
 
 // Each runs under this Node: Windows cannot spawn the `.bin/gt` shim (a `.cmd`) without a shell.
 // Desktop only depends on gt-i18n, so the gt CLI hides `generate` there; its script adds it back.
+// The gt CLI runs through Node because the `.bin/gt` shim is a shell script Windows cannot spawn.
 const GENERATE: Record<string, readonly [string, ...string[]]> = {
   "apps/web": [process.execPath, "node_modules/gt/bin/main.js", "generate"],
   "apps/mobile": [process.execPath, "node_modules/gt/bin/main.js", "generate"],

@@ -1,6 +1,14 @@
+import type { AgentFeedbackMode } from "@t3tools/contracts";
 import { AUTO_CONTINUATION_STATUS_INSTRUCTIONS } from "@t3tools/shared/orchestrationV2AutoContinuation";
 
 import type { ProviderAdapterV2RuntimePolicy } from "./ProviderAdapter.ts";
+
+/** None while agent feedback is off, so users who never opt in pay no context for it. */
+export const AGENT_FEEDBACK_INSTRUCTIONS = {
+  off: "",
+  "on-request": "Use `feedback` only when the user asks you to send LibraOS Next feedback.",
+  auto: "`feedback` reports are wanted and cheap. Send one, then continue, when an AgentD tool or `t3` command fails or gives a wrong result, the user corrects how you use LibraOS Next, or a LibraOS Next capability you looked for is missing. Once per problem; also when the user asks. Only about LibraOS Next, never the user's code or other tools.",
+} satisfies Record<AgentFeedbackMode, string>;
 
 /** Session-invariant; harnesses with a native system-prompt append can carry it once per session. */
 export const PULL_REQUEST_LINKING_INSTRUCTIONS = `<pull_request_linking>
@@ -11,6 +19,7 @@ If available, call link_issue for each issue you take on or file, even via CLI; 
 /** Omit model and effort when the harness manages them dynamically. */
 export function buildRuntimeInstructions(runtime: {
   readonly harness: string;
+  readonly agentFeedback?: AgentFeedbackMode;
   readonly model?: string | undefined;
   readonly modelName?: string | undefined;
   readonly reasoningEffort?: string | undefined;
@@ -28,14 +37,15 @@ export function buildRuntimeInstructions(runtime: {
   const modelInfo = model && model !== "auto" && model !== "default" ? `, as ${modelLabel}` : "";
   const effortInfo = effort ? ` with ${effort} reasoning effort` : "";
   const runtimeInfo = `<runtime_info>In case you're asked: you are running in LibraOS Next through the ${harness} harness${modelInfo}${effortInfo}. No need to mention this otherwise. You can embed images, video, and audio using Markdown image syntax with absolute file paths. Link every other file you cite or produce by its absolute path, as in [http.ts:42](/abs/path/http.ts:42), so the user can open it in LibraOS Next's files viewer.</runtime_info>`;
+  const feedbackLine = AGENT_FEEDBACK_INSTRUCTIONS[runtime.agentFeedback ?? "off"];
+  const feedback = feedbackLine ? `\n${feedbackLine}` : "";
   const workspace =
     runtime.runtimePolicy === undefined ? "" : buildWorkspaceInstructions(runtime.runtimePolicy);
-  return [
-    runtimeInfo,
-    AUTO_CONTINUATION_STATUS_INSTRUCTIONS,
-    ...(runtime.pullRequestLinking === false ? [] : [PULL_REQUEST_LINKING_INSTRUCTIONS]),
-    ...(workspace === "" ? [] : [workspace]),
-  ].join("\n\n");
+  const linked =
+    runtime.pullRequestLinking === false
+      ? `${runtimeInfo}\n\n${AUTO_CONTINUATION_STATUS_INSTRUCTIONS}`
+      : `${runtimeInfo}\n\n${AUTO_CONTINUATION_STATUS_INSTRUCTIONS}\n\n${PULL_REQUEST_LINKING_INSTRUCTIONS}`;
+  return [linked + feedback, ...(workspace === "" ? [] : [workspace])].join("\n\n");
 }
 
 function toSingleLine(value: string): string {

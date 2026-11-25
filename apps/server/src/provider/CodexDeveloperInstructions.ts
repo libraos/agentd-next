@@ -1,3 +1,4 @@
+import type { AgentFeedbackMode } from "@t3tools/contracts";
 import type { V2TurnStartParams__AdditionalContextEntry } from "effect-codex-app-server/schema";
 import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
 
@@ -37,6 +38,7 @@ const CODEX_BACKGROUND_WAIT_INSTRUCTIONS =
   "To wait for a background command you started (tests, a build), call `background_wait` with its session ID before you end your turn; only a marked command starts a new turn when it exits. Do not mark work you leave running, such as a dev server.";
 
 export interface CodexRuntimeInfo {
+  readonly agentFeedback?: AgentFeedbackMode;
   readonly model: string;
   readonly modelName?: string | undefined;
   readonly reasoningEffort?: string | undefined;

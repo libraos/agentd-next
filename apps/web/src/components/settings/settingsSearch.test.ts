@@ -15,18 +15,13 @@ import {
   isSettingsSearchScopeAvailable,
   movedSettingsPath,
   searchSettings,
-  SETTINGS_NAV_GROUPS,
   SETTINGS_SECTION_LABELS,
+  settingsNavGroups,
   SETTINGS_SEARCH_ITEMS,
   sourceControlHostSearchItems,
   sourceControlHostSettingsSearchId,
   type SettingsSearchItem,
 } from "./settingsSearch";
-
-vi.mock("~/env", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("~/env")>()),
-  isSecretsFeatureEnabled: false,
-}));
 
 const ITEMS: ReadonlyArray<SettingsSearchItem> = [
   {
@@ -77,9 +72,27 @@ describe("searchSettings", () => {
     }
   });
 
-  it("hides the Secrets page from nav and search while the secrets feature is disabled", () => {
-    expect(SETTINGS_NAV_GROUPS.flatMap((group) => group.paths)).not.toContain("/settings/secrets");
-    expect(searchSettings("1password").map((item) => item.to)).not.toContain("/settings/secrets");
+  it("shows the Secrets page in nav and search only when an environment enables secret providers", () => {
+    const availability = {
+      hasCloudPublicConfig: false,
+      hasEnvironment: true,
+      hasProviderSettingsEnvironment: true,
+      canManageLocalBackend: false,
+      isWslSettingsRowVisible: false,
+      hasThreadAutoSettlement: false,
+    };
+    for (const enabled of [false, true]) {
+      const navPaths = settingsNavGroups(enabled).flatMap((group) => group.paths);
+      const searchPaths = searchSettings(
+        "1password",
+        filterAvailableSettingsSearchItems({
+          ...availability,
+          hasSecretProvidersEnvironment: enabled,
+        }),
+      ).map((item) => item.to);
+      expect(navPaths.includes("/settings/secrets")).toBe(enabled);
+      expect(searchPaths.includes("/settings/secrets")).toBe(enabled);
+    }
   });
 
   it("finds where subagents and side chats open by any of its names", () => {
@@ -89,7 +102,7 @@ describe("searchSettings", () => {
   });
 
   it("keeps disabled product areas out of navigation and search", () => {
-    const paths = SETTINGS_NAV_GROUPS.flatMap((group) => group.paths);
+    const paths = settingsNavGroups(true).flatMap((group) => group.paths);
     expect(paths).not.toContain("/settings/scheduled-tasks");
     expect(paths).not.toContain("/settings/access");
     expect(paths).toContain("/settings/source-control");
@@ -101,6 +114,8 @@ describe("searchSettings", () => {
 
     for (const [query, hiddenId] of [
       ["scheduled tasks", "scheduled-tasks"],
+      ["workflow", "workflows-beta"],
+      ["agent feedback", "agent-feedback"],
       ["sharing & access", "network-access"],
       ["guest links", "guest-links"],
       ["mobile app", "mobile-app"],
@@ -178,6 +193,7 @@ describe("searchSettings", () => {
       "auto-settle-merged-threads",
       "days-before-auto-settle",
       "linked-environments",
+      "agent-feedback",
     ]);
     expect(available.map((item) => item.id).filter((id) => gatedIds.has(id))).toEqual([]);
   });

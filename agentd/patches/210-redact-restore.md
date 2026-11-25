@@ -25,7 +25,7 @@ Upstream files:
 - `apps/server/src/observability/RpcInstrumentation.ts`: it counts as `agentd`.
 - `apps/server/src/ws.ts`: its handler.
 - `apps/server/src/server.ts`: start the cleanup with the shared plugin service.
-- `packages/shared/src/markdownPipeline.ts`: the sanitizer keeps `data-agentd-restored` on a span.
+- `packages/shared/src/markdownHast.ts`: the sanitizer keeps `data-agentd-restored` on a span (upstream moved the schema here from `markdownPipeline.ts`).
 - `apps/web/src/components/chat/TimelineAssistantRows.tsx`: assistant and sent-message rows render restored values and the note; copy gives restored text.
 - `apps/web/src/index.css`: the highlight of a restored value.
 - `apps/web/src/i18n/translations/*.json`: the new text in every locale.

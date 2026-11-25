@@ -241,6 +241,7 @@ const layerPersistenceTest = Layer.merge(
         try: () => loadOrCreateAgentAwarenessDeviceId(),
         catch: storageFailure,
       }),
+      loadOrCreateAnalyticsDeviceId: Effect.succeed("analytics-device-1"),
       loadAgentAwarenessDeviceId: Effect.tryPromise({
         try: () => loadAgentAwarenessDeviceId(),
         catch: storageFailure,
