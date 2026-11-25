@@ -1,3 +1,4 @@
+import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import type { CustomGatewayAgent, CustomGatewaySummary, EnvironmentId } from "@t3tools/contracts";
@@ -6,6 +7,7 @@ import { useId, useState, type FormEvent } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
 import { useCustomGatewayCommands, useCustomGateways } from "../../lib/customGatewayState";
+import { providersIgnoringCheckedAtAtom } from "../../state/server";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
@@ -47,6 +49,7 @@ function GatewayRow({
   const m = useMessages();
   const id = useId();
   const { canChange, rename, remove, setHiddenModels } = useCustomGatewayCommands(environmentId);
+  const providers = useAtomValue(providersIgnoringCheckedAtAtom(environmentId));
   const [choosingModels, setChoosingModels] = useState(false);
   // The choice being saved, so a box answers the click before the server does.
   const [savingHidden, setSavingHidden] = useState<ReadonlyArray<string> | null>(null);
@@ -110,7 +113,17 @@ function GatewayRow({
 
   const format =
     gateway.format === "both" ? gt("Both") : gateway.format === "openai" ? "OpenAI" : "Anthropic";
-  const agents = gateway.agents.map((agent) => AGENT_LABELS[agent]).join(", ");
+  const agents = gateway.agents
+    .map((agent) => {
+      const provider = providers.find(
+        (candidate) => candidate.instanceId === `gw-${gateway.id}-${agent}`,
+      );
+      // The model list shows this agent's source as needing it; say why here too.
+      return provider?.enabled && !provider.installed && provider.status === "error"
+        ? gt("{agent} (not installed)", { agent: AGENT_LABELS[agent] })
+        : AGENT_LABELS[agent];
+    })
+    .join(", ");
 
   return (
     <li className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">

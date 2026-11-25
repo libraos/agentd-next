@@ -70,6 +70,11 @@ After saving one format, use the action below the form to add the other format
 to the same gateway. In the model picker, look for the gateway name to select
 the instance that uses it.
 
+A gateway runs through its agents, so its Claude Code source needs Claude Code
+installed on that computer. Until it is, the model picker shows that source as
+needing Claude Code, and **Install** opens the step that installs it. The same
+holds for Codex and opencode.
+
 **Join a team** takes a **Team invitation link** from your team and enrolls this
 device with its LibraOS Engine server. Joining needs maintenance access to the
 environment.

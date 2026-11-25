@@ -94,6 +94,8 @@ type ModelPickerItem = {
   continuationGroupKey?: string | undefined;
   isLegacy?: boolean | undefined;
   isUnavailable?: boolean | undefined;
+  /** The agent this source needs and this computer lacks: shown, never picked. */
+  needsAgent?: string | undefined;
 };
 
 export function resolveModelPickerSelectedModel(input: {
@@ -130,6 +132,17 @@ function shouldIncludeModelPickerOption(input: {
     input.option.slug === input.activeModel &&
     input.option.isUnavailable === true
   );
+}
+
+/** A gateway source whose agent is not installed here: its models are listed but cannot run. */
+function missingGatewayAgent(
+  entry: ProviderInstanceEntry,
+): { readonly source: string; readonly agent: string } | null {
+  if (!isGatewayInstanceId(entry.instanceId) || !entry.enabled || entry.installed) return null;
+  // Before its first check an agent also reads as not installed, with a warning instead.
+  if (entry.status !== "error") return null;
+  const [agent, ...gatewayName] = entry.displayName.split(" · ");
+  return agent && gatewayName.length > 0 ? { agent, source: gatewayName.join(" · ") } : null;
 }
 
 function shouldOfferModelPickerSetup(
@@ -182,13 +195,21 @@ function modelJumpLabelsByKey(
 }
 
 function ModelPickerProviderNotices({
+  environmentId,
   setupEntries,
+  missingAgentSources,
   updateRequiredNotices,
   emptyLabel,
   onRequestClose,
   onOpenProviderSetup,
 }: {
+  environmentId: EnvironmentId | null;
   setupEntries: ReadonlyArray<ProviderInstanceEntry>;
+  missingAgentSources: ReadonlyArray<{
+    instanceId: ProviderInstanceId;
+    source: string;
+    agent: string;
+  }>;
   emptyLabel: string;
   updateRequiredNotices: ReadonlyArray<{
     instanceId: ProviderInstanceId;
@@ -227,6 +248,27 @@ function ModelPickerProviderNotices({
       ) : (
         <ComboboxEmpty className="empty:h-0">{emptyLabel}</ComboboxEmpty>
       )}
+      {missingAgentSources.map(({ instanceId, source, agent }) => (
+        <p
+          key={instanceId}
+          data-model-source-needs-agent={source}
+          className="shrink-0 border-t border-border/70 px-3 py-2 text-xs leading-snug text-muted-foreground"
+        >
+          {gt("{source} needs {agent}, which is not installed.", { source, agent })}{" "}
+          <InlineButton
+            onClick={() => {
+              onRequestClose?.();
+              // The welcome page installs agents, on the computer its hash names.
+              void navigate({
+                to: "/welcome",
+                ...(environmentId ? { hash: `agents:${environmentId}` } : {}),
+              });
+            }}
+          >
+            {gt("Install {agent}", { agent })}
+          </InlineButton>
+        </p>
+      ))}
       {updateRequiredNotices.map(({ instanceId, notice, canUpdateInSettings }) => (
         <p
           key={instanceId}
@@ -465,12 +507,24 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     });
   };
 
+  const missingAgentByInstanceId = new Map(
+    instanceEntries.flatMap((entry) => {
+      const missing = missingGatewayAgent(entry);
+      return missing ? [[entry.instanceId, missing] as const] : [];
+    }),
+  );
+  const needsAgentReason = (model: ModelPickerItem) =>
+    model.needsAgent === undefined ? null : gt("Needs {agent}", { agent: model.needsAgent });
+
   const handleModelSelect = (
     modelSlug: string,
     instanceId: ProviderInstanceId,
     additive = false,
   ): string | null => {
-    if (getModelDisabledReason?.(instanceId, modelSlug)) {
+    if (
+      getModelDisabledReason?.(instanceId, modelSlug) ||
+      missingAgentByInstanceId.has(instanceId)
+    ) {
       return null;
     }
     const options = modelOptionsByInstance.get(instanceId);
@@ -522,16 +576,18 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       if (!entry) {
         continue;
       }
+      const needsAgent = missingAgentByInstanceId.get(instanceId)?.agent;
       for (const model of models) {
         const key = modelPickerModelKey(instanceId, model.slug);
         if (
           seenKeys.has(key) ||
-          !shouldIncludeModelPickerOption({
-            entry,
-            option: model,
-            activeInstanceId: props.activeInstanceId,
-            activeModel: activeModelSlug,
-          })
+          (needsAgent === undefined &&
+            !shouldIncludeModelPickerOption({
+              entry,
+              option: model,
+              activeInstanceId: props.activeInstanceId,
+              activeModel: activeModelSlug,
+            }))
         ) {
           continue;
         }
@@ -553,6 +609,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
           ...(entry.continuationGroupKey
             ? { continuationGroupKey: entry.continuationGroupKey }
             : {}),
+          ...(needsAgent !== undefined ? { needsAgent } : {}),
         });
       }
     }
@@ -619,16 +676,23 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       if (variants) variants.push(model);
       else byKey.set(key, [model]);
     }
-    return [...byKey].map(([variantsKey, variants]) => ({
-      variantsKey,
-      variants,
-      model:
-        variants.find(
-          (variant) => modelPickerModelKey(variant.instanceId, variant.slug) === activeModelKey,
-        ) ??
-        variants.find((variant) => variant.instanceId === props.activeInstanceId) ??
-        variants[0]!,
-    }));
+    // A source that cannot run joins a model's other sources, never a row of its own.
+    return [...byKey].flatMap(([variantsKey, variants]) => {
+      const runnable = variants.filter((variant) => variant.needsAgent === undefined);
+      if (runnable.length === 0) return [];
+      return [
+        {
+          variantsKey,
+          variants,
+          model:
+            runnable.find(
+              (variant) => modelPickerModelKey(variant.instanceId, variant.slug) === activeModelKey,
+            ) ??
+            runnable.find((variant) => variant.instanceId === props.activeInstanceId) ??
+            runnable[0]!,
+        },
+      ];
+    });
   })();
   type ModelRow = (typeof rows)[number];
   type SubProviderSection = {
@@ -733,8 +797,21 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
 
   const providerSetupEntries =
     !isSearching && canOpenProviderSetup
-      ? instanceEntries.filter((entry) => matchesLockedProvider(entry) && offersSetup(entry))
+      ? instanceEntries.filter(
+          (entry) =>
+            matchesLockedProvider(entry) &&
+            !missingAgentByInstanceId.has(entry.instanceId) &&
+            offersSetup(entry),
+        )
       : [];
+  const missingAgentSources = isSearching
+    ? []
+    : instanceEntries.flatMap((entry) => {
+        const missing = missingAgentByInstanceId.get(entry.instanceId);
+        return missing && matchesLockedProvider(entry)
+          ? [{ instanceId: entry.instanceId, ...missing }]
+          : [];
+      });
 
   const updateRequiredNotices = instanceEntries.flatMap((entry) => {
     const notice = matchesLockedProvider(entry)
@@ -1041,7 +1118,14 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                 const sourceColorOf = (variant: ModelPickerItem) =>
                   variant.instanceAccentColor ?? barColor(variant.driverKind);
                 const disabledReason =
-                  getModelDisabledReason?.(model.instanceId, model.slug) ?? null;
+                  getModelDisabledReason?.(model.instanceId, model.slug) ?? needsAgentReason(model);
+                const labelOf = (variant: ModelPickerItem) => {
+                  const missing = missingAgentByInstanceId.get(variant.instanceId);
+                  if (missing) return gt("{source} · needs {agent}", missing);
+                  return (
+                    sourceLabels.get(variant.instanceId)?.variant ?? variant.instanceDisplayName
+                  );
+                };
                 return (
                   <ModelListRow
                     key={modelKey}
@@ -1056,9 +1140,9 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                     acpRegistryAgentId={model.acpRegistryAgentId}
                     acpRegistryIconUrl={model.acpRegistryIconUrl}
                     sourceLabel={
-                      (isVariant || row.variants.length > 1
-                        ? sourceLabels.get(model.instanceId)?.variant
-                        : sourceLabels.get(model.instanceId)?.source) ?? model.instanceDisplayName
+                      isVariant || row.variants.length > 1
+                        ? labelOf(model)
+                        : (sourceLabels.get(model.instanceId)?.source ?? model.instanceDisplayName)
                     }
                     sourceColor={sourceColorOf(model)}
                     sources={
@@ -1066,10 +1150,9 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                         ? row.variants.map((variant) => ({
                             instanceId: variant.instanceId,
                             slug: variant.slug,
-                            label:
-                              sourceLabels.get(variant.instanceId)?.variant ??
-                              variant.instanceDisplayName,
+                            label: labelOf(variant),
                             color: sourceColorOf(variant),
+                            disabledReason: needsAgentReason(variant),
                           }))
                         : undefined
                     }
@@ -1101,7 +1184,9 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
               }}
             />
             <ModelPickerProviderNotices
+              environmentId={props.environmentId}
               setupEntries={providerSetupEntries}
+              missingAgentSources={missingAgentSources}
               updateRequiredNotices={updateRequiredNotices}
               emptyLabel={
                 workspaceModelsScanning ? gt("Searching project models...") : gt("No models found")

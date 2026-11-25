@@ -439,6 +439,84 @@ it("distinguishes the built-in Claude Code and gateway agents on a shared model"
   expect(onInstanceModelChange).toHaveBeenLastCalledWith(gatewayClaude, "chat-small");
 });
 
+it("shows a gateway source whose agent is not installed as needing it, with an install action", async () => {
+  const gatewayClaude = ProviderInstanceId.make("gw-abc-claude");
+  const gatewayCodex = ProviderInstanceId.make("gw-abc-codex");
+  const entries = deriveProviderInstanceEntries(
+    [
+      { instanceId: gatewayClaude, driver: "claudeAgent", displayName: "Claude Code · Work GW" },
+      { instanceId: gatewayCodex, driver: "codex", displayName: "Codex · Work GW" },
+    ].map((provider) => {
+      const installed = provider.instanceId === gatewayCodex;
+      return {
+        ...provider,
+        driver: ProviderDriverKind.make(provider.driver),
+        enabled: true,
+        installed,
+        version: null,
+        status: installed ? ("ready" as const) : ("error" as const),
+        auth: { status: installed ? ("authenticated" as const) : ("unknown" as const) },
+        checkedAt: "2026-01-01T00:00:00.000Z",
+        models: [],
+        slashCommands: [],
+        skills: [],
+      };
+    }),
+  );
+  using cleanup = new DisposableStack();
+  const registry = cleanup.adopt(pickerRegistry(false, undefined), (registry) =>
+    registry.dispose(),
+  );
+  cleanup.defer(registry.mount(serverEnvironment.configValueAtom(pickerEnvironmentId)));
+  const onInstanceModelChange = vi.fn();
+  await using screen = await render(
+    <RegistryContext.Provider value={registry}>
+      <ProviderModelPicker
+        environmentId={pickerEnvironmentId}
+        activeInstanceId={gatewayCodex}
+        model="chat-small"
+        isComposerOwned
+        lockedProvider={null}
+        instanceEntries={entries}
+        modelOptionsByInstance={
+          new Map([
+            [
+              gatewayClaude,
+              [
+                { slug: "chat-small", name: "chat-small" },
+                { slug: "claude-only", name: "claude-only" },
+              ],
+            ],
+            [gatewayCodex, [{ slug: "chat-small", name: "chat-small" }]],
+          ])
+        }
+        triggerAriaLabel="Choose model"
+        onInstanceModelChange={onInstanceModelChange}
+      />
+    </RegistryContext.Provider>,
+  );
+  await screen.getByRole("button", { name: "Choose model" }).click();
+  // A model only the missing agent offers is no row of its own.
+  await expect.element(page.getByRole("option", { name: /chat-small/ })).toBeVisible();
+  expect(page.getByRole("option", { name: /claude-only/ }).query()).toBeNull();
+  await page.getByRole("option", { name: /chat-small/ }).hover();
+  const missing = page.getByRole("button", {
+    name: "Work GW · needs Claude Code",
+    exact: true,
+  });
+  await expect.element(missing).toBeDisabled();
+  await expect.element(page.getByRole("button", { name: "Work GW", exact: true })).toBeVisible();
+  await expect
+    .element(page.getByText("Work GW needs Claude Code, which is not installed.", { exact: false }))
+    .toBeVisible();
+  await page.getByRole("button", { name: "Install Claude Code", exact: true }).click();
+  await vi.waitFor(() => {
+    expect(screen.router?.state.location.pathname).toBe("/welcome");
+    expect(screen.router?.state.location.hash).toBe(`agents:${pickerEnvironmentId}`);
+  });
+  expect(onInstanceModelChange).not.toHaveBeenCalled();
+});
+
 it.for([
   { instanceId: "codex", label: "Codex" },
   { instanceId: "gw-abc-codex", label: "Codex · Work GW" },
