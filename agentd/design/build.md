@@ -5,18 +5,20 @@
 1. Set the version in `apps/desktop/package.json` (`x.y.z`, ours: minor for features, patch for fixes) and merge it.
 2. Tag that commit and push the tag to `origin`: `git tag v0.2.0`, then push `v0.2.0`. A tag that differs from `apps/desktop/package.json` fails the run; a suffixed tag does not run it.
 3. `.github/workflows/release.yml` builds on GitHub-hosted runners, in parallel: Linux x64 (`ubuntu-24.04`: AppImage and `.deb`), Windows x64 (`windows-latest`: NSIS `.exe`, MSVC on the runner), macOS arm64 (`macos-26`) and macOS x64 (`macos-26-intel`; Xcode 26, which the Apple Speech helper needs, is their default): `.dmg` and `.zip`. Each runs `agentd/scripts/build-desktop.sh <platform> <arch>` with `AGENTD_BUILD_ON_HOST=1`.
-4. A job merges the two macOS `latest-mac.yml` files into one, checks that every installer and `latest.yml`, `latest-linux.yml` and `latest-mac.yml` are there for this version, and writes `SHA256SUMS`. The last job creates a **draft** release for the tag with all of them, the blockmaps and notes on the unsigned builds and the agentd version inside.
+4. A job merges the two macOS `latest-mac.yml` files into one, checks that every installer and `latest.yml`, `latest-linux.yml` and `latest-mac.yml` are there for this version, and writes `SHA256SUMS`. The last job creates a **draft** release for the tag with all of them, the blockmaps and notes on signing and the agentd version inside.
 5. Review the draft on GitHub (download an installer, check it against `SHA256SUMS`), then publish it as the latest release. Nothing is public until then, and installed apps are offered it only once it is published and marked latest.
 
 agentd inside: the `prepare` job resolves one libraos/engine release for every build, using the dispatch input first, then the `AGENTD_RELEASE` repository variable, then the latest release, and each build downloads that release's asset for its target, `SKILL.md`, `SKILL-agentd.md` and `SHA256SUMS`. The packager refuses an asset that is missing or does not match `SHA256SUMS`.
 
 To try the build without a release, run the workflow by hand (Actions → Release → Run workflow) with N and, optionally, an agentd release: it builds the same files and uploads them, with `SHA256SUMS`, as workflow artifacts.
 
-The job permissions are `contents: read`, except `contents: write` on the job that creates the release; the only secret is `GITHUB_TOKEN`.
+The job permissions are `contents: read`, except `contents: write` on the job that creates the release and `id-token: write` on the Windows build. Besides `GITHUB_TOKEN`, the only secrets are the Azure ids of the `agentd-signing` environment, which only the Windows build uses.
 
-### Unsigned builds
+### Signing
 
-No signing credentials are used (decided 2026-11-18). On macOS the packager, when not `--signed`, turns off certificate discovery (`CSC_IDENTITY_AUTO_DISCOVERY=false`), sets `notarize: false`, and has electron-builder sign the app **ad-hoc** (`identity: "-"`) with the hardened runtime off. An unsigned Apple Silicon app whose bundle changed after Electron's own signature reads as "is damaged and can't be opened"; ad-hoc signed, it reads as from an unidentified developer, and right-click → Open (or System Settings → Privacy & Security → Open Anyway) opens it. The hardened runtime is off because with it, library validation refuses ad-hoc signed native modules, which have no Team ID. Windows SmartScreen warns about the unsigned installer (More info → Run anyway).
+Windows is signed with Azure Artifact Signing (#280): account `agentd-next-signing`, certificate profile `agentd-public`, subject `CN="Nebula Nova, Inc."`. The Windows build is its own job (`build-windows`), the only one in the GitHub environment `agentd-signing` (deployments from `main` and `v*` tags only) and the only one with an OIDC token: it logs in with `azure/login`, caches a token for the signing endpoint right before the build (the OIDC assertion expires before signing starts; the build step's 40-minute timeout keeps signing inside the token's hour), and sets `T3CODE_DESKTOP_SIGNED` and the `AZURE_TRUSTED_SIGNING_*` variables, from which the packager gives electron-builder `win.azureSignOptions`. A signing error fails the build, but electron-builder builds unsigned when it gets no signing options, and SignTool passes a signature whose timestamp request failed, which stops validating when the three-day certificate expires. So `agentd/scripts/check-windows-signatures.ps1` then fails the job unless the installer and the unpacked `LibraOS Next.exe` carry a valid, timestamped signature from that subject. The publisher name goes into the updater config too: an installed signed app refuses an update not signed by `Nebula Nova, Inc.`, so every later Windows release must be signed by the same subject.
+
+macOS and Linux are unsigned (decided 2026-11-18) and get no signing variables: `T3CODE_DESKTOP_SIGNED` on macOS would turn on certificate discovery. On macOS the packager, when not `--signed`, turns off certificate discovery (`CSC_IDENTITY_AUTO_DISCOVERY=false`), sets `notarize: false`, and has electron-builder sign the app **ad-hoc** (`identity: "-"`) with the hardened runtime off. An unsigned Apple Silicon app whose bundle changed after Electron's own signature reads as "is damaged and can't be opened"; ad-hoc signed, it reads as from an unidentified developer, and right-click → Open (or System Settings → Privacy & Security → Open Anyway) opens it. The hardened runtime is off because with it, library validation refuses ad-hoc signed native modules, which have no Team ID.
 
 ## Internal test build: Linux AppImage and Windows installer
 
@@ -71,6 +73,6 @@ Not verified on Windows (no Windows host was used): that the installer installs 
 
 ### Not done here
 
-- No signing: the builds are unsigned (`T3CODE_DESKTOP_SIGNED` off), so Windows SmartScreen will warn; macOS is ad-hoc signed (see Unsigned builds).
+- No signing: the builds are unsigned (`T3CODE_DESKTOP_SIGNED` off), so Windows SmartScreen will warn; macOS is ad-hoc signed (see Signing).
 - No Linux or Windows arm64 builds.
 - The Linux launcher still registers the upstream `t3code` URL scheme; that is the rebrand's region (#2), not this task's.

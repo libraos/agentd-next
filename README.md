@@ -19,10 +19,10 @@ Installers are on the [releases page](https://github.com/libraos/next/releases),
 | Windows (x64)         | `LibraOS-Next-…-x64.exe`                        |
 | Linux (x64)           | `LibraOS-Next-x86_64.AppImage` or `…-amd64.deb` |
 
-Download from the official releases page and check the installer against `SHA256SUMS` before opening it. A matching checksum checks the file against the published checksum; it is not a publisher signature. macOS beta builds are ad-hoc signed and not notarized; Windows installers are unsigned. If you verified the download, trust the source, and your organization's policy allows it, use the operating system's per-app option:
+Download from the official releases page and check the installer against `SHA256SUMS` before opening it. A matching checksum checks the file against the published checksum; it is not a publisher signature. Windows installers after 0.3.1 are signed by Nebula Nova, Inc.: right-click the `.exe`, choose **Properties → Digital Signatures**, and check that it names Nebula Nova, Inc.; do not run one that does not. Windows installers up to 0.3.1 are unsigned, and macOS beta builds are ad-hoc signed and not notarized. If you verified the download, trust the source, and your organization's policy allows it, use the operating system's per-app option:
 
 - **macOS:** Move the app to Applications and try to open it once. If macOS reports that it cannot verify the developer, go to **System Settings → Privacy & Security → Open Anyway** and confirm. See [Apple's guidance](https://support.apple.com/en-us/102445).
-- **Windows:** If Microsoft Defender SmartScreen shows **Windows protected your PC**, choose **More info → Run anyway** if available. See [Microsoft's SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+- **Windows:** If Microsoft Defender SmartScreen shows **Windows protected your PC** (an unsigned installer, or a signed release it does not know yet), choose **More info → Run anyway** if available. See [Microsoft's SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 Do not override a malware warning or a block enforced by your organization.
 
