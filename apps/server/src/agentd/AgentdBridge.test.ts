@@ -606,6 +606,46 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("re-runs a stuck task's check as a fixed argument list and shows its last run", () =>
+    Effect.gen(function* () {
+      const calls: ReadonlyArray<string>[] = [];
+      let code = 0;
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        if (input.args[1] === "show") {
+          return Effect.succeed(
+            output(`{
+              "id":"hof-abc456","state":"claimed","worker_state":"gone","report_note":"Tests fail on main",
+              "verdict":{"verdict":"act","next":"not finished (worker gone)"},
+              "results":[{"check_result":"failed: exit 1"},{"check_result":"not run"}]
+            }`),
+          );
+        }
+        calls.push(input.args);
+        return Effect.succeed({
+          ...output(code === 0 ? `{"result":"passed"}` : ""),
+          code: ChildProcessSpawner.ExitCode(code),
+          stderr: code === 0 ? "" : "check failed (exit 1): vp test\n1 failed",
+        });
+      });
+      expect(yield* bridge.recheckTask({ id: "hof-abc456" })).toEqual({});
+      code = 1;
+      const failure = yield* Effect.flip(bridge.recheckTask({ id: "hof-abc456" }));
+      expect(failure).toMatchObject({
+        _tag: "AgentdCommandError",
+        message: "check failed (exit 1): vp test\n1 failed",
+      });
+      yield* Effect.flip(bridge.recheckTask({ id: "--session=x" }));
+      expect(yield* bridge.task({ id: "hof-abc456" })).toMatchObject({
+        report: "Tests fail on main",
+        verdict: { check: "failed: exit 1", next: "not finished (worker gone)" },
+      });
+      expect(calls).toEqual([
+        ["handoff", "recheck", "hof-abc456"],
+        ["handoff", "recheck", "hof-abc456"],
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("starts an existing unassigned local task through the app session", () =>
     Effect.gen(function* () {
       const calls: string[] = [];

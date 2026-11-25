@@ -171,6 +171,8 @@ export const agentdArgs = {
     "--reason",
     text("reason", reason),
   ],
+  // Reruns the task's own check without closing it; agentd lets the sender or an owner.
+  recheck: (id: string) => ["handoff", "recheck", handoffId(id)],
   // `new` only offers: dispatch gives the worker its own worktree instead of the person's checkout.
   new: (input: AgentdStartTaskInput) => [
     "new",

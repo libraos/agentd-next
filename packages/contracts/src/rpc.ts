@@ -794,6 +794,7 @@ export const WS_METHODS = {
   agentdTask: "agentd.task",
   agentdSubscribeTaskOutput: "agentd.subscribeTaskOutput",
   agentdStopTask: "agentd.stopTask",
+  agentdRecheckTask: "agentd.recheckTask",
   agentdStartTask: "agentd.startTask",
   agentdRetryStart: "agentd.retryStart",
   agentdApprovals: "agentd.approvals",
@@ -2532,6 +2533,12 @@ const WsAgentdStopTaskRpc = Rpc.make(WS_METHODS.agentdStopTask, {
   error: AgentdRpcError,
 });
 
+const WsAgentdRecheckTaskRpc = Rpc.make(WS_METHODS.agentdRecheckTask, {
+  payload: AgentdTaskInput,
+  success: Schema.Struct({}),
+  error: AgentdRpcError,
+});
+
 const WsAgentdStartTaskRpc = Rpc.make(WS_METHODS.agentdStartTask, {
   payload: Schema.Union([AgentdCloudTaskInput, AgentdStartTaskInput]),
   success: AgentdStartTaskResult,
@@ -3061,6 +3068,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdTaskRpc,
   WsAgentdSubscribeTaskOutputRpc,
   WsAgentdStopTaskRpc,
+  WsAgentdRecheckTaskRpc,
   WsAgentdStartTaskRpc,
   WsAgentdRetryStartRpc,
   WsAgentdApprovalsRpc,

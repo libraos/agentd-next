@@ -134,6 +134,17 @@ export function createAgentdEnvironmentAtoms<R, E>(
           ),
         ),
     }),
+    recheckTask: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:recheck-task",
+      tag: WS_METHODS.agentdRecheckTask,
+      scheduler,
+      onSettled: (target, registry) =>
+        Effect.sync(() =>
+          registry.refresh(
+            task({ environmentId: target.environmentId, input: { id: target.input.id } }),
+          ),
+        ),
+    }),
     connectAgent: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:connect-agent",
       tag: WS_METHODS.agentdConnectAgent,

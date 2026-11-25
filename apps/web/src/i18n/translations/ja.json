@@ -3149,6 +3149,16 @@
   "de4069eb8cca9f58": "No check result was recorded.",
   "39bbd757e4977de7": "Next step",
   "bb2f7d6da8c0ba52": "No next step was recorded.",
+  "a3038a508cfe0f75": "チェックを実行中…",
+  "92d0d9c65378a8b1": "チェックを再実行",
+  "1cf5be6e6fe3e83e": [
+    "チェックを再実行: ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    }
+  ],
   "4f6e94248c856e06": "Stop requested",
   "0be6b2546df12f66": "停止",
   "83124a50609d902e": [

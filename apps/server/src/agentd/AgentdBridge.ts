@@ -103,6 +103,8 @@ export class AgentdBridge extends Context.Service<
       input: AgentdTaskInput,
     ) => Stream.Stream<OrchestrationV2CommandOutputFrame, AgentdError>;
     readonly stopTask: (input: AgentdStopTaskInput) => Effect.Effect<{}, AgentdError>;
+    /** `handoff recheck`: reruns the task's check; a failed check fails with agentd's output. */
+    readonly recheckTask: (input: AgentdTaskInput) => Effect.Effect<{}, AgentdError>;
     readonly startTask: (
       input: AgentdStartTaskInput | AgentdCloudTaskInput,
     ) => Effect.Effect<AgentdStartTaskResult, AgentdError>;
@@ -1000,6 +1002,13 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     stopTask: Effect.fn("AgentdBridge.stopTask")(function* (input) {
       yield* run(yield* args(() => agentdArgs.cancel(input.id, input.reason)));
       yield* invalidateOlderOffers;
+      return {};
+    }),
+    // The check runs within this call, up to its own limit (10 minutes unless the task sets one).
+    recheckTask: Effect.fn("AgentdBridge.recheckTask")(function* (input) {
+      yield* run(yield* args(() => agentdArgs.recheck(input.id)), {
+        timeout: Duration.minutes(60),
+      });
       return {};
     }),
     startTask,

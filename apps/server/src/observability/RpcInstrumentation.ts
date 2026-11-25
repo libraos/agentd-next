@@ -264,6 +264,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.agentdTask]: "agentd",
   [WS_METHODS.agentdSubscribeTaskOutput]: "agentd",
   [WS_METHODS.agentdStopTask]: "agentd",
+  [WS_METHODS.agentdRecheckTask]: "agentd",
   [WS_METHODS.agentdStartTask]: "agentd",
   [WS_METHODS.agentdRetryStart]: "agentd",
   [WS_METHODS.agentdApprovals]: "agentd",
