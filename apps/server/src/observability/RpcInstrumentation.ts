@@ -280,6 +280,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.agentdCloudKeyFileFix]: "agentd",
   [WS_METHODS.agentdRepairServices]: "agentd",
   [WS_METHODS.agentdTaskDefaults]: "agentd",
+  [WS_METHODS.agentdGitIdentity]: "agentd",
+  [WS_METHODS.agentdSetGitIdentity]: "agentd",
   [WS_METHODS.agentdTaskOthers]: "agentd",
   [WS_METHODS.agentdSubscribeTeamNode]: "agentd",
   [WS_METHODS.agentdSetTeamNode]: "agentd",

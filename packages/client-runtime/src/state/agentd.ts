@@ -207,6 +207,17 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdTaskDefaults,
       staleTimeMs: 60_000,
     }),
+    gitIdentity: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:git-identity",
+      tag: WS_METHODS.agentdGitIdentity,
+      idleTtlMs: 0,
+      staleTimeMs: 0,
+    }),
+    setGitIdentity: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:set-git-identity",
+      tag: WS_METHODS.agentdSetGitIdentity,
+      scheduler,
+    }),
     taskOthers: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:agentd:task-others",
       tag: WS_METHODS.agentdTaskOthers,

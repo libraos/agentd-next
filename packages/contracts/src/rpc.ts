@@ -443,6 +443,9 @@ import {
   AgentdCloudReviewInput,
   AgentdTaskDefaults,
   AgentdTaskDefaultsInput,
+  AgentdGitIdentity,
+  AgentdGitIdentityInput,
+  AgentdSetGitIdentityInput,
   AgentdCloudTaskInput,
   AgentdTaskOther,
   AgentdTaskOthersInput,
@@ -812,6 +815,8 @@ export const WS_METHODS = {
   agentdCloudKeyFileFix: "agentd.cloudKeyFileFix",
   agentdRepairServices: "agentd.repairServices",
   agentdTaskDefaults: "agentd.taskDefaults",
+  agentdGitIdentity: "agentd.gitIdentity",
+  agentdSetGitIdentity: "agentd.setGitIdentity",
   agentdTaskOthers: "agentd.taskOthers",
   agentdSubscribeTeamNode: "agentd.subscribeTeamNode",
   agentdSetTeamNode: "agentd.setTeamNode",
@@ -2634,6 +2639,18 @@ const WsAgentdTaskDefaultsRpc = Rpc.make(WS_METHODS.agentdTaskDefaults, {
   error: AgentdRpcError,
 });
 
+const WsAgentdGitIdentityRpc = Rpc.make(WS_METHODS.agentdGitIdentity, {
+  payload: AgentdGitIdentityInput,
+  success: AgentdGitIdentity,
+  error: AgentdRpcError,
+});
+
+const WsAgentdSetGitIdentityRpc = Rpc.make(WS_METHODS.agentdSetGitIdentity, {
+  payload: AgentdSetGitIdentityInput,
+  success: Schema.Struct({}),
+  error: AgentdRpcError,
+});
+
 const WsAgentdTaskOthersRpc = Rpc.make(WS_METHODS.agentdTaskOthers, {
   payload: AgentdTaskOthersInput,
   success: Schema.Array(AgentdTaskOther),
@@ -3108,6 +3125,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdCloudKeyFileFixRpc,
   WsAgentdRepairServicesRpc,
   WsAgentdTaskDefaultsRpc,
+  WsAgentdGitIdentityRpc,
+  WsAgentdSetGitIdentityRpc,
   WsAgentdTaskOthersRpc,
   WsAgentdSubscribeTeamNodeRpc,
   WsAgentdSetTeamNodeRpc,

@@ -66,6 +66,8 @@ const state = vi.hoisted(() => ({
   rowListeners: new Set<() => void>(),
   // The thread is a draft not yet on the server.
   draft: false,
+  identity: { name: "", email: "" },
+  setGitIdentity: vi.fn(),
 }));
 
 vi.mock("~/lib/agentdState", async () => {
@@ -78,6 +80,7 @@ vi.mock("~/lib/agentdState", async () => {
       retryStart: { permissionAtom: () => allowed },
       cloudConfigure: { permissionAtom: () => allowed, label: "cloud-configure" },
       cloudKeyFileFix: { permissionAtom: () => allowed },
+      setGitIdentity: { permissionAtom: () => allowed },
     },
     useAgentdStatus: () => ({
       data: {
@@ -87,6 +90,11 @@ vi.mock("~/lib/agentdState", async () => {
       },
     }),
     useAgentdTaskDefaults: () => ({ data: state.defaults }),
+    useAgentdGitIdentity: (cwd: string | null) => {
+      // A refresh reads the identity again, as the real query does.
+      const [, refresh] = useReducer((n: number) => n + 1, 0);
+      return { data: cwd === null ? null : state.identity, isPending: false, refresh };
+    },
     useAgentdCloudSetup: (cwd: string | null) => ({
       data: cwd && state.cloudError === null ? state.cloud : null,
       error: state.cloudError,
@@ -111,6 +119,7 @@ vi.mock("~/lib/agentdState", async () => {
     useAgentdCommands: () => ({
       cloudKeyFileFix: state.fixKeyFile,
       retryStart: state.retryStart,
+      setGitIdentity: state.setGitIdentity,
     }),
     useAgentdCloudAccount: () => ({
       data: state.cloud,
@@ -192,6 +201,8 @@ function setup(
   state.dollarBudgets = null;
   state.maxWorkers = null;
   state.draft = false;
+  state.identity = { name: "Ada Lovelace", email: "ada@example.com" };
+  state.setGitIdentity.mockReset();
   useComposerDraftStore.setState({ draftThreadsByThreadKey: {} });
   state.start.mockReset();
   state.retryStart.mockReset();
@@ -293,6 +304,38 @@ it("shows what is missing, displays a refusal in full, and opens the tasks pane 
       budget: "30m,$2",
       issue: null,
     },
+  });
+});
+
+it("asks for a missing Git name or email, sets them, then allows Start", async () => {
+  setup("feature/export", drafted);
+  state.identity = { name: "Ada Lovelace", email: "" };
+  state.setGitIdentity.mockImplementation(
+    async ({ input }: { input: { name: string; email: string } }) => {
+      state.identity = input;
+      return AsyncResult.success({});
+    },
+  );
+  await using _screen = await renderDialog();
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  await expect
+    .element(
+      page.getByText(
+        "Git has no name or email on this computer, so a worker can’t commit its work.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(page.getByText("Still needed: Git name and email")).toBeVisible();
+  await expect.element(start).toBeDisabled();
+  await expect.element(page.getByLabelText("Your name")).toHaveValue("Ada Lovelace");
+
+  await userEvent.fill(page.getByLabelText("Your email"), "ada@example.com");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.element(start).toBeEnabled();
+  await expect.element(page.getByLabelText("Your email")).not.toBeInTheDocument();
+  expect(state.setGitIdentity).toHaveBeenCalledExactlyOnceWith({
+    environmentId: thread.environmentId,
+    input: { name: "Ada Lovelace", email: "ada@example.com" },
   });
 });
 

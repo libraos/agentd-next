@@ -140,6 +140,7 @@ export function useAgentdCommands() {
     retryStart: useAtomCommand(agentdEnvironment.retryStart, { reportFailure: false }),
     stopTask: useAtomCommand(agentdEnvironment.stopTask),
     recheckTask: useAtomCommand(agentdEnvironment.recheckTask, { reportFailure: false }),
+    setGitIdentity: useAtomCommand(agentdEnvironment.setGitIdentity, { reportFailure: false }),
     connectAgent: useAtomCommand(agentdEnvironment.connectAgent),
     joinTeam: useAtomCommand(agentdEnvironment.joinTeam),
     setTeamNode: useAtomCommand(agentdEnvironment.setTeamNode),
@@ -255,6 +256,17 @@ export function useAgentdTaskDefaults(
     environmentId === null || cwd === null
       ? null
       : agentdEnvironment.taskDefaults({ environmentId, input: { cwd, size } }),
+    useMessages(),
+  );
+}
+
+/** The Git name and email a local worker's commits in cwd would carry. */
+export function useAgentdGitIdentity(cwd: string | null, target: EnvironmentId) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null || cwd === null
+      ? null
+      : agentdEnvironment.gitIdentity({ environmentId, input: { cwd } }),
     useMessages(),
   );
 }

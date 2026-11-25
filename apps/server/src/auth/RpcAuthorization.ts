@@ -255,6 +255,7 @@ export const RPC_REQUIRED_SCOPES = {
   // Fetches into temporary refs it deletes; the checkout's branch, index and files stay as they were.
   [WS_METHODS.agentdCloudReview]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdTaskDefaults]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentdGitIdentity]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdTaskOthers]: AuthOrchestrationReadScope,
   // Using the app declares the person busy, so the team server leases this node nothing.
   [WS_METHODS.agentdSubscribeTeamNode]: AuthOrchestrationReadScope,

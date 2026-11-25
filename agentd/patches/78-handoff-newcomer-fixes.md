@@ -1,5 +1,21 @@
 # #78: Hand-off fixes from the Windows newcomer test
 
+## 7. Git identity
+
+- `apps/server/src/agentd/AgentdBridge.ts` (ours): `gitIdentity` reads `git config --get user.name` and `user.email` in the task's folder; `setGitIdentity` writes them with `git config --global -- <key> <value>`. Both are argument lists through the process runner, whose resolver finds `git.exe` on Windows; no shell and no paths built by hand.
+- `packages/contracts/src/agentd.ts` (ours): the inputs and result; a name or email is one line of at most 200 characters.
+- `packages/contracts/src/rpc.ts` (upstream): the `agentd.gitIdentity` and `agentd.setGitIdentity` methods.
+- `packages/contracts/src/clientRpcPermissions.ts` (upstream): setting needs `environment:maintain`, as other edits to this host's config do.
+- `apps/server/src/auth/RpcAuthorization.ts` (upstream): reading needs `orchestration:read`, as the task defaults do.
+- `apps/server/src/ws.ts` (upstream): one handler line for each.
+- `apps/server/src/observability/RpcInstrumentation.ts` (upstream): their `agentd` group.
+- `packages/client-runtime/src/state/agentd.ts` (upstream): the query and the command.
+- `apps/web/src/lib/agentdState.ts` (ours): `useAgentdGitIdentity` and `setGitIdentity` in `useAgentdCommands`.
+- `apps/web/src/components/agentd/startTask.logic.ts`, `taskPlan.tsx` (ours): a missing name or email is a start problem of a local task, listed under Still needed; a cloud task commits as its own account and skips it.
+- `apps/web/src/components/agentd/GitIdentitySetup.tsx`, `StartTaskDialog.tsx` (ours): the dialog shows the two fields and Save, then reads the identity again. The task card in the chat says what is missing; its Edit opens the dialog.
+
+The Git commands are the same on Windows; it was not run there. The value is read in the task's folder, so a repository's own `user.name` counts, and saved globally, so it holds for every repository of the user the server runs as.
+
 ## 8. Findable
 
 - `apps/web/src/components/chat/ThreadDetailsAgentdWorkers.tsx` (ours): a lasting "Hand to a worker" row in the session panel's workers section opens the Hand to a worker dialog, shown only when the environment allows starting a task.
