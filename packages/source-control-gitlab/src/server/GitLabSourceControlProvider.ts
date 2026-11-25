@@ -12,6 +12,8 @@ import * as GitLabCli from "./GitLabCli.ts";
 import * as GitLabChangeRequestTemplate from "./gitLabChangeRequestTemplate.ts";
 import * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
 import * as SourceControlProvider from "@t3tools/source-control-core/server/SourceControlProvider";
+import { gitLabCliInstallHint } from "@t3tools/source-control-core/shared/installHints";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   combinedAuthOutput,
   firstSafeAuthLine,
@@ -162,9 +164,16 @@ export const discovery = {
   },
   parseAuth: parseGitLabAuth,
   refineUnknownRemote: refineUnknownGitLabRemote,
-  installHint:
-    "Install the GitLab command-line tool (`glab`) from https://gitlab.com/gitlab-org/cli or your package manager (for example `brew install glab`).",
+  installHint: gitLabCliInstallHint(HostProcess.Platform.defaultValue()),
 } satisfies SourceControlCliDiscoverySpec;
+
+export const makeDiscovery = Effect.map(
+  HostProcess.Platform,
+  (platform): SourceControlCliDiscoverySpec => ({
+    ...discovery,
+    installHint: gitLabCliInstallHint(platform),
+  }),
+);
 
 export const make = Effect.gen(function* () {
   const gitlab = yield* GitLabCli.GitLabCli;

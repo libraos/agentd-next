@@ -9,9 +9,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as HostProcess from "@t3tools/shared/HostProcess";
+import { jujutsuInstallHint } from "@t3tools/source-control-core/shared/installHints";
 
 import * as ServerConfig from "../config.ts";
-import { refreshPathFromLoginShell } from "../os-jank.ts";
+import { refreshPathFromLoginShell, refreshWindowsPath } from "../os-jank.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
 import {
   detailFromCause,
@@ -45,7 +47,7 @@ interface DiscoveryProbeResult<Kind extends string> {
   readonly detail: Option.Option<string>;
 }
 
-const VCS_PROBES: ReadonlyArray<VcsProbe> = [
+const vcsProbes = (platform: NodeJS.Platform): ReadonlyArray<VcsProbe> => [
   {
     kind: "git",
     label: "Git",
@@ -60,7 +62,7 @@ const VCS_PROBES: ReadonlyArray<VcsProbe> = [
     executable: "jj",
     versionArgs: ["--version"],
     implemented: false,
-    installHint: "Install Jujutsu with `brew install jj` or from https://github.com/jj-vcs/jj.",
+    installHint: jujutsuInstallHint(platform),
   },
 ];
 
@@ -77,10 +79,11 @@ export const make = Effect.gen(function* () {
   const process = yield* VcsProcess.VcsProcess;
   const sourceControlProviders = yield* SourceControlProviderRegistry.SourceControlProviderRegistry;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  // Discovery re-reads the login shell so a tool installed since launch
-  // resolves here and in every later spawn. Thread views, the palette and
-  // mobile also run discovery, so one interactive shell serves a short window.
-  const refreshPath = yield* refreshPathFromLoginShell().pipe(
+  const vcsProbeList = vcsProbes(yield* HostProcess.Platform);
+  // Discovery re-reads the login shell (or, on Windows, the registry PATH) so a
+  // tool installed since launch resolves here and in every later spawn. Thread
+  // views, the palette and mobile also run discovery, so one read serves a short window.
+  const refreshPath = yield* Effect.andThen(refreshPathFromLoginShell(), refreshWindowsPath()).pipe(
     Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
     Effect.cachedWithTTL(Duration.seconds(10)),
   );
@@ -140,7 +143,9 @@ export const make = Effect.gen(function* () {
       refreshPath,
       Effect.all({
         versionControlSystems: Effect.all(
-          VCS_PROBES.map((entry) => probe(entry)) as ReadonlyArray<Effect.Effect<VcsDiscoveryItem>>,
+          vcsProbeList.map((entry) => probe(entry)) as ReadonlyArray<
+            Effect.Effect<VcsDiscoveryItem>
+          >,
           { concurrency: "unbounded" },
         ),
         sourceControlProviders: sourceControlProviders.discover,
