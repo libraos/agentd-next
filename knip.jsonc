@@ -65,6 +65,8 @@
         "scripts/probe-claude-fork-local-rollback-replay.ts",
         "scripts/update-test-shard-weights.ts",
         "scripts/verify-background-live.ts",
+        // Run by scripts/check-plugin-manifest.ts through a computed import.
+        "scripts/check-plugin-manifest.ts",
         "src/provider/testFixtures/*.mjs",
         // graphqlgen reads its config.
         "graphql.config.ts",

@@ -213,7 +213,7 @@ describe("a manifest with MCP servers and settings", () => {
           args: ["mcp"],
           settings: {
             OUTREACH_URL: "outreach_url",
-            OUTREACH_API_KEY_FILE: { setting: "outreach_token", file: true },
+            OUTREACH_API_KEY_FILE: { setting: "outreach_token", file: true as const },
           },
         },
       },
