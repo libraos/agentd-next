@@ -468,6 +468,7 @@ import {
   AgentdPluginEnableInput,
   AgentdPluginError,
   AgentdPluginInput,
+  AgentdPluginSettingsInput,
   AgentdPluginRemoveInput,
   AgentdPlugins,
   AgentdPluginsListInput,
@@ -838,6 +839,7 @@ export const WS_METHODS = {
   agentdPluginsRemove: "agentd.pluginsRemove",
   agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
   agentdPluginsSetup: "agentd.pluginsSetup",
+  agentdPluginsSetSettings: "agentd.pluginsSetSettings",
   agentdBeforeSendReview: "agentd.beforeSendReview",
   agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
   agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
@@ -2781,6 +2783,13 @@ const WsAgentdPluginsSetupRpc = Rpc.make(WS_METHODS.agentdPluginsSetup, {
   error: AgentdPluginsRpcError,
 });
 
+/** Saves a plugin's settings; secret values go to the server's secret store, never to settings. */
+const WsAgentdPluginsSetSettingsRpc = Rpc.make(WS_METHODS.agentdPluginsSetSettings, {
+  payload: AgentdPluginSettingsInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
 const WsAgentdBeforeSendReviewRpc = Rpc.make(WS_METHODS.agentdBeforeSendReview, {
   payload: AgentdBeforeSendReviewInput,
   success: Schema.NullOr(AgentdBeforeSendReview),
@@ -3154,6 +3163,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdPluginsRemoveRpc,
   WsAgentdPluginsSetEnabledRpc,
   WsAgentdPluginsSetupRpc,
+  WsAgentdPluginsSetSettingsRpc,
   WsAgentdBeforeSendReviewRpc,
   WsAgentdBeforeSendConfirmRpc,
   WsAgentdBeforeSendDiscardRpc,
