@@ -377,8 +377,8 @@ const agentMcpCapabilities = (input: {
     ...(input.browser ? (["preview"] as const) : []),
     ...(input.device ? (["device"] as const) : []),
   ]);
-  // Waiting alone is no reason to give a session the server.
-  if (input.backgroundWait && capabilities.size > 0) capabilities.add("background-wait");
+  // background_wait is an orchestrator tool: with task tools off only preview and device are offered.
+  if (input.backgroundWait && input.taskTools) capabilities.add("background-wait");
   return capabilities;
 };
 
@@ -667,7 +667,8 @@ export const layerWithOptions = (
                     resolved.capabilities.has("orchestration") === taskTools &&
                     // A failed capability read cannot tell that the live credential is wrong.
                     (Option.isNone(backgroundWait) ||
-                      resolved.capabilities.has("background-wait") === backgroundWait.value) &&
+                      resolved.capabilities.has("background-wait") ===
+                        capabilities.has("background-wait")) &&
                     // A credential issued while the lineage read failed is replaced once it works.
                     (resolved.thread.subagent === true) === subagent
                   ) {
