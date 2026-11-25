@@ -625,13 +625,13 @@ export function AgentdBackgroundTaskRow(props: {
           {parkAction === "unpark" ? (
             <span className="wrap-anywhere">
               <span>
-                <T>Release this task in a LibraOS Core terminal.</T>
+                <T>Release this task in a LibraOS Engine terminal.</T>
               </span>{" "}
               <code>libraos-core handoff unpark {row.id}</code>
             </span>
           ) : parkAction === "approval" ? (
             <span>
-              <T>Check the LibraOS Core Inbox for a command approval.</T>
+              <T>Check the LibraOS Engine Inbox for a command approval.</T>
             </span>
           ) : null}
           {location === null || cloud || (queued && pickup) ? null : (

@@ -52,15 +52,15 @@ function useAgentdStateLabel(state: AgentdIndicatorState) {
   const gt = useGT();
   switch (state) {
     case "unknown":
-      return gt("LibraOS Core");
+      return gt("LibraOS Engine");
     case "not-installed":
-      return gt("LibraOS Core: not installed");
+      return gt("LibraOS Engine: not installed");
     case "not-set-up":
-      return gt("LibraOS Core: not set up");
+      return gt("LibraOS Engine: not set up");
     case "attention":
-      return gt("LibraOS Core: needs attention");
+      return gt("LibraOS Engine: needs attention");
     case "on":
-      return gt("LibraOS Core: on");
+      return gt("LibraOS Engine: on");
   }
 }
 
@@ -81,13 +81,13 @@ export function AgentdStatusLines({
   const worker = status?.defaultWorker ? TASK_WORKERS[status.defaultWorker] : null;
   const machine =
     state === "not-installed"
-      ? gt("LibraOS Core is not installed")
+      ? gt("LibraOS Engine is not installed")
       : state === "not-set-up"
         ? gt("not set up")
         : state === "attention"
           ? failing
             ? gt("check failing: {check}", { check: failing.detail ?? failing.id })
-            : gt("LibraOS Core did not answer")
+            : gt("LibraOS Engine did not answer")
           : state === "on"
             ? worker
               ? gt("set up, default worker {worker}", { worker })
@@ -173,7 +173,7 @@ export function AgentdIndicator() {
           <AgentdStatusLines environmentId={environmentId} state={state} status={status} />
           <div className="flex flex-wrap gap-2">
             <Button size="xs" variant="outline" render={<Link to="/agentd" />}>
-              <T>LibraOS Core page</T>
+              <T>LibraOS Engine page</T>
             </Button>
             <Button size="xs" variant="outline" render={<Link to="/settings/workers" />}>
               <T>Worker settings</T>

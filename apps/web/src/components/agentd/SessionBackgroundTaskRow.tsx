@@ -42,7 +42,7 @@ export function SessionBackgroundTaskRow(props: {
         <>
           <span className="font-medium text-foreground">
             {waitedOn.length > 0 ? (
-              <T>Waiting for a LibraOS Core worker</T>
+              <T>Waiting for a LibraOS Engine worker</T>
             ) : (
               <T $context="status of background work">Running</T>
             )}
@@ -67,7 +67,7 @@ export function SessionBackgroundTaskRow(props: {
         typeof row === "string" ? (
           <p key={row} className="text-muted-foreground">
             <T>
-              Waiting for LibraOS Core task <Var>{row}</Var>.
+              Waiting for LibraOS Engine task <Var>{row}</Var>.
             </T>
           </p>
         ) : (

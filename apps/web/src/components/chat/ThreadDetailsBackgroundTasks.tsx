@@ -195,9 +195,9 @@ export function ThreadDetailsBackgroundTasks({
         {failure !== null ? (
           <div className="px-2.5 text-xs text-muted-foreground">
             {failure._tag === "AgentdNotFoundError" ? (
-              <T>LibraOS Core was not found.</T>
+              <T>LibraOS Engine was not found.</T>
             ) : (
-              <T>LibraOS Core tasks are unavailable.</T>
+              <T>LibraOS Engine tasks are unavailable.</T>
             )}
           </div>
         ) : tasks !== null ? (

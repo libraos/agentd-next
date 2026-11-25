@@ -457,11 +457,11 @@ it("shows Core's park reason in Waiting and explicitly force-starts the task", a
 });
 
 it.each([
-  ["budget: worker spent its budget", "unpark", "Release this task in a LibraOS Core terminal."],
+  ["budget: worker spent its budget", "unpark", "Release this task in a LibraOS Engine terminal."],
   [
     "repository command: setup requires approval",
     "approval",
-    "Check the LibraOS Core Inbox for a command approval.",
+    "Check the LibraOS Engine Inbox for a command approval.",
   ],
 ] as const)("shows the required next step for %s", async (reason, parkAction, nextStep) => {
   const parked = setupQueuedTasks();

@@ -1811,7 +1811,7 @@ function OpenCommandPaletteDialog(props: {
     kind: "action",
     value: "action:agentd",
     searchTerms: ["agentd", "status", "workers", "team", "nodes", "approvals", "inbox"],
-    title: gt("Open LibraOS Core"),
+    title: gt("Open LibraOS Engine"),
     icon: <ActivityIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       await navigate({ to: "/agentd" });

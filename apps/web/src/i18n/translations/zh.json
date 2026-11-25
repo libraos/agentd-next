@@ -1817,7 +1817,7 @@
   "57e875b79b98ab82": "打开 issue",
   "6d5d817b4e396ebf": "在其他应用中使用 LibraOS Next（MCP）",
   "a0cc19e60dd99851": "打开用量",
-  "437339361f0a6cb8": "打开 LibraOS Core",
+  "49e1474cc59d5947": "打开 LibraOS Engine",
   "46694969044eee98": "聚焦下一个工作区区域",
   "0a1011328ba42eef": "聚焦上一个工作区区域",
   "90896a7348c4e7ce": "打开设置",
@@ -3232,15 +3232,15 @@
     }
   ],
   "7ecfd641e85ffecf": "正在加载任务详情…",
-  "2ba8b47ae9aea162": "LibraOS Core",
-  "e0ceaf47e36fed56": "LibraOS Core：未安装",
-  "f292bfb82471ebc0": "LibraOS Core：未设置",
-  "5c37528860d76f8d": "LibraOS Core：需要处理",
-  "19ff3ca251ce862d": "LibraOS Core：已开启",
-  "4eff183421cc38a2": "未安装 LibraOS Core",
+  "5f26a4bf3350c7ad": "LibraOS Engine",
+  "37f5c126bb6919f1": "LibraOS Engine：未安装",
+  "3b21a5ebb7205d51": "LibraOS Engine：未设置",
+  "d44676dcadbcce58": "LibraOS Engine：需要处理",
+  "44b78f550aac1c57": "LibraOS Engine：已开启",
+  "7b5e0c21056bf07e": "未安装 LibraOS Engine",
   "4cb776fd3f81d172": "未设置",
   "43aaface25ccfdb5": "检查未通过：{check}",
-  "e319db21362a9533": "LibraOS Core 没有响应",
+  "e2503265b33ce5b1": "LibraOS Engine 没有响应",
   "79df225e749aac47": "已设置，默认 worker 为 {worker}",
   "7645bf73c388b4de": "已设置",
   "b4bbe3036cb3f7ea": "正在检查…",
@@ -3250,19 +3250,19 @@
   "b29e1856c4aab31f": "本机",
   "e9530c0bbdc98bd2": "LibraOS 账户",
   "7f4fd9697b70d2ad": "关联账户",
-  "3e7eb9bf932c2717": "LibraOS Core 页面",
+  "c3727a4e60abc199": "LibraOS Engine 页面",
   "19ccb9ca234d58ce": "Worker 设置",
-  "8df7c40114dcf03c": "无法开启 LibraOS Core 的 watchdog 定时器。请再次尝试修复，或在终端中运行 systemctl --user enable --now agentd-watchdog.timer。",
-  "7687c6733ca04dfc": "LibraOS Core 的后台服务运行的是已缺失或属于旧版 AgentD Desktop 的 LibraOS Core，且未能改用此应用的 LibraOS Core。请在终端中运行 libraos-core install。",
+  "a4976c03176917b0": "无法开启 LibraOS Engine 的 watchdog 定时器。请再次尝试修复，或在终端中运行 systemctl --user enable --now agentd-watchdog.timer。",
+  "00f2bb125bfc3c7c": "LibraOS Engine 的后台服务运行的是已缺失或属于旧版 AgentD Desktop 的 LibraOS Engine，且未能改用此应用的 LibraOS Engine。请在终端中运行 libraos-core install。",
   "8b9fa521cecb4f8d": "使用",
   "803dbf99343f4441": "已为终端安装",
-  "fe009c2d50ed1e42": [
+  "6c7cdcea63e2481b": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    "（你自己的 LibraOS Core，已保留）"
+    "（你自己的 LibraOS Engine，已保留）"
   ],
   "dfc8bb891b63700d": [
     {
@@ -3274,8 +3274,8 @@
   ],
   "554083053b890173": "要在终端里运行 libraos-core，请把这一行加到你的 shell 配置文件：",
   "a28dff6e4d10f8e1": "知道了",
-  "9cb48f8db1cc9633": [
-    "LibraOS Core 的 watchdog 服务运行的是 ",
+  "094f3ee9de349a48": [
+    "LibraOS Engine 的 watchdog 服务运行的是 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3283,8 +3283,8 @@
     },
     "，它已缺失或属于旧版 AgentD Desktop。"
   ],
-  "aba21d387a74cfbb": [
-    "LibraOS Core 的仪表板服务运行的是 ",
+  "fca97f2a98a5cdd5": [
+    "LibraOS Engine 的仪表板服务运行的是 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3292,61 +3292,61 @@
     },
     "，它已缺失或属于旧版 AgentD Desktop。"
   ],
-  "c485394d478afc92": "LibraOS Core 的 watchdog 服务运行的是此应用的 LibraOS Core，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Core 不会跟进你的任务。修复会将其开启。",
-  "9178fc20517ef8d0": "LibraOS Core 的 watchdog 服务运行的是此应用的 LibraOS Core，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Core 不会跟进你的任务。请在那台机器的终端中运行 libraos-core install，然后运行 systemctl --user daemon-reload 和 systemctl --user enable --now agentd-watchdog.timer。",
-  "9658a992d66d175e": "LibraOS Core 无法读取其某个后台服务的注册信息，而 libraos-core install 也会重写它，因此不提供修复。请稍后重试，或在终端中用你使用的 LibraOS Core 运行 libraos-core install。",
-  "b73aa16db5859b62": "systemd drop-in 设置了此服务运行的程序，而 libraos-core install 不会修改 drop-in，因此不为它提供修复。请从 ~/.config/systemd/user 中的 drop-in 删除 ExecStart 行，并运行 systemctl --user daemon-reload。然后在使用你的 LibraOS Core 的终端中，为 watchdog 运行 libraos-core install，为仪表板运行 libraos-core dash install。",
-  "75910d787dd6e009": "LibraOS Core 的一个后台服务运行的 LibraOS Core 已缺失或属于旧版 AgentD Desktop，另一个运行的是你自己的 LibraOS Core。此应用未改动两者：请用你使用的 LibraOS Core 运行 libraos-core install。它会用运行处设置的 AGENTD_ROOT 和 AGENTD_DB 重写两个服务；如果仪表板使用自己的设置，之后请用这些设置运行 libraos-core dash install。",
-  "4ba0cc4eae170aec": "LibraOS Core 的后台服务运行的 LibraOS Core 已不存在或属于旧版 AgentD Desktop。此应用的 LibraOS Core 会在应用关闭后消失，因此未做更改：请为终端安装 libraos-core，然后运行 libraos-core install。",
-  "967a0e2c2ff33b76": "LibraOS Core 的后台服务尚未运行此应用的 LibraOS Core：在旧的 LibraOS Core 服务开启期间，LibraOS Core 不会启动它们。请在终端中运行此命令，然后运行 libraos-core install。",
+  "65d1c3a386ae0b34": "LibraOS Engine 的 watchdog 服务运行的是此应用的 LibraOS Engine，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Engine 不会跟进你的任务。修复会将其开启。",
+  "0f140b58c1bbefd9": "LibraOS Engine 的 watchdog 服务运行的是此应用的 LibraOS Engine，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Engine 不会跟进你的任务。请在那台机器的终端中运行 libraos-core install，然后运行 systemctl --user daemon-reload 和 systemctl --user enable --now agentd-watchdog.timer。",
+  "90dd0b6ef9d47da4": "LibraOS Engine 无法读取其某个后台服务的注册信息，而 libraos-core install 也会重写它，因此不提供修复。请稍后重试，或在终端中用你使用的 LibraOS Engine 运行 libraos-core install。",
+  "ddcbe003f43af198": "systemd drop-in 设置了此服务运行的程序，而 libraos-core install 不会修改 drop-in，因此不为它提供修复。请从 ~/.config/systemd/user 中的 drop-in 删除 ExecStart 行，并运行 systemctl --user daemon-reload。然后在使用你的 LibraOS Engine 的终端中，为 watchdog 运行 libraos-core install，为仪表板运行 libraos-core dash install。",
+  "9195bc6035a7d07e": "LibraOS Engine 的一个后台服务运行的 LibraOS Engine 已缺失或属于旧版 AgentD Desktop，另一个运行的是你自己的 LibraOS Engine。此应用未改动两者：请用你使用的 LibraOS Engine 运行 libraos-core install。它会用运行处设置的 AGENTD_ROOT 和 AGENTD_DB 重写两个服务；如果仪表板使用自己的设置，之后请用这些设置运行 libraos-core dash install。",
+  "818f6b0d2a690d99": "LibraOS Engine 的后台服务运行的 LibraOS Engine 已不存在或属于旧版 AgentD Desktop。此应用的 LibraOS Engine 会在应用关闭后消失，因此未做更改：请为终端安装 libraos-core，然后运行 libraos-core install。",
+  "9741a6983e9b55d7": "LibraOS Engine 的后台服务尚未运行此应用的 LibraOS Engine：在旧的 LibraOS Engine 服务开启期间，LibraOS Engine 不会启动它们。请在终端中运行此命令，然后运行 libraos-core install。",
   "ef7c30f129576625": "正在修复…",
   "afb4c74d1cc655a7": "修复…",
-  "d74a7c29542d8618": "修复 LibraOS Core 的后台服务？",
-  "9523284bd633ba32": [
-    "这会用此应用的 LibraOS Core（",
+  "c0a8577f50d53061": "修复 LibraOS Engine 的后台服务？",
+  "e177e357d67452a8": [
+    "这会用此应用的 LibraOS Engine（",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    "）运行 libraos-core install，在 Linux 上还会运行 libraos-core dash install。它会用此应用的 LibraOS Core 和此应用使用的根目录重新注册仪表板和 watchdog；它们当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
+    "）运行 libraos-core install，在 Linux 上还会运行 libraos-core dash install。它会用此应用的 LibraOS Engine 和此应用使用的根目录重新注册仪表板和 watchdog；它们当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
   ],
-  "a3071fd3287604cd": [
-    "这会从此应用的 LibraOS Core（",
+  "9c098d477f22ab56": [
+    "这会从此应用的 LibraOS Engine（",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    "）运行 libraos-core dash install。它会用此应用的 LibraOS Core 和此应用使用的根目录重新注册仪表盘；它当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
+    "）运行 libraos-core dash install。它会用此应用的 LibraOS Engine 和此应用使用的根目录重新注册仪表盘；它当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
   ],
-  "bc831480a29e0c33": [
-    "这会从此应用的 LibraOS Core（",
+  "44ba7267fcf4eed8": [
+    "这会从此应用的 LibraOS Engine（",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    "）运行 libraos-core install。它会用此应用的 LibraOS Core 和此应用使用的根目录重新注册 watchdog；它当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
+    "）运行 libraos-core install。它会用此应用的 LibraOS Engine 和此应用使用的根目录重新注册 watchdog；它当前设置的 AGENTD_ROOT 或 AGENTD_DB 不会保留。"
   ],
   "97848e9a3bfa3bf6": "修复",
-  "a6525c6f1285dcf7": "LibraOS Core",
+  "abeaffff3328cca8": "LibraOS Engine",
   "893bb44a7b9c9094": "刷新",
   "57af791aca31d90a": "后台任务",
-  "64f174e1ce57ae01": "返回 LibraOS Core",
+  "85087e9a360819a2": "返回 LibraOS Engine",
   "2135340dc4b4c504": "打开一个会话，即可在“后台任务”中查看此任务。",
   "204167c06dc9fb6e": "状态",
   "9b5bce65d53a1bd8": "未连接任何环境。",
-  "7413a6e5c0601f38": "查看 LibraOS Core 状态需要此环境的读取权限。",
-  "4f3f0c29c58819fc": "未找到 LibraOS Core",
-  "55cf3ae17202ed32": "LibraOS Next 自带的 LibraOS Core 无法运行。请重新安装 LibraOS Next 以恢复它。",
-  "3d333f9ff5843f5f": [
+  "9dbad11980632c3f": "查看 LibraOS Engine 状态需要此环境的读取权限。",
+  "38a3b120dbb9f25e": "未找到 LibraOS Engine",
+  "de14c8a2c6d05a44": "LibraOS Next 自带的 LibraOS Engine 无法运行。请重新安装 LibraOS Next 以恢复它。",
+  "7aaf8b276311c2f8": [
     "请按照",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "LibraOS Core 安装指南"
+      "c": "LibraOS Engine 安装指南"
     },
     "操作，然后确保该二进制文件位于此环境的 ",
     {
@@ -3360,9 +3360,9 @@
   "1b7c524fccf06537": "需要你处理",
   "db2fec7c6c08a6b4": "Worker",
   "8921053c4410665e": "云端 Worker",
-  "d77e5b9351c9bbbe": "无法连接 LibraOS Core。",
+  "92678e9a617583b6": "无法连接 LibraOS Engine。",
   "9bbecec926c3b695": "重试",
-  "3ba929d0a5a1cbb6": "这个版本的 LibraOS Core 没有 Cloud Workers。",
+  "b60cef907e2250df": "这个版本的 LibraOS Engine 没有 Cloud Workers。",
   "1df964aa41b32b25": "这台机器上还没有设置 Cloud Workers。",
   "e959699c0a2955e1": [
     "可用 LibraOS 额度：",
@@ -3394,11 +3394,11 @@
   "625c0b967ddc8ae6": "它的数据文件夹里是设置下载的内容。保留它，重新安装后设置会更快；删除它可释放磁盘空间。",
   "776cd21cbf3bbb48": "移除，保留数据",
   "b0e36fd2b8644e96": "移除并删除数据",
-  "641e951923be2a64": "无法读取 LibraOS Core",
+  "ee5915052adddc3d": "无法读取 LibraOS Engine",
   "5a0125dd9241cdec": "加载中…",
   "7fec02fafc537109": "检查通过",
   "1c83f2488ecfb7e2": "检查未通过",
-  "e1b789fb7a369ca1": "LibraOS Core 尚未设置",
+  "bb8ff647af64d83a": "LibraOS Engine 尚未设置",
   "a52fc03de96f83d9": [
     "请在此环境中运行 ",
     {
@@ -3408,7 +3408,7 @@
     },
     "。"
   ],
-  "9d26e899373974f8": "设置 LibraOS Core",
+  "bbf0dcbf0d35994e": "设置 LibraOS Engine",
   "aeb3e97bdc42aa73": "团队",
   "a804d8c3337bb790": "未加入",
   "6fb067a018b056c6": "加入团队",
@@ -3424,19 +3424,19 @@
   "5b2287f7b10cfa2f": "离线",
   "ff7073d416e5882b": "未报告任务。",
   "5d4dbe8e9827c146": "未报告活跃的 Worker 或团队节点。",
-  "b320696175a79b7e": "LibraOS Core 无法启动 libraos-core init。",
+  "857a7d7ceabc1aa1": "LibraOS Engine 无法启动 libraos-core init。",
   "b4622b73be88c45e": "libraos-core init 提出了一个本应用不回答的问题，所以已停止。请在终端里运行 libraos-core init 来回答它。",
   "7c4a8fcdc54077d3": "libraos-core init 运行超过 10 分钟，已停止。",
   "72c7dc3ecb235767": "libraos-core init 无法启动。",
   "a41023341e916cbe": "libraos-core init 没有完成（退出码 {code}）。它的输出见上方。",
-  "0e63b4f672ac0575": "LibraOS Core 最终用户协议",
+  "d0023a6da6ea92fd": "LibraOS Engine 最终用户协议",
   "4ff72c2acc7f6656": "加载中…",
   "e90b713baeb7fdb3": "libraos-core init 输出",
   "1aee152c97637276": "正在启动 libraos-core init…",
-  "ad9ce2b63c71fa38": "LibraOS Core 已设置好",
+  "e9331ab0d7f58665": "LibraOS Engine 已设置好",
   "037d1ca06ee913e4": "关联你的 LibraOS 账户",
   "fbfe0670ec81534a": "正在检查你的 LibraOS 账户…",
-  "201173b036b612da": "此版本的 LibraOS Core 无法接收你对后台 worker 的选择，因此它们会先询问。请查看 设置 → Workers。",
+  "c010d6649a007125": "此版本的 LibraOS Engine 无法接收你对后台 worker 的选择，因此它们会先询问。请查看 设置 → Workers。",
   "e2db77e5b9643175": "可选：关联你的 LibraOS 账户，即可在 Cloud Workers 上运行任务。",
   "fb4516dffeebe159": "完成",
   "025538a612b475ea": "跳过",
@@ -3454,8 +3454,8 @@
     "）"
   ],
   "dbea145f2ae126eb": "阅读协议",
-  "ab22fa6906858a3e": [
-    "无法从 LibraOS Core 读取协议：",
+  "29a927e4a4af8aaf": [
+    "无法从 LibraOS Engine 读取协议：",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3471,8 +3471,8 @@
     },
     " 查看。"
   ],
-  "e2e4d0b81a641217": [
-    "点击“接受”即表示你接受 LibraOS Core 最终用户协议，并在此环境上运行",
+  "586f4d597054038b": [
+    "点击“接受”即表示你接受 LibraOS Engine 最终用户协议，并在此环境上运行",
     " ",
     {
       "t": "code",
@@ -3481,8 +3481,8 @@
     },
     "。"
   ],
-  "fc7d6aab88e9d49a": "这个连接无法在此环境上设置 LibraOS Core。",
-  "d8c83e9f8d04bb7b": "正在设置 LibraOS Core…",
+  "4612e959c2a469cd": "这个连接无法在此环境上设置 LibraOS Engine。",
+  "79021da5292c39c3": "正在设置 LibraOS Engine…",
   "f5490c74c8cd89cd": "libraos-core init 已停止",
   "21d0ab2cb7685f9c": "暂不",
   "8ea6026d5157e5e2": "设置中…",
@@ -3499,7 +3499,7 @@
   "5b56b7c5d024d2f2": "正在加载输出…",
   "fc6012fd5e61997a": "暂无输出。",
   "346e42415ac6d374": "更早的输出未显示",
-  "ab8abca7f3ef0096": "LibraOS Core 无法更改团队工作。",
+  "8b714c78c6b56338": "LibraOS Engine 无法更改团队工作。",
   "2443192ab5658745": "没有已安装的 agent",
   "30369af9f0646a93": "选择",
   "ff1728d6a7065373": "运行中",
@@ -3509,7 +3509,7 @@
   "9fd8bf4b7e928172": "开启后，在你没有使用应用时，团队服务器可以给这个环境分配任务。agent 会在该文件夹的新分支上工作并推送。",
   "066217798e6896ad": "智能体",
   "bfd26c6102d0b50b": "项目文件夹",
-  "1c191a52c2f9f971": "Worker ticket（仅在 LibraOS Core 要求时填写）",
+  "8ebbe48522c87a29": "Worker ticket（仅在 LibraOS Engine 要求时填写）",
   "24967071e70d3647": "团队工作",
   "4f8d75498480050f": "这个连接无法更改团队工作。",
   "518e22e50abc9e46": "试试 worker",
@@ -3555,19 +3555,19 @@
     }
   ],
   "bf2a9ad2aa1b287b": "没有已完成的任务。",
-  "91c0a885f98dca51": [
-    "在此环境中未找到 LibraOS Core。请按照",
+  "6c3604d1e1a4eee6": [
+    "在此环境中未找到 LibraOS Engine。请按照",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "LibraOS Core 安装指南"
+      "c": "LibraOS Engine 安装指南"
     },
     " ",
     "操作，并确保该二进制文件位于服务器的路径中。"
   ],
-  "61472fbfd766269c": [
-    "LibraOS Core 已安装但尚未设置。请在服务器上运行 ",
+  "f4c7da7ec294a379": [
+    "LibraOS Engine 已安装但尚未设置。请在服务器上运行 ",
     {
       "t": "code",
       "i": 1,
@@ -3575,8 +3575,8 @@
     },
     " 进行设置。"
   ],
-  "2478c38366ce25e2": [
-    "无法加载 LibraOS Core 任务：",
+  "61a4727dbde9c3e6": [
+    "无法加载 LibraOS Engine 任务：",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3585,8 +3585,8 @@
   ],
   "8fcfbf58679817e7": "正在加载后台任务…",
   "3ed9449038f86fe1": "没有后台任务",
-  "b594324803fe0e40": "此环境中无法使用 LibraOS Core 任务。",
-  "0ec4ca07c68bdfc2": "没有 LibraOS Core 任务。",
+  "b28993a55d9ff8a3": "此环境中无法使用 LibraOS Engine 任务。",
+  "2a7bf85d9caf94ef": "没有 LibraOS Engine 任务。",
   "d6433c8ffd2cd20d": "发送前已检查",
   "65af218e3466e202": "{names} 会在发送前检查每条消息。",
   "57dbcc229103c3f4": "消息未发送。",
@@ -3600,7 +3600,7 @@
   "2e0904a66ca09471": "你的原始消息",
   "5b30ae788fdc4fd0": "正在发送…",
   "653405e4ed498d9f": "发送",
-  "095e2a7965338fb5": "LibraOS Core 无法启动该任务。",
+  "469091100b81efc0": "LibraOS Engine 无法启动该任务。",
   "915c8a1b47d2c43e": "另一个任务“{goal}”({taskId})已占用此文件夹。",
   "b9ea4a0a3fe98599": "另一个任务 {taskId} 已占用此文件夹。",
   "f6d2b8c94d5046e6": "它的 worker 仍在运行,因此无法在此释放。“仍然开始”会在此文件夹中同时运行两个任务。",
@@ -3624,11 +3624,11 @@
     }
   ],
   "efa55bbb1d3aa45e": "查看更改",
-  "09923deab695aa51": "LibraOS Core 无法设置 Cloud Workers。",
+  "159e6e46e277ba9c": "LibraOS Engine 无法设置 Cloud Workers。",
   "1cdcb8450d2249b5": "在 LibraOS Console 中打开 Cloud Workers 设置",
   "1b459a8c87861ade": "在 LibraOS Console 中创建 key",
-  "0e21472257e0f9e5": "要在这里设置 Cloud Workers，需要先升级 LibraOS Core。运行下面的命令，然后重新打开此页面：",
-  "4e0cb286dce5897b": "LibraOS Core 没有说明会把账户密钥发送到哪里，因此这里不会要求输入密钥。",
+  "4e9d356a897c8ccf": "要在这里设置 Cloud Workers，需要先升级 LibraOS Engine。运行下面的命令，然后重新打开此页面：",
+  "ad4a60d4f1127836": "LibraOS Engine 没有说明会把账户密钥发送到哪里，因此这里不会要求输入密钥。",
   "d4303d9c68fbd944": "这个连接无法设置 Cloud Workers。",
   "ea576c20385d20ea": "设置 Cloud Workers",
   "c0cc5c88f4caee14": "在 LibraOS Console 中创建一个 Cloud Workers 账号 key。",
@@ -3641,8 +3641,8 @@
     },
     " 上 Job API 的人员获取账户密钥。LibraOS Console 的密钥在那里无法使用。"
   ],
-  "21ac73017af456a4": [
-    "在此粘贴密钥。LibraOS Core 会把它发送到 ",
+  "b61fb07e0f2ca657": [
+    "在此粘贴密钥。LibraOS Engine 会把它发送到 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3665,11 +3665,11 @@
   "f1276edb3a3928b3": "由代理在导入的会话中生成。这些值描述的是那个会话，而不是当前会话。",
   "5771ed9dc77641e2": "高亮的值在此处已还原显示。智能体只看到了占位符。",
   "668e353261860b41": "后台任务",
-  "d8c76ce5ec0d17bf": "正在等待 LibraOS Core worker",
+  "8e47a67e3d028872": "正在等待 LibraOS Engine worker",
   "8e7bdb314813b183": "运行中",
   "2132a271f96567bb": "此会话",
-  "3a14bb585ff3d1b4": [
-    "正在等待 LibraOS Core 任务 ",
+  "b6cbdac9a756d17d": [
+    "正在等待 LibraOS Engine 任务 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3690,13 +3690,13 @@
   "ddd1940b8d6bbdd7": "你的订阅",
   "2582796b9cd929a5": "Claude（Claude Code）",
   "bb58748e4b230007": "ChatGPT（Codex）",
-  "f9fefcbe33b1eb93": "ChatGPT（Codex）：需要更新版本的 LibraOS Core",
+  "0ea88f03b9a32fd9": "ChatGPT（Codex）：需要更新版本的 LibraOS Engine",
   "5a34ca16d3ffeb8f": "在远程云端机器上运行，并使用它的资源。",
   "1b20197d1f4264ba": "在这台电脑上运行，并使用它的资源。",
   "0606bddb2fb895bd": "在云端运行",
   "497643a79f9c7456": "无法读取此检出的 origin。请重试，或关闭“在云端运行”以在此处运行此任务。",
   "6726fb80ed5fc0dd": "无法读取此检出的 origin。",
-  "7264d8b90232ea00": "无法连接 LibraOS Core。请重试，或关闭“在云端运行”以在此处运行此任务。",
+  "b0d1b4552be2c677": "无法连接 LibraOS Engine。请重试，或关闭“在云端运行”以在此处运行此任务。",
   "e2f5cc2eeccfc92b": "Cloud Workers 要求 checkout 的 origin 是 GitHub 仓库。",
   "16c7fc3b7eaea196": [
     "云端仓库：",
@@ -3717,7 +3717,7 @@
   "8f3320315e697b15": "时间限制，分钟（可选）",
   "4952a48d2f114ac9": "请输入一个正数的金额上限；如需时间限制，也请输入正数。",
   "168a996246dfcd04": "模型访问",
-  "66e6169f3f277e19": "你的订阅（需要 LibraOS Core v0.1.14 或更高版本）",
+  "30d3200a10b522ac": "你的订阅（需要 LibraOS Engine v0.1.14 或更高版本）",
   "75a0a0ea5970711f": "你的订阅",
   "2ae0b42ad8251297": "Worker 时间和推理都计入 LibraOS 额度。",
   "0d575788064a43d5": "请至少填写一个此环境所在机器上的 key 文件绝对路径。不要粘贴 API key 本身。",
@@ -3756,22 +3756,22 @@
     "。请检查路径，并确认你的账户可以读取该文件。"
   ],
   "cbc2d86edf351bfc": "无法检查此密钥文件。",
-  "5b88580b8185a035": "此连接无法读取此环境所在机器上的文件，因此 LibraOS Core 会在启动时检查密钥文件。",
+  "8de8789e201f95a9": "此连接无法读取此环境所在机器上的文件，因此 LibraOS Engine 会在启动时检查密钥文件。",
   "8590981f396d633b": "正在检查此密钥文件…",
   "0faf657712a9d10a": "套餐",
-  "5b311fe764356c4e": "需要更新版本的 LibraOS Core。运行 libraos-core upgrade 后即可使用你的 ChatGPT 套餐。",
-  "6fb9e6f99d127e8b": "需要更新版本的 LibraOS Core。运行 libraos-core upgrade 后即可使用你的 Claude 套餐。",
-  "4542e41e4362f1a0": "在 Windows 上暂时无法从本应用设置订阅：LibraOS Core 在那里无法确保登录文件是私有的。",
-  "6b2486d310b10e97": "LibraOS Core 无法使用你的 ChatGPT 登录。请在终端里重新登录：",
+  "898a7f1458bc89be": "需要更新版本的 LibraOS Engine。运行 libraos-core upgrade 后即可使用你的 ChatGPT 套餐。",
+  "5a4099c4aa86d0ee": "需要更新版本的 LibraOS Engine。运行 libraos-core upgrade 后即可使用你的 Claude 套餐。",
+  "2f0f13a3d4ae6ec1": "在 Windows 上暂时无法从本应用设置订阅：LibraOS Engine 在那里无法确保登录文件是私有的。",
+  "26d7ef6f29db2664": "LibraOS Engine 无法使用你的 ChatGPT 登录。请在终端里重新登录：",
   "75191ad4c65ff49d": "你的 ChatGPT 套餐还没有为 Cloud Workers 设置。请在终端里登录：",
   "6f96d6861970cb51": "你的 Claude token 缺失、已过期或无效。请在终端里生成一个新的：",
   "7921f79830f7d147": "你的 Claude 套餐还没有为 Cloud Workers 设置。请在终端里生成 token：",
   "3d8d370fe93778f6": "然后在下方输入该机器上 Codex 的 auth.json 的绝对路径（位于其主目录的 .codex 文件夹中，或在 CODEX_HOME 中），或者用 libraos-core config set cloud.codex_auth_file PATH 设置一次。在终端中运行 libraos-core config set，然后重新打开此对话框。",
   "f5e9a5f279078deb": "把 token 单独保存到一个私有文件中（chmod 600），然后在下面填写它的路径，或者用 libraos-core config set cloud.claude_token_file PATH 设置一次。保存好后回到此对话框。",
-  "f9fff7a3c8114822": "正在使用 LibraOS Core 已设置的 ChatGPT 登录。",
-  "82573b2994c6e1b1": "正在使用 LibraOS Core 已设置的 Claude token。",
-  "dffd6aaef0c65a46": [
-    "正在使用 LibraOS Core 已设置的 Claude token。它大约在",
+  "4b742852be38a66d": "正在使用 LibraOS Engine 已设置的 ChatGPT 登录。",
+  "2b045afc9619520f": "正在使用 LibraOS Engine 已设置的 Claude token。",
+  "7fca411450cf946c": [
+    "正在使用 LibraOS Engine 已设置的 Claude token。它大约在",
     " ",
     {
       "i": 1,
@@ -3793,11 +3793,11 @@
   "3393b275f19c6391": "请输入检查命令。",
   "fa2b5561ac2176d1": "请输入不以短横线开头且不含 NUL 字符的检查命令。",
   "ec2fce5d7b1b6db5": "请输入正数预算，例如 30m、$2 或 30m,$2。",
-  "fa356e2eaa068b19": "无美元上限：此机器上的 LibraOS Core 没有模型价格。",
+  "615bec90299efcf1": "无美元上限：此机器上的 LibraOS Engine 没有模型价格。",
   "de894e40af577557": "最多使用 {limit} 条验收标准，每行一条，不要带前导短横线或 NUL 字符。",
   "de780c2046b3f051": "请使用 OWNER/REPO#123 格式。",
-  "36baee65e93f2ed8": "LibraOS Core 尚未确认你在此项目上的上一次云端提交，它可能仍会启动。要用这次替换吗？如果上一次已启动，这次不会发送。",
-  "f65889e4ca20133a": "LibraOS Core 未派发该任务。",
+  "a706d9f544b72a6c": "LibraOS Engine 尚未确认你在此项目上的上一次云端提交，它可能仍会启动。要用这次替换吗？如果上一次已启动，这次不会发送。",
+  "7de89075088a48aa": "LibraOS Engine 未派发该任务。",
   "06077698ed64f5df": "已启动任务 {taskId}。",
   "27c99031d8a1610a": "此会话的 Agent 没有返回可用的草稿。你仍可手动填写表单。",
   "8f660e6463ebada2": "目标",
@@ -3810,7 +3810,7 @@
   "fe8a0b7a0c5d9c6f": "预算",
   "e73e1115fbe0de91": "工作目录",
   "72985eae43f9def3": "Issue（可选）",
-  "5ba147cd9577f308": "LibraOS Core 已保存任务 {taskId}，但它没有在 Cloud Workers 中启动。请先在 Background tasks 中查看进展，再重试。",
+  "15ce110ff68c2ef2": "LibraOS Engine 已保存任务 {taskId}，但它没有在 Cloud Workers 中启动。请先在 Background tasks 中查看进展，再重试。",
   "4d4ec2226fc46ee3": "任务 {taskId} 已提交，但未能启动。",
   "6a06a09e3a1f8f65": "无法更改该文件的权限。",
   "b2d4a97a97c93f80": "请在使用你的账户启动 Worker 之前，先审阅任务及其预算。",
@@ -3818,7 +3818,7 @@
   "99ea3181ff9ebe91": "根据此对话起草",
   "b98c20b1d8015a9d": "隐藏详情",
   "f5b66c481aa3e4df": "编辑",
-  "3c3aeaf73e165d00": "此连接无法启动 LibraOS Core 任务。",
+  "35ec983572b22590": "此连接无法启动 LibraOS Engine 任务。",
   "b7088cd1c566d9c9": "替换",
   "28eb5c34fe18cd54": "不替换",
   "cddd25f1fe0c5855": "正在检查之前的提交…",
@@ -3838,13 +3838,13 @@
   "25a62c0f3cb82bf9": "选择智能体",
   "183773bf44797c48": "一个账户同时用于模型（LibraOS Gateway）和在云端运行的 worker（Cloud Workers）。由 LibraOS 计费。",
   "dc753003eb5141eb": "Gateway 已连接",
-  "50154ef20a971c90": "Cloud Workers：设置 LibraOS Core 后即可使用",
+  "6dd4778f828e3cb2": "Cloud Workers：设置 LibraOS Engine 后即可使用",
   "7f34e079a903f364": "Gateway 设置",
   "d84fb11c1a2470d4": "使用 LibraOS 账户",
   "dd396607cc1fad96": "两者可以同时使用，之后也可以在设置中更改。",
   "1420f8f5fbf90c81": "Worker 网关",
   "325e186bb43a24cc": "{name} 自己的登录",
-  "423fba90cbe2fd93": "LibraOS Core 没有更改该设置。",
+  "49e8eb3d408b3484": "LibraOS Engine 没有更改该设置。",
   "d12615cd4265bb4f": "该网关没有可用的模型。",
   "eee575164f96617a": "{name} 网关",
   "4ac7b33c2e9c58f1": "{name} 模型",
@@ -3861,7 +3861,7 @@
   "4f5f81d330b35a98": "后台 worker 无需询问可以做多少事？",
   "f42b518bc0c1e6bd": "你之后可以在 设置 → Workers 中更改。",
   "c32588273a53c967": "部分角色或仓库的 worker 无需询问即运行；请用 libraos-core config set 更改。",
-  "c4793f52576e7af5": "只有在终端中设置时，LibraOS Core 才允许 worker 无需询问即运行。请运行：",
+  "155cd8aa821751b8": "只有在终端中设置时，LibraOS Engine 才允许 worker 无需询问即运行。请运行：",
   "9285c646fccf4c5c": [
     "worker 正在等待：",
     {
@@ -3872,7 +3872,7 @@
   ],
   "f71e59801605bb1b": "worker 正在等待回答，例如权限提示。",
   "e008e8da0c735c97": "请在终端中回答：",
-  "d00e71b0fdc3823a": "请在 worker 自己的会话或 LibraOS Core 收件箱中回答。",
+  "f6eab6b691b252e3": "请在 worker 自己的会话或 LibraOS Engine 收件箱中回答。",
   "bf838fdca5910f8f": "云端 Worker",
   "066644fe3ef88185": "Workers",
   "08a6807fe489a75f": "建议使用 worker",
@@ -3882,13 +3882,13 @@
   "30e829a1a8a28216": "美元",
   "95b341922c1fa227": "当一轮运行很久，或在运行时你又发送消息，建议把 Code 会话的任务交给 worker。",
   "7af00a32ca27332c": "“交给 worker”启动任务的位置。每个任务都可以单独更改。",
-  "cbe61e7c71bb0365": "Cloud Workers 需要先设置 LibraOS Core，并在 LibraOS Core 页面关联你的 LibraOS 账户。",
-  "e3e31c5db26e52ee": "你的 LibraOS 账户已关联。其额度和密钥在 LibraOS Core 页面上。",
-  "4518b66ab8d74046": "在 LibraOS 的机器而非本机上运行任务。请在 LibraOS Core 页面上设置。",
+  "74c577ca01e5e076": "Cloud Workers 需要先设置 LibraOS Engine，并在 LibraOS Engine 页面关联你的 LibraOS 账户。",
+  "b07e4e9b666d2694": "你的 LibraOS 账户已关联。其额度和密钥在 LibraOS Engine 页面上。",
+  "dc72cfb16b6923f1": "在 LibraOS 的机器而非本机上运行任务。请在 LibraOS Engine 页面上设置。",
   "1001952bd82ee967": "管理 Cloud Workers",
   "232e5a93f6fd9568": "请输入整数分钟数和大于零的美元金额。",
-  "8f08a51c54f9d5c1": "在 LibraOS Core 无法估算任务时使用。此机器上的 LibraOS Core 没有模型价格，因此这里的任务只使用分钟数；美元金额用于 Cloud Workers。",
-  "6186fbaa913a7bb3": "在 LibraOS Core 无法估算任务时使用。",
+  "5c5ca496f3dc7701": "在 LibraOS Engine 无法估算任务时使用。此机器上的 LibraOS Engine 没有模型价格，因此这里的任务只使用分钟数；美元金额用于 Cloud Workers。",
+  "dc1a56ecbf21637a": "在 LibraOS Engine 无法估算任务时使用。",
   "45364730b756553d": "分钟",
   "fb2e161d9c17d766": "等待人工处理",
   "129dc286945d9504": "Worker 已退出",
@@ -3905,15 +3905,15 @@
   "92ffc3a81f849f9c": "需要改进",
   "c0cdda8786778243": "工作目录不是 Git 仓库。",
   "423f5560c920e52f": "请先在此工作目录中检出一个具名分支。",
-  "6ddad0dd81bb32eb": "此机器上的 LibraOS Core 没有模型价格，无法执行美元上限。请使用分钟数，例如 60m。",
+  "d07a4adc846d994b": "此机器上的 LibraOS Engine 没有模型价格，无法执行美元上限。请使用分钟数，例如 60m。",
   "ae8470f8ec58cfa1": "无法为 Cloud Workers 读取此检出的 origin。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
-  "86c7781f27e1c7af": "无法连接 LibraOS Core 以检查 Cloud Workers。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
+  "576d127b20ad5743": "无法连接 LibraOS Engine 以检查 Cloud Workers。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
   "a4aff358558707df": "此会话没有项目工作目录。",
   "cee006e381c89877": "LibraOS 余额不足，无法使用 Cloud Workers。",
   "7e4a9f1615efb801": "登录 LibraOS 或连接 LibraOS Gateway 后才能使用 LibraOS 模型。",
   "56e4f7ed70b61ddf": "请设置你的 ChatGPT 套餐，或选择其他模型访问方式。",
   "ae8e59cdd9383873": "请设置你的 Claude 套餐，或选择其他模型访问方式。",
-  "f733e8882af8f627": "请选择 Worker。默认值在 LibraOS Core 中设置。",
+  "7bc584e54f1ba8d0": "请选择 Worker。默认值在 LibraOS Engine 中设置。",
   "e0fb1011751b53eb": "Cloud Workers 尚未设置。请检查云端配置和账号 key 文件。",
   "cb6d9d23cb1d9316": "仓库所有者需要在这个仓库上安装 Cloud Workers GitHub App。",
   "3f8423de9feb2172": "预算最多 {cap}",
@@ -3925,11 +3925,11 @@
   "30ede58b70ed5890": "检查：{check}",
   "38c3af13de81266b": "无检查",
   "1da70a54f75e15f2": "无美元上限：预算只指定了分钟数。",
-  "6f53e4edbecbd75d": "预算最多 {cap}（LibraOS Core 还没有同类任务的估算）。",
+  "bad9e5dc1d8f4372": "预算最多 {cap}（LibraOS Engine 还没有同类任务的估算）。",
   "b77cf4ce030a03fd": "预算最多 {cap}（同类任务通常 {low}–{high}）。",
   "1105b01379db64cd": "估算来自本机同类任务的运行记录。",
   "4dda41ea257ced6b": "在独立工作树中的新分支上运行，基于 {branch}。",
-  "6f35daaa89f82b1f": "无法连接 LibraOS Core 以检查 Cloud Workers。",
+  "e100c30ab0c762bd": "无法连接 LibraOS Engine 以检查 Cloud Workers。",
   "2595e7b187340f8a": "OpenAI 密钥栏中的文件包含 Anthropic 密钥，因此没有提交任何内容。请将每个密钥文件放在其对应提供方的栏中。",
   "c6053d841d41d8bc": "Anthropic 密钥栏中的文件包含 OpenAI 密钥，因此没有提交任何内容。请将每个密钥文件放在其对应提供方的栏中。",
   "87e3e1be8d076ca6": "无法访问此环境。请重试。",
@@ -4978,13 +4978,13 @@
       "v": "v"
     }
   ],
-  "99601ef6493bb992": "LibraOS Core Worker",
+  "043210e0d6a4c37c": "LibraOS Engine Worker",
   "8458762cc6877710": "等待输入",
-  "d7685310eb853b62": "LibraOS Core Worker",
+  "34f7d273c01d6d05": "LibraOS Engine Worker",
   "29374808171f5868": "云端",
   "a911bfd3fce2fd40": "本机",
-  "8463ffbd5f171b9a": "未找到 LibraOS Core。",
-  "cec4ade1ebc16b62": "LibraOS Core 任务不可用。",
+  "108b66c76e705dd6": "未找到 LibraOS Engine。",
+  "6e905e3f34d29117": "LibraOS Engine 任务不可用。",
   "b27e5cac5560a6ef": "没有正在运行的 Worker",
   "f8cc6ac12ae1f393": [
     "还有 ",
@@ -7033,9 +7033,9 @@
     }
   ],
   "dfe11f51692569f9": "请在 Console 中重新允许该密钥并刷新提供方，或断开连接并连接另一个密钥。",
-  "a81c327f85464c94": "在聊天中，从模型选择器里选择标有 LibraOS Gateway 的 agent。LibraOS Core 的 worker 也会使用 Gateway，因此任务可以设置美元预算。",
-  "3583a9db3e7daf7d": "LibraOS Core 已设置为使用 Gateway。",
-  "8e7fed102e5c6022": "LibraOS Core 没有接受这个 key。它的提示：",
+  "92a1ee648e2bbcb2": "在聊天中，从模型选择器里选择标有 LibraOS Gateway 的 agent。LibraOS Engine 的 worker 也会使用 Gateway，因此任务可以设置美元预算。",
+  "f43ad248f240cca1": "LibraOS Engine 已设置为使用 Gateway。",
+  "371706fe6a158246": "LibraOS Engine 没有接受这个 key。它的提示：",
   "d356add77d113720": "断开连接",
   "1a4cf344e8734873": "在浏览器中登录或创建 LibraOS 账号，app 随后会为此环境创建一个 key。按用量付费。",
   "557f0b0d046d2ca9": "使用 LibraOS 登录",
@@ -7096,8 +7096,8 @@
   "1066dd3e8114dba8": "LibraOS Next 无法确认此工作区。",
   "573a9e6b17f4e9e3": "重新加载",
   "56d1b38be4375478": "请使用 HTTPS 邀请链接。仅允许本机上的服务器使用 HTTP。",
-  "6cdd9a9c1a81586e": "此链接必须包含一个有效的 LibraOS Core 设备票据。请向你的团队索取新链接。",
-  "15571f0a82e5ceab": "请粘贴完整的 LibraOS Core 团队邀请链接。",
+  "1c4af61aab79e787": "此链接必须包含一个有效的 LibraOS Engine 设备票据。请向你的团队索取新链接。",
+  "98c9674268160097": "请粘贴完整的 LibraOS Engine 团队邀请链接。",
   "1c072a32088a81b0": "无法加入团队。请使用新的邀请链接重试。",
   "8396f40026de8a40": "已加入 {host} 上的团队。",
   "5b70e26ecb354cb1": "你已以 {person} 的身份加入。",
@@ -12859,7 +12859,7 @@
   "e6fd69a8a3bb69e2": "模型 api api 密钥 openai openrouter anthropic ollama lm studio 自定义 端点 base url 会话标题 提交信息",
   "f2b07faba1229ce7": "健康检查间隔",
   "5c9dc9970db79fe2": "刷新 可用性 版本 认证状态 模型 后台 探测 秒 关闭",
-  "6d1aff07e8d807c0": "libraos core agentd 建议 worker 任务运行位置 云端 cloud workers 默认预算 budget",
+  "b4c942e4c8b3936a": "libraos engine libraos core agentd 建议 worker 任务运行位置 云端 cloud workers 默认预算 budget",
   "056ba6a180d114b5": "允许 禁用 启用 打开 操控 预览 工具 智能体会话 项目 覆盖",
   "345075be6cacc171": "设备 主机 ssh 远程 mac mini 身份 密钥 连接 eas expo 云 simlock 池 网关 本地 模拟器",
   "a6b742430b05d6cc": "允许智能体使用设备",
@@ -13510,9 +13510,9 @@
   "713a94447aee2972": "需要规格说明：{details}",
   "2cd8d4fbd716bf5a": "已达到项目的并发任务上限：{details}",
   "d424b7f77b6e69ca": "已达到用户的并发任务上限：{details}",
-  "43fa372a3881f08b": "请在 LibraOS Core 终端中解除此任务的暂停状态。",
-  "be964c739d43b9db": "请在 LibraOS Core 收件箱中查看命令审批请求。",
-  "d8797e9632a9b67d": "LibraOS Core 的完整消息",
+  "5eceb3d89a7bfa33": "请在 LibraOS Engine 终端中解除此任务的暂停状态。",
+  "08396a09e73d2bda": "请在 LibraOS Engine 收件箱中查看命令审批请求。",
+  "abcd6c19a0e9a49f": "LibraOS Engine 的完整消息",
   "27531b85d5936cfc": "目标",
   "611d16d5b6bedc8c": "检查命令",
   "aa70137b3132996e": "执行者",

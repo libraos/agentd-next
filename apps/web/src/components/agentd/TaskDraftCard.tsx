@@ -78,7 +78,7 @@ export function TaskDraftCard({
             ? replaceQuestion(gt)
             : outcome.error instanceof Error
               ? outcome.error.message
-              : gt("LibraOS Core could not start the task."),
+              : gt("LibraOS Engine could not start the task."),
         );
     }
   }

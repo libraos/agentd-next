@@ -39,7 +39,7 @@ function setup() {
   return vi.fn();
 }
 
-it("shows no services notice while every service runs a working LibraOS Core", async () => {
+it("shows no services notice while every service runs a working LibraOS Engine", async () => {
   setup();
   await using _screen = await render(
     <AgentdInstallStatus
@@ -87,7 +87,7 @@ it("repairs the services only once the user confirms what changes", async () => 
   });
 });
 
-it("offers no Repair when it would also move a service on the user's own LibraOS Core", async () => {
+it("offers no Repair when it would also move a service on the user's own LibraOS Engine", async () => {
   setup();
   await using _screen = await render(
     <AgentdInstallStatus
@@ -101,7 +101,7 @@ it("offers no Repair when it would also move a service on the user's own LibraOS
       onRepaired={vi.fn()}
     />,
   );
-  await expect.element(page.getByText(/another runs your own LibraOS Core/)).toBeVisible();
+  await expect.element(page.getByText(/another runs your own LibraOS Engine/)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Repair…" })).not.toBeInTheDocument();
 });
 
@@ -137,7 +137,7 @@ it("says the watchdog's timer is off and that Repair failed to turn it on", asyn
   await page.getByRole("button", { name: "Repair…" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Repair", exact: true }).click();
   await expect
-    .element(page.getByText(/Turning on LibraOS Core’s watchdog timer failed\. Try Repair again/))
+    .element(page.getByText(/Turning on LibraOS Engine’s watchdog timer failed\. Try Repair again/))
     .toBeVisible();
 });
 

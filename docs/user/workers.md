@@ -1,7 +1,7 @@
 # Hand a task to a worker
 
-With [LibraOS Core](https://github.com/libraos/engine) set up, you can hand a task from a
-conversation to a background worker (Claude Code, Codex or opencode). LibraOS Core runs the worker
+With [LibraOS Engine](https://github.com/libraos/engine) set up, you can hand a task from a
+conversation to a background worker (Claude Code, Codex or opencode). LibraOS Engine runs the worker
 on its own branch and checks the result; the task shows in **Background tasks**.
 
 ## Start a task
@@ -30,7 +30,7 @@ is asked to write the task, and its reply shows in the chat as a task card with 
 
 Only that button produces a card. If you ask the agent in your own words, for example
 "hand this to a worker", its answer is an ordinary reply: the app does not read it as a task. An
-agent connected to LibraOS Core may try to create the task itself, and LibraOS Core refuses it while the
+agent connected to LibraOS Engine may try to create the task itself, and LibraOS Engine refuses it while the
 checkout is on the default branch. In either case, open **Hand to a worker** and choose
 **Draft from this conversation** to get the card.
 
@@ -39,16 +39,16 @@ checkout is on the default branch. In either case, open **Hand to a worker** and
 A budget is minutes (`60m`), dollars (`$5`) or both (`60m,$5`). The worker is stopped
 when it runs out.
 
-A dollar limit for a worker on your machine needs model prices in LibraOS Core's
+A dollar limit for a worker on your machine needs model prices in LibraOS Engine's
 `[budget.prices]`. Without them the default budget is minutes only, and a budget with dollars is
 flagged before **Start**. Cloud Workers are priced by the service and always take a dollar cap.
 
-The default comes from LibraOS Core's estimate for similar tasks, else from **Settings →
+The default comes from LibraOS Engine's estimate for similar tasks, else from **Settings →
 Workers → Default budget**.
 
 ## What workers may do without asking
 
-When you set up LibraOS Core, you choose how much its workers may do without asking:
+When you set up LibraOS Engine, you choose how much its workers may do without asking:
 
 - **Ask first.** A worker stops and waits when a command needs permission. The task then says
   it is waiting and shows the command to answer it in a terminal, such as `claude attach`.

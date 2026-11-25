@@ -100,7 +100,7 @@ export function WorkerPermissionModeRow({ environmentId }: { environmentId: Envi
     if (result._tag === "Failure") {
       const error = squashAtomCommandFailure(result);
       setFailure(
-        error instanceof Error ? error.message : gt("LibraOS Core did not change the setting."),
+        error instanceof Error ? error.message : gt("LibraOS Engine did not change the setting."),
       );
     }
     setting.refresh();
@@ -124,7 +124,7 @@ export function WorkerPermissionModeRow({ environmentId }: { environmentId: Envi
           {showRaise ? (
             <span role="status" className="flex flex-col gap-1">
               <T>
-                LibraOS Core lets workers run without asking only when you set it in a terminal.
+                LibraOS Engine lets workers run without asking only when you set it in a terminal.
                 Run:
               </T>
               <code className="w-fit select-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
@@ -190,7 +190,7 @@ export function TaskWaiting({
         </>
       ) : (
         <p className="text-muted-foreground">
-          <T>Answer it in the worker&apos;s own session, or in LibraOS Core&apos;s Inbox.</T>
+          <T>Answer it in the worker&apos;s own session, or in LibraOS Engine&apos;s Inbox.</T>
         </p>
       )}
     </div>

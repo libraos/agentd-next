@@ -18,11 +18,11 @@ const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/;
 const executableFile = (name: string, platform: NodeJS.Platform): string =>
   platform === "win32" ? `${name}.exe` : name;
 
-/** The name the terminal command is installed under; every Core release answers to it. */
+/** The name the terminal command is installed under; every Engine release answers to it. */
 export const agentdBinaryName = (platform: NodeJS.Platform): string =>
   executableFile("agentd", platform);
 
-/** LibraOS Core's executable first, then `agentd`, its earlier name. */
+/** LibraOS Engine's executable first, then `agentd`, its earlier name. */
 const coreBinaryNames = (platform: NodeJS.Platform): readonly string[] =>
   ["libraos-core", "agentd"].map((name) => executableFile(name, platform));
 

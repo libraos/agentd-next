@@ -12,7 +12,7 @@ Version 3.5 of November 13, 2026.
 
 1.1. **Parties.** This End User Agreement (the "**Agreement**") is a contract between you and Nebula Nova Inc. ("**we**" or "**us**").
 
-1.2. **Acceptance.** For LibraOS Core, we ask when you set it up with \`libraos-core init\`, before it runs any work (Section 5.3 & 13.4).
+1.2. **Acceptance.** For LibraOS Engine, we ask when you set it up with \`libraos-core init\`, before it runs any work (Section 5.3 & 13.4).
 
 ### 1.3. Authority
 

@@ -112,11 +112,11 @@ const setupTarget = Schema.decodeUnknownOption(
 const configJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 const EXPIRY = /^\d{4}-\d{2}-\d{2}$/;
 const UPGRADE_SUBSCRIPTION =
-  "This version of LibraOS Core can’t run Cloud Workers on your own subscription. Run libraos-core upgrade, then try again.";
+  "This version of LibraOS Engine can’t run Cloud Workers on your own subscription. Run libraos-core upgrade, then try again.";
 const UPGRADE_CHATGPT =
-  "This version of LibraOS Core can’t run Codex on your ChatGPT plan. Run libraos-core upgrade, then try again.";
+  "This version of LibraOS Engine can’t run Codex on your ChatGPT plan. Run libraos-core upgrade, then try again.";
 const UPGRADE_SETUP =
-  "This version of LibraOS Core can’t set up Cloud Workers. Run libraos-core upgrade, then try again.";
+  "This version of LibraOS Engine can’t set up Cloud Workers. Run libraos-core upgrade, then try again.";
 
 interface CloudFeatures {
   readonly cloud: boolean;
@@ -190,10 +190,10 @@ const emptySetup = {
   problem: null,
 };
 const REPLACE_UNCONFIRMED =
-  "LibraOS Core hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
+  "LibraOS Engine hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.";
 const originError = "Cloud Workers require a GitHub repository as the checkout’s origin.";
 const UNKNOWN_OUTCOME =
-  "LibraOS Core may have created this cloud task. Check Background tasks. Start checks whether LibraOS Core recorded it before submitting again.";
+  "LibraOS Engine may have created this cloud task. Check Background tasks. Start checks whether LibraOS Engine recorded it before submitting again.";
 const CLOSED_STATES = new Set(["cancelled", "declined", "done", "expired"]);
 const GITHUB_ORIGIN =
   /^(?:https?:\/\/(?:[^/@\s]+@)?(?:www\.)?github\.com(?::\d+)?\/|(?:git\+)?ssh:\/\/(?:git@)?(?:ssh\.)?github\.com(?::\d+)?\/|git@github\.com:\/?)(\S+)$/i;
@@ -298,7 +298,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
         // cache keeps only answers.
         Effect.filterOrFail(
           (help) => /usage/i.test(help),
-          () => commandError("LibraOS Core did not answer the Cloud Workers probe."),
+          () => commandError("LibraOS Engine did not answer the Cloud Workers probe."),
         ),
         Effect.map((help): CloudFeatures => ({
           cloud: /(?:^|[\s[|])--cloud(?=[\s\]|=,]|$)/u.test(help),
@@ -491,8 +491,8 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       Effect.mapError(() =>
         commandError(
           codex
-            ? "LibraOS Core couldn’t read which ChatGPT sign-in is set up, so nothing was submitted. Try again."
-            : "LibraOS Core couldn’t read which Claude token is set up, so nothing was submitted. Try again.",
+            ? "LibraOS Engine couldn’t read which ChatGPT sign-in is set up, so nothing was submitted. Try again."
+            : "LibraOS Engine couldn’t read which Claude token is set up, so nothing was submitted. Try again.",
         ),
       ),
     );
@@ -552,7 +552,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
     }
     const found = yield* cloudAgentd;
     if (found === null)
-      return yield* commandError("This version of LibraOS Core does not support Cloud Workers.");
+      return yield* commandError("This version of LibraOS Engine does not support Cloud Workers.");
     const { command, features } = found;
     if (subscribed && !features.subscription) return yield* commandError(UPGRADE_SUBSCRIPTION);
     if (subscribed && input.cloud.plan === "codex" && !features.codex)
@@ -588,7 +588,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       ),
       Effect.mapError(() =>
         unknownOutcome(
-          "LibraOS Core couldn’t check this project’s earlier Cloud Workers submission, so nothing was submitted. Try again.",
+          "LibraOS Engine couldn’t check this project’s earlier Cloud Workers submission, so nothing was submitted. Try again.",
         ),
       ),
     );
@@ -628,12 +628,12 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
             id: handoff,
             started: false,
             earlier: true,
-            note: `LibraOS Core already recorded your earlier Cloud Workers submission for this project as task ${handoff}, so this one wasn’t sent. See it in Background tasks before starting again.`,
+            note: `LibraOS Engine already recorded your earlier Cloud Workers submission for this project as task ${handoff}, so this one wasn’t sent. See it in Background tasks before starting again.`,
           }
         : {
             id: handoff,
             started: false,
-            note: `LibraOS Core already recorded this Cloud Workers submission as task ${handoff}. See it in Background tasks before starting again.`,
+            note: `LibraOS Engine already recorded this Cloud Workers submission as task ${handoff}. See it in Background tasks before starting again.`,
           };
 
     const current = yield* reservation;
@@ -670,7 +670,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       ).pipe(
         Effect.mapError(() =>
           commandError(
-            "LibraOS Core couldn’t reserve this Cloud Workers submission, so nothing was submitted.",
+            "LibraOS Engine couldn’t reserve this Cloud Workers submission, so nothing was submitted.",
           ),
         ),
       );
@@ -700,7 +700,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
       ).pipe(
         Effect.mapError(() =>
           commandError(
-            "LibraOS Core couldn’t reserve this Cloud Workers submission, so nothing was submitted.",
+            "LibraOS Engine couldn’t reserve this Cloud Workers submission, so nothing was submitted.",
           ),
         ),
       );
@@ -726,7 +726,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
           Effect.fail(
             error.notSetUp
               ? offerError(error.message, true)
-              : commandError("LibraOS Core couldn’t prepare a session for the cloud task."),
+              : commandError("LibraOS Engine couldn’t prepare a session for the cloud task."),
           ),
       }),
       Effect.tapError(() => release(submission, attempt)),
@@ -747,7 +747,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
                 started: false,
                 note:
                   (said && cloudReason(said)) ??
-                  `LibraOS Core recorded task ${handoff} but didn’t confirm that Cloud Workers accepted it. Check Background tasks for updates.`,
+                  `LibraOS Engine recorded task ${handoff} but didn’t confirm that Cloud Workers accepted it. Check Background tasks for updates.`,
               } satisfies AgentdStartTaskResult),
             );
           }
@@ -797,7 +797,7 @@ export const makeAgentdCloud = Effect.fn("AgentdCloud.make")(function* (deps: {
     const note = cloud?.error
       ? offerError(cloud.error).message
       : cloud === undefined
-        ? "LibraOS Core did not confirm that Cloud Workers accepted the task. Check Background tasks for updates."
+        ? "LibraOS Engine did not confirm that Cloud Workers accepted the task. Check Background tasks for updates."
         : null;
     return { id, started: note === null, note } satisfies AgentdStartTaskResult;
   });

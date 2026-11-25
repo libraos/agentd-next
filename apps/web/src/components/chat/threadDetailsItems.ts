@@ -46,7 +46,7 @@ export const THREAD_DETAILS_ITEMS = [
   },
   {
     id: "agentdWorkers",
-    label: msg("LibraOS Core workers"),
+    label: msg("LibraOS Engine workers"),
     defaultVisible: true,
     Section: ThreadDetailsAgentdWorkers,
   },

@@ -224,7 +224,9 @@ function decodeJson<S extends Schema.Top & { readonly DecodingServices: never }>
   const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(schema));
   return (stdout: string) =>
     decode(stdout).pipe(
-      Effect.mapError(() => commandError("LibraOS Core answered with JSON this app cannot read.")),
+      Effect.mapError(() =>
+        commandError("LibraOS Engine answered with JSON this app cannot read."),
+      ),
     );
 }
 
@@ -247,7 +249,7 @@ function args(
   return Effect.try({
     try: build,
     catch: (error) =>
-      commandError(isArgumentError(error) ? error.message : "Invalid LibraOS Core input."),
+      commandError(isArgumentError(error) ? error.message : "Invalid LibraOS Engine input."),
   });
 }
 
@@ -276,8 +278,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       return yield* new AgentdNotFoundError({
         message:
           configured === undefined
-            ? "LibraOS Core (libraos-core or agentd) was not found on PATH."
-            : `LibraOS Core was not found at AGENTD_BIN (${configured}).`,
+            ? "LibraOS Engine (libraos-core or agentd) was not found on PATH."
+            : `LibraOS Engine was not found at AGENTD_BIN (${configured}).`,
         ...bundled,
       });
     }
@@ -306,24 +308,24 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
         Effect.mapError((error) =>
           error._tag === "ProcessSpawnError"
             ? new AgentdNotFoundError({
-                message: `LibraOS Core at ${command} could not be started.`,
+                message: `LibraOS Engine at ${command} could not be started.`,
                 ...bundled,
               })
             : commandError(
                 error._tag === "ProcessTimeoutError"
-                  ? "LibraOS Core did not answer in time."
-                  : "LibraOS Core could not be read.",
+                  ? "LibraOS Engine did not answer in time."
+                  : "LibraOS Engine could not be read.",
               ),
         ),
       );
-    if (output.timedOut) return yield* commandError("LibraOS Core did not answer in time.");
+    if (output.timedOut) return yield* commandError("LibraOS Engine did not answer in time.");
     const said = (output.stderr || output.stdout).trim();
     if (output.code === NOT_SET_UP_EXIT) {
-      return yield* commandError(said || "LibraOS Core is not set up yet.", true);
+      return yield* commandError(said || "LibraOS Engine is not set up yet.", true);
     }
     // doctor exits non-zero when a check fails and still prints its whole report.
     if (output.code !== 0 && !options.jsonOnFailure) {
-      return yield* commandError(said || `LibraOS Core exited with ${output.code}.`);
+      return yield* commandError(said || `LibraOS Engine exited with ${output.code}.`);
     }
     return output.stdout;
   });
@@ -428,7 +430,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     const confirmed = new Set(input.moves);
     if (problem.moves.length !== confirmed.size || problem.moves.some((n) => !confirmed.has(n)))
       return yield* commandError(
-        "LibraOS Core’s background services changed since you confirmed Repair. Check what it changes now and confirm again.",
+        "LibraOS Engine’s background services changed since you confirmed Repair. Check what it changes now and confirm again.",
       );
     const installed = yield* provideFiles(repairServices(yield* serviceDeps, problem));
     // A service still on a missing or old agentd, or a watchdog systemd hasn't enabled, after
@@ -748,7 +750,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       ),
     );
     const id = created.handoff ?? created.id;
-    if (id === undefined) return yield* commandError("LibraOS Core did not name the task it made.");
+    if (id === undefined)
+      return yield* commandError("LibraOS Engine did not name the task it made.");
     return yield* dispatch(id, input.worker, false);
   });
 
@@ -760,11 +763,11 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     const task = AgentdJson.agentdTask(show, taskViewer);
     if (task.parkAction === "unpark") {
       return yield* commandError(
-        "Release this task in a LibraOS Core terminal with handoff unpark.",
+        "Release this task in a LibraOS Engine terminal with handoff unpark.",
       );
     }
     if (task.parkAction === "approval") {
-      return yield* commandError("Check the LibraOS Core Inbox for a command approval.");
+      return yield* commandError("Check the LibraOS Engine Inbox for a command approval.");
     }
     if (
       task.state !== "offered" ||
@@ -827,7 +830,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     const row = yield* listRow(input.blocking);
     if (row === null) {
       return yield* commandError(
-        `LibraOS Core could not read task ${input.blocking}, so it was not released.`,
+        `LibraOS Engine could not read task ${input.blocking}, so it was not released.`,
       );
     }
     // Releasing a task whose worker still runs would stop live work the person did not see.
@@ -878,7 +881,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       Effect.flatMap(decodeWho),
     );
     if (!who.server || who.server_note) {
-      return yield* commandError("LibraOS Core could not look up team holdings.");
+      return yield* commandError("LibraOS Engine could not look up team holdings.");
     }
     return who;
   });
@@ -1074,7 +1077,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
           const answer = yield* run(argv, { timeout: Duration.minutes(15) });
           const made = yield* decodeBackupCreated(answer).pipe(
             Effect.mapError(() =>
-              commandError("LibraOS Core's answer to backup create could not be read."),
+              commandError("LibraOS Engine's answer to backup create could not be read."),
             ),
           );
           yield* Effect.forEach(

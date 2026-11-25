@@ -43,7 +43,7 @@ export function isProviderSkillUserInvocable(
   return skill.enabled && skill.userInvocable !== false;
 }
 
-// agentd: the bundled LibraOS Core skills; Hand to a worker is their one entry in the app.
+// agentd: the bundled LibraOS Engine skills; Hand to a worker is their one entry in the app.
 const SLASH_MENU_HIDDEN_NAMES = new Set(["agentd", "agentd-setup"]);
 
 function isHiddenFromSlashMenu(name: string): boolean {
