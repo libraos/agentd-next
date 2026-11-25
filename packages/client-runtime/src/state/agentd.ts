@@ -31,10 +31,17 @@ export function createAgentdEnvironmentAtoms<R, E>(
     tag: WS_METHODS.agentdTask,
     staleTimeMs: 5_000,
   });
+  const tasks = createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+    label: "environment-data:agentd:tasks",
+    tag: WS_METHODS.agentdSubscribeTasks,
+    idleTtlMs: 0,
+  });
+  // Approvals have no stream: a change in the task list, such as a worker report, rereads them.
   const approvals = createEnvironmentRpcQueryAtomFamily(runtime, {
     label: "environment-data:agentd:approvals",
     tag: WS_METHODS.agentdApprovals,
     staleTimeMs: 5_000,
+    refreshTrigger: ({ environmentId }) => tasks({ environmentId, input: {} }),
   });
   const inbox = createEnvironmentRpcQueryAtomFamily(runtime, {
     label: "environment-data:agentd:inbox",
@@ -90,11 +97,7 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdPlaceholders,
       staleTimeMs: 30_000,
     }),
-    tasks: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:agentd:tasks",
-      tag: WS_METHODS.agentdSubscribeTasks,
-      idleTtlMs: 0,
-    }),
+    tasks,
     task,
     taskOutput: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:agentd:task-output",

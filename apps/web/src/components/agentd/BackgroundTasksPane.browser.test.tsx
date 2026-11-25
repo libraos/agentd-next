@@ -10,6 +10,7 @@ import {
   AgentdCommandError,
   EnvironmentId,
   ThreadId,
+  type AgentdApproval,
   type AgentdTask,
   type AgentdTaskRow,
 } from "@t3tools/contracts";
@@ -35,6 +36,7 @@ const bridge = vi.hoisted(() => ({
   useAgentdTasks: vi.fn<typeof AgentdState.useAgentdTasks>(),
   useAgentdTask: vi.fn<typeof AgentdState.useAgentdTask>(),
   useAgentdTaskOutput: vi.fn<typeof AgentdState.useAgentdTaskOutput>(),
+  approvals: vi.fn<() => AgentdApproval[]>(() => []),
   sectionTaskRead: vi.fn<(id: string) => void>(),
   retryStart: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["retryStart"]>(),
   stopTask: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["stopTask"]>(),
@@ -56,9 +58,11 @@ vi.mock("../../lib/agentdState", async () => {
         const { data } = bridge.useAgentdTask(id);
         return Atom.make(AsyncResult.success(data));
       },
+      approvals: () => Atom.make(AsyncResult.success(bridge.approvals())),
       stopTask: { permissionAtom: () => canStop },
       cloudReview: (target: unknown) => target,
     },
+    useAgentdApprovals: () => ({ data: bridge.approvals(), error: null }),
     useAgentdCommands: () => ({ stopTask: bridge.stopTask, retryStart: bridge.retryStart }),
     useAgentdPermissionMode: () => ({ data: null, error: null }),
   };
@@ -468,6 +472,41 @@ it.each([
       .element(screen.getByText(`libraos-core handoff unpark ${parked.id}`, { exact: true }))
       .toBeVisible();
   }
+});
+
+it("lists a task waiting on its own approval under Waiting with the answer commands", async () => {
+  setup();
+  const approval = (id: string, handoff: string, text: string): AgentdApproval => ({
+    id,
+    text,
+    handoff,
+    requester: null,
+    action: null,
+    project: null,
+    ref: null,
+    requiredRole: null,
+    created: null,
+  });
+  bridge.useAgentdTasks.mockReturnValue(answer([running]));
+  bridge.useAgentdTask.mockReturnValue(answer(taskDetails(running, {})));
+  bridge.approvals.mockReturnValue([
+    approval("apr-own", running.id, "Edit files in the shared checkout?"),
+    approval("apr-other", "hof-999fff", "Merge another task?"),
+  ]);
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByRole("heading", { name: "Waiting 1" })).toBeVisible();
+  await expect.element(screen.getByRole("heading", { name: "Running 0" })).toBeVisible();
+  await userEvent.click(
+    screen.getByRole("button", { name: /Build the widget Waiting for a person/ }),
+  );
+  await expect.element(screen.getByText("Edit files in the shared checkout?")).toBeVisible();
+  await expect
+    .element(screen.getByText("libraos-core approval answer apr-own --approve", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(screen.getByText("libraos-core approval answer apr-own --reject", { exact: true }))
+    .toBeVisible();
+  expect(screen.getByText("Merge another task?").all()).toHaveLength(0);
 });
 
 it("shows the wait since requeue instead of the original offer", async () => {

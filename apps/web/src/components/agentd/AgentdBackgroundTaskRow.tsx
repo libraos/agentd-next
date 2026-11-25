@@ -1,6 +1,12 @@
 import { useAtomValue } from "@effect/atom-react";
 import { minuteTick, secondTick, toServerClock } from "@t3tools/client-runtime/clock";
-import type { AgentdRunsOn, AgentdTask, AgentdTaskRow, EnvironmentId } from "@t3tools/contracts";
+import type {
+  AgentdApproval,
+  AgentdRunsOn,
+  AgentdTask,
+  AgentdTaskRow,
+  EnvironmentId,
+} from "@t3tools/contracts";
 import { formatDuration } from "@t3tools/shared/orchestrationTimingCopy";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react";
 import { CheckIcon } from "lucide-react";
@@ -8,7 +14,12 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
 import { useNowMinute } from "../../hooks/useNowMinute";
-import { agentdEnvironment, useAgentdCommands, useAgentdTask } from "../../lib/agentdState";
+import {
+  agentdEnvironment,
+  useAgentdApprovals,
+  useAgentdCommands,
+  useAgentdTask,
+} from "../../lib/agentdState";
 import { tickTextContent } from "../../lib/tickTextContent";
 import { formatEnvironmentQueryError } from "../../state/query";
 import { Badge } from "../ui/badge";
@@ -19,6 +30,7 @@ import { TaskWaiting } from "./WorkerPermissionMode";
 import { BackgroundTaskCard } from "./BackgroundTaskCard";
 import { CloudTaskReviewActions } from "./CloudTaskReview";
 import {
+  agentdTaskApprovals,
   agentdTaskBudgetUse,
   type AgentdTaskBudgetTone,
   finishedAgentdTaskLabel,
@@ -270,6 +282,36 @@ function FinishedTaskDetails({ task }: { readonly task: AgentdTask }) {
   );
 }
 
+function TaskApprovals({ approvals }: { readonly approvals: readonly AgentdApproval[] }) {
+  return (
+    <div className="space-y-1 wrap-anywhere select-text">
+      <p className="font-medium">
+        <T>Waiting for your approval</T>
+      </p>
+      <p className="text-muted-foreground">
+        <T>Answer in a terminal on this environment using one of the commands below.</T>
+      </p>
+      <ul className="divide-y divide-border/60">
+        {approvals.map((approval) => (
+          <li key={approval.id} className="space-y-1 py-1.5">
+            <p className="whitespace-pre-wrap">{approval.text}</p>
+            {/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(approval.id) ? (
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                <code className="break-all">
+                  libraos-core approval answer {approval.id} --approve
+                </code>
+                <code className="break-all">
+                  libraos-core approval answer {approval.id} --reject
+                </code>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function StopTaskButton(props: {
   readonly id: string;
   readonly title: string;
@@ -476,6 +518,8 @@ export function AgentdBackgroundTaskRow(props: {
   const gt = useGT();
   const resolve = useMessages();
   const { task, error } = useAgentdTaskDetails(row, environmentId, queued);
+  const pending = useAgentdApprovals(environmentId).data;
+  const approvals = finished || !pending ? [] : agentdTaskApprovals(pending, row.id);
 
   const title = task?.goal?.trim() || row.title || gt("Untitled task");
   const worker = workerName(task?.workerTool ?? row.workerTool);
@@ -499,7 +543,7 @@ export function AgentdBackgroundTaskRow(props: {
             <span className="font-medium text-foreground">
               {finished
                 ? finishedAgentdTaskLabel(row.state, task?.verdict ?? null, resolve)
-                : parked
+                : parked || approvals.length > 0
                   ? resolve(msg("Waiting for a person"))
                   : runningAgentdTaskLabel(status, task?.budgetState ?? null, resolve)}
             </span>
@@ -600,6 +644,7 @@ export function AgentdBackgroundTaskRow(props: {
           </T>
         </p>
       ) : null}
+      {approvals.length > 0 ? <TaskApprovals approvals={approvals} /> : null}
       {task && !cloud && !finished && task.workerState === "blocked" ? (
         <TaskWaiting task={task} />
       ) : null}
