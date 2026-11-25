@@ -234,9 +234,13 @@ const INSTALL_HINTS = [
   msg("Install Git from {url} or with your package manager.", {
     url: "https://git-scm.com/downloads",
   }),
+  // Jujutsu, GitHub and GitLab hints vary by server platform: source-control-core's shared/installHints.
   msg("Install Jujutsu with {command} or from {url}.", {
     command: "`brew install jj`",
     url: "https://github.com/jj-vcs/jj",
+  }),
+  msg("Install Jujutsu from {url}.", {
+    url: "https://jj-vcs.github.io/jj/latest/install-and-setup/",
   }),
   msg(
     "Install the GitHub command-line tool ({cli}) via {url} or your package manager (for example {command}).",
@@ -247,11 +251,43 @@ const INSTALL_HINTS = [
     },
   ),
   msg(
+    "Install the GitHub command-line tool ({cli}) via {url} or your package manager (for example {command}).",
+    {
+      cli: "`gh`",
+      url: "https://cli.github.com/",
+      command: "`winget install --id GitHub.cli`",
+    },
+  ),
+  msg(
+    "Install the GitHub command-line tool ({cli}) via {url} or your package manager (for example {command}).",
+    {
+      cli: "`gh`",
+      url: "https://cli.github.com/",
+      command: "`sudo apt install gh` or `sudo dnf install gh`",
+    },
+  ),
+  msg(
     "Install the GitLab command-line tool ({cli}) from {url} or your package manager (for example {command}).",
     {
       cli: "`glab`",
       url: "https://gitlab.com/gitlab-org/cli",
       command: "`brew install glab`",
+    },
+  ),
+  msg(
+    "Install the GitLab command-line tool ({cli}) from {url} or your package manager (for example {command}).",
+    {
+      cli: "`glab`",
+      url: "https://gitlab.com/gitlab-org/cli",
+      command: "`winget install --id GLab.GLab`",
+    },
+  ),
+  msg(
+    "Install the GitLab command-line tool ({cli}) from {url} or your package manager (for example {command}).",
+    {
+      cli: "`glab`",
+      url: "https://gitlab.com/gitlab-org/cli",
+      command: "`sudo dnf install glab` or `sudo pacman -S glab`",
     },
   ),
   msg(

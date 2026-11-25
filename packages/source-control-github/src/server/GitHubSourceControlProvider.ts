@@ -61,6 +61,7 @@ import {
   type SourceControlManagedCliDiscoverySpec,
 } from "@t3tools/source-control-core/server/discovery";
 import * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
+import { gitHubCliInstallHint } from "@t3tools/source-control-core/shared/installHints";
 import {
   parseGitRemoteHost,
   readSourceControlHostSettings,
@@ -200,8 +201,7 @@ export const discovery = {
   versionArgs: ["--version"],
   authArgs: ["auth", "status", "--json", "hosts"],
   parseAuth: parseGitHubAuth,
-  installHint:
-    "Install the GitHub command-line tool (`gh`) via https://cli.github.com/ or your package manager (for example `brew install gh`).",
+  installHint: gitHubCliInstallHint(HostProcess.Platform.defaultValue()),
 } satisfies SourceControlCliDiscoverySpec;
 
 const decodeViewer = Schema.decodeUnknownOption(
@@ -219,6 +219,7 @@ export const makeDiscovery = Effect.gen(function* () {
   const process = yield* makeGhProcess;
   const environment = yield* HostProcess.Environment;
   const appSignIn = yield* GitHubAppSignIn.GitHubAppSignIn;
+  const installHint = gitHubCliInstallHint(yield* HostProcess.Platform);
   const offerAppSignIn = <A extends SourceControlProviderDiscoveryItem>(item: A): A =>
     appSignIn.enabled ? { ...item, appSignIn: true } : item;
 
@@ -226,7 +227,7 @@ export const makeDiscovery = Effect.gen(function* () {
     type: "managed-cli",
     kind: discovery.kind,
     label: discovery.label,
-    installHint: discovery.installHint,
+    installHint,
     probe: Effect.fn("GitHubSourceControlProvider.discovery")(function* (cwd: string) {
       const current = yield* sourceControlHost.settings
         .getWithSecrets(GitHubClient.definition.kind)
@@ -240,7 +241,7 @@ export const makeDiscovery = Effect.gen(function* () {
         process: {
           run: (input) => process.run({ ...input, concurrency: GH_PROCESS_CONCURRENCY }),
         },
-        spec: { ...discovery, parseAuth: (input) => parseGitHubAuth(input, settings) },
+        spec: { ...discovery, installHint, parseAuth: (input) => parseGitHubAuth(input, settings) },
       });
       const saved = yield* Effect.result(
         requireSettingsSecretLiteral(settings.tokens["github.com"], current?.secretProviders ?? {}),

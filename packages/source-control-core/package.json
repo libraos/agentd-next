@@ -7,6 +7,10 @@
       "types": "./src/shared/definition.ts",
       "import": "./src/shared/definition.ts"
     },
+    "./shared/installHints": {
+      "types": "./src/shared/installHints.ts",
+      "import": "./src/shared/installHints.ts"
+    },
     "./shared/threadPullRequests": {
       "types": "./src/shared/threadPullRequests.ts",
       "import": "./src/shared/threadPullRequests.ts"

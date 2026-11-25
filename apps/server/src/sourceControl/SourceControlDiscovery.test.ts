@@ -23,7 +23,7 @@ import {
   fakeSourceControlProvider,
 } from "@t3tools/source-control-testing/fakeSourceControlDriver";
 import * as HostProcess from "@t3tools/shared/HostProcess";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+import { SpawnExecutableResolution, WindowsShellEnvironment } from "@t3tools/shared/shell";
 import * as TestSourceControlHost from "@t3tools/source-control-testing/TestSourceControlHost";
 
 import * as ServerConfig from "../config.ts";
@@ -256,6 +256,63 @@ it.effect.each(["darwin", "linux"] as const)(
     );
   },
 );
+
+it.effect.each(["linux", "win32"] as const)(
+  "advises installing jj without Homebrew on %s",
+  (platform) =>
+    Effect.gen(function* () {
+      const discovery = yield* SourceControlDiscovery.SourceControlDiscovery;
+      const jj = (yield* discovery.discover).versionControlSystems.find(
+        (item) => item.kind === "jj",
+      );
+      assert.strictEqual(jj?.status, "missing");
+      assert.include(jj?.installHint, "https://jj-vcs.github.io/jj/latest/install-and-setup/");
+      assert.notInclude(jj?.installHint, "brew");
+    }).pipe(
+      Effect.provide(
+        SourceControlDiscovery.layer.pipe(
+          Layer.provide(
+            layerDiscovery((input) =>
+              run(input.command === "jj" ? { ...input, command: "absent-cli" } : input),
+            ),
+          ),
+        ),
+      ),
+      Effect.provideService(HostProcess.Platform, platform),
+      Effect.provideService(WindowsShellEnvironment, () => Effect.succeed({})),
+    ),
+);
+
+it.effect("probes with the registry PATH an installer wrote after launch on Windows", () => {
+  const installed = "C:\\Program Files\\GitHub CLI";
+  const env: NodeJS.ProcessEnv = { Path: "C:\\Windows" };
+  const probedPaths: Array<string | undefined> = [];
+  return Effect.gen(function* () {
+    const discovery = yield* SourceControlDiscovery.SourceControlDiscovery;
+    yield* discovery.discover;
+    assert.deepStrictEqual(probedPaths, [`C:\\Windows;${installed}`, `C:\\Windows;${installed}`]);
+  }).pipe(
+    Effect.provide(
+      SourceControlDiscovery.layer.pipe(
+        Layer.provide(
+          layerDiscovery(
+            (input) =>
+              Effect.suspend(() => {
+                probedPaths.push(env.PATH);
+                return run(input);
+              }),
+            [],
+          ),
+        ),
+      ),
+    ),
+    Effect.provideService(HostProcess.Platform, "win32"),
+    Effect.provideService(HostProcess.Environment, env),
+    Effect.provideService(WindowsShellEnvironment, () =>
+      Effect.succeed({ PATH: `C:\\Windows;${installed}` }),
+    ),
+  );
+});
 
 // Spawns a real login shell and `jj`, so it runs on wall-clock time; the fixture shell is POSIX sh.
 it.live.skipIf(HostProcess.Platform.defaultValue() === "win32")(

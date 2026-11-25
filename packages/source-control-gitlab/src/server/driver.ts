@@ -17,7 +17,7 @@ const services = GitLabPullRequestCli.layer.pipe(Layer.provideMerge(GitLabCli.la
 
 const makeInstance = Effect.all({
   sourceControl: GitLabSourceControlProvider.make,
-  discovery: Effect.succeed(GitLabSourceControlProvider.discovery),
+  discovery: GitLabSourceControlProvider.makeDiscovery,
   pullRequests: GitLabPullRequestProvider.make,
   issues: GitLabIssueTracker.make,
 });
