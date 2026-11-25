@@ -7380,6 +7380,109 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
+  it.effect(
+    "asks to sign in to a plugin's MCP server only once Claude calls one of its tools",
+    () =>
+      Effect.gen(function* () {
+        const plugin = "plugin:acme:tracker";
+        const harness = yield* makeWakeHarnessWithOptions({
+          mcp: {
+            mcpServerStatus: Effect.succeed([
+              { name: plugin, status: "needs-auth", scope: "user", source: "plugin" },
+              { name: "linear", status: "needs-auth", scope: "user", source: "user" },
+            ]),
+            readMcpResource: () => Effect.die("unexpected MCP resource read"),
+            callMcpTool: () => Effect.die("unexpected MCP tool call"),
+          },
+        });
+        const latest = (): OrchestrationV2ProviderThread => {
+          const event = harness.events.findLast(
+            (candidate) => candidate.type === "provider_thread.updated",
+          );
+          return event?.type === "provider_thread.updated"
+            ? event.providerThread
+            : harness.providerThread;
+        };
+        const signIns = () =>
+          harness.events.flatMap((event) =>
+            event.type === "turn_item.updated" &&
+            event.turnItem.type === "system_notice" &&
+            event.turnItem.mcpSignIn !== undefined
+              ? [event.turnItem.mcpSignIn.server]
+              : [],
+          );
+        const runTurn = Effect.fnUntraced(function* (ordinal: number, toolName?: string) {
+          yield* harness.runtime.startTurn(
+            makeClaudeTestTurnInput({
+              threadId: harness.threadId,
+              providerThread: latest(),
+              now: yield* DateTime.now,
+              attemptId: RunAttemptId.make(`plugin-sign-in-${ordinal}`),
+              text: `Turn ${ordinal}`,
+              attachments: [],
+              providerTurnOrdinal: ordinal,
+            }),
+          );
+          if (ordinal === 1) {
+            yield* harness.offerAndWait(
+              claudeSdkFrame({
+                type: "system",
+                subtype: "init",
+                uuid: "plugin-sign-in-init",
+                session_id: WAKE_NATIVE_SESSION,
+                mcp_servers: [
+                  { name: plugin, status: "pending" },
+                  { name: "linear", status: "pending" },
+                ],
+              }),
+            );
+          }
+          if (toolName !== undefined) {
+            yield* harness.offerAndWait(
+              claudeSdkFrame({
+                type: "assistant",
+                uuid: `plugin-sign-in-assistant-${ordinal}`,
+                session_id: WAKE_NATIVE_SESSION,
+                parent_tool_use_id: null,
+                message: {
+                  id: `plugin-sign-in-message-${ordinal}`,
+                  type: "message",
+                  role: "assistant",
+                  model: "claude-sonnet-4-6",
+                  content: [
+                    { type: "tool_use", id: `plugin-call-${ordinal}`, name: toolName, input: {} },
+                  ],
+                },
+              }),
+            );
+          }
+          yield* Queue.offer(
+            harness.sdkMessages,
+            makeResultFrame({ uuid: `plugin-sign-in-result-${ordinal}`, result: "Done." }),
+          );
+          yield* Queue.take(harness.terminalReceipts);
+        });
+        yield* runTurn(1);
+        assert.deepEqual(signIns(), ["linear"]);
+        yield* runTurn(2, "mcp__linear__list_issues");
+        assert.deepEqual(signIns(), ["linear"]);
+        yield* runTurn(3, "mcp__plugin_acme_tracker__authenticate");
+        assert.deepEqual(signIns(), ["linear", plugin]);
+        yield* runTurn(4, "mcp__plugin_acme_tracker__authenticate");
+        assert.deepEqual(signIns(), ["linear", plugin]);
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+
   // regression: #38284 an MCP app's update-model-context note must reach Claude's next turn
   it.effect("sends MCP app model context with the next Claude turn", () =>
     Effect.gen(function* () {
