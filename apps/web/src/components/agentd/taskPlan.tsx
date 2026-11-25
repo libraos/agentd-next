@@ -29,6 +29,7 @@ import {
   prepareTaskFields,
   TASK_WORKERS,
   taskBranchProblem,
+  taskMissingInputs,
   taskStartProblem,
   type TaskFields,
 } from "./startTask.logic";
@@ -155,6 +156,35 @@ export function useTaskPlan({
     hasDirectory: cwd !== null,
     branch,
   });
+  const missingLabels = {
+    goal: gt("goal", { $context: "an input a task still needs before it can start" }),
+    check: gt("check command", { $context: "an input a task still needs before it can start" }),
+    worker: gt("worker", { $context: "an input a task still needs before it can start" }),
+    budget: gt("valid budget", { $context: "an input a task still needs before it can start" }),
+    directory: gt("working directory", {
+      $context: "an input a task still needs before it can start",
+    }),
+    repository: gt("Git repository", {
+      $context: "an input a task still needs before it can start",
+    }),
+  } as const;
+  const missingKeys = taskMissingInputs({
+    cloud: cloud.enabled || cloud.waiting,
+    goal: validation.goal,
+    check: validation.check,
+    budgetValid: cloud.enabled ? cloud.budgetValid : validation.budget === null,
+    worker,
+    hasDirectory: cwd !== null,
+    problem: problemKind,
+  });
+  const missing =
+    missingKeys.length === 0
+      ? null
+      : gt("Still needed: {items}", {
+          items: new Intl.ListFormat(locale, { type: "unit", style: "short" }).format(
+            missingKeys.map((key) => missingLabels[key]),
+          ),
+        });
   const problem = (() => {
     // Cloud was asked for: local checks such as the branch gate say nothing about it.
     if (cloud.waiting && cloud.unreachable)
@@ -377,6 +407,7 @@ export function useTaskPlan({
     gatewayConnected,
     git,
     problem,
+    missing,
     checking,
     summary,
     estimateLine,

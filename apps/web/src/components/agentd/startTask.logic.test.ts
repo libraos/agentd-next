@@ -14,12 +14,14 @@ import {
   defaultCloudPlan,
   defaultModelAccess,
   keyFileProblem,
+  refusalLine,
   rememberKeyFiles,
   modelAccessChoices,
   EMPTY_TASK_FIELDS,
   prepareTaskFields,
   TASK_DRAFT_PROMPT,
   taskDraftReply,
+  taskMissingInputs,
   taskStartProblem,
 } from "./startTask.logic";
 
@@ -207,6 +209,54 @@ it("names the first problem that stops a Start", () => {
   expect(taskStartProblem(subscription)).toBeNull();
   expect(taskStartProblem({ ...subscription, planProblem: "not-set-up" })).toBe("subscription");
   expect(taskStartProblem({ ...cloud, planProblem: "agentd" })).toBeNull();
+});
+
+it("lists what a Start still needs, in form order", () => {
+  const ready = {
+    cloud: false,
+    goal: null,
+    check: null,
+    budgetValid: true,
+    worker: "claude" as const,
+    hasDirectory: true,
+    problem: null,
+  };
+  expect(taskMissingInputs(ready)).toEqual([]);
+  expect(taskMissingInputs({ ...ready, check: "required", worker: null })).toEqual([
+    "check",
+    "worker",
+  ]);
+  expect(
+    taskMissingInputs({
+      ...ready,
+      goal: "required",
+      check: "invalid",
+      worker: null,
+      budgetValid: false,
+      problem: "not-repo",
+    }),
+  ).toEqual(["goal", "check", "worker", "budget", "repository"]);
+  expect(taskMissingInputs({ ...ready, hasDirectory: false, problem: "no-directory" })).toEqual([
+    "directory",
+  ]);
+  // A detached checkout is a problem line of its own, not an input to fill in.
+  expect(taskMissingInputs({ ...ready, problem: "detached" })).toEqual([]);
+  // Cloud Workers take no local worker, and their check is optional.
+  expect(taskMissingInputs({ ...ready, cloud: true, check: "required", worker: null })).toEqual([]);
+  expect(taskMissingInputs({ ...ready, cloud: true, check: "invalid" })).toEqual(["check"]);
+});
+
+it("reduces agentd's refusal to its first meaningful line", () => {
+  expect(refusalLine("task t-1 is not dispatched")).toBe("task t-1 is not dispatched");
+  expect(
+    refusalLine(
+      "\n  error: refusing to dispatch on a protected branch (main)\n\nUsage: agentd handoff dispatch ID\n",
+    ),
+  ).toBe("refusing to dispatch on a protected branch (main)");
+  expect(
+    refusalLine("Error:\n---\nError: worker codex is not installed\nhint: run agentd init"),
+  ).toBe("worker codex is not installed");
+  expect(refusalLine("agentd: error: no such handoff\r\nmore")).toBe("no such handoff");
 });
 
 it("offers each subscription plan only when agentd can run it and has its credential", () => {
