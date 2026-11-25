@@ -10,6 +10,12 @@ Open **Hand to a worker** from the slash menu (type `/` in the composer), from t
 command palette, or from the suggestion above the composer when a turn runs long. Fill in the
 goal, acceptance criteria, check command and budget, then choose **Start**.
 
+The **Background workers** line at the bottom of the sidebar says whether a worker can start
+from the open project: **Ready**, **Setup required** or **Setup failed**. Ready needs LibraOS
+Engine set up with no failing check, the default worker signed in, and a Git repository. Click
+the line for the reason and its fix. **Hand to a worker** makes the same check and starts nothing
+until it passes. Missing LibraOS Engine Skills only show a warning.
+
 For a worker on your machine, the working directory must be a Git repository on a named branch.
 From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
 checkout alone.

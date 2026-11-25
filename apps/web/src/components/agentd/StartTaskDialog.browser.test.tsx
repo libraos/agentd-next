@@ -46,6 +46,7 @@ const state = vi.hoisted(() => ({
   defaults: { estimate: null, check: null } as AgentdTaskDefaults,
   gateway: false,
   worker: "opencode" as string | null,
+  checks: [] as Array<{ id: string; status: string; detail: string | null; fix: string | null }>,
   dollarBudgets: null as boolean | null,
   maxWorkers: null as number | null,
   primary: null as EnvironmentId | null,
@@ -84,10 +85,15 @@ vi.mock("~/lib/agentdState", async () => {
     },
     useAgentdStatus: () => ({
       data: {
+        setUp: true,
+        ok: true,
+        checks: state.checks,
         defaultWorker: state.worker,
         dollarBudgets: state.dollarBudgets,
         maxWorkers: state.maxWorkers,
       },
+      failure: null,
+      error: null,
     }),
     useAgentdTaskDefaults: () => ({ data: state.defaults }),
     useAgentdGitIdentity: (cwd: string | null) => {
@@ -191,6 +197,7 @@ function setup(
   state.primary = null;
   state.os = "unknown";
   state.worker = "opencode";
+  state.checks = [];
   state.cloudError = null;
   state.keyFiles = {};
   state.keyFilesDenied = new Set();
@@ -337,6 +344,26 @@ it("asks for a missing Git name or email, sets them, then allows Start", async (
     environmentId: thread.environmentId,
     input: { name: "Ada Lovelace", email: "ada@example.com" },
   });
+});
+
+it("starts nothing while the worker is not signed in, and names the sign-in and its fix", async () => {
+  setup("feature/export", drafted);
+  state.worker = "claude";
+  state.checks = [
+    {
+      id: "claude-login",
+      status: "fail",
+      detail: "not logged in, and neither is codex",
+      fix: "claude auth login",
+    },
+  ];
+  await using _screen = await renderDialog();
+  await expect
+    .element(page.getByText("Claude Code is not signed in: not logged in, and neither is codex"))
+    .toBeVisible();
+  await expect.element(page.getByText("claude auth login")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+  expect(state.start).not.toHaveBeenCalled();
 });
 
 it("asks before a Claude worker runs in an untrusted folder, and starts only on Trust", async () => {

@@ -329,6 +329,8 @@ export const AgentdStatus = Schema.Struct({
   servicesProblem: Schema.optionalKey(Schema.NullOr(AgentdServicesProblem)),
   /** No config.toml yet, so `agentd init` still takes a permission mode. */
   firstSetup: Schema.optionalKey(Schema.Boolean),
+  /** agentd's Skills the default worker cannot find; null when not looked at. A warning only. */
+  missingSkills: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),
 });
 export type AgentdStatus = typeof AgentdStatus.Type;
 

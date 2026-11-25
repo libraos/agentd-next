@@ -1,10 +1,15 @@
+import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { AgentdStatus, EnvironmentId } from "@t3tools/contracts";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { T, useGT, useLocale } from "gt-react";
 
-import { useAgentdCloudAccount, useAgentdStatus } from "~/lib/agentdState";
+import { useComposerDraftStore } from "~/composerDraftStore";
+import { useAgentdCloudAccount } from "~/lib/agentdState";
 import { cn } from "~/lib/utils";
+import { useProject, useQuietThreadShell } from "~/state/entities";
 import { usePrimaryEnvironmentId } from "~/state/environments";
+import { useEnvironmentQuery } from "~/state/query";
+import { vcsEnvironment } from "~/state/vcs";
 import { resolveThreadRouteTarget } from "~/threadRoutes";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
@@ -15,54 +20,53 @@ import {
   useCanSetUpAgentd,
 } from "./AgentdSetupDialog";
 import {
-  agentdIndicatorState,
   offerAccountLink,
+  workerReadiness,
   type AgentdIndicatorState,
+  type WorkerReadiness,
 } from "./agentdVisibility.logic";
 import { TASK_WORKERS } from "./startTask.logic";
+import { useAgentdState, useWorkerReadinessText, WorkerReadinessNotice } from "./WorkerReadiness";
 
-/** The open thread's environment, else the primary one. */
-function useAgentdIndicatorEnvironment(): EnvironmentId | null {
+/** The open thread's environment and project folder; else the primary environment and none. */
+function useAgentdIndicatorTarget() {
   const params = useParams({ strict: false });
   const primary = usePrimaryEnvironmentId();
   const target = resolveThreadRouteTarget(params);
-  return target?.kind === "server" ? target.threadRef.environmentId : primary;
+  const thread = useQuietThreadShell(target?.kind === "server" ? target.threadRef : null);
+  const draft = useComposerDraftStore((store) =>
+    target?.kind === "draft" ? store.getDraftSession(target.draftId) : null,
+  );
+  const source = thread ?? draft;
+  const project = useProject(
+    source ? scopeProjectRef(source.environmentId, source.projectId) : null,
+  );
+  return {
+    environmentId:
+      source?.environmentId ??
+      (target?.kind === "server" ? target.threadRef.environmentId : primary),
+    cwd: source?.worktreePath ?? project?.workspaceRoot ?? null,
+  };
 }
 
-export function useAgentdState(environmentId: EnvironmentId | null) {
-  const status = useAgentdStatus(environmentId);
-  const failureTag =
-    status.failure !== null && typeof status.failure === "object" && "_tag" in status.failure
-      ? String(status.failure._tag)
-      : status.error !== null
-        ? "unknown"
-        : null;
-  return { state: agentdIndicatorState(status.data, failureTag), status: status.data };
+/** Whether background workers can start from the open project, judged as Hand to a worker would. */
+function useIndicatorReadiness(environmentId: EnvironmentId | null, cwd: string | null) {
+  const { state, status } = useAgentdState(environmentId);
+  const git = useEnvironmentQuery(
+    environmentId === null || cwd === null
+      ? null
+      : vcsEnvironment.status({ environmentId, input: { cwd } }),
+  );
+  const isRepo = cwd === null ? undefined : (git.data?.isRepo ?? null);
+  return { state, status, readiness: workerReadiness({ engine: state, status, isRepo }) };
 }
 
-const DOT_CLASS: Record<AgentdIndicatorState, string> = {
+const DOT_CLASS: Record<WorkerReadiness["kind"], string> = {
   unknown: "bg-muted-foreground/50",
-  "not-installed": "bg-muted-foreground",
-  "not-set-up": "bg-warning",
-  attention: "bg-destructive",
-  on: "bg-success",
+  "setup-required": "bg-warning",
+  "setup-failed": "bg-destructive",
+  ready: "bg-success",
 };
-
-function useAgentdStateLabel(state: AgentdIndicatorState) {
-  const gt = useGT();
-  switch (state) {
-    case "unknown":
-      return gt("LibraOS Engine");
-    case "not-installed":
-      return gt("LibraOS Engine: not installed");
-    case "not-set-up":
-      return gt("LibraOS Engine: not set up");
-    case "attention":
-      return gt("LibraOS Engine: needs attention");
-    case "on":
-      return gt("LibraOS Engine: on");
-  }
-}
 
 /** The two things agentd keeps apart: setup on this machine, and the optional LibraOS account. */
 export function AgentdStatusLines({
@@ -138,38 +142,44 @@ export function useCloudWorkersLinked(environmentId: EnvironmentId | null): bool
   return account.supported && account.problem !== "setup";
 }
 
-/** The sidebar row: agentd's state at a glance, with the fix one click away. */
+/** The sidebar row: whether background workers can start, with the reason and fix one click away. */
 export function AgentdIndicator() {
-  const environmentId = useAgentdIndicatorEnvironment();
-  const { state, status } = useAgentdState(environmentId);
+  const { environmentId, cwd } = useAgentdIndicatorTarget();
+  const { state, status, readiness } = useIndicatorReadiness(environmentId, cwd);
+  const { label, reason } = useWorkerReadinessText(readiness);
   const canSetUp = useCanSetUpAgentd(environmentId);
-  const navigate = useNavigate();
-  const label = useAgentdStateLabel(state);
   if (environmentId === null) return null;
 
-  const content = (
-    <>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[state])} />
-          }
-        />
-        <TooltipPopup side="top">{label}</TooltipPopup>
-      </Tooltip>
-      <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">{label}</span>
-    </>
-  );
   const rowClass =
     "flex h-7 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs text-sidebar-foreground outline-hidden ring-ring hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset";
 
-  return state === "on" ? (
+  return (
     <Popover>
       <PopoverTrigger render={<button type="button" aria-label={label} className={rowClass} />}>
-        {content}
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                aria-hidden
+                className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[readiness.kind])}
+              />
+            }
+          />
+          <TooltipPopup side="top">{reason === null ? label : `${label}. ${reason}`}</TooltipPopup>
+        </Tooltip>
+        <span className="min-w-0 flex-1 truncate group-data-[collapsible=icon]:hidden">
+          {label}
+        </span>
       </PopoverTrigger>
       <PopoverPopup side="top" align="start" padding="compact" width="sm">
         <div className="space-y-3">
+          <p className="font-medium text-sm">{label}</p>
+          <WorkerReadinessNotice
+            environmentId={environmentId}
+            readiness={readiness}
+            enginePage={false}
+            onSetUp={canSetUp ? () => openAgentdSetupDialog(environmentId) : undefined}
+          />
           <AgentdStatusLines environmentId={environmentId} state={state} status={status} />
           <div className="flex flex-wrap gap-2">
             <Button size="xs" variant="outline" render={<Link to="/agentd" />}>
@@ -182,18 +192,5 @@ export function AgentdIndicator() {
         </div>
       </PopoverPopup>
     </Popover>
-  ) : (
-    <button
-      type="button"
-      aria-label={label}
-
-      className={rowClass}
-      onClick={() => {
-        if (state === "not-set-up" && canSetUp) openAgentdSetupDialog(environmentId);
-        else void navigate({ to: "/agentd" });
-      }}
-    >
-      {content}
-    </button>
   );
 }
