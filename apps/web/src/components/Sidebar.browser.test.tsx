@@ -655,11 +655,23 @@ describe("sidebar Chat and Code tabs", () => {
   function setup(options: {
     threads: ReadonlyArray<EnvironmentThreadShell>;
     route: ScopedThreadRef | null;
+    /** Opens an unsent draft in this project instead of `route`. */
+    draftIn?: Project;
   }) {
     const stack = new DisposableStack();
     const previousSettings = getClientSettings();
     stack.defer(() => __setClientSettingsForTests(previousSettings));
     stack.defer(() => setSidebarTab("code"));
+    const initialDrafts = useComposerDraftStore.getState();
+    stack.defer(() => useComposerDraftStore.setState(initialDrafts, true));
+    const draftId = DraftId.make("open-draft");
+    if (options.draftIn) {
+      initialDrafts.setProjectDraftThreadId(
+        scopeProjectRef(options.draftIn.environmentId, options.draftIn.id),
+        draftId,
+        { threadId: ThreadId.make("open-draft-thread"), createdAt: "2026-01-02T00:00:00.000Z" },
+      );
+    }
     __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
     const startScratchThread = vi.fn().mockResolvedValue(undefined);
     vi.mocked(useScratchProject).mockReturnValue({
@@ -672,16 +684,21 @@ describe("sidebar Chat and Code tabs", () => {
     vi.mocked(useProjects).mockReturnValue([scratch, app]);
     vi.mocked(useQuietThreadShells).mockReturnValue(options.threads);
     vi.mocked(useThreadRouteTarget).mockReturnValue(
-      options.route ? { kind: "server", threadRef: options.route } : null,
+      options.draftIn
+        ? { kind: "draft", draftId }
+        : options.route
+          ? { kind: "server", threadRef: options.route }
+          : null,
     );
+    const handleNewThread = vi.fn().mockResolvedValue(null);
     vi.mocked(useHandleNewThread).mockReturnValue({
       activeDraftThread: null,
       activeThread: null,
       defaultProjectRef: { environmentId: app.environmentId, projectId: app.id },
       defaultProjectFallbackReady: true,
-      handleNewThread: vi.fn().mockResolvedValue(null),
-      routeDraftId: null,
-      routeThreadRef: options.route,
+      handleNewThread,
+      routeDraftId: options.draftIn ? draftId : null,
+      routeThreadRef: options.draftIn ? null : options.route,
     });
     vi.mocked(useServerConfigs).mockReturnValue(
       new Map([
@@ -694,7 +711,7 @@ describe("sidebar Chat and Code tabs", () => {
         ],
       ]),
     );
-    return { stack, startScratchThread };
+    return { stack, startScratchThread, handleNewThread };
   }
 
   const renderSidebar = () =>
@@ -791,6 +808,52 @@ describe("sidebar Chat and Code tabs", () => {
       .element(screen.getByRole("button", { name: "Chat", exact: true }))
       .toHaveAttribute("aria-pressed", "true");
     await expect.element(screen.getByText("Scratch chat", { exact: true })).toBeVisible();
+  });
+
+  it("follows an open draft to its project's tab", async () => {
+    // A tab left on Chat must not sit beside a project draft, as on the landing page.
+    setSidebarTab("chat");
+    using _setup = setup({ threads: [scratchChat, appThread], route: null, draftIn: app }).stack;
+    await using screen = await renderSidebar();
+    await expect
+      .element(screen.getByRole("button", { name: "Code", exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+    await expect.element(screen.getByText("Thread 1", { exact: true })).toBeVisible();
+  });
+
+  it("follows an open chat draft to Chat", async () => {
+    using _setup = setup({
+      threads: [scratchChat, appThread],
+      route: null,
+      draftIn: scratch,
+    }).stack;
+    await using screen = await renderSidebar();
+    await expect
+      .element(screen.getByRole("button", { name: "Chat", exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("Chat from a project draft starts a chat, and Code keeps the project draft", async () => {
+    const { stack, startScratchThread, handleNewThread } = setup({
+      threads: [appThread],
+      route: null,
+      draftIn: app,
+    });
+    using _setup = stack;
+    await using screen = await renderSidebar();
+    await expect.element(screen.getByText("Thread 1", { exact: true })).toBeVisible();
+    const navigate = vi.spyOn(screen.router!, "navigate");
+
+    await userEvent.click(screen.getByRole("button", { name: "Chat", exact: true }));
+    expect(startScratchThread).toHaveBeenCalledExactlyOnceWith(scratch.environmentId);
+
+    // The chat did not open, so the project draft is still in the main pane.
+    await userEvent.click(screen.getByRole("button", { name: "Code", exact: true }));
+    await expect
+      .element(screen.getByRole("button", { name: "Code", exact: true }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(handleNewThread).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("a thread whose project is unknown stays under Code", async () => {
