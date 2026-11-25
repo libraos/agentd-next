@@ -176,11 +176,13 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       # Signing starts near the end of the build, after the GitHub OIDC assertion the CLI logged in
       # with has expired, so a token first asked for then fails (AADSTS700024). Asked for now, it is
-      # cached for about an hour and the CLI credential reuses it; the job's timeout bounds the build.
+      # cached for at least an hour and the CLI hands it out until 5 minutes before it expires.
       - name: Cache an Artifact Signing token
         shell: pwsh
         run: az account get-access-token --resource https://codesigning.azure.net --output none
       - name: Build and sign installer
+        # Keeps signing inside the cached token's life; the build takes about 5 minutes.
+        timeout-minutes: 40
         env:
           GH_TOKEN: ${{ github.token }}
           AGENTD_BUILD_ON_HOST: "1"
@@ -196,48 +198,15 @@ jobs:
           AZURE_TRUSTED_SIGNING_ACCOUNT_NAME: agentd-next-signing
           AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME: agentd-public
         run: bash agentd/scripts/build-desktop.sh win x64
-      # electron-builder only warns when a file fails to sign.
+      # A signing error fails the build, but electron-builder builds unsigned when it gets no
+      # signing options, and SignTool passes a signature whose timestamp request failed.
       - name: Check the signatures
         shell: pwsh
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $signer = 'CN="Nebula Nova, Inc."'
-          $failed = $false
-          $files = @("release/LibraOS-Next-$env:VERSION-x64.exe")
-          $tmp = [IO.Path]::GetTempPath()
-          $stages = @(Get-ChildItem -LiteralPath $tmp -Directory -Filter 't3code-desktop-win-stage-*')
-          if ($stages.Count -eq 1) {
-            $unpacked = Join-Path $stages[0].FullName 'app/dist/win-unpacked'
-            $files += Join-Path $unpacked 'LibraOS Next.exe'
-          } else {
-            Write-Output "::error::expected one kept build stage in $tmp, found $($stages.Count)"
-            $failed = $true
-          }
-          foreach ($file in $files) {
-            if (-not (Test-Path -LiteralPath $file)) {
-              Write-Output "::error::missing $file"
-              $failed = $true
-              continue
-            }
-            $sig = Get-AuthenticodeSignature -LiteralPath $file
-            $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { '(none)' }
-            Write-Output "${file}: $($sig.Status), signer $subject"
-            if ($sig.Status -ne 'Valid' -or -not $subject.Contains($signer)) {
-              Write-Output "::error::$file is not validly signed by $signer"
-              $failed = $true
-            }
-          }
-          # Information only: the other binaries electron-builder signs (signExts).
-          if ($stages.Count -eq 1 -and (Test-Path -LiteralPath $unpacked)) {
-            $unsigned = @(Get-ChildItem -LiteralPath $unpacked -Recurse -File |
-              Where-Object { $_.Extension -in '.exe', '.dll', '.node' } |
-              Where-Object { (Get-AuthenticodeSignature -LiteralPath $_.FullName).Status -ne 'Valid' })
-            foreach ($file in $unsigned) { Write-Output "not signed: $($file.FullName)" }
-            if ($unsigned.Count -gt 0) { Write-Output "::warning::$($unsigned.Count) binaries in win-unpacked are not signed" }
-          }
-          if ($failed) { exit 1 }
+        run: >-
+          ./agentd/scripts/check-windows-signatures.ps1
+          -Installer "release/LibraOS-Next-$env:VERSION-x64.exe" -Signer 'CN="Nebula Nova, Inc."'
       - name: Upload installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
