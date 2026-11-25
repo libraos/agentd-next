@@ -30,7 +30,7 @@ Shared files (entries added at the end, fewest lines):
 - `apps/web/src/lib/agentdState.ts`: `useAgentdEula`, `useAgentdSetup`.
 - `apps/web/src/components/agentd/AgentdPage.tsx`, `AgentdPageReads.tsx`: the not-set-up message gets a **Set up AgentD** button.
 
-#55: its install pass (`installAgentdAfterConsent`) runs in the desktop main process when first run is completed, which comes after this dialog, so it runs after this acceptance as asked. It is not called from Accept directly: that needs a desktop IPC method from the web app to the main process, outside this task's files. Left open.
+#55: its install pass (`installAgentdAfterConsent`) runs when Accept is clicked in the desktop app, before init (#77), as well as at first-run completion and at launch.
 
 Summary: agentd v0.1.13 has no command that prints the agreement's short summary alone; `agentd init` prints it just before its prompt, so it shows in the dialog's output once init runs. The dialog itself shows the full text.
 
