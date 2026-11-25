@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 
-import { estimateType, readDollarBudgets, readEstimate, suggestCheck } from "./taskDefaults.ts";
+import {
+  estimateType,
+  readDollarBudgets,
+  readEstimate,
+  readMaxWorkers,
+  suggestCheck,
+} from "./taskDefaults.ts";
 
 // Recorded from agentd (`handoff estimate --type implement --json`), trimmed.
 const ESTIMATE = `{"bench":0,"high":4.98,"label":"implementation","low":1.78,"median":3.11,"n":846,"type":"implement","workers":846}`;
@@ -37,6 +43,15 @@ describe("readDollarBudgets", () => {
       ),
     ).toBe(true);
     expect(readDollarBudgets("error: setting is not exposed: budget.prices")).toBeNull();
+  });
+});
+
+describe("readMaxWorkers", () => {
+  it("reads a positive count and nothing else", () => {
+    expect(readMaxWorkers("2\n")).toBe(2);
+    expect(readMaxWorkers("0\n")).toBeNull();
+    expect(readMaxWorkers("")).toBeNull();
+    expect(readMaxWorkers("2.5")).toBeNull();
   });
 });
 

@@ -88,6 +88,7 @@ import {
   PROJECT_FILES,
   readDollarBudgets,
   readEstimate,
+  readMaxWorkers,
   suggestCheck,
 } from "./taskDefaults.ts";
 import { joinedPerson, mergeTaskHolders, repositoryTargets } from "./taskOthers.ts";
@@ -528,7 +529,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
           )
         : null;
     const status = AgentdJson.agentdStatus(version, doctor, carried);
-    const [defaultWorker, dollarBudgets] = status.setUp
+    const [defaultWorker, dollarBudgets, maxWorkers] = status.setUp
       ? yield* Effect.all(
           [
             run(agentdArgs.defaultWorker()).pipe(
@@ -542,15 +543,20 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
               Effect.map(readDollarBudgets),
               Effect.orElseSucceed(() => null),
             ),
+            run(agentdArgs.maxWorkers()).pipe(
+              Effect.map(readMaxWorkers),
+              Effect.orElseSucceed(() => null),
+            ),
           ],
-          { concurrency: 2 },
+          { concurrency: 3 },
         )
-      : [null, null];
+      : [null, null, null];
     const install = yield* readInstallRecord;
     return {
       ...status,
       defaultWorker,
       dollarBudgets,
+      maxWorkers,
       binary: yield* binary,
       install,
       ...(servicesProblem === null ? {} : { servicesProblem }),

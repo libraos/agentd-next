@@ -113,6 +113,7 @@ export function useTaskPlan({
 
   const estimate = defaults?.estimate ?? null;
   const dollarBudgets = status.data?.dollarBudgets ?? null;
+  const maxWorkers = status.data?.maxWorkers ?? null;
   const local = autoBudget({
     estimate,
     defaultMinutes: null,
@@ -399,6 +400,7 @@ export function useTaskPlan({
   return {
     canStart,
     dollarBudgets,
+    maxWorkers,
     noPricesReason,
     filled,
     validation,

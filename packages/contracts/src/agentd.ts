@@ -318,6 +318,8 @@ export const AgentdStatus = Schema.Struct({
    * empty. Null when agentd did not say.
    */
   dollarBudgets: Schema.optionalKey(Schema.NullOr(Schema.Boolean)),
+  /** `dispatch.max_workers`: how many local workers may run at once. Null when agentd did not say. */
+  maxWorkers: Schema.optionalKey(Schema.NullOr(Schema.Number)),
   teamServer: NullableString,
   checks: Schema.Array(AgentdDoctorCheck),
   /** The agentd binary the app runs. */

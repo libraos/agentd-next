@@ -47,6 +47,7 @@ const state = vi.hoisted(() => ({
   gateway: false,
   worker: "opencode" as string | null,
   dollarBudgets: null as boolean | null,
+  maxWorkers: null as number | null,
   primary: null as EnvironmentId | null,
   os: "unknown" as ExecutionEnvironmentPlatformOs,
   cloudError: null as Error | null,
@@ -56,7 +57,12 @@ const state = vi.hoisted(() => ({
   fixKeyFile: vi.fn(),
   tasks: vi.fn(),
   // The synced task list, as its subscription last answered.
-  rows: [] as Array<{ id: string; cloudState: string | null }>,
+  rows: [] as Array<{
+    id: string;
+    cloudState: string | null;
+    runsOn?: string;
+    workerRunning?: boolean;
+  }>,
   rowListeners: new Set<() => void>(),
   // The thread is a draft not yet on the server.
   draft: false,
@@ -74,7 +80,11 @@ vi.mock("~/lib/agentdState", async () => {
       cloudKeyFileFix: { permissionAtom: () => allowed },
     },
     useAgentdStatus: () => ({
-      data: { defaultWorker: state.worker, dollarBudgets: state.dollarBudgets },
+      data: {
+        defaultWorker: state.worker,
+        dollarBudgets: state.dollarBudgets,
+        maxWorkers: state.maxWorkers,
+      },
     }),
     useAgentdTaskDefaults: () => ({ data: state.defaults }),
     useAgentdCloudSetup: (cwd: string | null) => ({
@@ -180,6 +190,7 @@ function setup(
   state.rows = [];
   state.rowListeners.clear();
   state.dollarBudgets = null;
+  state.maxWorkers = null;
   state.draft = false;
   useComposerDraftStore.setState({ draftThreadsByThreadKey: {} });
   state.start.mockReset();
@@ -252,6 +263,8 @@ it("shows what is missing, displays a refusal in full, and opens the tasks pane 
   await expect
     .element(page.getByLabelText("Working directory"))
     .toHaveValue("/repo/worktrees/export");
+  // agentd named no worker limit: no usage line.
+  await expect.element(page.getByText(/Local workers/)).not.toBeInTheDocument();
 
   await fillTask();
   const notice = page.getByRole("status").filter({ hasText: "Others are working here" });
@@ -381,6 +394,43 @@ it("retries a task agentd offered but didn't dispatch as the same task, never of
       },
     ]),
   );
+});
+
+it("shows local workers running against agentd's limit, and where each choice runs", async () => {
+  setup("main");
+  state.cloud = {
+    supported: true,
+    project: "fork-owner/export",
+    balanceUsd: 20,
+    balanceText: null,
+    defaultBudget: null,
+    problem: null,
+  };
+  state.maxWorkers = 2;
+  state.rows = [
+    { id: "hof-local1", cloudState: null, runsOn: "local", workerRunning: true },
+    { id: "hof-local2", cloudState: null, runsOn: "local", workerRunning: false },
+    { id: "hof-team01", cloudState: null, runsOn: "team", workerRunning: true },
+    { id: "hof-cloud1", cloudState: "running", runsOn: "cloud", workerRunning: true },
+  ];
+  await using _screen = await renderDialog();
+  const local = page.getByText("Runs on this computer and uses its resources.");
+  const remote = page.getByText("Runs on a remote cloud machine and uses its resources.");
+  await expect.element(page.getByText("Local workers: 1 of 2 running")).toBeVisible();
+  await expect.element(local).toBeVisible();
+  await expect.element(remote).not.toBeInTheDocument();
+
+  state.rows = [
+    ...state.rows,
+    { id: "hof-local3", cloudState: null, runsOn: "local", workerRunning: true },
+  ];
+  for (const listener of state.rowListeners) listener();
+  await expect.element(page.getByText("Local workers: 2 of 2 running")).toBeVisible();
+
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect.element(remote).toBeVisible();
+  await expect.element(local).not.toBeInTheDocument();
+  await expect.element(page.getByText(/Local workers/)).not.toBeInTheDocument();
 });
 
 it("starts a cloud task with a dollar cap and a provider key path, without the local branch gate", async () => {

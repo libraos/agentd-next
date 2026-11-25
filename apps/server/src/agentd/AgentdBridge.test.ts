@@ -191,6 +191,7 @@ describe("AgentdBridge", () => {
           return Effect.succeed(output("opencode\r\n"));
         // agentd prints an empty table while no model has a price.
         if (key === "config get budget.prices") return Effect.succeed(output("{}\n"));
+        if (key === "config get dispatch.max_workers") return Effect.succeed(output("2\n"));
         if (key === "handoff list --limit 20 --json") return Effect.succeed(output(LIST_JSON));
         if (key === "handoff show hof-a6e5f4e329 --json") return Effect.succeed(output(SHOW_JSON));
         return Effect.die(`unexpected agentd ${key}`);
@@ -202,6 +203,7 @@ describe("AgentdBridge", () => {
         setUp: true,
         defaultWorker: "opencode",
         dollarBudgets: false,
+        maxWorkers: 2,
         teamServer: "https://team.example:8443/agentd",
         firstSetup: false,
         checks: [
@@ -415,12 +417,16 @@ describe("AgentdBridge", () => {
             return Effect.succeed(output("claude\n"));
           case "config get budget.prices":
             return Effect.succeed(output("{}\n"));
+          // An agentd older than the setting: the form leaves out its worker count.
+          case "config get dispatch.max_workers":
+            return Effect.succeed(output("error: setting is not exposed: dispatch.max_workers", 1));
           default:
             return Effect.die(`unexpected agentd ${key}`);
         }
       });
 
       const first = yield* bridge.status;
+      expect(first.maxWorkers).toBeNull();
       expect(calls.filter((call) => call.startsWith("connect"))).toEqual([
         "connect claude",
         "connect codex",
@@ -475,6 +481,7 @@ describe("AgentdBridge", () => {
           );
         if (key === "config get dispatch.default_tool") return Effect.succeed(output("claude\n"));
         if (key === "config get budget.prices") return Effect.succeed(output("{}\n"));
+        if (key === "config get dispatch.max_workers") return Effect.succeed(output("4\n"));
         return Effect.die(`unexpected agentd ${key}`);
       });
       yield* bridge.status;

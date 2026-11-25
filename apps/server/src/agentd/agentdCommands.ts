@@ -129,6 +129,7 @@ export const agentdArgs = {
   version: () => ["version"],
   doctor: () => ["doctor", "--json"],
   defaultWorker: () => ["config", "get", "dispatch.default_tool"],
+  maxWorkers: () => ["config", "get", "dispatch.max_workers"],
   configHelp: () => ["config", "--help"],
   workerModel: (tool: AgentdWorkerTool) => ["config", "get", `dispatch.${tool}_model`],
   /** `url` "" clears the gateway and its key file. */
