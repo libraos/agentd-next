@@ -221,6 +221,18 @@ export function useStartTaskCloud(
   };
 }
 
+function WorkerLocation({ id, cloud }: { readonly id: string; readonly cloud: boolean }) {
+  return (
+    <p id={id} className="text-xs text-muted-foreground">
+      {cloud ? (
+        <T>Runs on a remote cloud machine and uses its resources.</T>
+      ) : (
+        <T>Runs on this computer and uses its resources.</T>
+      )}
+    </p>
+  );
+}
+
 export function StartTaskCloud({
   cloud,
   disabled,
@@ -242,13 +254,14 @@ export function StartTaskCloud({
             id={`${id}-enabled`}
             checked={cloud.requested}
             disabled={disabled}
-            aria-describedby={`${id}-down`}
+            aria-describedby={`${id}-where ${id}-down`}
             onCheckedChange={(checked) => cloud.setRequested(checked)}
           />
           <Label htmlFor={`${id}-enabled`}>
             <T>Run in the cloud</T>
           </Label>
         </div>
+        <WorkerLocation id={`${id}-where`} cloud={cloud.requested} />
         <div className="flex items-center gap-2">
           <p id={`${id}-down`} role="status" className="text-xs text-muted-foreground">
             {cloud.checkoutUnknown ? (
@@ -301,12 +314,13 @@ export function StartTaskCloud({
             cloud.setRequested(checked);
           }}
           disabled={disabled || setup.project === null || cloud.unreachable}
-          aria-describedby={setup.project === null ? `${id}-origin` : undefined}
+          aria-describedby={setup.project === null ? `${id}-where ${id}-origin` : `${id}-where`}
         />
         <Label htmlFor={`${id}-enabled`}>
           <T>Run in the cloud</T>
         </Label>
       </div>
+      <WorkerLocation id={`${id}-where`} cloud={cloud.enabled} />
       {setup.project === null ? (
         <p id={`${id}-origin`} className="text-xs text-muted-foreground">
           <T>Cloud Workers require a GitHub repository as the checkout’s origin.</T>

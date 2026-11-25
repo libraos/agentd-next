@@ -57,6 +57,14 @@ export function readDollarBudgets(stdout: string): boolean | null {
   return parsed._tag === "None" ? null : Object.keys(parsed.value).length > 0;
 }
 
+/** `agentd config get dispatch.max_workers`: how many local workers may run at once, else null. */
+export function readMaxWorkers(stdout: string): number | null {
+  const text = stdout.trim();
+  if (!/^\d+$/.test(text)) return null;
+  const max = Number(text);
+  return max > 0 ? max : null;
+}
+
 const packageJson = Schema.decodeUnknownOption(
   Schema.fromJsonString(
     Schema.Struct({

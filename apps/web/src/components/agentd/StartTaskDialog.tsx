@@ -143,6 +143,25 @@ export function StartTaskDialogHost() {
   );
 }
 
+/** This machine's running workers against agentd's `dispatch.max_workers`, both read now. */
+function LocalWorkerUsage({
+  environmentId,
+  max,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly max: number;
+}) {
+  const gt = useGT();
+  const { data } = useAgentdTasks(environmentId);
+  if (!data) return null;
+  const running = data.filter((row) => row.runsOn === "local" && row.workerRunning).length;
+  return (
+    <p className="text-muted-foreground text-xs">
+      {gt("Local workers: {running} of {max} running", { running, max })}
+    </p>
+  );
+}
+
 function TaskField({
   label,
   id,
@@ -442,6 +461,9 @@ function StartTaskDialog({
           ) : null}
           {filled.goal.trim() !== "" ? <p className="text-sm">{filled.goal.trim()}</p> : null}
           <TaskPlanSummary plan={plan} />
+          {plan.maxWorkers !== null && !cloud.enabled && !cloud.waiting ? (
+            <LocalWorkerUsage environmentId={environmentId} max={plan.maxWorkers} />
+          ) : null}
           {showInputs && !editing ? null : (
             <Button
               type="button"
