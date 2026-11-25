@@ -226,7 +226,18 @@ function isFailedAgentdTask(
   state: string,
   verdict: Pick<AgentdTaskVerdict, "check"> | null,
 ): boolean {
-  return state === "declined" || /^(?:failed|timed_out)(?=:|\s|$)/.test(verdict?.check ?? "");
+  return state === "declined" || /^(?:failed|timed[_ ]out)(?=:|\s|$)/.test(verdict?.check ?? "");
+}
+
+/** An unfinished task whose worker exited or whose check failed: its check can be run again. */
+export function isStuckAgentdTask(
+  task: Pick<AgentdTask, "state" | "workerState" | "verdict" | "runsOn">,
+): boolean {
+  return (
+    task.runsOn !== "cloud" &&
+    !isFinishedAgentdTask(task.state) &&
+    (task.workerState === "gone" || isFailedAgentdTask(task.state, task.verdict))
+  );
 }
 
 export function finishedAgentdTaskLabel(

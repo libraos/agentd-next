@@ -3755,6 +3755,7 @@ export const layerWsRpc = (
         [WS_METHODS.agentdTask]: (input) => agentd.task(input),
         [WS_METHODS.agentdSubscribeTaskOutput]: (input) => agentd.subscribeTaskOutput(input),
         [WS_METHODS.agentdStopTask]: (input) => agentd.stopTask(input),
+        [WS_METHODS.agentdRecheckTask]: (input) => agentd.recheckTask(input),
         [WS_METHODS.agentdStartTask]: (input) =>
           agentd
             .startTask(input)

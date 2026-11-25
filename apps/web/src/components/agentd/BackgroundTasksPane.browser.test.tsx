@@ -40,6 +40,8 @@ const bridge = vi.hoisted(() => ({
   sectionTaskRead: vi.fn<(id: string) => void>(),
   retryStart: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["retryStart"]>(),
   stopTask: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["stopTask"]>(),
+  recheckTask: vi.fn<ReturnType<typeof AgentdState.useAgentdCommands>["recheckTask"]>(),
+  canRecheck: vi.fn<() => boolean>(),
   projects: vi.fn<() => ReadonlyArray<Record<string, unknown>>>(() => []),
   review: vi.fn<() => { data: null; error: string | null }>(() => ({ data: null, error: null })),
 }));
@@ -60,10 +62,15 @@ vi.mock("../../lib/agentdState", async () => {
       },
       approvals: () => Atom.make(AsyncResult.success(bridge.approvals())),
       stopTask: { permissionAtom: () => canStop },
+      recheckTask: { permissionAtom: () => Atom.make(bridge.canRecheck()) },
       cloudReview: (target: unknown) => target,
     },
     useAgentdApprovals: () => ({ data: bridge.approvals(), error: null }),
-    useAgentdCommands: () => ({ stopTask: bridge.stopTask, retryStart: bridge.retryStart }),
+    useAgentdCommands: () => ({
+      stopTask: bridge.stopTask,
+      retryStart: bridge.retryStart,
+      recheckTask: bridge.recheckTask,
+    }),
     useAgentdPermissionMode: () => ({ data: null, error: null }),
   };
 });
@@ -508,6 +515,42 @@ it("lists a task waiting on its own approval under Waiting with the answer comma
     .toBeVisible();
   expect(screen.getByText("Merge another task?").all()).toHaveLength(0);
 });
+
+it.each([true, false])(
+  "shows a stuck task's check and report, with Re-run check when allowed: %s",
+  async (allowed) => {
+    setup();
+    bridge.canRecheck.mockReturnValue(allowed);
+    bridge.recheckTask.mockResolvedValue(AsyncResult.success({}));
+    const gone = { ...running, workerState: "gone", workerRunning: false };
+    bridge.useAgentdTasks.mockReturnValue(answer([gone]));
+    bridge.useAgentdTask.mockReturnValue(
+      answer(
+        taskDetails(gone, {
+          check: "vp test",
+          report: "Tests fail on main too",
+          verdict: { verdict: "act", check: "failed: exit 1", delivery: null, next: null },
+        }),
+      ),
+    );
+    await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+    await expect.element(screen.getByRole("heading", { name: "Waiting 1" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: /Build the widget Worker exited/ }));
+    await expect.element(screen.getByText("failed: exit 1", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("Tests fail on main too", { exact: true })).toBeVisible();
+    await expect.element(screen.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+    const recheck = screen.getByRole("button", { name: "Re-run check" });
+    if (!allowed) {
+      expect(recheck.all()).toHaveLength(0);
+      return;
+    }
+    await userEvent.click(recheck);
+    expect(bridge.recheckTask).toHaveBeenCalledExactlyOnceWith({
+      environmentId: threadRef.environmentId,
+      input: { id: gone.id },
+    });
+  },
+);
 
 it("shows the wait since requeue instead of the original offer", async () => {
   const requeued = setupQueuedTasks();

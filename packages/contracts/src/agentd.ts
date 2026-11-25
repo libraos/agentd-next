@@ -169,6 +169,10 @@ export const AgentdHandoffShowJson = Schema.Struct({
   worker_wait: NullableString,
   report_note: NullableString,
   close_reason: NullableString,
+  /** Each ended worker's result; check_result is "passed", "failed: exit N", "not run" or "". */
+  results: Schema.optionalKey(
+    Schema.NullOr(Schema.Array(Schema.Struct({ check_result: NullableString }))),
+  ),
   project: NullableString,
   /** Pull requests linked to the task, as OWNER/REPO#N. */
   prs: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.String))),

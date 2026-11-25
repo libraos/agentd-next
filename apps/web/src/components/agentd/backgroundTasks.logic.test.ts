@@ -8,6 +8,7 @@ import {
   finishedAgentdTaskLabel,
   isFinishedAgentdTask,
   isQueuedAgentdTask,
+  isStuckAgentdTask,
   queuedAgentdTaskReason,
   queuedAgentdTaskWait,
   runningAgentdTaskLabel,
@@ -99,6 +100,22 @@ describe("background task states", () => {
   ] as const)("lists a task with %s under %s", (_case, section, status, approvals) => {
     expect(agentdTaskSection(status, null, approvals)).toBe(section);
   });
+
+  it.each([
+    ["claimed", "gone", null, "local", true],
+    ["claimed", null, "failed: exit 1", "local", true],
+    ["offered", null, "timed out after 10m (limit 10m)", "local", true],
+    ["claimed", null, "passed", "local", false],
+    ["claimed", "running", null, "local", false],
+    ["done", "gone", "failed: exit 1", "local", false],
+    ["claimed", "gone", null, "cloud", false],
+  ] as const)(
+    "calls %s / %s / check %s on %s stuck: %s",
+    (state, workerState, check, runsOn, stuck) => {
+      const verdict = check === null ? null : { verdict: "act", check, delivery: null, next: null };
+      expect(isStuckAgentdTask({ state, workerState, verdict, runsOn })).toBe(stuck);
+    },
+  );
 
   it("keeps only the task's own approvals", () => {
     const own = approval("hof-123abc");

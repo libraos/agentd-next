@@ -189,6 +189,12 @@ function requiredParkAction(reason: string): AgentdTask["parkAction"] {
 export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): AgentdTask {
   const goal = show.body?.goal ?? "";
   const verdict = show.verdict ?? null;
+  // Core's verdict names a check only once the task is done; a stuck one has its worker's run.
+  const workerCheck = nonEmpty(
+    show.results?.findLast(
+      ({ check_result }) => nonEmpty(check_result) && check_result !== "not run",
+    )?.check_result,
+  );
   const total = show.cost?.total ?? null;
   const cloudState = nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state);
   const modelAccess = nonEmpty(show.body?.model_access);
@@ -234,7 +240,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
         ? null
         : {
             verdict: verdict.verdict,
-            check: verdict.check ?? null,
+            check: verdict.check ?? workerCheck,
             delivery: verdict.delivery ?? null,
             next: verdict.next ?? null,
           },

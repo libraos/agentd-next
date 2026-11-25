@@ -139,6 +139,7 @@ export function useAgentdCommands() {
     startTask: useAtomCommand(agentdEnvironment.startTask),
     retryStart: useAtomCommand(agentdEnvironment.retryStart, { reportFailure: false }),
     stopTask: useAtomCommand(agentdEnvironment.stopTask),
+    recheckTask: useAtomCommand(agentdEnvironment.recheckTask, { reportFailure: false }),
     connectAgent: useAtomCommand(agentdEnvironment.connectAgent),
     joinTeam: useAtomCommand(agentdEnvironment.joinTeam),
     setTeamNode: useAtomCommand(agentdEnvironment.setTeamNode),

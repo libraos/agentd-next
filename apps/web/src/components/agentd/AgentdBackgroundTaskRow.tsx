@@ -34,6 +34,7 @@ import {
   agentdTaskBudgetUse,
   type AgentdTaskBudgetTone,
   finishedAgentdTaskLabel,
+  isStuckAgentdTask,
   queuedAgentdTaskReason,
   queueBlockLabel,
   queuedAgentdTaskWait,
@@ -201,12 +202,12 @@ function TaskBudgetBar(props: {
 
 function TaskBudgetDetails(props: {
   readonly task: AgentdTask;
-  readonly finished: boolean;
   readonly elapsedMs: number;
+  readonly showReport: boolean;
 }) {
   const locale = useLocale();
   const resolve = useMessages();
-  const { task, finished, elapsedMs } = props;
+  const { task, elapsedMs, showReport } = props;
   const minutes = budgetMinutes(task.budget);
   const dollars = budgetDollarLimit(task.budget);
   if (!minutes && !dollars) return null;
@@ -247,7 +248,7 @@ function TaskBudgetDetails(props: {
           ) : null}
         </dd>
       </div>
-      {!finished && task.report ? (
+      {showReport && task.report ? (
         <div>
           <dt className="font-medium">
             <T>Latest report</T>
@@ -279,6 +280,66 @@ function FinishedTaskDetails({ task }: { readonly task: AgentdTask }) {
         </dd>
       </div>
     </dl>
+  );
+}
+
+function StuckTaskDetails({ task }: { readonly task: AgentdTask }) {
+  const report = task.report ?? task.note;
+  return (
+    <dl className="space-y-2 wrap-anywhere select-text">
+      <div>
+        <dt className="font-medium">
+          <T>Check result</T>
+        </dt>
+        <dd className="whitespace-pre-wrap text-muted-foreground">
+          {task.verdict?.check ?? <T>No check result was recorded.</T>}
+        </dd>
+      </div>
+      {report ? (
+        <div>
+          <dt className="font-medium">
+            <T>Latest report</T>
+          </dt>
+          <dd className="whitespace-pre-wrap text-muted-foreground">{report}</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+function RecheckTaskButton(props: { readonly id: string; readonly environmentId: EnvironmentId }) {
+  const { environmentId, id } = props;
+  const resolve = useMessages();
+  const canRecheck = useAtomValue(agentdEnvironment.recheckTask.permissionAtom(environmentId));
+  const { recheckTask } = useAgentdCommands();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!canRecheck) return null;
+
+  const recheck = async () => {
+    setPending(true);
+    setError(null);
+    const result = await recheckTask({ environmentId, input: { id } });
+    setPending(false);
+    if (result._tag === "Failure") setError(formatEnvironmentQueryError(result.cause, resolve));
+  };
+
+  return (
+    <>
+      <Button size="xs" variant="ghost" disabled={pending} onClick={recheck}>
+        {pending ? <T>Running check…</T> : <T>Re-run check</T>}
+      </Button>
+      {error ? (
+        <p
+          className="basis-full wrap-anywhere text-xs whitespace-pre-wrap text-destructive"
+          role="alert"
+        >
+          <T>
+            Re-run check: <Var>{error}</Var>
+          </T>
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -532,6 +593,7 @@ export function AgentdBackgroundTaskRow(props: {
   const status = { ...row, workerState: row.workerState ?? task?.workerState ?? null };
   const elapsedMs = useElapsedMs(queued ? null : task, live && task?.started != null);
   const showBudget = task !== null && !cloud && (!finished || task.started !== null);
+  const stuck = section === "waiting" && task !== null && isStuckAgentdTask(task);
   return (
     <BackgroundTaskCard
       title={title}
@@ -630,6 +692,9 @@ export function AgentdBackgroundTaskRow(props: {
                 force={Boolean(parked)}
               />
             ) : null}
+            {stuck && task.check !== null ? (
+              <RecheckTaskButton id={row.id} environmentId={environmentId} />
+            ) : null}
             <StopTaskButton id={row.id} title={title} environmentId={environmentId} />
           </div>
         ) : cloud ? (
@@ -649,8 +714,9 @@ export function AgentdBackgroundTaskRow(props: {
         <TaskWaiting task={task} />
       ) : null}
       {showBudget ? (
-        <TaskBudgetDetails task={task} finished={finished} elapsedMs={elapsedMs} />
+        <TaskBudgetDetails task={task} elapsedMs={elapsedMs} showReport={!finished && !stuck} />
       ) : null}
+      {stuck ? <StuckTaskDetails task={task} /> : null}
       {finished ? (
         task ? (
           <FinishedTaskDetails task={task} />
