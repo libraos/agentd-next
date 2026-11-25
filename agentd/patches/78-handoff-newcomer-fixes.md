@@ -21,4 +21,4 @@ The button reuses the existing "Hand to a worker" string, so no new translation 
 - `packages/client-runtime/src/state/agentd.ts` (upstream): the command, refreshing the task when it settles.
 - `apps/web/src/lib/agentdState.ts` (ours): `recheckTask` in `useAgentdCommands`, without a toast: the card shows a failed run inline.
 
-agentd lets the task's sender session or an owner re-run a check; the app runs it with no session, so it acts as the person at this host (an owner, or the only person on a ledger without users). Stop's cancel was not tested against a real agentd here, so `--session` was not added to it.
+agentd lets the task's sender session or an owner re-run a check; the app runs it with no session, so it acts as the person at this host (an owner, or the only person on a ledger without users). Stop's cancel was not tested against a real agentd here (a sandbox ledger needs the EULA accepted at a terminal), so `--session` was not added to it; agentd's code suggests a cancel with no session is refused unless it is the sender's.
