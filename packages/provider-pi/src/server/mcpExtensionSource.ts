@@ -435,7 +435,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
           // Pi records active declarations in the transcript even when hidden, and
           // estimates context from them. The model sees only the public schema;
           // T3's server still validates the arguments.
-          description: isAlias ? "Same as mcp__t3-code__" + name + "." : (tool.description ?? name),
+          description: isAlias ? "Same as mcp__agentd-next__" + name + "." : (tool.description ?? name),
           parameters: jsonSchemaToTypebox(isAlias ? { type: "object" } : tool.inputSchema),
           ...(supportsExposure ? { outputSchema: mcpOutputSchema(tool) } : {}),
           ...(supportsExposure ? { exposure } : {}),
@@ -515,7 +515,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
     const aliases = catalog
       .filter((tool) => registered.has(ALIAS_PREFIX + tool.name) &&
         followsPublicTool(tool.name, registered, loaded) &&
-        !loaded.includes("mcp__t3-code__" + tool.name))
+        !loaded.includes("mcp__agentd-next__" + tool.name))
       .map((tool) => ALIAS_PREFIX + tool.name);
     const kept = loaded.filter((name) => !name.startsWith(ALIAS_PREFIX) || aliases.includes(name));
     const added = aliases.filter((name) => !loaded.includes(name));
@@ -530,7 +530,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
     let renamed = false;
     const content = message.content.map((part) => {
       if (part.type !== "toolCall" || !part.name.startsWith(ALIAS_PREFIX)) return part;
-      const publicName = "mcp__t3-code__" + part.name.slice(ALIAS_PREFIX.length);
+      const publicName = "mcp__agentd-next__" + part.name.slice(ALIAS_PREFIX.length);
       if (!active.includes(publicName)) return part;
       renamed = true;
       return { ...part, name: publicName };

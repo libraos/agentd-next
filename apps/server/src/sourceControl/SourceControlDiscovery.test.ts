@@ -314,6 +314,10 @@ it.effect("probes with the registry PATH an installer wrote after launch on Wind
     ),
     Effect.provideService(HostProcess.Platform, "win32"),
     Effect.provideService(HostProcess.Environment, env),
+    // Discovery checks PATH before probing; the CLI is found only on the refreshed registry PATH.
+    Effect.provideService(SpawnExecutableResolution, (command, _platform, searched) =>
+      searched.PATH?.includes(installed) ? `${installed}\\${command}.exe` : undefined,
+    ),
     Effect.provideService(WindowsShellEnvironment, () =>
       Effect.succeed({ PATH: `C:\\Windows;${installed}` }),
     ),

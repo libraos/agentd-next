@@ -647,6 +647,21 @@ describe("DesktopShellEnvironment", () => {
     }),
   );
 
+  // The server falls back to it while the github_app_client_id flag is unset.
+  it.effect("hydrates T3CODE_GITHUB_APP_CLIENT_ID from the login shell on macOS", () =>
+    Effect.gen(function* () {
+      const env: NodeJS.ProcessEnv = { SHELL: "/bin/zsh", PATH: "/usr/bin" };
+
+      yield* runShellEnvironment({
+        env,
+        platform: "darwin",
+        handler: () => envOutput({ PATH: "/usr/bin", T3CODE_GITHUB_APP_CLIENT_ID: "Iv1.client" }),
+      });
+
+      assert.equal(env.T3CODE_GITHUB_APP_CLIENT_ID, "Iv1.client");
+    }),
+  );
+
   it.effect("does not mix login-shell locale categories into an inherited locale", () =>
     Effect.gen(function* () {
       const env: NodeJS.ProcessEnv = {

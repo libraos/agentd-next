@@ -5459,7 +5459,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
     Effect.gen(function* () {
       const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
       yield* Effect.addFinalizer(() => mcpSessions.clear(threadId));
-      const server = "t3-code-thread_opencode2-adapter";
+      const server = "agentd-next-thread_opencode2-adapter";
       const messages = ["First mid-turn note", "Second mid-turn note"];
       yield* Effect.forEach(messages, (message) =>
         mcpSessions.recordToolResult(
@@ -5563,7 +5563,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
       yield* Effect.addFinalizer(() => mcpSessions.clear(threadId));
       // Subagent sessions call the root thread's server, which records under the root thread.
-      const server = "t3-code-thread_opencode2-adapter";
+      const server = "agentd-next-thread_opencode2-adapter";
       const message = "Subagent mid-turn note";
       yield* mcpSessions.recordToolResult(
         threadId,

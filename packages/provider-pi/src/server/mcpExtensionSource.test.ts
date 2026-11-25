@@ -213,7 +213,7 @@ describe("Pi MCP tool exposure", () => {
       "read",
       "tool_search",
       ...publicDirect,
-      "mcp__t3_code__preview_snapshot",
+      "mcp__agentd_next__preview_snapshot",
     ]);
     assert.deepEqual(bridge.declaredTools(), publicDirect);
     assert.deepEqual(
@@ -260,9 +260,6 @@ describe("Pi MCP tool exposure", () => {
       "tool_search",
       "mcp__agentd-next__orchestrator_capabilities",
       "mcp__agentd-next__preview_snapshot",
-      "mcp__agentd_next__orchestrator_capabilities",
-      "mcp__agentd_next__task_status",
-      "mcp__agentd_next__preview_snapshot",
     ]);
     await bridge.handlers.get("model_select")!(event, discoveryContext);
     assert.equal(
@@ -423,16 +420,16 @@ describe("Pi MCP tool schemas", () => {
       { systemPrompt: "" },
       { model: { api: "openai-completions" }, ui: { notify: assert.fail } },
     );
-    const aliases = bridge.tools.filter((tool) => tool.name.startsWith("mcp__t3_code__"));
+    const aliases = bridge.tools.filter((tool) => tool.name.startsWith("mcp__agentd_next__"));
     assert.isAbove(aliases.length, 0);
     for (const alias of aliases) {
-      const label = alias.name.slice("mcp__t3_code__".length);
-      const publicTool = bridge.tools.find((tool) => tool.name === "mcp__t3-code__" + label)!;
+      const label = alias.name.slice("mcp__agentd_next__".length);
+      const publicTool = bridge.tools.find((tool) => tool.name === "mcp__agentd-next__" + label)!;
       assert.deepEqual(publicTool.parameters, inputSchema);
       assert.deepEqual(alias.parameters, { type: "object", properties: {} });
-      assert.equal(alias.description, "Same as mcp__t3-code__" + label + ".");
+      assert.equal(alias.description, "Same as mcp__agentd-next__" + label + ".");
     }
-    await bridge.callModelTool("mcp__t3_code__preview_snapshot", { depth: 2 });
+    await bridge.callModelTool("mcp__agentd_next__preview_snapshot", { depth: 2 });
     assert.deepEqual(JSON.parse(JSON.stringify(bridge.requests.at(-1))).params, {
       name: "preview_snapshot",
       arguments: { depth: 2 },

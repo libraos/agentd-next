@@ -30,7 +30,11 @@ import {
   type AcpRuntimePolicy,
 } from "@t3tools/provider-acp/server/clientPolicy";
 import type { AcpSessionModeState } from "@t3tools/provider-acp/server/runtimeModel";
-import { T3_MCP_TOOL_NAMES } from "@t3tools/shared/t3McpToolPresentation";
+import {
+  APP_MCP_SERVER_NAME,
+  LEGACY_APP_MCP_SERVER_NAME,
+  T3_MCP_TOOL_NAMES,
+} from "@t3tools/shared/t3McpToolPresentation";
 import packageJson from "../../../package.json" with { type: "json" };
 import { normalizeAntigravitySessionUpdate } from "./AntigravityProtocol.ts";
 
@@ -186,11 +190,17 @@ export function antigravitySessionMode(
 
 // Only calls that name T3's server: before agy 1.5.8 "Running <tool>" names no server, so another
 // MCP server's tool of the same name would pass.
-const ANTIGRAVITY_T3_MCP_TITLE = /^Run mcp_t3-code_(?<tool>[A-Za-z0-9_]+)\??$/;
+const ANTIGRAVITY_T3_MCP_TITLE = /^Run mcp_(?:agentd-next|t3-code)_(?<tool>[A-Za-z0-9_]+)\??$/;
 
 // call_mcp_tool is the one call whose rawInput names a server and tool; in every other call
 // rawInput is the tool's own arguments.
 const ANTIGRAVITY_PROXIED_MCP_TITLE = /^MCP Tool (?<tool>[A-Za-z0-9_]+)\??$/;
+
+// Sessions started before the rename still name the legacy server and `t3_`-prefixed tools.
+const isAppMcpServerName = (name: unknown) =>
+  name === APP_MCP_SERVER_NAME || name === LEGACY_APP_MCP_SERVER_NAME;
+const isAppMcpToolName = (tool: string) =>
+  T3_MCP_TOOL_NAMES.has(tool.startsWith("t3_") ? tool.slice("t3_".length) : tool);
 
 function isAntigravityT3McpRequest(request: EffectAcpSchema.RequestPermissionRequest): boolean {
   const title = request.toolCall.title?.trim() ?? "";
@@ -198,14 +208,14 @@ function isAntigravityT3McpRequest(request: EffectAcpSchema.RequestPermissionReq
   const proxiedTool = ANTIGRAVITY_PROXIED_MCP_TITLE.exec(title)?.groups?.tool;
   if (proxiedTool !== undefined) {
     return (
-      rawInput?.ServerName === "t3-code" &&
-      rawInput.ToolName === proxiedTool &&
-      T3_MCP_TOOL_NAMES.has(proxiedTool)
+      isAppMcpServerName(rawInput?.ServerName) &&
+      rawInput?.ToolName === proxiedTool &&
+      isAppMcpToolName(proxiedTool)
     );
   }
   if (typeof rawInput?.CommandLine === "string") return false;
   const tool = ANTIGRAVITY_T3_MCP_TITLE.exec(title)?.groups?.tool;
-  return tool !== undefined && T3_MCP_TOOL_NAMES.has(tool);
+  return tool !== undefined && isAppMcpToolName(tool);
 }
 
 export function antigravityPermissionDisposition(
