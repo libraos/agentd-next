@@ -9,6 +9,8 @@ Codex's `model/list` already lists `ultra` for the models and versions that acce
 model except the Luna ones), and the effort picker showed it as "Ultra" with no word on what it does. Now:
 
 - The Ultra option says "Delegates to sub-agents on its own, so it costs more", in every language.
+- The composer's effort glyph names Ultra, as it names Max and Ultracode, instead of drawing it as one
+  more bar above Extra High: it changes how Codex works, not only how hard it thinks.
 - Choosing it sends `effort: "ultra"` on `turn/start` as before, and also on `thread/start`. That request
   has no effort field, so it goes as `config.model_reasoning_effort` (checked live on 0.169: the thread
   reports `reasoningEffort: "ultra"`; a model without Ultra falls back to its default). Other levels
@@ -30,5 +32,6 @@ Upstream files changed:
   server's English Ultra description.
 - `apps/web/src/components/chat/ComposerModelEffort.tsx`, `apps/web/src/components/chat/TraitsPicker.tsx`,
   `apps/mobile/src/features/threads/ThreadSettingsSheet.tsx`: show option descriptions through it.
+- `apps/web/src/components/chat/EffortGlyph.tsx`: `ultra` joins the named levels.
 - `apps/{web,mobile}/src/i18n/translations/*.json`: the new description in every language.
-- Tests: `CodexProvider.test.ts`, `CodexAdapterV2.test.ts`.
+- Tests: `CodexProvider.test.ts`, `CodexAdapterV2.test.ts`, `EffortGlyph.test.ts`.
