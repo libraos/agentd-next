@@ -6438,50 +6438,156 @@ describe("CodexAdapterV2 post-settle continuation", () => {
     ],
   });
 
-  it.effect("marks a root command it wakes the agent for once the command finishes", () =>
-    Effect.gen(function* () {
-      const harness = yield* makeCodexReplayHarness({
-        ...backgroundExecTranscript,
-        entries: backgroundExecTranscript.entries.map((entry) =>
-          entry.type === "emit_inbound" && entry.label === "item/completed/command-late"
-            ? { ...entry, afterMs: 0 }
-            : entry,
+  type CodexReplayHarness = Effect.Success<ReturnType<typeof makeCodexReplayHarness>>;
+
+  // background_wait runs during the turn, so this marks the commands before turn/completed.
+  const awaitCommandsBeforeSettle = Effect.gen(function* () {
+    const marking = yield* Deferred.make<Effect.Effect<void>>();
+    return {
+      beforeEmitInbound: (entry: { readonly label?: string | undefined }) =>
+        entry.label === "turn/completed" ? Effect.flatten(Deferred.await(marking)) : Effect.void,
+      mark: (harness: CodexReplayHarness, taskIds: ReadonlyArray<string>) =>
+        Deferred.succeed(
+          marking,
+          Effect.gen(function* () {
+            yield* harness.until(
+              () =>
+                new Set(
+                  harness.events.flatMap((event) =>
+                    event.type === "turn_item.updated" &&
+                    event.turnItem.type === "command_execution" &&
+                    event.turnItem.status === "running"
+                      ? [event.turnItem.id]
+                      : [],
+                  ),
+                ).size >= taskIds.length,
+            );
+            const { matched } = yield* harness.runtime.awaitBackgroundTasks!({
+              providerThread: harness.providerThread,
+              taskIds: [...taskIds, "not-a-command-of-this-thread"],
+              awaited: true,
+            });
+            assert.sameMembers([...matched], [...taskIds]);
+          }).pipe(Effect.orDie),
         ),
-      });
-      yield* harness.runtime.startTurn(
-        makeCodexTestTurnInput({
-          threadId: harness.threadId,
-          providerThread: harness.providerThread,
-          now: yield* DateTime.now,
-          attemptId: RunAttemptId.make("attempt-command-completion-wake"),
-          text: BG_PROMPT,
-        }),
-      );
-      const commands = () =>
-        harness.events.flatMap((event) =>
-          event.type === "turn_item.updated" && event.turnItem.type === "command_execution"
-            ? [[event.turnItem.status, event.turnItem.completionWake]]
-            : [],
+    };
+  });
+
+  it.effect.each([
+    { awaited: false, wakes: [], completionWake: [undefined, undefined] },
+    {
+      awaited: true,
+      wakes: ["Background command completed (exit 1): sleep 20 && echo CODEX_BG_WAKE_DONE"],
+      completionWake: [undefined, "always", "always"],
+    },
+  ] as const)(
+    "wakes the agent for a late root command exit only when awaited ($awaited)",
+    ({ awaited, wakes, completionWake }) =>
+      Effect.gen(function* () {
+        // The MCP server lists background_wait only for providers that report this.
+        assert.isTrue(CodexAdapterV2.CodexProviderCapabilitiesV2.tools.supportsBackgroundWait);
+        const waits = yield* awaitCommandsBeforeSettle;
+        // Codex handles notifications in order, so this one starting means the exit was handled.
+        const exitHandled = yield* Deferred.make<void>();
+        const harness = yield* makeCodexReplayHarness(
+          makeCodexReplayTranscript({
+            scenario: `codex-bg-late-exit-${awaited}`,
+            entries: [
+              ...backgroundExecTranscript.entries.slice(0, -1),
+              {
+                type: "emit_inbound",
+                label: "item/completed/command-late",
+                frame: {
+                  method: "item/completed",
+                  params: {
+                    item: {
+                      ...backgroundCommandItem("completed"),
+                      status: "failed",
+                      exitCode: 1,
+                      aggregatedOutput: "pdf check failed\n",
+                    },
+                    threadId: BG_NATIVE_THREAD,
+                    turnId: BG_NATIVE_TURN,
+                    completedAtMs: 1782622465500,
+                  },
+                },
+              },
+              {
+                type: "emit_inbound",
+                label: "fence",
+                frame: {
+                  method: "item/commandExecution/outputDelta",
+                  params: {
+                    threadId: BG_NATIVE_THREAD,
+                    turnId: "fence",
+                    itemId: "fence",
+                    delta: "",
+                  },
+                },
+              },
+            ],
+          }),
+          undefined,
+          undefined,
+          undefined,
+          awaited ? waits.beforeEmitInbound : undefined,
+          undefined,
+          undefined,
+          (method) =>
+            method === "item/commandExecution/outputDelta"
+              ? Deferred.succeed(exitHandled, undefined)
+              : Effect.void,
         );
-      yield* harness.until(
-        () => harness.continuationRequests.length === 1 && commands().length === 2,
-      );
-      // Restart recovery reads this to keep the wake the restart cut.
-      assert.deepEqual(commands(), [
-        ["running", "always"],
-        ["completed", "always"],
-      ]);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(
-        Layer.mergeAll(
-          IdAllocator.layer,
-          McpProviderSessions.layer,
-          NodeServices.layer,
-          NodeCrypto.layer,
+        yield* harness.runtime.startTurn(
+          makeCodexTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now: yield* DateTime.now,
+            attemptId: RunAttemptId.make("attempt-command-completion-wake"),
+            text: BG_PROMPT,
+          }),
+        );
+        if (awaited) yield* waits.mark(harness, ["4242"]);
+        yield* Deferred.await(exitHandled);
+        const commandItems = () =>
+          harness.events.flatMap((event) =>
+            event.type === "turn_item.updated" && event.turnItem.type === "command_execution"
+              ? [event.turnItem]
+              : [],
+          );
+        yield* harness.until(() => commandItems().at(-1)?.status === "failed");
+        const commands = commandItems();
+        // Restart recovery reads completionWake to keep the wake the restart cut.
+        assert.deepEqual(
+          commands.map((item) => item.completionWake),
+          [...completionWake],
+        );
+        const last = commands.at(-1);
+        assert.equal(last?.status, "failed");
+        assert.equal(last?.type === "command_execution" ? last.exitCode : undefined, 1);
+        assert.equal(
+          last?.type === "command_execution" ? last.output : undefined,
+          "pdf check failed\n",
+        );
+        assert.deepEqual(
+          harness.continuationRequests.map((request) => request.delivery),
+          wakes.map(() => "message_text"),
+        );
+        assert.deepEqual(
+          harness.continuationRequests.map((request) => request.detail?.split("\n")[0]),
+          [...wakes],
+        );
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
         ),
       ),
-    ),
   );
 
   it.effect.each([
@@ -6506,6 +6612,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         },
       });
       const released = yield* Deferred.make<void>();
+      const waits = yield* awaitCommandsBeforeSettle;
       const harness = yield* makeCodexReplayHarness(
         makeCodexReplayTranscript({
           scenario: `codex-bg-user-stop-${stop}`,
@@ -6522,7 +6629,9 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         undefined,
         undefined,
         (entry) =>
-          entry.label === "item/completed/other" ? Deferred.await(released) : Effect.void,
+          entry.label === "item/completed/other"
+            ? Deferred.await(released)
+            : waits.beforeEmitInbound(entry),
       );
       yield* harness.runtime.startTurn(
         makeCodexTestTurnInput({
@@ -6533,6 +6642,8 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           text: BG_PROMPT,
         }),
       );
+      // The process id and the item id each name a command.
+      yield* waits.mark(harness, ["4242", "call-codex-bg-other"]);
       yield* harness.firstTerminal;
       const [watcher] = harness.commandStopWatchers;
       assert.equal(watcher?.variable, "CODEX_TOOL_CALL_ID");
@@ -6569,6 +6680,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
 
   it.effect("wakes with well-formed text when the cuts split an emoji", () =>
     Effect.gen(function* () {
+      const waits = yield* awaitCommandsBeforeSettle;
       const harness = yield* makeCodexReplayHarness(
         makeCodexReplayTranscript({
           scenario: "codex-bg-wake-surrogate",
@@ -6593,6 +6705,10 @@ describe("CodexAdapterV2 post-settle continuation", () => {
             },
           ],
         }),
+        undefined,
+        undefined,
+        undefined,
+        waits.beforeEmitInbound,
       );
       yield* harness.runtime.startTurn(
         makeCodexTestTurnInput({
@@ -6603,6 +6719,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           text: BG_PROMPT,
         }),
       );
+      yield* waits.mark(harness, ["4242"]);
       yield* harness.until(() => harness.continuationRequests.length > 0);
       assert.isTrue(harness.continuationRequests[0]?.detail?.isWellFormed());
     }).pipe(

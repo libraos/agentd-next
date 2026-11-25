@@ -32,6 +32,10 @@ const toolInstructions = (availability: boolean | T3CodeToolAvailability): strin
     .join("\n\n");
 };
 
+// Only a command the agent marks wakes it after its turn ends, so it must know to mark one.
+const CODEX_BACKGROUND_WAIT_INSTRUCTIONS =
+  "To wait for a background command you started (tests, a build), call `background_wait` with its session ID before you end your turn; only a marked command starts a new turn when it exits. Do not mark work you leave running, such as a dev server.";
+
 export interface CodexRuntimeInfo {
   readonly model: string;
   readonly modelName?: string | undefined;
@@ -58,6 +62,7 @@ export function buildCodexAdditionalContext(
       kind: "application",
       value: buildRuntimeInstructions({ harness: "Codex", ...runtime }),
     },
+    t3_code_background_wait: { kind: "application", value: CODEX_BACKGROUND_WAIT_INSTRUCTIONS },
     ...(tools ? { t3_code_tools: { kind: "application", value: tools } } : {}),
   };
 }
