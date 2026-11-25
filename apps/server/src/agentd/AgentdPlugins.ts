@@ -11,6 +11,9 @@ import {
   type AgentdPluginErrorReason,
   type AgentdPluginInput,
   type AgentdPluginRemoveInput,
+  type AgentdPluginSettingsInput,
+  type AgentdPluginMcpServer,
+  type AgentdPluginSettingListing,
   type AgentdPluginSetup,
   type AgentdPlugins,
   type AgentdPluginsListInput,
@@ -24,6 +27,10 @@ import {
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveCommandPath, resolveCommandPaths } from "@t3tools/shared/shell";
+import {
+  APP_MCP_DIRECT_SERVER_NAME,
+  APP_MCP_SERVER_NAME,
+} from "@t3tools/shared/t3McpToolPresentation";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -41,6 +48,7 @@ import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 
 import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";
+import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import {
   createPendingAttachmentId,
   planAttachmentClaim,
@@ -63,6 +71,10 @@ import {
   type PluginCatalog,
   type HookUnshownAttachment,
   type PluginManifest,
+  type PluginMcpLaunch,
+  mcpServerEnv,
+  pluginSecretName,
+  withPluginValues,
   attachmentText,
   decodePlaceholderFile,
   decodePluginCatalogCache,
@@ -172,6 +184,17 @@ export class AgentdPluginsService extends Context.Service<
     ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
     /** Starts the installed plugin's setup in the background; the listing shows how it goes. */
     readonly setup: (input: AgentdPluginInput) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** Saves the plugin's settings: secret ones in the secret store, the rest in settings.json. */
+    readonly setSettings: (
+      input: AgentdPluginSettingsInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /**
+     * The MCP servers of the plugins on in the project, ready to start, by server name. A server
+     * whose command is gone, whose setup has not run or that lacks a setting is left out.
+     */
+    readonly mcpServers: (
+      projectId: ProjectId,
+    ) => Effect.Effect<Readonly<Record<string, PluginMcpLaunch>>>;
     /** Waits until no setup of `id` is running. */
     readonly setupDone: (id: string) => Effect.Effect<void>;
     readonly setEnabled: (
@@ -256,6 +279,7 @@ const make = Effect.gen(function* () {
   const http = yield* HttpClient.HttpClient;
   const config = yield* ServerConfig.ServerConfig;
   const runner = yield* ProcessRunner.ProcessRunner;
+  const secrets = yield* ServerSecretStore.ServerSecretStore;
   const host: HostPaths = {
     platform: yield* HostProcess.Platform,
     home: yield* HostProcess.HomeDirectory,
@@ -273,6 +297,8 @@ const make = Effect.gen(function* () {
   const scope = yield* Scope.Scope;
   const placeholderRoot = path.join(root, "placeholders");
   const placeholderLock = yield* Semaphore.make(1);
+  // A secret setting a server reads from a file; only this user can read the folder.
+  const secretFilesRoot = path.join(root, "secret-files");
 
   const iso = (millis: number) => DateTime.formatIso(DateTime.makeUnsafe(millis));
   const writeAtomic = (file: string, text: string) =>
@@ -386,7 +412,7 @@ const make = Effect.gen(function* () {
 
   /** The hook's command when it can be started, else null. */
   const hookCommand = Effect.fn("AgentdPlugins.hookCommand")(function* (hook: Hook) {
-    const declared = hook.manifest?.hooks["before-send"];
+    const declared = hook.manifest?.hooks?.["before-send"];
     if (declared === undefined) return null;
     const found = yield* resolveCommand(hook.folder, declared.command);
     return found === null ? null : { ...found, declared };
@@ -421,7 +447,7 @@ const make = Effect.gen(function* () {
       if (!pluginEnabled(settings, id, projectId)) continue;
       const found = yield* installed(id);
       // Enabled and gone, or without a before-send hook: the former stops sends, the latter is inert.
-      if (found !== null && found.manifest?.hooks["before-send"] === undefined) continue;
+      if (found !== null && found.manifest?.hooks?.["before-send"] === undefined) continue;
       hooks.push({
         id,
         name: found?.manifest?.name ?? id,
@@ -432,6 +458,191 @@ const make = Effect.gen(function* () {
     }
     return hooks;
   });
+
+  const secretValue = (id: string, setting: string) =>
+    secrets.get(pluginSecretName(id, setting)).pipe(
+      Effect.map((bytes) =>
+        Option.isNone(bytes) ? undefined : new TextDecoder().decode(bytes.value),
+      ),
+      Effect.orElseSucceed(() => undefined),
+    );
+
+  /** The settings' values; secret ones are read from the secret store only when `withSecrets`. */
+  const settingValues = Effect.fn("AgentdPlugins.settingValues")(function* (
+    found: Installed,
+    settings: PluginSettings,
+    withSecrets: boolean,
+  ) {
+    const values = new Map<string, string>();
+    const given = settings.values?.[found.record.id] ?? {};
+    const secretSet = new Set<string>();
+    for (const setting of found.manifest?.settings ?? []) {
+      if (!setting.secret) {
+        const value = Object.hasOwn(given, setting.name) ? given[setting.name] : undefined;
+        if (value !== undefined) values.set(setting.name, value);
+        continue;
+      }
+      const value = yield* secretValue(found.record.id, setting.name);
+      if (value === undefined) continue;
+      secretSet.add(setting.name);
+      if (withSecrets) values.set(setting.name, value);
+    }
+    return { values, secretSet };
+  });
+
+  const secretFile = (id: string, setting: string) => path.join(secretFilesRoot, id, setting);
+
+  /** What the page shows of a plugin's servers and settings; no secret value is in it. */
+  const contributions = Effect.fn("AgentdPlugins.contributions")(function* (
+    found: Installed,
+    settings: PluginSettings,
+  ) {
+    const manifest = found.manifest;
+    const declared = manifest?.settings ?? [];
+    const servers = Object.entries(manifest?.contributes?.mcpServers ?? {});
+    if (declared.length === 0 && servers.length === 0) return undefined;
+    const { values, secretSet } = yield* settingValues(found, settings, false);
+    const listedSettings = declared.map((setting): AgentdPluginSettingListing => ({
+      name: setting.name,
+      label: setting.label,
+      secret: setting.secret,
+      ...(setting.description === undefined ? {} : { description: setting.description }),
+      ...(setting.secret
+        ? {}
+        : (values.get(setting.name) ?? setting.default) === undefined
+          ? {}
+          : { value: values.get(setting.name) ?? setting.default ?? "" }),
+      set: setting.secret ? secretSet.has(setting.name) : values.has(setting.name),
+    }));
+    const listedServers = servers.map(([name, server]): AgentdPluginMcpServer => {
+      const env = mcpServerEnv(
+        server,
+        declared,
+        (setting) =>
+          setting.secret
+            ? secretSet.has(setting.name)
+              ? "set"
+              : undefined
+            : values.get(setting.name),
+        (setting) => secretFile(found.record.id, setting),
+      );
+      return {
+        name,
+        command: server.command,
+        args: server.args,
+        env: [...Object.keys(server.env ?? {}), ...Object.keys(server.settings ?? {})],
+        missing: env._tag === "Missing" ? env.settings : [],
+      };
+    });
+    return {
+      ...(listedServers.length === 0 ? {} : { mcpServers: listedServers }),
+      ...(listedSettings.length === 0 ? {} : { settings: listedSettings }),
+    };
+  });
+
+  // Mode 600 from the first byte, as the placeholder files are.
+  const writeSecretFile = Effect.fn("AgentdPlugins.writeSecretFile")(function* (
+    file: string,
+    value: string,
+  ) {
+    const temporary = `${file}.${stagingSuffix()}.tmp`;
+    yield* fs.makeDirectory(secretFilesRoot, { recursive: true, mode: 0o700 });
+    yield* fs.chmod(secretFilesRoot, 0o700);
+    yield* fs.makeDirectory(path.dirname(file), { recursive: true, mode: 0o700 });
+    yield* fs.writeFileString(temporary, value, { flag: "wx", mode: 0o600 });
+    yield* fs.chmod(temporary, 0o600);
+    yield* fs
+      .rename(temporary, file)
+      .pipe(Effect.tapError(() => fs.remove(temporary).pipe(Effect.ignore)));
+  });
+
+  const mcpServers = Effect.fn("AgentdPlugins.mcpServers")(function* (projectId: ProjectId) {
+    const settings = yield* readSettings;
+    const ids = new Set([
+      ...Object.keys(settings.enabled),
+      ...Object.keys(settings.projects[projectId] ?? {}),
+    ]);
+    const servers: Record<string, PluginMcpLaunch> = {};
+    const taken = new Set([APP_MCP_SERVER_NAME, APP_MCP_DIRECT_SERVER_NAME]);
+    for (const id of [...ids].toSorted()) {
+      if (!pluginEnabled(settings, id, projectId)) continue;
+      const found = yield* installed(id);
+      const declared = found?.manifest?.contributes?.mcpServers;
+      if (found === null || declared === undefined) continue;
+      if (yield* needsSetup(found)) continue;
+      const { values } = yield* settingValues(found, settings, true);
+      const filesWritten = new Set<string>();
+      for (const [name, server] of Object.entries(declared).toSorted(([a], [b]) =>
+        a.localeCompare(b),
+      )) {
+        // The first plugin by id keeps a name; the app's own servers keep theirs.
+        if (taken.has(name)) continue;
+        const env = mcpServerEnv(
+          server,
+          found.manifest?.settings ?? [],
+          (setting) => values.get(setting.name),
+          (setting) => secretFile(id, setting),
+        );
+        if (env._tag === "Missing") continue;
+        const command = yield* resolveCommand(found.folder, [server.command, ...server.args]);
+        if (command === null) continue;
+        let written = true;
+        for (const reference of Object.values(server.settings ?? {})) {
+          if (typeof reference === "string" || filesWritten.has(reference.setting)) continue;
+          const value =
+            values.get(reference.setting) ??
+            found.manifest?.settings?.find((setting) => setting.name === reference.setting)
+              ?.default;
+          const ok = yield* writeSecretFile(secretFile(id, reference.setting), value ?? "").pipe(
+            Effect.as(true),
+            Effect.orElseSucceed(() => false),
+          );
+          if (!ok) written = false;
+          else filesWritten.add(reference.setting);
+        }
+        if (!written) continue;
+        taken.add(name);
+        servers[name] = { command: command.command, args: command.args, env: env.env };
+      }
+    }
+    return servers;
+  });
+
+  const setSettings = Effect.fn("AgentdPlugins.setSettings")(function* (
+    input: AgentdPluginSettingsInput,
+  ) {
+    const found = yield* installed(input.id);
+    if (found === null) return yield* fail("unknown", `${input.id} is not installed.`);
+    const declared = found.manifest?.settings ?? [];
+    const plain: Record<string, string | null> = {};
+    for (const [name, value] of Object.entries(input.values)) {
+      const setting = declared.find((known) => known.name === name);
+      if (setting === undefined) {
+        return yield* fail("invalid", `${input.id} has no setting ${name}.`);
+      }
+      if (!setting.secret) {
+        plain[name] = value;
+        continue;
+      }
+      const secret = pluginSecretName(input.id, name);
+      yield* (
+        value === null || value.length === 0
+          ? secrets
+              .remove(secret)
+              .pipe(Effect.andThen(fs.remove(secretFile(input.id, name), { force: true })))
+          : secrets.set(secret, new TextEncoder().encode(value))
+      ).pipe(Effect.mapError(filesystem(`save ${setting.label}`)));
+    }
+    if (Object.keys(plain).length > 0) {
+      const settings = yield* readSettings;
+      yield* writeAtomic(
+        settingsFile,
+        encodeSettings(withPluginValues(settings, input.id, plain)),
+      ).pipe(Effect.mapError(filesystem("save the plugin settings")));
+    }
+    const served = yield* catalog();
+    return yield* listing(served.source, served.catalog);
+  }, lock.withPermits(1));
 
   const listing = Effect.fn("AgentdPlugins.listing")(function* (
     source: AgentdPlugins["source"],
@@ -449,7 +660,7 @@ const make = Effect.gen(function* () {
       if (entry === undefined && found === null) continue;
       const enabled = pluginEnabled(settings, id, projectId);
       const hooks =
-        found?.manifest?.hooks["before-send"] === undefined ? [] : ["before-send" as const];
+        found?.manifest?.hooks?.["before-send"] === undefined ? [] : ["before-send" as const];
       const setup = found === null ? undefined : yield* setupListing(found);
       const ready =
         found !== null &&
@@ -473,6 +684,7 @@ const make = Effect.gen(function* () {
       if (enabled && ready) beforeSend = true;
       const projectEnabled =
         projectId === undefined ? undefined : settings.projects[projectId]?.[id];
+      const contributed = found === null ? undefined : yield* contributions(found, settings);
       plugins.push({
         id,
         name: found?.manifest?.name ?? entry?.name ?? id,
@@ -486,6 +698,7 @@ const make = Effect.gen(function* () {
         ...(projectEnabled === undefined ? {} : { projectEnabled }),
         state,
         ...(setup === undefined ? {} : { setup }),
+        ...(contributed === undefined ? {} : contributed),
       } as const);
     }
     return { source, plugins, beforeSend } satisfies AgentdPlugins;
@@ -601,9 +814,13 @@ const make = Effect.gen(function* () {
         yield* fs.writeFile(target, file.bytes);
         // A hook or setup that is a file of the plugin has to be executable; git's mode is not kept.
         if (
-          [manifest.hooks["before-send"]?.command[0], manifest.setup?.command[0]].some(
-            (first) => first?.replace(/^\.\//, "") === file.target,
-          )
+          [
+            manifest.hooks?.["before-send"]?.command[0],
+            manifest.setup?.command[0],
+            ...Object.values(manifest.contributes?.mcpServers ?? {}).map(
+              (server) => server.command,
+            ),
+          ].some((first) => first?.replace(/^\.\//, "") === file.target)
         ) {
           yield* fs.chmod(target, 0o755);
         }
@@ -631,6 +848,14 @@ const make = Effect.gen(function* () {
     yield* notRunning(input.id);
     yield* removeInstall(found);
     yield* fs.remove(setupFile(input.id), { force: true }).pipe(Effect.ignore);
+    for (const setting of found.manifest?.settings ?? []) {
+      if (setting.secret) {
+        yield* secrets.remove(pluginSecretName(input.id, setting.name)).pipe(Effect.ignore);
+      }
+    }
+    yield* fs
+      .remove(path.join(secretFilesRoot, input.id), { recursive: true, force: true })
+      .pipe(Effect.ignore);
     if (input.deleteData === true) {
       // validPluginId held in installed(): the id is one path segment under data/.
       const data = path.join(dataRoot, input.id);
@@ -1210,6 +1435,8 @@ const make = Effect.gen(function* () {
     remove,
     setup,
     setupDone,
+    setSettings,
+    mcpServers,
     setEnabled,
     hasBeforeSend,
     checkBeforeSend,
@@ -1224,4 +1451,7 @@ const make = Effect.gen(function* () {
 
 export const layer = Layer.effect(AgentdPluginsService, make);
 /** One value, so the runtime and the RPC handlers share one service and its held reviews. */
-export const layerLive = layer.pipe(Layer.provide(ProcessRunner.layer));
+export const layerLive = layer.pipe(
+  Layer.provide(ProcessRunner.layer),
+  Layer.provide(ServerSecretStore.layer),
+);

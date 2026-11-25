@@ -88,19 +88,143 @@ const SetupCommand = Schema.Struct({
 });
 export type SetupCommand = typeof SetupCommand.Type;
 
+const SETTING_NAME = /^[a-z][a-z0-9_]{0,63}$/;
+// No dots: Codex splits its config override keys on every dot.
+const MCP_SERVER_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+
+/** A value the person gives in Settings, Plugins; a secret one is kept in the secret store. */
+const PluginSettingDeclaration = Schema.Struct({
+  name: Schema.String.check(Schema.isPattern(SETTING_NAME)),
+  label: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(100)),
+  secret: Schema.Boolean,
+  description: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(300))),
+  /** Refused on a secret setting: a secret has no value anyone can read in the manifest. */
+  default: Schema.optionalKey(Schema.String),
+});
+export type PluginSettingDeclaration = typeof PluginSettingDeclaration.Type;
+
+/** A setting given to a server as an env var: its value, or the path of a 0600 file holding it. */
+const McpServerSetting = Schema.Union([
+  Schema.String.check(Schema.isPattern(SETTING_NAME)),
+  Schema.Struct({
+    setting: Schema.String.check(Schema.isPattern(SETTING_NAME)),
+    file: Schema.Literal(true),
+  }),
+]);
+export type McpServerSetting = typeof McpServerSetting.Type;
+
+/** A stdio MCP server given to the agents the app launches while the plugin is on. */
+const McpServerDeclaration = Schema.Struct({
+  /** A file in the plugin's folder (with a slash) or a program on PATH, as a hook's command. */
+  command: Schema.String.check(Schema.isMinLength(1)),
+  args: Schema.Array(Schema.String),
+  env: Schema.optionalKey(
+    Schema.Record(Schema.String.check(Schema.isPattern(ENV_NAME)), Schema.String),
+  ),
+  /** Env var name to the setting it carries. */
+  settings: Schema.optionalKey(
+    Schema.Record(Schema.String.check(Schema.isPattern(ENV_NAME)), McpServerSetting),
+  ),
+});
+export type McpServerDeclaration = typeof McpServerDeclaration.Type;
+
 /** `agentd-plugin.json` at the top of a plugin's folder. */
 export const PluginManifest = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   id: Schema.String,
   name: Schema.String,
   version: Schema.String,
-  hooks: Schema.Struct({ "before-send": Schema.optionalKey(HookCommand) }),
+  hooks: Schema.optionalKey(Schema.Struct({ "before-send": Schema.optionalKey(HookCommand) })),
   setup: Schema.optionalKey(SetupCommand),
+  settings: Schema.optionalKey(Schema.Array(PluginSettingDeclaration)),
+  contributes: Schema.optionalKey(
+    Schema.Struct({
+      mcpServers: Schema.optionalKey(
+        Schema.Record(Schema.String.check(Schema.isPattern(MCP_SERVER_NAME)), McpServerDeclaration),
+      ),
+    }),
+  ),
 });
 export type PluginManifest = typeof PluginManifest.Type;
-export const decodePluginManifest = Schema.decodeUnknownOption(
-  Schema.fromJsonString(PluginManifest),
-);
+
+// A field the app does not know is refused: a newer manifest must not half-work here.
+const decodeManifestJson = Schema.decodeUnknownResult(Schema.fromJsonString(PluginManifest), {
+  onExcessProperty: "error",
+  errors: "all",
+});
+
+const settingOf = (value: McpServerSetting) => (typeof value === "string" ? value : value.setting);
+
+/** Checks the schema cannot express: names, setting references and secrets without defaults. */
+function manifestProblems(manifest: PluginManifest): ReadonlyArray<string> {
+  const problems: string[] = [];
+  if (!validPluginId(manifest.id)) problems.push(`id: ${manifest.id} is not a plugin id.`);
+  if (!validPluginVersion(manifest.version)) {
+    problems.push(`version: ${manifest.version} is not a safe version name.`);
+  }
+  const declared = new Map<string, PluginSettingDeclaration>();
+  for (const setting of manifest.settings ?? []) {
+    if (declared.has(setting.name)) problems.push(`settings: ${setting.name} is declared twice.`);
+    declared.set(setting.name, setting);
+    if (setting.secret && setting.default !== undefined) {
+      problems.push(`settings: ${setting.name} is secret and cannot have a default.`);
+    }
+  }
+  for (const [name, server] of Object.entries(manifest.contributes?.mcpServers ?? {})) {
+    if (resolveHookCommand("linux", "/plugin", [server.command])._tag === "Unsafe") {
+      problems.push(`contributes.mcpServers.${name}.command: ${server.command} is not safe.`);
+    }
+    for (const [env, value] of Object.entries(server.settings ?? {})) {
+      const setting = declared.get(settingOf(value));
+      if (setting === undefined) {
+        problems.push(
+          `contributes.mcpServers.${name}.settings.${env}: ${settingOf(value)} is not a declared setting.`,
+        );
+      } else if (setting.secret && typeof value === "string") {
+        // As a file, the value stays out of every provider's argv, protocol log and config.
+        problems.push(
+          `contributes.mcpServers.${name}.settings.${env}: ${setting.name} is secret, so it is given as a file ({ "setting": "${setting.name}", "file": true }).`,
+        );
+      }
+      if (server.env !== undefined && Object.hasOwn(server.env, env)) {
+        problems.push(`contributes.mcpServers.${name}: ${env} is in both env and settings.`);
+      }
+    }
+  }
+  return problems;
+}
+
+export type ManifestParse =
+  | { readonly _tag: "Valid"; readonly manifest: PluginManifest }
+  | { readonly _tag: "Invalid"; readonly reasons: ReadonlyArray<string> };
+
+/** The manifest in `text` with every reason it is refused; the app and the catalogue check share it. */
+export function parsePluginManifest(text: string): ManifestParse {
+  const decoded = decodeManifestJson(text);
+  if (decoded._tag === "Failure") {
+    const lines = decoded.failure.message.split("\n");
+    const reasons: string[] = [];
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index]!.trim();
+      const at = lines[index + 1]?.trim();
+      if (at?.startsWith("at ")) {
+        reasons.push(`${at.slice(3)}: ${line}`);
+        index++;
+      } else if (line.length > 0) reasons.push(line);
+    }
+    return { _tag: "Invalid", reasons };
+  }
+  const problems = manifestProblems(decoded.success);
+  return problems.length === 0
+    ? { _tag: "Valid", manifest: decoded.success }
+    : { _tag: "Invalid", reasons: problems };
+}
+
+export const decodePluginManifest = (text: string): Option.Option<PluginManifest> => {
+  const parsed = parsePluginManifest(text);
+  return parsed._tag === "Valid" ? Option.some(parsed.manifest) : Option.none();
+};
 
 export const PluginInstallRecord = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -154,6 +278,10 @@ export function lastLine(text: string): string | null {
 export const PluginSettings = Schema.Struct({
   enabled: Schema.Record(Schema.String, Schema.Boolean),
   projects: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Boolean)),
+  /** Each plugin's settings that are not secret; secret ones are in the secret store only. */
+  values: Schema.optionalKey(
+    Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)),
+  ),
 });
 export type PluginSettings = typeof PluginSettings.Type;
 const EMPTY_PLUGIN_SETTINGS: PluginSettings = { enabled: {}, projects: {} };
@@ -194,7 +322,63 @@ export function withoutPlugin(settings: PluginSettings, id: string): PluginSetti
     const { [id]: _project, ...rest } = overrides;
     if (Object.keys(rest).length > 0) projects[projectId] = rest;
   }
-  return { enabled, projects };
+  const { [id]: _values, ...values } = settings.values ?? {};
+  return { enabled, projects, ...(Object.keys(values).length === 0 ? {} : { values }) };
+}
+
+/** The plugin's non-secret values with `changes` applied; null clears one. */
+export function withPluginValues(
+  settings: PluginSettings,
+  id: string,
+  changes: Readonly<Record<string, string | null>>,
+): PluginSettings {
+  const next: Record<string, string> = { ...settings.values?.[id] };
+  for (const [name, value] of Object.entries(changes)) {
+    if (value === null) delete next[name];
+    else next[name] = value;
+  }
+  const { [id]: _old, ...others } = settings.values ?? {};
+  const values = Object.keys(next).length === 0 ? others : { ...others, [id]: next };
+  const { values: _previous, ...rest } = settings;
+  return Object.keys(values).length === 0 ? rest : { ...rest, values };
+}
+
+/** The secret store's name for a plugin's secret setting; ids and setting names hold no dot. */
+export const pluginSecretName = (id: string, setting: string) => `agentd-plugin.${id}.${setting}`;
+
+/** A server as a launch gets it: a program, its args and the env it adds. */
+export interface PluginMcpLaunch {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env: Readonly<Record<string, string>>;
+}
+
+export type McpServerEnv =
+  | { readonly _tag: "Ready"; readonly env: Readonly<Record<string, string>> }
+  | { readonly _tag: "Missing"; readonly settings: ReadonlyArray<string> };
+
+/**
+ * A server's env: its literal values and its settings, each a value or, for a file setting, the
+ * path `file` gives it. A setting with no value and no default leaves the server out.
+ */
+export function mcpServerEnv(
+  server: McpServerDeclaration,
+  declared: ReadonlyArray<PluginSettingDeclaration>,
+  value: (setting: PluginSettingDeclaration) => string | undefined,
+  file: (setting: string) => string,
+): McpServerEnv {
+  const env: Record<string, string> = { ...server.env };
+  const missing: string[] = [];
+  for (const [name, reference] of Object.entries(server.settings ?? {})) {
+    const setting = declared.find((known) => known.name === settingOf(reference));
+    const given = setting === undefined ? undefined : (value(setting) ?? setting.default);
+    if (setting === undefined || given === undefined || given.length === 0) {
+      missing.push(settingOf(reference));
+      continue;
+    }
+    env[name] = typeof reference === "string" ? given : file(setting.name);
+  }
+  return missing.length === 0 ? { _tag: "Ready", env } : { _tag: "Missing", settings: missing };
 }
 
 export type ResolvedCommand =

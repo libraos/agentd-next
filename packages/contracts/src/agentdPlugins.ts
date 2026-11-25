@@ -32,6 +32,31 @@ export const AgentdPluginSetup = Schema.Struct({
 });
 export type AgentdPluginSetup = typeof AgentdPluginSetup.Type;
 
+/** A setting the plugin needs; a secret one never leaves the server, only whether it is set. */
+export const AgentdPluginSettingListing = Schema.Struct({
+  name: Schema.String,
+  label: Schema.String,
+  secret: Schema.Boolean,
+  description: Schema.optionalKey(Schema.String),
+  /** Not secret: the value given, else the manifest's default. */
+  value: Schema.optionalKey(Schema.String),
+  /** A value was given (for a secret, one is in the secret store). */
+  set: Schema.Boolean,
+});
+export type AgentdPluginSettingListing = typeof AgentdPluginSettingListing.Type;
+
+/** An MCP server the plugin gives the agents the app launches, exactly as it will be started. */
+export const AgentdPluginMcpServer = Schema.Struct({
+  name: Schema.String,
+  command: Schema.String,
+  args: Schema.Array(Schema.String),
+  /** The env var names it gets; values are not listed. */
+  env: Schema.Array(Schema.String),
+  /** Settings it needs that have no value yet; until given, it is not attached. */
+  missing: Schema.Array(Schema.String),
+});
+export type AgentdPluginMcpServer = typeof AgentdPluginMcpServer.Type;
+
 export const AgentdPluginListing = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
@@ -50,6 +75,9 @@ export const AgentdPluginListing = Schema.Struct({
   state: AgentdPluginState,
   /** Present when the installed version declares setup. */
   setup: Schema.optionalKey(AgentdPluginSetup),
+  /** The installed version's MCP servers; given to Claude Code and Codex launches while on. */
+  mcpServers: Schema.optionalKey(Schema.Array(AgentdPluginMcpServer)),
+  settings: Schema.optionalKey(Schema.Array(AgentdPluginSettingListing)),
 });
 export type AgentdPluginListing = typeof AgentdPluginListing.Type;
 
@@ -76,6 +104,13 @@ export const AgentdPluginRemoveInput = Schema.Struct({
   deleteData: Schema.optionalKey(Schema.Boolean),
 });
 export type AgentdPluginRemoveInput = typeof AgentdPluginRemoveInput.Type;
+
+export const AgentdPluginSettingsInput = Schema.Struct({
+  id: Schema.String,
+  /** Setting name to its new value; null clears it. Secret values go to the secret store. */
+  values: Schema.Record(Schema.String, Schema.NullOr(Schema.String)),
+});
+export type AgentdPluginSettingsInput = typeof AgentdPluginSettingsInput.Type;
 
 export const AgentdPluginEnableInput = Schema.Struct({
   id: Schema.String,
