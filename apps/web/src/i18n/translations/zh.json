@@ -13460,5 +13460,13 @@
   "2cd8d4fbd716bf5a": "已达到项目的并发任务上限：{details}",
   "d424b7f77b6e69ca": "已达到用户的并发任务上限：{details}",
   "43fa372a3881f08b": "请在 LibraOS Core 终端中解除此任务的暂停状态。",
-  "be964c739d43b9db": "请在 LibraOS Core 收件箱中查看命令审批请求。"
+  "be964c739d43b9db": "请在 LibraOS Core 收件箱中查看命令审批请求。",
+  "d8797e9632a9b67d": "LibraOS Core 的完整消息",
+  "27531b85d5936cfc": "目标",
+  "611d16d5b6bedc8c": "检查命令",
+  "aa70137b3132996e": "执行者",
+  "92bedfa6ca611096": "有效预算",
+  "3f1b23143bc85a89": "工作目录",
+  "32b1f76f321a351e": "Git 仓库",
+  "22db8b503d3c3c3b": "仍需：{items}"
 }

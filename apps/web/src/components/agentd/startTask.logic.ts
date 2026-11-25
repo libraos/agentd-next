@@ -392,6 +392,45 @@ export function taskStartProblem(input: {
   return null;
 }
 
+export type TaskMissingInput = "goal" | "check" | "worker" | "budget" | "directory" | "repository";
+
+/** What a Start still needs filled in or fixed, in form order, for one line beside Start. */
+export function taskMissingInputs(input: {
+  readonly cloud: boolean;
+  readonly goal: "required" | "invalid" | null;
+  readonly check: "required" | "invalid" | null;
+  readonly budgetValid: boolean;
+  readonly worker: AgentdWorkerTool | null;
+  readonly hasDirectory: boolean;
+  readonly problem: TaskStartProblem | null;
+}): ReadonlyArray<TaskMissingInput> {
+  const missing: TaskMissingInput[] = [];
+  if (input.goal !== null) missing.push("goal");
+  // A cloud task runs without a check; a malformed one is still refused.
+  if (input.check === "invalid" || (input.check === "required" && !input.cloud))
+    missing.push("check");
+  if (!input.cloud && input.worker === null) missing.push("worker");
+  if (!input.budgetValid) missing.push("budget");
+  if (!input.hasDirectory) missing.push("directory");
+  else if (input.problem === "not-repo") missing.push("repository");
+  return missing;
+}
+
+/**
+ * The first meaningful line of agentd's refusal, without its `error:` prefix, for one plain line;
+ * the whole text when no line says anything.
+ */
+export function refusalLine(text: string): string {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw
+      .trim()
+      .replace(/^(?:agentd:\s*)?error:\s*/i, "")
+      .trim();
+    if (/[\p{L}\p{N}]/u.test(line)) return line;
+  }
+  return text.trim();
+}
+
 /** Job states of a cloud task that is under way or done; a failed or stopped one never started well. */
 const CLOUD_STARTED = new Set(["queued", "running", "settling", "completed"]);
 

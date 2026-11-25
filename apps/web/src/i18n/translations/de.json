@@ -13439,5 +13439,13 @@
   "2cd8d4fbd716bf5a": "Limit für gleichzeitige Aufgaben im Projekt erreicht: {details}",
   "d424b7f77b6e69ca": "Limit für gleichzeitige Aufgaben dieser Person erreicht: {details}",
   "43fa372a3881f08b": "Gib diese Aufgabe in einem LibraOS-Core-Terminal wieder frei.",
-  "be964c739d43b9db": "Prüfe im Posteingang von LibraOS Core, ob eine Befehlsfreigabe aussteht."
+  "be964c739d43b9db": "Prüfe im Posteingang von LibraOS Core, ob eine Befehlsfreigabe aussteht.",
+  "d8797e9632a9b67d": "Vollständige Meldung von LibraOS Core",
+  "27531b85d5936cfc": "Ziel",
+  "611d16d5b6bedc8c": "Prüfbefehl",
+  "aa70137b3132996e": "Worker",
+  "92bedfa6ca611096": "gültiges Budget",
+  "3f1b23143bc85a89": "Arbeitsverzeichnis",
+  "32b1f76f321a351e": "Git-Repository",
+  "22db8b503d3c3c3b": "Noch nötig: {items}"
 }

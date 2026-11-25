@@ -13438,5 +13438,13 @@
   "2cd8d4fbd716bf5a": "O limite de tarefas simultâneas do projeto foi atingido: {details}",
   "d424b7f77b6e69ca": "O limite de tarefas simultâneas da pessoa foi atingido: {details}",
   "43fa372a3881f08b": "Libere esta tarefa em um terminal do LibraOS Core.",
-  "be964c739d43b9db": "Verifique se há um pedido de aprovação de comando na caixa de entrada do LibraOS Core."
+  "be964c739d43b9db": "Verifique se há um pedido de aprovação de comando na caixa de entrada do LibraOS Core.",
+  "d8797e9632a9b67d": "Mensagem completa do LibraOS Core",
+  "27531b85d5936cfc": "objetivo",
+  "611d16d5b6bedc8c": "comando de verificação",
+  "aa70137b3132996e": "worker",
+  "92bedfa6ca611096": "orçamento válido",
+  "3f1b23143bc85a89": "diretório de trabalho",
+  "32b1f76f321a351e": "repositório Git",
+  "22db8b503d3c3c3b": "Ainda falta: {items}"
 }

@@ -45,6 +45,7 @@ import {
   cloudOfferStarted,
   conversationTaskDraft,
   EMPTY_TASK_FIELDS,
+  refusalLine,
   TASK_ACCEPT_LIMIT,
   TASK_BUDGET_LIMIT,
   TASK_DRAFT_PROMPT,
@@ -258,6 +259,9 @@ function StartTaskDialog({
     (cloud.waiting && cloud.unreachable) ||
     (cloud.enabled && !cloud.budgetValid);
   const disabled = starting || drafting || offeredId !== null || !plan.ready;
+  const missing = disabled && !starting && !drafting && offeredId === null ? plan.missing : null;
+  // agentd's own refusal is raw CLI text: one plain line, the rest folded below it.
+  const refusal = offeredId !== null && startError !== null ? refusalLine(startError) : null;
   const draftDisabled =
     thread === null ||
     threadRuntimeIsActive(thread.runtime) ||
@@ -544,6 +548,18 @@ function StartTaskDialog({
                       settle({ kind: task.started ? "started" : "offered", task })
                     }
                   />
+                ) : refusal !== null && refusal !== startError?.trim() ? (
+                  <>
+                    <p className="wrap-anywhere">{refusal}</p>
+                    <details className="text-muted-foreground text-xs">
+                      <summary className="cursor-pointer">
+                        <T>Full message from LibraOS Core</T>
+                      </summary>
+                      <pre className="wrap-anywhere mt-1 whitespace-pre-wrap font-mono">
+                        {startError}
+                      </pre>
+                    </details>
+                  </>
                 ) : (
                   <p className="wrap-anywhere whitespace-pre-wrap">{startError}</p>
                 )}
@@ -625,11 +641,24 @@ function StartTaskDialog({
           }
         />
         <DialogFooter>
+          {missing !== null ? (
+            <p
+              id={`${id}-missing`}
+              className="text-muted-foreground text-xs sm:mr-auto sm:self-center"
+            >
+              {missing}
+            </p>
+          ) : null}
           <Button type="button" variant="outline" disabled={starting} onClick={onClose}>
             {offeredId === null ? <T>Cancel</T> : <T>Close</T>}
           </Button>
           {offeredId === null && (
-            <Button type="button" disabled={disabled} onClick={() => submit()}>
+            <Button
+              type="button"
+              disabled={disabled}
+              aria-describedby={missing !== null ? `${id}-missing` : undefined}
+              onClick={() => submit()}
+            >
               {cloud.enabled && outcomeUnknown ? (
                 starting ? (
                   <T>Checking the earlier submission…</T>
