@@ -1,5 +1,7 @@
 # Mobile navigation
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app.
+
 Home and thread routes share the [root native stack](../../apps/mobile/src/Stack.tsx)
 so UIKit can animate the header within one navigation controller. The iPad sidebar
 has its own stack. Splitting Home and threads between controllers loses that

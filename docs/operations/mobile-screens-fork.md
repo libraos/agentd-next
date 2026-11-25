@@ -1,5 +1,7 @@
 # Building the mobile Screens dependency
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app.
+
 The mobile v5 stack uses a committed tarball from the
 [T3 Screens fork](https://github.com/pingdotgg/react-native-screens/tree/t3-v5.0.0-t3.58).
 The fork owns the integration changes; the app does not patch this package.

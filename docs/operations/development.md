@@ -2,7 +2,7 @@
 
 ## First checkout
 
-T3 Code uses [Vite+](https://viteplus.dev/guide/). Install its global `vp` command:
+LibraOS Next uses [Vite+](https://viteplus.dev/guide/). Install its global `vp` command:
 
 ```sh
 curl -fsSL https://vite.plus | bash
@@ -21,7 +21,7 @@ On Windows, clone with Git's long-path support enabled. The bundled reference re
 under `.repos/` can otherwise make checkout fail with `Filename too long`:
 
 ```powershell
-git clone -c core.longpaths=true https://github.com/pingdotgg/t3code.git
+git clone -c core.longpaths=true https://github.com/libraos/next.git
 ```
 
 This saves the setting in the new clone before checkout, without changing your global Git settings.
@@ -40,19 +40,8 @@ Prefer a container? See [Dev container](../internals/devcontainer.md) for VS Cod
 
 ## Forge mirror (optional)
 
-GitHub is the source of truth. [source.tanstack.com/@pingdotgg/t3code](https://source.tanstack.com/@pingdotgg/t3code)
-is a two-way synced mirror built for many agents working at once. You never need it to contribute.
-
-```sh
-git remote set-url origin https://source.tanstack.com/@pingdotgg/t3code.git
-git remote add github https://github.com/pingdotgg/t3code.git
-src auth login --web && src auth setup-git
-```
-
-With `origin` on the mirror, use `src` (it takes `gh`'s commands and flags) and its `source` agent
-skill for PRs, issues, reviews, and CI, and leave GitHub's API alone. Pull requests into `main`
-merge on GitHub, so GitHub's required checks and reviews still apply. Numbers can differ between
-the two forges; in text that reaches GitHub, use the GitHub number.
+LibraOS Next has no forge mirror: `origin` is `libraos/next` on GitHub.
+[Remotes](../../agentd/UPSTREAM.md#remotes) covers the `upstream` remote.
 
 ## Choosing a dev process
 
@@ -60,26 +49,25 @@ Use `vp run dev` for server and web, or `vp run dev:desktop` for the Electron cl
 `dev:server` and `dev:web` start those processes separately.
 See the [mobile README](../../apps/mobile/README.md) for native builds and Metro.
 
-Flags go directly after the task name, for example `vp run dev --home-dir /tmp/t3code-dev`.
+Flags go directly after the task name, for example `vp run dev --home-dir /tmp/libraos-next-dev`.
 Add `--browser` to open a browser automatically.
 
 To stop a worktree's dev stack when its thread settles, import the **Dev** action from
 `t3.json` in Settings > Projects > Actions and start it through the action menu or its
-keybinding. Its `stopOnSettle` option lets T3 stop the terminal and its child processes.
+keybinding. Its `stopOnSettle` option lets LibraOS Next stop the terminal and its child processes.
 Running `vp run dev` through an agent's own shell tool does not attach it to this lifecycle.
 
 ### State and ports
 
 Linked worktrees default to their own `.t3/userdata`, even when `T3CODE_HOME` is set.
 Any other checkout, including the main checkout and every plain `git clone`, uses
-`T3CODE_HOME` when it is set and otherwise `~/.t3/dev`, with default ports. Checkouts on
-`~/.t3/dev` share one database, settings, and secrets, and only one of their servers can run
+`T3CODE_HOME` when it is set and otherwise `~/.agentd-desktop/dev`, with default ports. Checkouts on
+`~/.agentd-desktop/dev` share one database, settings, and secrets, and only one of their servers can run
 at a time. An explicit `--home-dir` wins in both cases. It and `T3CODE_HOME` store state in
 `<home>/userdata`.
-A home of `~/.t3`, from either source, still selects `~/.t3/dev`, because `~/.t3/userdata` is
-the live install.
+Never pass the live home, `~/.agentd-desktop`, as either: its `userdata` is the live install.
 The first start in a worktree seeds its empty database from a read-only copy of
-`~/.t3/userdata/statev2.sqlite` if the source is at most 500 MiB. Larger sources warn
+`~/.agentd-desktop/userdata/statev2.sqlite` if the source is at most 500 MiB. Larger sources warn
 and dev starts with an empty database. `--no-seed` or `T3CODE_DEV_SEED=0` skips seeding.
 Seeding targets only a worktree's own `.t3`, so a plain clone or a `--home-dir` outside the
 worktree starts empty. To give a clone its own seeded state, run
@@ -89,7 +77,7 @@ substantial disk space before pruning.
 The first start in any checkout also builds the native resource monitor with Cargo when
 `native/resource-monitor/target` has no binary. Without Rust, dev starts with a warning
 and no process telemetry; install Rust and run `vp run build:resource-monitor`.
-Never run a development server against the live `~/.t3/userdata`.
+Never run a development server against the live `~/.agentd-desktop/userdata`.
 See [test data](../../AGENTS.md#test-data) for copying a consistent database snapshot.
 
 Read ports from the `[dev-runner]` output. Worktrees derive stable preferences from their paths,
@@ -177,7 +165,7 @@ reloads by itself. The license manifest is not generated in this mode. `--built`
 
 Use this only on a hostname where you trust every service. Browsers send cookies to all ports
 on that hostname. Any service you visit there can receive the reusable admin credential,
-including services unrelated to T3 Code. If you run untrusted services on that hostname, keep
+including services unrelated to LibraOS Next. If you run untrusted services on that hostname, keep
 normal per-environment pairing instead.
 
 To use one browser profile across web dev worktrees on the same hostname, generate one fixed
@@ -380,5 +368,5 @@ passed as `--wsl-runtime`; see the
 ### Signing and passkeys
 
 Add `--signed` after configuring the platform credentials in the
-[release runbook](./release.md). macOS passkeys need a signed, provisioned app; follow the
+[release runbook](./release.md) (upstream's). macOS passkeys need a signed, provisioned app; follow the
 [Connect setup](./connect-setup.md#desktop-passkeys) for local signing and renderer HMR.

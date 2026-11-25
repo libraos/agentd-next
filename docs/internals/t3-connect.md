@@ -1,5 +1,7 @@
 # T3 Connect
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: T3 Connect is upstream's hosted relay, and LibraOS Next releases have none configured.
+
 T3 Connect uses Clerk for cloud identity. The relay manages environment links,
 credentials for reaching environments, and managed tunnel allocations. After
 bootstrap, clients send application traffic through the environment's tunnel

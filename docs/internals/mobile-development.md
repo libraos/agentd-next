@@ -1,5 +1,7 @@
 # Mobile development lifecycle
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app.
+
 The [connection runtime's HMR boundary](../../apps/mobile/src/lib/hot-swappable-atom-runtime.ts)
 keeps a stable atom runtime and replaces its Effect layer through a writable atom.
 It accepts the update only after installing the new layer. Otherwise importers

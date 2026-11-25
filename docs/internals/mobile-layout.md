@@ -1,5 +1,7 @@
 # Mobile layout
 
+> This page describes upstream T3 Code. It is not how LibraOS Next is built or run: LibraOS Next ships no mobile app.
+
 The mobile app runs on phones, foldables, tablets and resizable iPad windows. One rule keeps
 that manageable: each layer below makes one decision, and no layer makes another's. A feature
 screen never asks which platform or window width it is on.

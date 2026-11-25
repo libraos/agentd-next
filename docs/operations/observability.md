@@ -1,5 +1,7 @@
 # Observability
 
+> This page describes upstream T3 Code. LibraOS Next has the same server tracing, but keeps its data in `~/.agentd-desktop`, not `~/.t3`.
+
 > For maintainers. Using T3 Code? See [docs/user](../user/).
 
 T3 Code has one server-side observability model:

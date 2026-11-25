@@ -1,5 +1,7 @@
 # Release Checklist
 
+> This page describes upstream T3 Code's release process, not how LibraOS Next is released. See [Build the installers](../../README.md#build-the-installers).
+
 > For maintainers. Using T3 Code? See [docs/user](../user/).
 
 This document covers the unified release workflow for stable and nightly desktop releases.
