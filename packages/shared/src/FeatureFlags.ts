@@ -3,6 +3,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 
 import * as HostProcess from "./HostProcess.ts";
 
@@ -39,19 +40,31 @@ function parseList(list: string | undefined): Record<string, string> {
 
 const parse = (record: Record<string, string>) => config.parse(ConfigProvider.fromUnknown(record));
 
-export const resolve = Effect.fn("FeatureFlags.resolve")(function* (list: string | undefined) {
-  return yield* parse(parseList(list)).pipe(
+/** Our builds' earlier variable for the app's client ID; the flag wins when both are set. */
+const LEGACY_GITHUB_APP_CLIENT_ID = "T3CODE_GITHUB_APP_CLIENT_ID";
+
+export const resolve = Effect.fn("FeatureFlags.resolve")(function* (
+  list: string | undefined,
+  legacyGitHubAppClientId?: string,
+) {
+  const flags = yield* parse(parseList(list)).pipe(
     Effect.catch((error) =>
       Effect.logWarning(`Ignoring invalid ${VARIABLE}; every flag is off.`, error).pipe(
         Effect.andThen(parse({})),
       ),
     ),
   );
+  const legacy = legacyGitHubAppClientId?.trim() ?? "";
+  return Option.isNone(flags.githubAppClientId) && legacy !== ""
+    ? { ...flags, githubAppClientId: Option.some(legacy) }
+    : flags;
 });
 
 export const layer = Layer.effect(
   FeatureFlags,
-  Effect.flatMap(HostProcess.Environment, (env) => resolve(env[VARIABLE])),
+  Effect.flatMap(HostProcess.Environment, (env) =>
+    resolve(env[VARIABLE], env[LEGACY_GITHUB_APP_CLIENT_ID]),
+  ),
 );
 
 export const layerTest = (values: Partial<FeatureFlagValues> = {}) =>

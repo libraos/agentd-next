@@ -125,6 +125,7 @@ const LOGIN_SHELL_ENV_NAMES = [
   "T3CODE_TELEMETRY_ENABLED",
   "DO_NOT_TRACK",
   "T3CODE_FEATURE_FLAGS",
+  "T3CODE_GITHUB_APP_CLIENT_ID",
   "T3CODE_RELEASE_BASE_URL",
   "__MISE_DIFF",
   "JAVA_HOME",
@@ -568,6 +569,7 @@ const installPosixEnvironment = Effect.fn("desktop.shellEnvironment.installPosix
       "T3CODE_TELEMETRY_ENABLED",
       "DO_NOT_TRACK",
       "T3CODE_FEATURE_FLAGS",
+      "T3CODE_GITHUB_APP_CLIENT_ID",
       "T3CODE_RELEASE_BASE_URL",
     ] as const) {
       if (!config.env[name] && shellEnvironment[name]) {
@@ -677,6 +679,7 @@ const CACHED_ENV_NAMES = [
   "DO_NOT_TRACK",
   // The server reads its flags once at start, before discovery can finish.
   "T3CODE_FEATURE_FLAGS",
+  "T3CODE_GITHUB_APP_CLIENT_ID",
 ] as const;
 
 /** @public */

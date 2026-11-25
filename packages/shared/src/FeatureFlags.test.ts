@@ -29,3 +29,17 @@ it.effect("resolves T3CODE_FEATURE_FLAGS lists", () =>
     }
   }),
 );
+
+it.effect("falls back to T3CODE_GITHUB_APP_CLIENT_ID when the flag is unset", () =>
+  Effect.gen(function* () {
+    assert.deepStrictEqual(
+      (yield* FeatureFlags.resolve(undefined, " Iv23legacy ")).githubAppClientId,
+      Option.some("Iv23legacy"),
+    );
+    assert.deepStrictEqual(
+      (yield* FeatureFlags.resolve("github_app_client_id=Iv23flag", "Iv23legacy"))
+        .githubAppClientId,
+      Option.some("Iv23flag"),
+    );
+  }),
+);
