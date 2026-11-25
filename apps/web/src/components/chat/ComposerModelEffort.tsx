@@ -2,6 +2,7 @@ import {
   buildTraitsTriggerDisplay,
   getDescriptorStringValue,
   isReasoningControl,
+  providerOptionDescription,
   selectableProviderOptionChoices,
 } from "@t3tools/client-runtime/model-traits";
 import type { ProviderOptionDescriptor, RuntimeMode } from "@t3tools/contracts";
@@ -356,7 +357,7 @@ function EffortRows(props: { control: ColumnControl; traits: TraitsSelection; lo
           label={option.label}
           selected={option.id === value}
           tabStop={shown ? option.id === value : index === 0}
-          description={option.description}
+          description={providerOptionDescription(option.description, messages)}
           isDefault={option.isDefault}
           disabled={locked}
           onPick={() => traits.changeSelect(control.descriptor, option.id)}
@@ -389,6 +390,7 @@ function OptionMenuRow(props: {
   tabStop: boolean;
 }) {
   const gt = useGT();
+  const messages = useMessages();
   const { descriptor, traits } = props;
   const [open, setOpen] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -465,7 +467,7 @@ function OptionMenuRow(props: {
                   <span className="truncate">{choice.label}</span>
                   {choice.description ? (
                     <span className="line-clamp-2 text-muted-foreground text-xs">
-                      {choice.description}
+                      {providerOptionDescription(choice.description, messages)}
                     </span>
                   ) : null}
                 </span>

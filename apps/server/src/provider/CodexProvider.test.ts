@@ -17,6 +17,7 @@ import {
   codexEndpointKeyEnv,
   codexRoutesSpendNativeQuota,
   makeCodexSkillsProbe,
+  managedCodexModelCapabilities,
   mapCodexModelCapabilities,
   codexProbeFailureMessage,
 } from "./CodexProvider.ts";
@@ -176,6 +177,10 @@ it("maps current Codex model capability fields", () => {
         description: "Maximum reasoning",
         reasoningEffort: "super-high",
       },
+      {
+        description: "Maximum reasoning with automatic task delegation",
+        reasoningEffort: "ultra",
+      },
     ],
   });
 
@@ -184,7 +189,14 @@ it("maps current Codex model capability fields", () => {
       id: "reasoningEffort",
       label: "Reasoning",
       type: "select",
-      options: [{ id: "super-high", label: "super-high", isDefault: true }],
+      options: [
+        { id: "super-high", label: "super-high", isDefault: true },
+        {
+          id: "ultra",
+          label: "Ultra",
+          description: "Delegates to sub-agents on its own, so it costs more",
+        },
+      ],
       currentValue: "super-high",
     },
     {
@@ -218,6 +230,18 @@ it("maps current Codex model capability fields", () => {
       currentValue: "standard",
     },
   ]);
+  // Managed Codex runs with multi-agent off and token sharing rejects service tiers.
+  assert.deepStrictEqual(
+    managedCodexModelCapabilities(capabilities).optionDescriptors?.map((descriptor) =>
+      descriptor.type === "select"
+        ? { id: descriptor.id, options: descriptor.options.map((option) => option.id) }
+        : descriptor.id,
+    ),
+    [
+      { id: "reasoningEffort", options: ["super-high"] },
+      { id: "cyberAccessProgram", options: ["standard", "daybreakBlue"] },
+    ],
+  );
 });
 
 it("uses standard routing when the catalog has no default service tier", () => {

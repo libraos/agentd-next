@@ -19,6 +19,7 @@ import { createCodexAdapterV2 } from "../../orchestration-v2/Adapters/CodexAdapt
 import {
   checkCodexProviderStatus,
   makePendingCodexProvider,
+  managedCodexModelCapabilities,
   probeCodexSkillsForCwd,
 } from "../CodexProvider.ts";
 import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
@@ -160,14 +161,7 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
           models: draft.models.map((model) => ({
             ...model,
             ...(model.capabilities
-              ? {
-                  capabilities: {
-                    ...model.capabilities,
-                    optionDescriptors: (model.capabilities.optionDescriptors ?? []).filter(
-                      (option) => option.id !== "serviceTier",
-                    ),
-                  },
-                }
+              ? { capabilities: managedCodexModelCapabilities(model.capabilities) }
               : {}),
           })),
           setup,

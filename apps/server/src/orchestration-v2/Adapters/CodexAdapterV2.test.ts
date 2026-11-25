@@ -192,6 +192,40 @@ describe("CodexAdapterV2 runtime policy", () => {
       }),
   );
 
+  it.effect("sends ultra effort on thread/start and turn/start unless multi-agent is off", () =>
+    Effect.gen(function* () {
+      const selection = (value: string) => ({
+        instanceId: ProviderInstanceId.make("codex"),
+        model: "gpt-6.2-sol",
+        options: [{ id: "reasoningEffort", value }],
+      });
+      const build = (value: string, multiAgentDisabled?: boolean) =>
+        CodexAdapterV2.buildCodexTurnStartParams({
+          nativeThreadId: "native-ultra",
+          codexInput: [{ type: "text", text: "test" }],
+          runtimePolicy: { runtimeMode: "full-access", interactionMode: "default", cwd: null },
+          modelSelection: selection(value),
+          ...(multiAgentDisabled === undefined ? {} : { multiAgentDisabled }),
+        });
+
+      const ultra = yield* build("ultra");
+      assert.equal(ultra.effort, "ultra");
+      assert.equal(ultra.collaborationMode?.settings.reasoning_effort, "ultra");
+      const managed = yield* build("ultra", true);
+      assert.notProperty(managed, "effort");
+      assert.notProperty(managed.collaborationMode?.settings, "reasoning_effort");
+      assert.equal((yield* build("max", true)).effort, "max");
+
+      const multiAgent = { multiAgent: true };
+      assert.equal(CodexAdapterV2.codexThreadStartEffort(selection("ultra"), multiAgent), "ultra");
+      assert.isUndefined(
+        CodexAdapterV2.codexThreadStartEffort(selection("ultra"), { multiAgent: false }),
+      );
+      // Other levels still reach Codex on turn/start only, as before.
+      assert.isUndefined(CodexAdapterV2.codexThreadStartEffort(selection("max"), multiAgent));
+    }),
+  );
+
   it.effect("runs another family's Gateway model by its full id", () =>
     Effect.gen(function* () {
       const params = yield* CodexAdapterV2.buildCodexTurnStartParams({
