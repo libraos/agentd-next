@@ -1153,7 +1153,10 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       ? undefined
       : threads.find((candidate) => threadShellKey(candidate) === routeThreadKey));
   const routeTab: SidebarTab = routeTabThread ? tabOfThread(routeTabThread) : "code";
-  const routeTabFollowKey = routeThreadKey === null ? null : `${routeTab}:${routeThreadKey}`;
+  // An unsent draft has no thread key yet; its draft id stands in, so a draft follows too.
+  const routeTabRouteKey =
+    routeThreadKey ?? (routeTarget?.kind === "draft" ? `draft:${routeTarget.draftId}` : null);
+  const routeTabFollowKey = routeTabRouteKey === null ? null : `${routeTab}:${routeTabRouteKey}`;
   const rememberedRouteThreadRef =
     routeTarget?.kind === "server" &&
     routeTabThread !== undefined &&
@@ -3073,6 +3076,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   };
   const selectSidebarTab = (tab: SidebarTab) => {
     setSidebarTab(tab);
+    // The open thread or draft already belongs to this tab, so the main pane keeps it.
+    if (routeTabFollowKey !== null && routeTab === tab) return;
     const last = lastSidebarTabThread(tab);
     const lastKey = last === null ? null : scopedThreadKey(last);
     // `threads` holds no archived or deleted thread, so a dead remembered route is never opened.
