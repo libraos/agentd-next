@@ -7,8 +7,9 @@ Ours (no upstream counterpart):
 - `agentd/plugins/redact/`: manifest, hook, detection and rules, setup script, Python tests, user README.
 - `apps/server/src/agentd/pluginCatalog.ts`: the hook's stdin also lists `unshownAttachments` (id and name), so a hook can stop a send whose attachments it cannot read.
 - `apps/server/src/agentd/AgentdPlugins.ts` (+ test): passes those attachments to every hook.
+- `apps/server/src/agentd/pluginCatalog.ts`, `AgentdPlugins.ts` (+ tests): on Windows a hook or setup declared as `python3` falls back to `py -3`, then `python`, when `python3` is not on PATH or is only the Store alias stub.
 - `apps/server/src/agentd/redactPlugin.test.ts`: the plugin's output parsed by `parseHookOutput`.
 
 Upstream files: none.
 
-Not done: the plugin is not in the `libraos/plugins` catalogue yet. Each send starts Python and loads the model (seconds on CPU); a resident detector would be faster. The hook command is `python3`, which a Windows install may not have. Package versions are pinned but not hash-locked. The page has no setup button; setup is a command the block reason names.
+Not done: the plugin is not in the `libraos/plugins` catalogue yet. Each send starts Python and loads the model (seconds on CPU); a resident detector would be faster. Package versions are pinned but not hash-locked. The page has no setup button; setup is a command the block reason names.

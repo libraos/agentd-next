@@ -831,3 +831,54 @@ it.live("a hook that does not read files cannot replace one, and the send stops"
     });
   }).pipe(Effect.provide(dependencies)),
 );
+
+it.effect("python3 falls back to py -3, then python, on Windows only, past a Store stub", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.makeTempDirectoryScoped({ prefix: "agentd-hook-path-" });
+    const stubs = path.join(root, "Microsoft", "WindowsApps");
+    const store = path.join(root, "store", "Microsoft", "WindowsApps");
+    yield* fs.makeDirectory(path.join(store, "PythonSoftwareFoundation.Python.3.12_x"), {
+      recursive: true,
+    });
+    const file = Effect.fnUntraced(function* (dir: string, name: string) {
+      const target = path.join(dir, name);
+      yield* fs.makeDirectory(dir, { recursive: true });
+      yield* fs.writeFileString(target, "");
+      yield* fs.chmod(target, 0o755);
+      return target;
+    });
+    const python3 = yield* file(path.join(root, "python3"), "python3.exe");
+    const py = yield* file(path.join(root, "py"), "py.exe");
+    const python = yield* file(path.join(root, "python"), "python.exe");
+    const posix = yield* file(path.join(root, "posix"), "python3");
+    yield* file(stubs, "python3.exe");
+    yield* file(stubs, "python.exe");
+    const storePython3 = yield* file(store, "python3.exe");
+    const find = (platform: NodeJS.Platform, dirs: ReadonlyArray<string>) =>
+      AgentdPlugins.findHookProgram(
+        platform,
+        { PATH: dirs.join(platform === "win32" ? ";" : ":"), PATHEXT: ".EXE" },
+        "python3",
+        ["hook.py"],
+      );
+    const dir = (name: string) => path.join(root, name);
+    const cases: ReadonlyArray<
+      readonly [NodeJS.Platform, ReadonlyArray<string>, { command: string; args: string[] } | null]
+    > = [
+      ["win32", [dir("py")], { command: py, args: ["-3", "hook.py"] }],
+      ["win32", [dir("py"), dir("python3")], { command: python3, args: ["hook.py"] }],
+      ["win32", [stubs, dir("py")], { command: py, args: ["-3", "hook.py"] }],
+      ["win32", [stubs, dir("python")], { command: python, args: ["hook.py"] }],
+      ["win32", [store, dir("py")], { command: storePython3, args: ["hook.py"] }],
+      ["win32", [stubs], null],
+      ["win32", [], null],
+      ["linux", [dir("py"), dir("python")], null],
+      ["linux", [dir("posix")], { command: posix, args: ["hook.py"] }],
+    ];
+    for (const [platform, dirs, expected] of cases) {
+      expect(yield* find(platform, dirs), `${platform} ${dirs.join(" ")}`).toEqual(expected);
+    }
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
