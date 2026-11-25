@@ -13455,5 +13455,26 @@
   "92bedfa6ca611096": "valid budget",
   "3f1b23143bc85a89": "working directory",
   "32b1f76f321a351e": "Git repository",
-  "22db8b503d3c3c3b": "Still needed: {items}"
+  "22db8b503d3c3c3b": "Still needed: {items}",
+  "16d1944812d2d35e": "The folder was moved or no longer exists.",
+  "88e8402340477aa3": "Folders in ~/Downloads or ~/Documents/Codex, your home folder and /tmp are skipped.",
+  "b891dc8aa358bc23": "Linked worktrees count toward their main checkout.",
+  "835e0fa0681d2385": "Folders the app manages itself, such as its own worktrees, are skipped.",
+  "7d3fc912f9ca7397": "Only Claude Code, Codex and Pi history is read.",
+  "edc977cd4ff69e4b": "Folders with no recorded conversations are not listed.",
+  "b114b8a26d703b22": "Each agent's history is read up to 5,000 conversation files.",
+  "b4ff03517cbfce2b": "{name} is already a project",
+  "cf0501484cf78a4d": "Added {name}",
+  "b2b7c942d07aa66a": [
+    "No projects found in your ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " history."
+  ],
+  "79f1ebb1b92c7c3a": "Folders that are not git repositories are listed under Other folders.",
+  "0a27f8bda7e520ca": "Why might a project be missing?",
+  "cac1df0798b1ea83": "Add a folder…"
 }
