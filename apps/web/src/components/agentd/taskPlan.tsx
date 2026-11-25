@@ -13,7 +13,12 @@ import { useGT, useLocale } from "gt-react";
 import { useRef, useState } from "react";
 
 import { useComposerDraftStore } from "~/composerDraftStore";
-import { agentdEnvironment, useAgentdStatus, useAgentdTaskDefaults } from "~/lib/agentdState";
+import {
+  agentdEnvironment,
+  useAgentdGitIdentity,
+  useAgentdStatus,
+  useAgentdTaskDefaults,
+} from "~/lib/agentdState";
 import { useLibraosGatewayConnected } from "~/lib/libraosGatewayState";
 import { useProject, useQuietThreadShell } from "~/state/entities";
 import { useEnvironmentQuery } from "~/state/query";
@@ -103,6 +108,13 @@ export function useTaskPlan({
   const git = useEnvironmentQuery(
     cwd === null ? null : vcsEnvironment.status({ environmentId, input: { cwd } }),
   );
+  // Cloud workers commit as their own account, so only a local Start reads this host's identity.
+  const gitIdentity = useAgentdGitIdentity(
+    cloud.enabled || cloud.waiting ? null : cwd,
+    environmentId,
+  );
+  const gitIdentityMissing =
+    gitIdentity.data !== null && (gitIdentity.data.name === "" || gitIdentity.data.email === "");
   const refreshBranch = useAtomCommand(vcsEnvironment.refreshLocalStatusForPicker, {
     reportFailure: false,
   });
@@ -156,6 +168,7 @@ export function useTaskPlan({
     worker,
     hasDirectory: cwd !== null,
     branch,
+    gitIdentityMissing,
   });
   const missingLabels = {
     goal: gt("goal", { $context: "an input a task still needs before it can start" }),
@@ -166,6 +179,9 @@ export function useTaskPlan({
       $context: "an input a task still needs before it can start",
     }),
     repository: gt("Git repository", {
+      $context: "an input a task still needs before it can start",
+    }),
+    "git-identity": gt("Git name and email", {
       $context: "an input a task still needs before it can start",
     }),
   } as const;
@@ -212,6 +228,8 @@ export function useTaskPlan({
       case "not-repo":
       case "detached":
         return branchReason(problemKind);
+      case "git-identity":
+        return gt("Git has no name or email on this computer, so a worker can’t commit its work.");
       case null:
         break;
     }
@@ -227,7 +245,7 @@ export function useTaskPlan({
   })();
   const checking = cloud.enabled
     ? cloud.checkingBalance
-    : cloud.waiting || (cwd !== null && git.data === null);
+    : cloud.waiting || (cwd !== null && (git.data === null || gitIdentity.isPending));
 
   // A local dollar limit is promised only when agentd can hold it.
   const localDollars = validation.budget === null ? budgetDollarCap(validation.input.budget) : null;
@@ -411,6 +429,8 @@ export function useTaskPlan({
     branch,
     gatewayConnected,
     git,
+    gitIdentity,
+    gitIdentityMissing,
     problem,
     missing,
     checking,

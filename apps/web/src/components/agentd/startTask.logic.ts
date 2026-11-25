@@ -361,7 +361,8 @@ export type TaskStartProblem =
   | "worker"
   | "no-directory"
   | "not-repo"
-  | "detached";
+  | "detached"
+  | "git-identity";
 
 /** The first thing that stops a Start, for one line beside a disabled Start; null when none. */
 export function taskStartProblem(input: {
@@ -376,6 +377,8 @@ export function taskStartProblem(input: {
   readonly worker: AgentdWorkerTool | null;
   readonly hasDirectory: boolean;
   readonly branch: ReturnType<typeof taskBranchProblem> | null;
+  /** Git has no user.name or user.email in the folder, so a local worker's commits would fail. */
+  readonly gitIdentityMissing: boolean;
 }): TaskStartProblem | null {
   if (!input.hasDirectory) return "no-directory";
   if (input.cloud) {
@@ -388,11 +391,19 @@ export function taskStartProblem(input: {
   }
   // agentd gives a worker on the default branch its own worktree and branch, so that is no problem.
   if (input.branch === "not-repo" || input.branch === "detached") return input.branch;
+  if (input.gitIdentityMissing) return "git-identity";
   if (input.worker === null) return "worker";
   return null;
 }
 
-export type TaskMissingInput = "goal" | "check" | "worker" | "budget" | "directory" | "repository";
+export type TaskMissingInput =
+  | "goal"
+  | "check"
+  | "worker"
+  | "budget"
+  | "directory"
+  | "repository"
+  | "git-identity";
 
 /** What a Start still needs filled in or fixed, in form order, for one line beside Start. */
 export function taskMissingInputs(input: {
@@ -413,6 +424,7 @@ export function taskMissingInputs(input: {
   if (!input.budgetValid) missing.push("budget");
   if (!input.hasDirectory) missing.push("directory");
   else if (input.problem === "not-repo") missing.push("repository");
+  else if (input.problem === "git-identity") missing.push("git-identity");
   return missing;
 }
 

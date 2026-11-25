@@ -38,6 +38,7 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import { ClaudeTrustDialog } from "./ClaudeTrustDialog";
+import { GitIdentitySetup } from "./GitIdentitySetup";
 import { BlockedTaskStart } from "./BlockedTaskStart";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
 import { StartTaskCloud, useStartTaskCloud } from "./StartTaskCloud";
@@ -461,6 +462,13 @@ function StartTaskDialog({
           ) : null}
           {filled.goal.trim() !== "" ? <p className="text-sm">{filled.goal.trim()}</p> : null}
           <TaskPlanSummary plan={plan} />
+          {plan.gitIdentityMissing && plan.gitIdentity.data !== null ? (
+            <GitIdentitySetup
+              environmentId={environmentId}
+              identity={plan.gitIdentity.data}
+              onSaved={plan.gitIdentity.refresh}
+            />
+          ) : null}
           {plan.maxWorkers !== null && !cloud.enabled && !cloud.waiting ? (
             <LocalWorkerUsage environmentId={environmentId} max={plan.maxWorkers} />
           ) : null}

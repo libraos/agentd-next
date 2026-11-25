@@ -2609,4 +2609,43 @@ describe("AgentdBridge", () => {
       ]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+
+  it.live("reads the Git identity in the task's folder and sets it globally", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const repo = path.join(home, "repo");
+      yield* fs.makeDirectory(repo);
+      const real = yield* ProcessRunner.make();
+      // Real git, with its global config in the temporary home instead of this user's.
+      const gitEnv = {
+        GIT_CONFIG_GLOBAL: path.join(home, "gitconfig"),
+        GIT_CONFIG_NOSYSTEM: "1",
+        HOME: home,
+      };
+      yield* real.run({ command: "git", args: ["init", "--quiet", repo], env: gitEnv });
+      const runs: Array<{ args: ReadonlyArray<string>; cwd: string | undefined }> = [];
+      const bridge = yield* makeBridge({ PATH: "" }, (input) => {
+        runs.push({ args: input.args, cwd: input.cwd });
+        return real.run({ ...input, env: gitEnv });
+      });
+
+      expect(yield* bridge.gitIdentity({ cwd: repo })).toEqual({ name: "", email: "" });
+      yield* bridge.setGitIdentity({ name: " Ada Lovelace ", email: "ada@example.com" });
+      expect(yield* bridge.gitIdentity({ cwd: repo })).toEqual({
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+      });
+      expect(yield* fs.readFileString(gitEnv.GIT_CONFIG_GLOBAL)).toContain("name = Ada Lovelace");
+      expect(runs).toEqual([
+        { args: ["config", "--get", "user.name"], cwd: repo },
+        { args: ["config", "--get", "user.email"], cwd: repo },
+        { args: ["config", "--global", "--", "user.name", "Ada Lovelace"], cwd: undefined },
+        { args: ["config", "--global", "--", "user.email", "ada@example.com"], cwd: undefined },
+        { args: ["config", "--get", "user.name"], cwd: repo },
+        { args: ["config", "--get", "user.email"], cwd: repo },
+      ]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
 });

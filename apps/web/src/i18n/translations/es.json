@@ -13515,5 +13515,11 @@
   "79f1ebb1b92c7c3a": "Las carpetas que no son repositorios git aparecen en «Otras carpetas».",
   "0a27f8bda7e520ca": "¿Por qué podría faltar un proyecto?",
   "cac1df0798b1ea83": "Añadir una carpeta…",
-  "703b05c595a6ff1e": "Esperando tu aprobación"
+  "703b05c595a6ff1e": "Esperando tu aprobación",
+  "12cafaa8907f87d8": "Git no tiene nombre ni correo en este equipo, así que un worker no puede hacer commit de su trabajo.",
+  "a9f14d01cdb4969e": "nombre y correo de Git",
+  "b05cd1b6f694caf1": "Git no pudo guardarlos.",
+  "03872ce8bd1d4d7d": "Tu correo",
+  "72e1a5debd79c29b": "Git pone este nombre y correo en los commits del worker, en todos los repositorios de aquí.",
+  "7792fafc90026734": "Esta conexión no puede cambiar la configuración de Git de este equipo."
 }

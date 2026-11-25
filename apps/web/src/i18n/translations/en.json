@@ -13528,5 +13528,11 @@
   "79f1ebb1b92c7c3a": "Folders that are not git repositories are listed under Other folders.",
   "0a27f8bda7e520ca": "Why might a project be missing?",
   "cac1df0798b1ea83": "Add a folder…",
-  "703b05c595a6ff1e": "Waiting for your approval"
+  "703b05c595a6ff1e": "Waiting for your approval",
+  "12cafaa8907f87d8": "Git has no name or email on this computer, so a worker can’t commit its work.",
+  "a9f14d01cdb4969e": "Git name and email",
+  "b05cd1b6f694caf1": "Git could not save them.",
+  "03872ce8bd1d4d7d": "Your email",
+  "72e1a5debd79c29b": "Git puts this name and email on the worker’s commits, in every repository here.",
+  "7792fafc90026734": "This connection cannot change this computer’s Git settings."
 }
