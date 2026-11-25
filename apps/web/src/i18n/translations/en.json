@@ -6982,6 +6982,11 @@
   "46f863624808dbfc": "Pick where your agents get their models from.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
+  "3f6b4559d7d4dee2": "Sign in or create a LibraOS account in your browser, then approve this code:",
+  "2fc60a0937f5a274": "To revoke the key in LibraOS, sign in in your browser and approve this code:",
+  "64da476e68e83a8a": "Open the LibraOS sign-in page",
+  "1d489e6296d9c42a": "Waiting for approval…",
+  "8ce883f5f230a34d": "Remove here only",
   "76b6067a87335bac": "LibraOS Gateway connected.",
   "a8cffafcbdba01d6": [
     "LibraOS Gateway refused this key, so its agents list no models:",
@@ -6991,6 +6996,31 @@
       "k": "_gt_value_1",
       "v": "v"
     }
+  ],
+  "59fbf11096d89276": [
+    "Signed in as ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", workspace",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "cd496126bb3cd6ea": [
+    "Signed in as ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
   ],
   "4f0f4f5c393e4a73": [
     "Models: ",
@@ -7005,6 +7035,9 @@
   "3583a9db3e7daf7d": "LibraOS Core is set up to use the Gateway.",
   "8e7fed102e5c6022": "LibraOS Core did not take the key. What it said:",
   "d356add77d113720": "Disconnect",
+  "1a4cf344e8734873": "Sign in, or create a LibraOS account, in your browser. The app then makes a key for this environment. Use is billed pay as you go.",
+  "557f0b0d046d2ca9": "Sign in with LibraOS",
+  "8eaf3aa64d26241f": "Use an API key instead",
   "44f19854f4f017e2": "LibraOS API key",
   "794958206cd1fa96": [
     "Create a key on",
@@ -7018,6 +7051,7 @@
   ],
   "fc05a3512bf05489": "Checking…",
   "90f46dbf8782cfde": "Connect",
+  "0decc23255be18b4": "Sign in with LibraOS instead",
   "72a43329319ab2bf": "OpenAI supports Codex, opencode, and Pi.",
   "1c7657f41b018009": "Anthropic supports Claude Code and opencode.",
   "1915a433d092839d": "Both",

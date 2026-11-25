@@ -6965,6 +6965,11 @@
   "46f863624808dbfc": "에이전트가 모델을 가져올 곳을 선택하세요.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
+  "3f6b4559d7d4dee2": "브라우저에서 LibraOS에 로그인하거나 계정을 만든 다음 이 코드를 승인하세요:",
+  "2fc60a0937f5a274": "LibraOS에서 키를 취소하려면 브라우저에서 로그인하고 이 코드를 승인하세요:",
+  "64da476e68e83a8a": "LibraOS 로그인 페이지 열기",
+  "1d489e6296d9c42a": "승인 대기 중…",
+  "8ce883f5f230a34d": "여기서만 제거",
   "76b6067a87335bac": "LibraOS Gateway connected.",
   "a8cffafcbdba01d6": [
     "LibraOS Gateway가 이 키를 거부해 해당 에이전트에 모델이 표시되지 않습니다:",
@@ -6974,6 +6979,29 @@
       "k": "_gt_value_1",
       "v": "v"
     }
+  ],
+  "59fbf11096d89276": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "(으)로 로그인됨, 워크스페이스",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "cd496126bb3cd6ea": [
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "(으)로 로그인됨."
   ],
   "4f0f4f5c393e4a73": [
     "Models: ",
@@ -6988,6 +7016,9 @@
   "3583a9db3e7daf7d": "LibraOS Core is set up to use the Gateway.",
   "8e7fed102e5c6022": "LibraOS Core did not take the key. What it said:",
   "d356add77d113720": "연결 끊기",
+  "1a4cf344e8734873": "브라우저에서 LibraOS에 로그인하거나 계정을 만드세요. 그러면 앱이 이 환경용 키를 만듭니다. 사용량은 종량제로 청구됩니다.",
+  "557f0b0d046d2ca9": "LibraOS로 로그인",
+  "8eaf3aa64d26241f": "대신 API 키 사용",
   "44f19854f4f017e2": "LibraOS API key",
   "794958206cd1fa96": [
     "Create a key on",
@@ -7001,6 +7032,7 @@
   ],
   "fc05a3512bf05489": "확인 중…",
   "90f46dbf8782cfde": "연결",
+  "0decc23255be18b4": "대신 LibraOS로 로그인",
   "72a43329319ab2bf": "OpenAI는 Codex, opencode, Pi를 지원합니다.",
   "1c7657f41b018009": "Anthropic은 Claude Code와 opencode를 지원합니다.",
   "1915a433d092839d": "둘 다",

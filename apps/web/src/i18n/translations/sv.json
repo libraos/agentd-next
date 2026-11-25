@@ -6981,6 +6981,11 @@
   "46f863624808dbfc": "Välj varifrån dina agenter hämtar sina modeller.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
+  "3f6b4559d7d4dee2": "Logga in eller skapa ett LibraOS-konto i webbläsaren och godkänn sedan den här koden:",
+  "2fc60a0937f5a274": "För att återkalla nyckeln i LibraOS loggar du in i webbläsaren och godkänner den här koden:",
+  "64da476e68e83a8a": "Öppna LibraOS inloggningssida",
+  "1d489e6296d9c42a": "Väntar på godkännande…",
+  "8ce883f5f230a34d": "Ta bort bara här",
   "76b6067a87335bac": "LibraOS Gateway connected.",
   "a8cffafcbdba01d6": [
     "LibraOS Gateway nekade den här nyckeln, så dess agenter visar inga modeller:",
@@ -6990,6 +6995,31 @@
       "k": "_gt_value_1",
       "v": "v"
     }
+  ],
+  "59fbf11096d89276": [
+    "Inloggad som ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", arbetsyta",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "."
+  ],
+  "cd496126bb3cd6ea": [
+    "Inloggad som ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
   ],
   "4f0f4f5c393e4a73": [
     "Models: ",
@@ -7004,6 +7034,9 @@
   "3583a9db3e7daf7d": "LibraOS Core is set up to use the Gateway.",
   "8e7fed102e5c6022": "LibraOS Core did not take the key. What it said:",
   "d356add77d113720": "Koppla från",
+  "1a4cf344e8734873": "Logga in eller skapa ett LibraOS-konto i webbläsaren. Appen skapar sedan en nyckel för den här miljön. Användningen debiteras efter förbrukning.",
+  "557f0b0d046d2ca9": "Logga in med LibraOS",
+  "8eaf3aa64d26241f": "Använd en API-nyckel i stället",
   "44f19854f4f017e2": "LibraOS API key",
   "794958206cd1fa96": [
     "Create a key on",
@@ -7017,6 +7050,7 @@
   ],
   "fc05a3512bf05489": "Kontrollerar…",
   "90f46dbf8782cfde": "Anslut",
+  "0decc23255be18b4": "Logga in med LibraOS i stället",
   "72a43329319ab2bf": "OpenAI stöder Codex, opencode och Pi.",
   "1c7657f41b018009": "Anthropic stöder Claude Code och opencode.",
   "1915a433d092839d": "Båda",

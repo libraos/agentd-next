@@ -3877,6 +3877,10 @@ export const layerWsRpc = (
           customGateway.setHiddenModels(input.id, input.hiddenModels),
         [WS_METHODS.customGatewayRemove]: (input) => customGateway.remove(input.id),
         [WS_METHODS.customGatewayRefreshModels]: (input) => customGateway.refreshModels(input.id),
+        [WS_METHODS.libraosGatewaySignInStart]: (input) =>
+          libraosGateway.signInStart(input.purpose),
+        [WS_METHODS.libraosGatewaySignInWait]: (_input) => libraosGateway.signInWait,
+        [WS_METHODS.libraosGatewaySignInCancel]: (_input) => libraosGateway.signInCancel,
       });
       const splitHandlers: Pick<typeof handlers, SplitWsRpc["_tag"]> = handlers;
       const otherHandlers: Pick<typeof handlers, Exclude<ServerWsRpc, SplitWsRpc>["_tag"]> =

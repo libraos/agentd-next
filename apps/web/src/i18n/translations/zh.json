@@ -6984,6 +6984,11 @@
   "46f863624808dbfc": "选择你的智能体从哪里获取模型。",
   "560b12dcbd292d26": "暂不可用",
   "afe41e4541b9846e": "请先连接一个环境。",
+  "3f6b4559d7d4dee2": "在浏览器中登录或创建 LibraOS 账号，然后批准这个验证码：",
+  "2fc60a0937f5a274": "要在 LibraOS 中撤销这个 key，请在浏览器中登录并批准这个验证码：",
+  "64da476e68e83a8a": "打开 LibraOS 登录页面",
+  "1d489e6296d9c42a": "等待批准…",
+  "8ce883f5f230a34d": "仅在此处移除",
   "76b6067a87335bac": "LibraOS Gateway 已连接。",
   "a8cffafcbdba01d6": [
     "LibraOS Gateway 拒绝了此密钥，因此其代理不列出任何模型：",
@@ -6993,6 +6998,31 @@
       "k": "_gt_value_1",
       "v": "v"
     }
+  ],
+  "59fbf11096d89276": [
+    "已登录为 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "，工作区",
+    " ",
+    {
+      "i": 2,
+      "k": "_gt_value_2",
+      "v": "v"
+    },
+    "。"
+  ],
+  "cd496126bb3cd6ea": [
+    "已登录为 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "。"
   ],
   "4f0f4f5c393e4a73": [
     "模型：",
@@ -7007,6 +7037,9 @@
   "3583a9db3e7daf7d": "LibraOS Core 已设置为使用 Gateway。",
   "8e7fed102e5c6022": "LibraOS Core 没有接受这个 key。它的提示：",
   "d356add77d113720": "断开连接",
+  "1a4cf344e8734873": "在浏览器中登录或创建 LibraOS 账号，app 随后会为此环境创建一个 key。按用量付费。",
+  "557f0b0d046d2ca9": "使用 LibraOS 登录",
+  "8eaf3aa64d26241f": "改用 API key",
   "44f19854f4f017e2": "LibraOS API key",
   "794958206cd1fa96": [
     "在",
@@ -7020,6 +7053,7 @@
   ],
   "fc05a3512bf05489": "正在检查…",
   "90f46dbf8782cfde": "连接",
+  "0decc23255be18b4": "改用 LibraOS 登录",
   "72a43329319ab2bf": "OpenAI 支持 Codex、opencode 和 Pi。",
   "1c7657f41b018009": "Anthropic 支持 Claude Code 和 opencode。",
   "1915a433d092839d": "两种格式",

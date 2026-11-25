@@ -1,15 +1,28 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import { LIBRAOS_CONSOLE_API_KEYS_URL, type EnvironmentId } from "@t3tools/contracts";
+import {
+  LIBRAOS_CONSOLE_API_KEYS_URL,
+  type EnvironmentId,
+  type LibraosGatewaySignIn,
+} from "@t3tools/contracts";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { CheckIcon, ServerIcon, Settings2Icon } from "lucide-react";
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import {
   useGatewayEnvironment,
   useLibraosGateway,
   useLibraosGatewayCommands,
 } from "../../lib/libraosGatewayState";
+import { readLocalApi } from "../../localApi";
 import { AnthropicIcon, OllamaIcon, OpenAI } from "../Icons";
 import { T3Wordmark } from "../T3Wordmark";
 import { Button } from "../ui/button";
@@ -145,7 +158,16 @@ export function ConnectEndpointScreen({
 
 const MODELS_SHOWN = 8;
 
-/** Connect a LibraOS API key, see the models it may use, or disconnect it. */
+// The desktop opens the sign-in page itself; a browser blocks a window opened after an await, so
+// the web build relies on the link the panel shows.
+function openSignInPage(url: string) {
+  if (typeof window === "undefined" || !window.desktopBridge) return;
+  void readLocalApi()
+    ?.shell.openExternal(url)
+    .catch(() => undefined);
+}
+
+/** Sign in with LibraOS or connect a LibraOS API key, see the models, or disconnect. */
 function GatewayConnectPanel({
   environmentId: target,
 }: {
@@ -155,8 +177,11 @@ function GatewayConnectPanel({
   const m = useMessages();
   const id = useId();
   const gateway = useLibraosGateway(target);
-  const { canChange, connect, disconnect } = useLibraosGatewayCommands(gateway.environmentId);
+  const { canChange, connect, disconnect, signInStart, signInWait, signInCancel } =
+    useLibraosGatewayCommands(gateway.environmentId);
   const [key, setKey] = useState("");
+  const [useKey, setUseKey] = useState(false);
+  const waiting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = gateway.data;
@@ -181,7 +206,36 @@ function GatewayConnectPanel({
     setKey("");
   };
 
-  const remove = async () => {
+  // One wait per sign-in, also for one this panel finds already waiting (after a reload).
+  const awaitSignIn = async (target: EnvironmentId) => {
+    if (waiting.current) return;
+    waiting.current = true;
+    const result = await signInWait({ environmentId: target, input: {} });
+    waiting.current = false;
+    if (result._tag === "Failure") setError(failure(result));
+  };
+
+  const startSignIn = async (purpose: LibraosGatewaySignIn["purpose"]) => {
+    if (environmentId === null) return;
+    setBusy(true);
+    setError(null);
+    const result = await signInStart({ environmentId, input: { purpose } });
+    setBusy(false);
+    if (result._tag === "Failure") {
+      setError(failure(result));
+      return;
+    }
+    openSignInPage(result.value.verificationUriComplete);
+    void awaitSignIn(environmentId);
+  };
+
+  const cancelSignIn = async () => {
+    if (environmentId === null) return;
+    const result = await signInCancel({ environmentId, input: {} });
+    if (result._tag === "Failure") setError(failure(result));
+  };
+
+  const removeHere = async () => {
     if (environmentId === null) return;
     setBusy(true);
     setError(null);
@@ -189,6 +243,21 @@ function GatewayConnectPanel({
     setBusy(false);
     if (result._tag === "Failure") setError(failure(result));
   };
+
+  // A key a sign-in made is revoked in LibraOS first, which takes a fresh sign-in: the session
+  // token that made it was never kept.
+  const remove = () => (status?.account ? startSignIn("revoke") : removeHere());
+
+  const pendingSignIn = status?.signIn ?? null;
+  const pendingCode = pendingSignIn?.userCode ?? null;
+  const follow = useEffectEvent((target: EnvironmentId) => {
+    void awaitSignIn(target);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- follows a sign-in the server is already running (started before a reload or from another client)
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- the wait sets state only once it answers
+    if (pendingCode !== null && environmentId !== null) follow(environmentId);
+  }, [pendingCode, environmentId]);
 
   if (environmentId === null) {
     return (
@@ -204,6 +273,50 @@ function GatewayConnectPanel({
         {error}
       </p>
     );
+
+  if (pendingSignIn !== null) {
+    return (
+      <section
+        aria-label={gt("LibraOS Gateway")}
+        className="space-y-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+      >
+        <p className="text-foreground">
+          {pendingSignIn.purpose === "connect" ? (
+            <T>Sign in or create a LibraOS account in your browser, then approve this code:</T>
+          ) : (
+            <T>To revoke the key in LibraOS, sign in in your browser and approve this code:</T>
+          )}
+        </p>
+        <p className="text-center font-mono text-2xl font-semibold tracking-widest text-foreground">
+          {pendingSignIn.userCode}
+        </p>
+        <p className="text-muted-foreground">
+          <a
+            href={pendingSignIn.verificationUriComplete}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="underline underline-offset-4"
+          >
+            <T>Open the LibraOS sign-in page</T>
+          </a>
+        </p>
+        <p className="text-muted-foreground">
+          <T>Waiting for approval…</T>
+        </p>
+        {errorLine}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={!canChange} onClick={cancelSignIn}>
+            <T>Cancel</T>
+          </Button>
+          {pendingSignIn.purpose === "revoke" ? (
+            <Button variant="ghost" size="sm" disabled={busy || !canChange} onClick={removeHere}>
+              <T>Remove here only</T>
+            </Button>
+          ) : null}
+        </div>
+      </section>
+    );
+  }
 
   if (status?.connected) {
     const shown = status.models.slice(0, MODELS_SHOWN).map((model) => model.name ?? model.id);
@@ -224,6 +337,20 @@ function GatewayConnectPanel({
             </T>
           </p>
         ) : null}
+        {status.account === null ? null : (
+          <p className="text-muted-foreground">
+            {status.account.workspace ? (
+              <T>
+                Signed in as <Var>{status.account.email}</Var>, workspace{" "}
+                <Var>{status.account.workspace}</Var>.
+              </T>
+            ) : (
+              <T>
+                Signed in as <Var>{status.account.email}</Var>.
+              </T>
+            )}
+          </p>
+        )}
         {shown.length > 0 ? (
           <p className="text-muted-foreground">
             <T>
@@ -265,6 +392,46 @@ function GatewayConnectPanel({
         <Button variant="outline" size="sm" disabled={busy || !canChange} onClick={remove}>
           <T>Disconnect</T>
         </Button>
+      </section>
+    );
+  }
+
+  const noticeLine =
+    status?.notice == null ? null : (
+      <p role="status" className="text-muted-foreground">
+        {status.notice}
+      </p>
+    );
+
+  if (!useKey) {
+    return (
+      <section
+        aria-label={gt("LibraOS Gateway")}
+        className="space-y-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+      >
+        {noticeLine}
+        <p className="text-muted-foreground">
+          <T>
+            Sign in, or create a LibraOS account, in your browser. The app then makes a key for this
+            environment. Use is billed pay as you go.
+          </T>
+        </p>
+        {errorLine}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" disabled={busy || !canChange} onClick={() => startSignIn("connect")}>
+            {error === null ? <T>Sign in with LibraOS</T> : <T>Try again</T>}
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => {
+              setError(null);
+              setUseKey(true);
+            }}
+          >
+            <T>Use an API key instead</T>
+          </Button>
+        </div>
       </section>
     );
   }
@@ -311,9 +478,21 @@ function GatewayConnectPanel({
         </T>
       </p>
       {errorLine}
-      <Button type="submit" size="sm" disabled={busy || !canChange || key.trim() === ""}>
-        {busy ? <T>Checking…</T> : <T>Connect</T>}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" size="sm" disabled={busy || !canChange || key.trim() === ""}>
+          {busy ? <T>Checking…</T> : <T>Connect</T>}
+        </Button>
+        <Button
+          variant="link"
+          size="sm"
+          onClick={() => {
+            setError(null);
+            setUseKey(false);
+          }}
+        >
+          <T>Sign in with LibraOS instead</T>
+        </Button>
+      </div>
     </form>
   );
 }
