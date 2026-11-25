@@ -1,8 +1,10 @@
 import type {
   AgentdCloudSetup,
+  AgentdDoctorCheck,
   AgentdRunTasksOn,
   AgentdStatus,
   AgentdTaskRow,
+  AgentdWorkerTool,
 } from "@t3tools/contracts";
 
 import type { taskBranchProblem } from "./startTask.logic";
@@ -21,6 +23,72 @@ export function agentdIndicatorState(
   }
   if (failureTag === "AgentdNotFoundError") return "not-installed";
   return failureTag === null ? "unknown" : "attention";
+}
+
+/** The doctor check that says whether a worker tool can reach a model: its login, or opencode's gateway. */
+const WORKER_SIGN_IN_CHECK = {
+  claude: "claude-login",
+  codex: "codex-login",
+  opencode: "opencode-worker",
+} as const satisfies Record<AgentdWorkerTool, string>;
+
+const SIGN_IN_CHECKS = new Set<string>(Object.values(WORKER_SIGN_IN_CHECK));
+
+/** What a background worker needs before it starts, in the order they are checked. */
+export type WorkerPrerequisite = "engine" | "sign-in" | "repository";
+
+/**
+ * "Background workers" readiness: the engine set up and healthy, the worker signed in, and the
+ * project a git repository. Missing agentd Skills only warn. `check` is agentd's own, with its fix.
+ */
+export type WorkerReadiness =
+  | { readonly kind: "unknown" }
+  | { readonly kind: "ready"; readonly missingSkills: ReadonlyArray<string> }
+  | {
+      readonly kind: "setup-required";
+      readonly missing: WorkerPrerequisite;
+      readonly engine?: "not-installed" | "not-set-up";
+      readonly worker?: AgentdWorkerTool | null;
+      readonly check?: AgentdDoctorCheck;
+    }
+  | {
+      readonly kind: "setup-failed";
+      readonly missing: "engine";
+      readonly check?: AgentdDoctorCheck;
+    };
+
+export function workerReadiness(input: {
+  readonly engine: AgentdIndicatorState;
+  readonly status: Pick<AgentdStatus, "checks" | "defaultWorker" | "missingSkills"> | null;
+  /** The worker a task would run; the default worker when the person chose none. */
+  readonly worker?: AgentdWorkerTool | null;
+  /** Cloud Workers bring their own model access, so this machine's sign-in does not apply. */
+  readonly cloud?: boolean;
+  /** Undefined with no project open; null while its git status is unknown. */
+  readonly isRepo: boolean | null | undefined;
+}): WorkerReadiness {
+  const { engine, status } = input;
+  if (engine === "unknown") return { kind: "unknown" };
+  if (engine === "not-installed" || engine === "not-set-up")
+    return { kind: "setup-required", missing: "engine", engine };
+  if (status === null) return { kind: "setup-failed", missing: "engine" };
+  // A worker's login is its own prerequisite: only the one that would run matters.
+  const failing = status.checks.find(
+    (check) => check.status === "fail" && !SIGN_IN_CHECKS.has(check.id),
+  );
+  if (failing) return { kind: "setup-failed", missing: "engine", check: failing };
+  const worker = input.worker ?? status.defaultWorker ?? null;
+  if (!input.cloud) {
+    if (worker === null) return { kind: "setup-required", missing: "sign-in", worker };
+    // An agentd without the check cannot say; it refuses the worker itself if it cannot sign in.
+    const signIn = status.checks.find((check) => check.id === WORKER_SIGN_IN_CHECK[worker]);
+    if (signIn !== undefined && signIn.status !== "pass")
+      return { kind: "setup-required", missing: "sign-in", worker, check: signIn };
+  }
+  if (input.isRepo === false) return { kind: "setup-required", missing: "repository" };
+  if (input.isRepo === null) return { kind: "unknown" };
+  const skillsApply = !input.cloud && worker === (status.defaultWorker ?? null);
+  return { kind: "ready", missingSkills: skillsApply ? (status.missingSkills ?? []) : [] };
 }
 
 /** A worker on this machine, a team node or the cloud is working on this project now. */

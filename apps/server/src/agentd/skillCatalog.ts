@@ -2,7 +2,7 @@
 import * as NodeCrypto from "node:crypto";
 import * as NodePath from "node:path";
 
-import type { AgentdSkillAgent } from "@t3tools/contracts";
+import type { AgentdSkillAgent, AgentdWorkerTool } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 
 // The Skills catalogue's pure parts: its format, the paths it may write, where each agent keeps
@@ -166,6 +166,21 @@ export function skillsDirectory(agent: AgentdSkillAgent, host: HostPaths): strin
     return path.join(configured ? configured : path.join(host.home, ".claude"), "skills");
   }
   return path.join(host.home, ".agents", "skills");
+}
+
+/** The two Skills agentd's own install writes into each worker tool (`install.sh`, the desktop). */
+export const AGENTD_SKILLS = ["agentd", "agentd-setup"] as const;
+
+/** Where a worker tool finds agentd's Skills; opencode also reads Claude Code's and Codex's. */
+export function workerSkillsDirectories(tool: AgentdWorkerTool, host: HostPaths): string[] {
+  if (tool !== "opencode") return [skillsDirectory(tool, host)];
+  const path = pathFor(host.platform);
+  const config = host.env["XDG_CONFIG_HOME"]?.trim() || path.join(host.home, ".config");
+  return [
+    skillsDirectory("claude", host),
+    skillsDirectory("codex", host),
+    path.join(config, "opencode", "skills"),
+  ];
 }
 
 /** `relative` (forward slashes) under `root` on the host OS; null when it would leave `root`. */

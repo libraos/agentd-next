@@ -22,7 +22,8 @@ import { useOrchestrationCommand } from "~/state/use-orchestration-command";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { toastManager } from "../ui/toast";
-import { useAgentdState, useCloudWorkersLinked } from "./AgentdIndicator";
+import { useCloudWorkersLinked } from "./AgentdIndicator";
+import { useAgentdState } from "./WorkerReadiness";
 import { agentdTaskBelongsToProject } from "./backgroundTasks.logic";
 import {
   OFFER_AFTER_MS,

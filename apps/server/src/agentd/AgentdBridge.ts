@@ -86,6 +86,7 @@ import type { WorkerGatewayChoice } from "./workerGatewaySetting.ts";
 import { detectServices, repairServices, serviceAgentd, setupAgentd } from "./agentdServices.ts";
 import { makeClaudeTrust, projectFolder } from "./claudeTrust.ts";
 import { makeCloudKeyFile } from "./cloudKeyFile.ts";
+import { AGENTD_SKILLS, workerSkillsDirectories } from "./skillCatalog.ts";
 import {
   estimateType,
   PROJECT_FILES,
@@ -276,6 +277,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   const hostUser = yield* HostProcess.Username;
   const taskViewer = configuredUser ?? (hostUser?.split("\\").at(-1) || null);
   const platform = yield* HostProcess.Platform;
+  const skillHost = { platform, home: yield* HostProcess.HomeDirectory, env };
 
   // Set by the desktop app beside the AGENTD_BIN of the agentd it carries.
   const bundled = env.AGENTD_DESKTOP_BUNDLED === "1" ? { bundled: true } : {};
@@ -529,6 +531,19 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return yield* readDoctor.pipe(Effect.orElseSucceed(() => doctor));
   });
 
+  // agentd's Skills a worker tool cannot find: workers still run, so this only warns.
+  const missingSkills = (tool: AgentdWorkerTool) =>
+    Effect.filter(AGENTD_SKILLS, (skill) =>
+      Effect.map(
+        Effect.forEach(workerSkillsDirectories(tool, skillHost), (directory) =>
+          fs
+            .exists(pathService.join(directory, skill, "SKILL.md"))
+            .pipe(Effect.orElseSucceed(() => false)),
+        ),
+        (found) => !found.includes(true),
+      ),
+    );
+
   const status: AgentdBridge["Service"]["status"] = Effect.gen(function* () {
     // A problem shown is read again, so services the user fixed by hand stop showing on Refresh.
     if (servicesProblem !== null) yield* checkServices().pipe(Effect.ignore);
@@ -576,6 +591,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       defaultWorker,
       dollarBudgets,
       maxWorkers,
+      missingSkills: defaultWorker === null ? null : yield* missingSkills(defaultWorker),
       binary: yield* binary,
       install,
       ...(servicesProblem === null ? {} : { servicesProblem }),

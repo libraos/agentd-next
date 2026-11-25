@@ -38,7 +38,9 @@ import {
   taskStartProblem,
   type TaskFields,
 } from "./startTask.logic";
+import { workerReadiness } from "./agentdVisibility.logic";
 import { useWorkerDefaults } from "./workerSettings";
+import { useAgentdState, useWorkerReadinessText, WorkerReadinessNotice } from "./WorkerReadiness";
 
 const isCommandError = Schema.is(AgentdCommandError);
 
@@ -140,6 +142,22 @@ export function useTaskPlan({
   const validation = prepareTaskFields(filled, { dollarBudgets });
   const worker = filled.worker ?? status.data?.defaultWorker ?? null;
   const branch = git.data ? taskBranchProblem(git.data) : null;
+  // Checked before anything starts: the engine, the worker's sign-in and the repository.
+  const engine = useAgentdState(environmentId).state;
+  const readiness = workerReadiness({
+    engine,
+    status: status.data,
+    worker,
+    cloud: cloud.enabled || cloud.waiting,
+    isRepo: cwd === null ? undefined : (git.data?.isRepo ?? null),
+  });
+  const readinessText = useWorkerReadinessText(readiness);
+  // With no worker named, the form's own "Choose a worker" says it; the person can pick one here.
+  const readinessBlocks =
+    readiness.kind === "setup-failed" ||
+    (readiness.kind === "setup-required" &&
+      !(readiness.missing === "sign-in" && readiness.worker === null));
+  const readinessProblem = readinessBlocks ? readinessText.reason : null;
 
   const money = (amount: number) =>
     new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(amount);
@@ -212,6 +230,7 @@ export function useTaskPlan({
         : gt(
             "Couldn’t reach LibraOS Engine to check Cloud Workers. Retry, or choose Edit and turn off Run in the cloud to run this task here.",
           );
+    if (readinessProblem !== null) return readinessProblem;
     switch (problemKind) {
       case "no-directory":
         return gt("This session has no project working directory.");
@@ -245,7 +264,9 @@ export function useTaskPlan({
   })();
   const checking = cloud.enabled
     ? cloud.checkingBalance
-    : cloud.waiting || (cwd !== null && (git.data === null || gitIdentity.isPending));
+    : cloud.waiting ||
+      readiness.kind === "unknown" ||
+      (cwd !== null && (git.data === null || gitIdentity.isPending));
 
   // A local dollar limit is promised only when agentd can hold it.
   const localDollars = validation.budget === null ? budgetDollarCap(validation.input.budget) : null;
@@ -326,6 +347,7 @@ export function useTaskPlan({
   ): Promise<TaskStartOutcome> {
     if (cwd === null)
       return { kind: "refused", reason: gt("This session has no project working directory.") };
+    if (readinessProblem !== null) return { kind: "refused", reason: readinessProblem };
     if (cloud.waiting)
       return {
         kind: "refused",
@@ -419,6 +441,9 @@ export function useTaskPlan({
   }
 
   return {
+    environmentId,
+    readiness,
+    readinessBlocks,
     canStart,
     dollarBudgets,
     maxWorkers,
@@ -450,9 +475,16 @@ export function TaskPlanSummary({
 }: {
   readonly plan: Pick<
     ReturnType<typeof useTaskPlan>,
-    "summary" | "estimateLine" | "whereLine" | "problem"
+    | "summary"
+    | "estimateLine"
+    | "whereLine"
+    | "problem"
+    | "environmentId"
+    | "readiness"
+    | "readinessBlocks"
   >;
 }) {
+  const blocked = plan.readinessBlocks;
   return (
     <div className="min-w-0 space-y-1">
       <p className="wrap-anywhere text-sm">{plan.summary}</p>
@@ -460,7 +492,10 @@ export function TaskPlanSummary({
       {plan.whereLine !== null ? (
         <p className="wrap-anywhere text-muted-foreground text-xs">{plan.whereLine}</p>
       ) : null}
-      {plan.problem !== null ? (
+      {blocked || plan.readiness.kind === "ready" ? (
+        <WorkerReadinessNotice environmentId={plan.environmentId} readiness={plan.readiness} />
+      ) : null}
+      {plan.problem !== null && !blocked ? (
         <p role="alert" className="text-destructive-foreground text-xs">
           {plan.problem}
         </p>
