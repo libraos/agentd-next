@@ -113,8 +113,8 @@ function setup(
       return Response.json({
         device_code: "dev-code",
         user_code: "ABCD-EFGH",
-        verification_uri: "https://app.libraos.com/device",
-        verification_uri_complete: "https://app.libraos.com/device?user_code=ABCD-EFGH",
+        verification_uri: "https://console.libraos.com/device",
+        verification_uri_complete: "https://console.libraos.com/device?user_code=ABCD-EFGH",
         expires_in: 60,
         interval: 5,
       });
@@ -137,7 +137,7 @@ function setup(
   const http = HttpClient.make((request) =>
     Effect.sync(() => {
       const url = new URL(request.url);
-      if (url.origin === "https://app.libraos.com") {
+      if (url.origin === "https://console.libraos.com") {
         const body = request.body;
         cloud.push({
           method: request.method,

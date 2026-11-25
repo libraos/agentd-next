@@ -5,8 +5,8 @@ import * as Schema from "effect/Schema";
 
 export const LIBRAOS_GATEWAY_ORIGIN = "https://api.libraos.com";
 export const LIBRAOS_CONSOLE_API_KEYS_URL = "https://console.libraos.com/api-keys";
-/** LibraOS Cloud: device sign-in (RFC 8628) and the Gateway keys a sign-in may make. */
-export const LIBRAOS_CLOUD_ORIGIN = "https://app.libraos.com";
+/** LibraOS Cloud (Console): device sign-in (RFC 8628) and the Gateway keys a sign-in may make. */
+export const LIBRAOS_CLOUD_ORIGIN = "https://console.libraos.com";
 export const LIBRAOS_DEVICE_CLIENT_ID = "agentd-desktop";
 
 export const LibraosGatewaySignInPurpose = Schema.Literals(["connect", "revoke"]);

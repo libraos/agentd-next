@@ -181,7 +181,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
         Effect.provideService(HttpClient.TracerPropagationEnabled, false),
         Effect.timeout(CLOUD_TIMEOUT),
         Effect.mapError(() =>
-          fail("Couldn't reach LibraOS at app.libraos.com. Check your connection."),
+          fail("Couldn't reach LibraOS at console.libraos.com. Check your connection."),
         ),
         Effect.flatMap((response) =>
           response.json.pipe(
