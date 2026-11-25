@@ -3,9 +3,9 @@ name: Release
 # A tag v<version> (apps/desktop/package.json) builds every installer and the updater manifests and
 # puts them in a draft release that a person reviews and publishes; installed apps update to the
 # latest published release. workflow_dispatch builds the same files as workflow artifacts only.
-# Signing (#280): only the Windows job signs, with Azure Artifact Signing, and only it runs in the
-# agentd-signing environment, whose Azure ids are the only secrets beyond GITHUB_TOKEN. macOS is
-# ad-hoc signed, not notarized; Linux is unsigned.
+# Signing: the Windows job signs with Azure Artifact Signing in the agentd-signing environment
+# (#280); the macOS jobs sign with a Developer ID and notarize in the macos-signing environment
+# (#286). Each environment's secrets reach only its own job. Linux is unsigned.
 on:
   push:
     tags:
@@ -80,17 +80,6 @@ jobs:
             platform: linux
             arch: x64
             rust_target: x86_64-unknown-linux-gnu
-          - label: macOS arm64
-            runner: macos-26
-            platform: mac
-            arch: arm64
-            rust_target: aarch64-apple-darwin
-          # macOS 26 images default to Xcode 26, which the Apple Speech helper needs.
-          - label: macOS x64
-            runner: macos-26-intel
-            platform: mac
-            arch: x64
-            rust_target: x86_64-apple-darwin
     defaults:
       run:
         shell: bash
@@ -120,10 +109,6 @@ jobs:
           AGENTD_RELEASE: ${{ needs.prepare.outputs.agentd_release }}
           T3CODE_DESKTOP_VERBOSE: "1"
         run: bash agentd/scripts/build-desktop.sh "${{ matrix.platform }}" "${{ matrix.arch }}"
-      # electron-builder names both macOS arches' manifest latest-mac.yml; the release job merges them.
-      - name: Name the macOS x64 updater manifest
-        if: matrix.platform == 'mac' && matrix.arch == 'x64'
-        run: mv release/latest-mac.yml release/latest-mac-x64.yml
       - name: Upload installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -131,7 +116,84 @@ jobs:
           path: |
             release/LibraOS-Next-x86_64.AppImage
             release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.deb
-            release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.exe
+            release/LibraOS-Next-*.blockmap
+            release/latest*.yml
+          if-no-files-found: error
+          compression-level: 0
+
+  # Its own job for the same reason as build-windows: only the macOS builds get the Apple secrets.
+  build-mac:
+    name: Build ${{ matrix.label }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    # Notarization waits on Apple, usually minutes but sometimes much longer.
+    timeout-minutes: 90
+    environment: macos-signing
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS arm64
+            runner: macos-26
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+          # macOS 26 images default to Xcode 26, which the Apple Speech helper needs.
+          - label: macOS x64
+            runner: macos-26-intel
+            arch: x64
+            rust_target: x86_64-apple-darwin
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal --target "${{ matrix.rust_target }}"
+          rustup default 1.100.0
+      - name: Build, sign and notarize installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENTD_BUILD_ON_HOST: "1"
+          AGENTD_RELEASE: ${{ needs.prepare.outputs.agentd_release }}
+          T3CODE_DESKTOP_VERBOSE: "1"
+          T3CODE_DESKTOP_SIGNED: "true"
+          # electron-builder imports the base64 .p12 into a temporary keychain.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          # The notarization tool takes the key as a file path.
+          key_dir=$(mktemp -d "$RUNNER_TEMP/notary.XXXXXX")
+          trap 'rm -rf "$key_dir"' EXIT
+          export APPLE_API_KEY="$key_dir/AuthKey_$APPLE_API_KEY_ID.p8"
+          (umask 077 && printf '%s' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY")
+          unset APPLE_API_KEY_P8
+          bash agentd/scripts/build-desktop.sh mac "${{ matrix.arch }}"
+      - name: Check the signatures
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: >-
+          bash agentd/scripts/check-macos-signatures.sh
+          "release/LibraOS-Next-$VERSION-${{ matrix.arch }}.dmg"
+          "release/LibraOS-Next-$VERSION-${{ matrix.arch }}.zip" 3NP2A75X35
+      # electron-builder names both macOS arches' manifest latest-mac.yml; the release job merges them.
+      - name: Name the macOS x64 updater manifest
+        if: matrix.arch == 'x64'
+        run: mv release/latest-mac.yml release/latest-mac-x64.yml
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-mac-${{ matrix.arch }}
+          path: |
             release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.dmg
             release/LibraOS-Next-${{ needs.prepare.outputs.version }}-*.zip
             release/LibraOS-Next-*.blockmap
@@ -220,7 +282,7 @@ jobs:
 
   checksums:
     name: SHA256SUMS
-    needs: [prepare, build, build-windows]
+    needs: [prepare, build, build-mac, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -309,9 +371,9 @@ jobs:
           **Signing**
 
           - **Windows:** the installer is signed by Nebula Nova, Inc. SmartScreen may still warn for a while after a release.
-          - **macOS:** the app is not notarized yet. The first time, right-click LibraOS Next in Applications and choose Open, or open System Settings → Privacy & Security and click Open Anyway.
+          - **macOS:** the app is signed by Nebula Nova, Inc. and notarized by Apple.
 
-          The app checks for updates at launch and every four hours and asks before installing. On macOS it opens this page instead; install the new version by hand. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
+          The app checks for updates at launch and every four hours and asks before installing. On macOS, versions that were not notarized open this page instead; install this version by hand once. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
 
           Coming from AgentD Next (the earlier name)? Its update installs LibraOS Next in its place: on Windows AgentD Next is uninstalled, the AppImage is replaced in the same file, and the .deb removes the \`agentd-desktop\` package (start LibraOS Next from the applications menu afterwards). On macOS, install LibraOS Next from this page and delete AgentD Next from Applications. The first start copies AgentD Next's window settings and sign-in; threads, settings and the background service carry over, and AgentD Next's own data is left in place.
 
