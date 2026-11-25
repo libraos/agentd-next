@@ -76,6 +76,26 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdPluginsSetSettings,
       scheduler,
     }),
+    pluginsAddSource: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-add-source",
+      tag: WS_METHODS.agentdPluginsAddSource,
+      scheduler,
+    }),
+    pluginsRemoveSource: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-remove-source",
+      tag: WS_METHODS.agentdPluginsRemoveSource,
+      scheduler,
+    }),
+    pluginsSetDeveloperMode: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-set-developer-mode",
+      tag: WS_METHODS.agentdPluginsSetDeveloperMode,
+      scheduler,
+    }),
+    pluginsAddLocal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:plugins-add-local",
+      tag: WS_METHODS.agentdPluginsAddLocal,
+      scheduler,
+    }),
     pluginsSetEnabled: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:plugins-set-enabled",
       tag: WS_METHODS.agentdPluginsSetEnabled,

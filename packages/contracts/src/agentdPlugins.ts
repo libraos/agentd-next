@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 
 import { MessageId, ProjectId, ThreadId } from "./baseSchemas.ts";
 
-// Plugins: folders from our catalogue, pinned to one commit, whose hooks the server runs. The only
+// Plugins: folders from a catalogue (ours or one a person added), pinned to one commit, whose hooks the server runs. The only
 // hook event is before-send: it sees an outgoing message and passes, rewrites or blocks it.
 
 export const AgentdPluginHookEvent = Schema.Literal("before-send");
@@ -57,8 +57,21 @@ export const AgentdPluginMcpServer = Schema.Struct({
 });
 export type AgentdPluginMcpServer = typeof AgentdPluginMcpServer.Type;
 
+/**
+ * Where a plugin came from: the official catalogue, a GitHub catalogue a person added (its
+ * repository, lower case), or a local folder in developer mode (not pinned).
+ */
+export const AgentdPluginOrigin = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("official") }),
+  Schema.Struct({ kind: Schema.Literal("github"), repository: Schema.String }),
+  Schema.Struct({ kind: Schema.Literal("local"), path: Schema.String }),
+]);
+export type AgentdPluginOrigin = typeof AgentdPluginOrigin.Type;
+
 export const AgentdPluginListing = Schema.Struct({
+  /** The plugin's key, per source: the bare id for an official plugin. Every command takes it. */
   id: Schema.String,
+  origin: AgentdPluginOrigin,
   name: Schema.String,
   description: Schema.String,
   author: Schema.String,
@@ -78,12 +91,33 @@ export const AgentdPluginListing = Schema.Struct({
   /** The installed version's MCP servers; given to Claude Code and Codex launches while on. */
   mcpServers: Schema.optionalKey(Schema.Array(AgentdPluginMcpServer)),
   settings: Schema.optionalKey(Schema.Array(AgentdPluginSettingListing)),
+  /** A local plugin whose manifest is refused now: why. It is not run until it reads again. */
+  problems: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 export type AgentdPluginListing = typeof AgentdPluginListing.Type;
 
+/** fetched today, the cache, none (no cache and the fetch failed). */
+export const AgentdPluginCatalogState = Schema.Literals(["fetched", "cache", "none"]);
+export type AgentdPluginCatalogState = typeof AgentdPluginCatalogState.Type;
+
+/** A catalogue the plugins are listed from; a token is never listed, only whether one is kept. */
+export const AgentdPluginSourceListing = Schema.Struct({
+  /** owner/repo, lower case. */
+  repository: Schema.String,
+  /** The official catalogue: always there, cannot be removed. */
+  official: Schema.Boolean,
+  hasToken: Schema.Boolean,
+  state: AgentdPluginCatalogState,
+});
+export type AgentdPluginSourceListing = typeof AgentdPluginSourceListing.Type;
+
 export const AgentdPlugins = Schema.Struct({
-  /** fetched today, the cache, none (no cache and the fetch failed). */
-  source: Schema.Literals(["fetched", "cache", "none"]),
+  /** The official catalogue's state. */
+  source: AgentdPluginCatalogState,
+  /** The official catalogue first, then those a person added. */
+  sources: Schema.Array(AgentdPluginSourceListing),
+  /** Local folders can be added as plugins; off by default. */
+  developerMode: Schema.Boolean,
   plugins: Schema.Array(AgentdPluginListing),
   /** Whether a send in the project asked for runs at least one before-send hook. */
   beforeSend: Schema.Boolean,
@@ -111,6 +145,27 @@ export const AgentdPluginSettingsInput = Schema.Struct({
   values: Schema.Record(Schema.String, Schema.NullOr(Schema.String)),
 });
 export type AgentdPluginSettingsInput = typeof AgentdPluginSettingsInput.Type;
+
+export const AgentdPluginSourceInput = Schema.Struct({
+  /** owner/repo, github.com/owner/repo or its https URL. */
+  repository: Schema.String,
+  /** A read-only token for a private repository (fine-grained, Contents: read). Kept in the
+   * server's secret store and sent only to the GitHub API for this repository. */
+  token: Schema.optionalKey(Schema.String),
+});
+export type AgentdPluginSourceInput = typeof AgentdPluginSourceInput.Type;
+
+export const AgentdPluginSourceRemoveInput = Schema.Struct({ repository: Schema.String });
+export type AgentdPluginSourceRemoveInput = typeof AgentdPluginSourceRemoveInput.Type;
+
+export const AgentdPluginDeveloperModeInput = Schema.Struct({ enabled: Schema.Boolean });
+export type AgentdPluginDeveloperModeInput = typeof AgentdPluginDeveloperModeInput.Type;
+
+export const AgentdPluginLocalInput = Schema.Struct({
+  /** An absolute folder on the server holding agentd-plugin.json. */
+  path: Schema.String,
+});
+export type AgentdPluginLocalInput = typeof AgentdPluginLocalInput.Type;
 
 export const AgentdPluginEnableInput = Schema.Struct({
   id: Schema.String,

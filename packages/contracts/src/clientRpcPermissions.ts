@@ -123,6 +123,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.agentdPluginsSetEnabled]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdPluginsSetup]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdPluginsSetSettings]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsAddSource]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsRemoveSource]: AuthEnvironmentMaintainScope,
+  // Developer mode runs a folder on this host as a plugin.
+  [WS_METHODS.agentdPluginsSetDeveloperMode]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdPluginsAddLocal]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdBeforeSendConfirm]: AuthOrchestrationOperateScope,
   [WS_METHODS.agentdBeforeSendDiscard]: AuthOrchestrationOperateScope,
   // The Gateway key goes to this host's agentd and its agents' sessions.

@@ -3952,6 +3952,11 @@ export const layerWsRpc = (
         [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
         [WS_METHODS.agentdPluginsSetup]: (input) => agentdPlugins.setup(input),
         [WS_METHODS.agentdPluginsSetSettings]: (input) => agentdPlugins.setSettings(input),
+        [WS_METHODS.agentdPluginsAddSource]: (input) => agentdPlugins.addSource(input),
+        [WS_METHODS.agentdPluginsRemoveSource]: (input) => agentdPlugins.removeSource(input),
+        [WS_METHODS.agentdPluginsSetDeveloperMode]: (input) =>
+          agentdPlugins.setDeveloperMode(input),
+        [WS_METHODS.agentdPluginsAddLocal]: (input) => agentdPlugins.addLocal(input),
         [WS_METHODS.agentdBeforeSendReview]: (input) => agentdPlugins.review(input),
         [WS_METHODS.agentdPlaceholders]: (input) => agentdPlugins.placeholders(input.threadId),
         [WS_METHODS.agentdBeforeSendDiscard]: (input) =>

@@ -7,7 +7,14 @@ import {
   type AgentdBeforeSendReview,
   type AgentdBeforeSendReviewInput,
   type AgentdPlaceholderMap,
+  type AgentdPluginCatalogState,
+  type AgentdPluginDeveloperModeInput,
   type AgentdPluginEnableInput,
+  type AgentdPluginLocalInput,
+  type AgentdPluginOrigin,
+  type AgentdPluginSourceInput,
+  type AgentdPluginSourceListing,
+  type AgentdPluginSourceRemoveInput,
   type AgentdPluginErrorReason,
   type AgentdPluginInput,
   type AgentdPluginRemoveInput,
@@ -38,7 +45,8 @@ import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import { HttpClient } from "effect/http";
+import { identity } from "effect/Function";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -57,9 +65,23 @@ import {
 import * as ServerConfig from "../config.ts";
 import type { ThreadLaunchInput } from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ProcessRunner from "../processRunner.ts";
-import { downloadPinned, getUrlBytes } from "./AgentdSkills.ts";
+import { downloadPinned, getUrlBytes, type PinnedFetch } from "./AgentdSkills.ts";
 import {
+  GITHUB_API,
+  OFFICIAL_REPOSITORY,
   PLUGIN_CATALOG_URL,
+  PluginSources,
+  type PluginOrigin,
+  parsePluginKey,
+  parsePluginManifest,
+  pluginKey,
+  readPluginSources,
+  sortPluginKeys,
+  sourceCatalogUrl,
+  sourceRepository,
+  sourceSegment,
+  sourceTokenName,
+  tokenAllowed,
   PLUGIN_INSTALL_RECORD,
   PLUGIN_MANIFEST_FILE,
   PLUGIN_SOURCE,
@@ -94,7 +116,6 @@ import {
   resolveHookCommand,
   sameContent,
   setupReady,
-  validPluginId,
   validPluginVersion,
   withPluginEnabled,
   withoutPlugin,
@@ -104,6 +125,7 @@ import {
   githubRepository,
   resolveInside,
   stagingSuffix,
+  urlPath,
   type HostPaths,
 } from "./skillCatalog.ts";
 
@@ -111,6 +133,75 @@ import {
 // or missing command stops the send. A reviewable rewrite is held until confirmed or closed.
 // Message text never goes to logs or spans: hook stdout and stderr are read and dropped. Nor does a
 // thread's placeholder map, kept in plugins/placeholders/ readable by this user alone.
+
+const REQUEST_TIMEOUT = Duration.seconds(20);
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
+/**
+ * A GitHub URL's body, read with a catalogue's token only where it may go: api.github.com, for
+ * that repository. Redirects are followed here rather than by fetch, so one to anywhere else is
+ * followed without the token. Failures name the URL, never the token.
+ */
+const getWithToken = Effect.fn("AgentdPlugins.getWithToken")(function* (
+  url: string,
+  repository: string,
+  token: string,
+) {
+  const http = yield* HttpClient.HttpClient;
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const at = current;
+    const request = HttpClientRequest.get(at).pipe(
+      HttpClientRequest.setHeader(
+        "accept",
+        at.includes("/git/trees/")
+          ? "application/vnd.github+json"
+          : "application/vnd.github.raw+json",
+      ),
+      tokenAllowed(at, repository) ? HttpClientRequest.bearerToken(token) : identity,
+    );
+    const response = yield* http.execute(request).pipe(
+      Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),
+      Effect.timeout(REQUEST_TIMEOUT),
+      Effect.mapError(() => `${at}: the request failed`),
+    );
+    if (REDIRECTS.has(response.status)) {
+      const next = redirectTarget(response.headers["location"], at);
+      if (next === null)
+        return yield* Effect.fail(`${at}: HTTP ${response.status} to nowhere usable`);
+      current = next;
+      continue;
+    }
+    if (response.status !== 200) return yield* Effect.fail(`${at}: HTTP ${response.status}`);
+    const buffer = yield* response.arrayBuffer.pipe(
+      Effect.timeout(REQUEST_TIMEOUT),
+      Effect.mapError(() => `${at}: the response could not be read`),
+    );
+    return new Uint8Array(buffer);
+  }
+  return yield* Effect.fail(`${url}: too many redirects`);
+});
+
+function redirectTarget(location: string | undefined, base: string): string | null {
+  if (location === undefined) return null;
+  try {
+    const next = new URL(location, base);
+    return next.protocol === "https:" ? next.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A pinned folder of the token's own repository: tree and files from the API, with the token. */
+const tokenFetch = (repository: string, token: string): PinnedFetch => ({
+  get: (url) => getWithToken(url, repository, token),
+  fileUrl: (entry, file) =>
+    `${GITHUB_API}/repos/${urlPath(entry.repository)}/git/blobs/${file.sha}`,
+});
+
+// A token is printable ASCII with no space, so it cannot break a header.
+const TOKEN = /^[\x21-\x7e]{1,512}$/;
 
 /**
  * The commands whose hooks the intake ran, so the dispatch backstop does not run them again.
@@ -200,6 +291,20 @@ export class AgentdPluginsService extends Context.Service<
     readonly setEnabled: (
       input: AgentdPluginEnableInput,
     ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** Adds a GitHub catalogue, or replaces its token, once its catalog.json reads. */
+    readonly addSource: (
+      input: AgentdPluginSourceInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    readonly removeSource: (
+      input: AgentdPluginSourceRemoveInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    readonly setDeveloperMode: (
+      input: AgentdPluginDeveloperModeInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** Developer mode: a local folder as a plugin, read from there every time. */
+    readonly addLocal: (
+      input: AgentdPluginLocalInput,
+    ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
     /** Whether a send in the project runs any hook; reads no hook command. */
     readonly hasBeforeSend: (projectId: ProjectId) => Effect.Effect<boolean>;
     /** Runs the project's hooks; succeeds only when the message may go as it is. */
@@ -241,13 +346,37 @@ const encodeRecord = Schema.encodeSync(Schema.fromJsonString(PluginInstallRecord
 const encodeSettings = Schema.encodeSync(Schema.fromJsonString(PluginSettings));
 const encodeSetup = Schema.encodeSync(Schema.fromJsonString(PluginSetupRecord));
 const encodePlaceholderFile = Schema.encodeSync(Schema.fromJsonString(PlaceholderFile));
+const encodeSources = Schema.encodeSync(Schema.fromJsonString(PluginSources));
 const isPluginError = Schema.is(AgentdPluginError);
 
 interface Installed {
+  /** Per source; what settings, secrets, setup and data are kept under. */
+  readonly key: string;
+  readonly origin: PluginOrigin;
   readonly folder: string;
   readonly record: PluginInstallRecord;
   readonly manifest: PluginManifest | null;
+  /** A local plugin whose manifest is refused now. */
+  readonly problems?: ReadonlyArray<string>;
 }
+
+/** One catalogue as read now. */
+interface Served {
+  readonly origin: PluginOrigin;
+  readonly repository: string;
+  readonly hasToken: boolean;
+  readonly state: AgentdPluginCatalogState;
+  readonly catalog: PluginCatalog | undefined;
+}
+
+interface Catalogs {
+  readonly sources: PluginSources;
+  readonly served: ReadonlyArray<Served>;
+}
+
+const sameOrigin = (a: PluginOrigin, b: PluginOrigin) =>
+  a.kind === b.kind &&
+  (a.kind !== "github" || (b.kind === "github" && a.repository === b.repository));
 
 interface Hook {
   readonly id: string;
@@ -286,8 +415,11 @@ const make = Effect.gen(function* () {
     env: yield* HostProcess.Environment,
   };
   const root = path.join(config.stateDir, "plugins");
-  const cacheRoot = path.join(root, "cache", PLUGIN_SOURCE);
+  const cacheBase = path.join(root, "cache");
   const catalogFile = path.join(root, "catalog.json");
+  // The catalogues a person added (their tokens are in the secret store) and developer mode.
+  const sourcesFile = path.join(root, "sources.json");
+  const catalogsRoot = path.join(root, "catalogs");
   const settingsFile = path.join(root, "settings.json");
   const lock = yield* Semaphore.make(1);
   const reviews = yield* Ref.make(new Map<string, HeldReview>());
@@ -315,25 +447,41 @@ const make = Effect.gen(function* () {
     Effect.orElseSucceed(() => readPluginSettings("")),
   );
 
-  const readCache = fs.readFileString(catalogFile).pipe(
-    Effect.map((text) => Option.getOrNull(decodePluginCatalogCache(text))),
-    Effect.orElseSucceed(() => null),
+  const readSources = fs.readFileString(sourcesFile).pipe(
+    Effect.map(readPluginSources),
+    Effect.orElseSucceed(() => readPluginSources("")),
   );
+  const writeSources = (sources: PluginSources) =>
+    writeAtomic(sourcesFile, encodeSources(sources)).pipe(
+      Effect.mapError(filesystem("save the plugin sources")),
+    );
 
-  const catalog = Effect.fn("AgentdPlugins.catalog")(function* () {
-    const now = yield* Clock.currentTimeMillis;
-    const cache = yield* readCache;
-    const cached = {
-      source: cache?.catalog === undefined ? ("none" as const) : ("cache" as const),
-      catalog: cache?.catalog,
-    };
-    if (!fetchDue(cache, now)) return cached;
-    const attemptedAt = iso(now);
-    const fetched = yield* getUrlBytes(PLUGIN_CATALOG_URL).pipe(
-      Effect.provideService(HttpClient.HttpClient, http),
-      Effect.map((bytes) => parsePluginCatalog(new TextDecoder().decode(bytes))),
+  const readCacheAt = (file: string) =>
+    fs.readFileString(file).pipe(
+      Effect.map((text) => Option.getOrNull(decodePluginCatalogCache(text))),
       Effect.orElseSucceed(() => null),
     );
+
+  /** A catalogue from its cache, fetched again when a day has passed or `force`. */
+  const fetchCatalog = Effect.fn("AgentdPlugins.fetchCatalog")(function* (
+    file: string,
+    get: Effect.Effect<Uint8Array, string>,
+    force: boolean,
+  ) {
+    const now = yield* Clock.currentTimeMillis;
+    const cache = yield* readCacheAt(file);
+    const cached = {
+      state: cache?.catalog === undefined ? ("none" as const) : ("cache" as const),
+      catalog: cache?.catalog,
+      failure: undefined as string | undefined,
+    };
+    if (!force && !fetchDue(cache, now)) return cached;
+    const attemptedAt = iso(now);
+    const result = yield* get.pipe(
+      Effect.map((bytes) => parsePluginCatalog(new TextDecoder().decode(bytes))),
+      Effect.result,
+    );
+    const fetched = result._tag === "Success" ? result.success : null;
     const next: PluginCatalogCache =
       fetched === null
         ? {
@@ -342,14 +490,122 @@ const make = Effect.gen(function* () {
             ...(cache?.catalog === undefined ? {} : { catalog: cache.catalog }),
           }
         : { attemptedAt, fetchedAt: attemptedAt, catalog: fetched };
-    yield* writeAtomic(catalogFile, encodeCache(next)).pipe(Effect.ignore);
-    return fetched === null ? cached : { source: "fetched" as const, catalog: fetched };
+    yield* writeAtomic(file, encodeCache(next)).pipe(Effect.ignore);
+    if (fetched !== null)
+      return { state: "fetched" as const, catalog: fetched, failure: undefined };
+    return {
+      ...cached,
+      failure:
+        result._tag === "Failure" ? result.failure : "catalog.json is not a plugin catalogue",
+    };
   });
 
-  /** The installed version of `id`: the folder whose install record names it. */
-  const installed = Effect.fn("AgentdPlugins.installed")(function* (id: string) {
-    if (!validPluginId(id)) return null;
-    const pluginFolder = path.join(cacheRoot, id);
+  const sourceToken = (repository: string) =>
+    secrets.get(sourceTokenName(repository)).pipe(
+      Effect.map((bytes) =>
+        Option.isNone(bytes) ? undefined : new TextDecoder().decode(bytes.value),
+      ),
+      Effect.orElseSucceed(() => undefined),
+    );
+
+  const sourceCacheFile = (repository: string) =>
+    path.join(catalogsRoot, `${sourceSegment(repository)}.json`);
+
+  const githubCatalog = Effect.fn("AgentdPlugins.githubCatalog")(function* (
+    repository: string,
+    token: string | undefined,
+    force: boolean,
+  ) {
+    const url = sourceCatalogUrl(repository, token !== undefined);
+    const get = (
+      token === undefined ? getUrlBytes(url) : getWithToken(url, repository, token)
+    ).pipe(Effect.provideService(HttpClient.HttpClient, http));
+    return yield* fetchCatalog(sourceCacheFile(repository), get, force);
+  });
+
+  /** Every catalogue: the official one first, then those a person added. */
+  const catalogs = Effect.fn("AgentdPlugins.catalogs")(function* () {
+    const sources = yield* readSources;
+    const official = yield* fetchCatalog(
+      catalogFile,
+      getUrlBytes(PLUGIN_CATALOG_URL).pipe(Effect.provideService(HttpClient.HttpClient, http)),
+      false,
+    );
+    const served: Served[] = [
+      {
+        origin: { kind: "official" },
+        repository: OFFICIAL_REPOSITORY,
+        hasToken: false,
+        ...official,
+      },
+    ];
+    for (const { repository } of sources.github) {
+      const token = yield* sourceToken(repository);
+      const read = yield* githubCatalog(repository, token, false);
+      served.push({
+        origin: { kind: "github", repository },
+        repository,
+        hasToken: token !== undefined,
+        state: read.state,
+        catalog: read.catalog,
+      });
+    }
+    return { sources, served } satisfies Catalogs;
+  });
+
+  /** The cache folder of a source: `libraos` for the official one, as before sources existed. */
+  const sourceFolder = (origin: PluginOrigin) =>
+    origin.kind === "github" ? sourceSegment(origin.repository) : PLUGIN_SOURCE;
+
+  /** A local plugin in developer mode, its manifest read again now. */
+  const installedLocal = Effect.fn("AgentdPlugins.installedLocal")(function* (id: string) {
+    const sources = yield* readSources;
+    const local = sources.developerMode
+      ? sources.local.find((candidate) => candidate.id === id)
+      : undefined;
+    if (local === undefined) return null;
+    const text = yield* fs
+      .readFileString(path.join(local.path, PLUGIN_MANIFEST_FILE))
+      .pipe(Effect.option);
+    const parsed = Option.isNone(text)
+      ? { _tag: "Invalid" as const, reasons: [`${PLUGIN_MANIFEST_FILE} cannot be read.`] }
+      : parsePluginManifest(text.value);
+    const manifest = parsed._tag === "Valid" && parsed.manifest.id === id ? parsed.manifest : null;
+    const problems =
+      parsed._tag === "Invalid"
+        ? parsed.reasons
+        : manifest === null
+          ? [`id: the folder now says ${parsed.manifest.id}, but it was added as ${id}.`]
+          : undefined;
+    const origin: PluginOrigin = { kind: "local" };
+    return {
+      key: pluginKey(origin, id),
+      origin,
+      folder: local.path,
+      record: {
+        schemaVersion: 1,
+        id,
+        version: manifest?.version ?? "",
+        repository: "local",
+        commit: "local",
+        path: local.path,
+        installedAt: "",
+        files: [],
+      },
+      manifest,
+      ...(problems === undefined ? {} : { problems }),
+    } satisfies Installed;
+  });
+
+  /** The installed version of `key`: the folder whose install record names it. */
+  const installed = Effect.fn("AgentdPlugins.installed")(function* (
+    key: string,
+  ): Effect.fn.Return<Installed | null> {
+    const parsed = parsePluginKey(key);
+    if (parsed === null) return null;
+    if (parsed.origin.kind === "local") return yield* installedLocal(parsed.id);
+    const id = parsed.id;
+    const pluginFolder = path.join(cacheBase, sourceFolder(parsed.origin), key);
     const versions = yield* fs.readDirectory(pluginFolder).pipe(Effect.orElseSucceed(() => []));
     for (const version of versions.toSorted()) {
       if (!validPluginVersion(version)) continue;
@@ -363,15 +619,36 @@ const make = Effect.gen(function* () {
         Effect.map((text) => Option.getOrNull(decodePluginManifest(text))),
         Effect.orElseSucceed(() => null),
       );
-      return { folder, record, manifest } satisfies Installed;
+      return { key, origin: parsed.origin, folder, record, manifest };
     }
     return null;
   });
 
-  const installedIds = fs.readDirectory(cacheRoot).pipe(
-    Effect.map((ids) => ids.filter(validPluginId).toSorted()),
-    Effect.orElseSucceed(() => [] as Array<string>),
-  );
+  /** Every installed key: each source's cache folder, and local plugins in developer mode. */
+  const installedKeys = Effect.fn("AgentdPlugins.installedKeys")(function* (
+    sources: PluginSources,
+  ) {
+    const keys: string[] = [];
+    const folders = yield* fs.readDirectory(cacheBase).pipe(Effect.orElseSucceed(() => []));
+    for (const folder of folders) {
+      const names = yield* fs
+        .readDirectory(path.join(cacheBase, folder))
+        .pipe(Effect.orElseSucceed(() => []));
+      for (const name of names) {
+        const parsed = parsePluginKey(name);
+        if (parsed === null || parsed.origin.kind === "local") continue;
+        if (sourceFolder(parsed.origin) === folder) keys.push(name);
+      }
+    }
+    if (sources.developerMode) {
+      keys.push(...sources.local.map((local) => pluginKey({ kind: "local" }, local.id)));
+    }
+    return keys;
+  });
+
+  /** A local plugin is not run while developer mode is off; turning it off stops none of the rest. */
+  const runnable = (key: string, sources: PluginSources) =>
+    sources.developerMode || parsePluginKey(key)?.origin.kind !== "local";
 
   const setupFile = (id: string) => path.join(setupRoot, `${id}.json`);
   const readSetup = (id: string) =>
@@ -383,13 +660,13 @@ const make = Effect.gen(function* () {
   /** Whether `found` declares setup that has not succeeded; a manifest without setup never does. */
   const needsSetup = Effect.fn("AgentdPlugins.needsSetup")(function* (found: Installed) {
     if (found.manifest?.setup === undefined) return false;
-    return !setupReady(yield* readSetup(found.record.id), found.record);
+    return !setupReady(yield* readSetup(found.key), found.record);
   });
 
   const setupListing = Effect.fn("AgentdPlugins.setupListing")(function* (found: Installed) {
     const declared = found.manifest?.setup;
     if (declared === undefined) return undefined;
-    const now = (yield* Ref.get(running)).get(found.record.id);
+    const now = (yield* Ref.get(running)).get(found.key);
     if (now !== undefined) {
       return {
         description: declared.description,
@@ -397,7 +674,7 @@ const make = Effect.gen(function* () {
         ...(now.progress === null ? {} : { progress: now.progress }),
       } satisfies AgentdPluginSetup;
     }
-    const record = yield* readSetup(found.record.id);
+    const record = yield* readSetup(found.key);
     const current =
       record !== null &&
       record.version === found.record.version &&
@@ -438,20 +715,21 @@ const make = Effect.gen(function* () {
   /** The project's enabled before-send hooks, installed or not, in id order. */
   const enabledHooks = Effect.fn("AgentdPlugins.enabledHooks")(function* (projectId?: string) {
     const settings = yield* readSettings;
+    const sources = yield* readSources;
     const ids = new Set([
       ...Object.keys(settings.enabled),
       ...Object.keys(projectId === undefined ? {} : (settings.projects[projectId] ?? {})),
     ]);
     const hooks: Hook[] = [];
-    for (const id of [...ids].toSorted()) {
-      if (!pluginEnabled(settings, id, projectId)) continue;
+    for (const id of sortPluginKeys(ids)) {
+      if (!pluginEnabled(settings, id, projectId) || !runnable(id, sources)) continue;
       const found = yield* installed(id);
       // Enabled and gone, or without a before-send hook: the former stops sends, the latter is inert.
       if (found !== null && found.manifest?.hooks?.["before-send"] === undefined) continue;
       hooks.push({
         id,
         name: found?.manifest?.name ?? id,
-        folder: found?.folder ?? path.join(cacheRoot, id),
+        folder: found?.folder ?? path.join(cacheBase, id),
         manifest: found?.manifest ?? null,
         needsSetup: found === null ? false : yield* needsSetup(found),
       });
@@ -474,7 +752,7 @@ const make = Effect.gen(function* () {
     withSecrets: boolean,
   ) {
     const values = new Map<string, string>();
-    const given = settings.values?.[found.record.id] ?? {};
+    const given = settings.values?.[found.key] ?? {};
     const secretSet = new Set<string>();
     for (const setting of found.manifest?.settings ?? []) {
       if (!setting.secret) {
@@ -482,7 +760,7 @@ const make = Effect.gen(function* () {
         if (value !== undefined) values.set(setting.name, value);
         continue;
       }
-      const value = yield* secretValue(found.record.id, setting.name);
+      const value = yield* secretValue(found.key, setting.name);
       if (value === undefined) continue;
       secretSet.add(setting.name);
       if (withSecrets) values.set(setting.name, value);
@@ -524,7 +802,7 @@ const make = Effect.gen(function* () {
               ? "set"
               : undefined
             : values.get(setting.name),
-        (setting) => secretFile(found.record.id, setting),
+        (setting) => secretFile(found.key, setting),
       );
       return {
         name,
@@ -558,14 +836,15 @@ const make = Effect.gen(function* () {
 
   const mcpServers = Effect.fn("AgentdPlugins.mcpServers")(function* (projectId: ProjectId) {
     const settings = yield* readSettings;
+    const sources = yield* readSources;
     const ids = new Set([
       ...Object.keys(settings.enabled),
       ...Object.keys(settings.projects[projectId] ?? {}),
     ]);
     const servers: Record<string, PluginMcpLaunch> = {};
     const taken = new Set([APP_MCP_SERVER_NAME, APP_MCP_DIRECT_SERVER_NAME]);
-    for (const id of [...ids].toSorted()) {
-      if (!pluginEnabled(settings, id, projectId)) continue;
+    for (const id of sortPluginKeys(ids)) {
+      if (!pluginEnabled(settings, id, projectId) || !runnable(id, sources)) continue;
       const found = yield* installed(id);
       const declared = found?.manifest?.contributes?.mcpServers;
       if (found === null || declared === undefined) continue;
@@ -640,24 +919,29 @@ const make = Effect.gen(function* () {
         encodeSettings(withPluginValues(settings, input.id, plain)),
       ).pipe(Effect.mapError(filesystem("save the plugin settings")));
     }
-    const served = yield* catalog();
-    return yield* listing(served.source, served.catalog);
+    return yield* listing(yield* catalogs());
   }, lock.withPermits(1));
 
-  const listing = Effect.fn("AgentdPlugins.listing")(function* (
-    source: AgentdPlugins["source"],
-    served: PluginCatalog | undefined,
-    projectId?: string,
-  ) {
+  const listing = Effect.fn("AgentdPlugins.listing")(function* (all: Catalogs, projectId?: string) {
     const settings = yield* readSettings;
-    const entries = new Map((served?.plugins ?? []).map((entry) => [entry.id, entry]));
-    const ids = new Set([...entries.keys(), ...(yield* installedIds)]);
+    const entries = new Map<string, PluginCatalog["plugins"][number]>();
+    for (const served of all.served) {
+      for (const entry of served.catalog?.plugins ?? []) {
+        entries.set(pluginKey(served.origin, entry.id), entry);
+      }
+    }
+    const ids = new Set([...entries.keys(), ...(yield* installedKeys(all.sources))]);
     const plugins = [];
     let beforeSend = false;
-    for (const id of [...ids].toSorted()) {
+    for (const id of sortPluginKeys(ids)) {
       const entry = entries.get(id);
       const found = yield* installed(id);
-      if (entry === undefined && found === null) continue;
+      const parsedKey = parsePluginKey(id);
+      if ((entry === undefined && found === null) || parsedKey === null) continue;
+      const origin: AgentdPluginOrigin =
+        parsedKey.origin.kind === "local"
+          ? { kind: "local", path: found?.folder ?? "" }
+          : parsedKey.origin;
       const enabled = pluginEnabled(settings, id, projectId);
       const hooks =
         found?.manifest?.hooks?.["before-send"] === undefined ? [] : ["before-send" as const];
@@ -687,7 +971,8 @@ const make = Effect.gen(function* () {
       const contributed = found === null ? undefined : yield* contributions(found, settings);
       plugins.push({
         id,
-        name: found?.manifest?.name ?? entry?.name ?? id,
+        origin,
+        name: found?.manifest?.name ?? entry?.name ?? parsedKey.id,
         description: entry?.description ?? "",
         author: entry?.author ?? "",
         licence: entry?.licence ?? "",
@@ -699,14 +984,26 @@ const make = Effect.gen(function* () {
         state,
         ...(setup === undefined ? {} : { setup }),
         ...(contributed === undefined ? {} : contributed),
+        ...(found?.problems === undefined ? {} : { problems: found.problems }),
       } as const);
     }
-    return { source, plugins, beforeSend } satisfies AgentdPlugins;
+    const sources = all.served.map((served): AgentdPluginSourceListing => ({
+      repository: served.repository,
+      official: served.origin.kind === "official",
+      hasToken: served.hasToken,
+      state: served.state,
+    }));
+    return {
+      source: all.served[0]?.state ?? "none",
+      sources,
+      developerMode: all.sources.developerMode,
+      plugins,
+      beforeSend,
+    } satisfies AgentdPlugins;
   });
 
   const list = Effect.fn("AgentdPlugins.list")(function* (input: AgentdPluginsListInput) {
-    const served = yield* catalog();
-    return yield* listing(served.source, served.catalog, input.projectId);
+    return yield* listing(yield* catalogs(), input.projectId);
   });
 
   const filesystem = (what: string) => () =>
@@ -755,9 +1052,22 @@ const make = Effect.gen(function* () {
 
   const install = Effect.fn("AgentdPlugins.install")(function* (input: AgentdPluginInput) {
     yield* notRunning(input.id);
-    const served = yield* catalog();
-    const entry = served.catalog?.plugins.find((plugin) => plugin.id === input.id);
-    if (entry === undefined) return yield* fail("unknown", `${input.id} is not in the catalogue.`);
+    const key = parsePluginKey(input.id);
+    if (key === null) return yield* fail("unknown", `${input.id} is not in a catalogue.`);
+    if (key.origin.kind === "local") {
+      return yield* fail(
+        "invalid",
+        "A local plugin is read from its folder; nothing is installed.",
+      );
+    }
+    const all = yield* catalogs();
+    const origin = key.origin;
+    const served = all.served.find((candidate) => sameOrigin(candidate.origin, origin));
+    if (served === undefined) {
+      return yield* fail("unknown", `${input.id}'s catalogue is no longer a source.`);
+    }
+    const entry = served.catalog?.plugins.find((plugin) => plugin.id === key.id);
+    if (entry === undefined) return yield* fail("unknown", `${key.id} is not in the catalogue.`);
     if (!validPluginVersion(entry.version)) {
       return yield* fail("unsafe", `${entry.version} is not a safe version name.`);
     }
@@ -771,7 +1081,16 @@ const make = Effect.gen(function* () {
       path: entry.source.path,
       notices: entry.source.notices,
     };
-    const files = yield* downloadPinned(pinned, PLUGIN_LAYOUT).pipe(
+    // The token is for its own repository: an entry pinned elsewhere is fetched without it.
+    const token =
+      origin.kind === "github" && repository.toLowerCase() === origin.repository
+        ? yield* sourceToken(origin.repository)
+        : undefined;
+    const files = yield* downloadPinned(
+      pinned,
+      PLUGIN_LAYOUT,
+      token === undefined ? undefined : tokenFetch(repository, token),
+    ).pipe(
       Effect.provideService(HttpClient.HttpClient, http),
       Effect.mapError(
         (error) =>
@@ -792,9 +1111,10 @@ const make = Effect.gen(function* () {
         `${PLUGIN_MANIFEST_FILE} at commit ${entry.source.sha} does not describe ${entry.id} ${entry.version}.`,
       );
     }
-    const before = yield* installed(entry.id);
-    const folder = path.join(cacheRoot, entry.id, entry.version);
-    const staging = path.join(cacheRoot, entry.id, `.${entry.version}.staging-${stagingSuffix()}`);
+    const before = yield* installed(input.id);
+    const pluginFolder = path.join(cacheBase, sourceFolder(origin), input.id);
+    const folder = path.join(pluginFolder, entry.version);
+    const staging = path.join(pluginFolder, `.${entry.version}.staging-${stagingSuffix()}`);
     const record: PluginInstallRecord = {
       schemaVersion: 1,
       id: entry.id,
@@ -839,14 +1159,21 @@ const make = Effect.gen(function* () {
     );
     if (before !== null && before.folder !== folder)
       yield* removeInstall(before).pipe(Effect.ignore);
-    return yield* listing(served.source, served.catalog);
+    return yield* listing(all);
   }, lock.withPermits(1));
 
   const remove = Effect.fn("AgentdPlugins.remove")(function* (input: AgentdPluginRemoveInput) {
     const found = yield* installed(input.id);
     if (found === null) return yield* fail("unknown", `${input.id} is not installed.`);
     yield* notRunning(input.id);
-    yield* removeInstall(found);
+    if (found.origin.kind === "local") {
+      // The folder is the developer's: only the app's note of it goes.
+      const sources = yield* readSources;
+      yield* writeSources({
+        ...sources,
+        local: sources.local.filter((local) => local.id !== found.record.id),
+      });
+    } else yield* removeInstall(found);
     yield* fs.remove(setupFile(input.id), { force: true }).pipe(Effect.ignore);
     for (const setting of found.manifest?.settings ?? []) {
       if (setting.secret) {
@@ -857,7 +1184,7 @@ const make = Effect.gen(function* () {
       .remove(path.join(secretFilesRoot, input.id), { recursive: true, force: true })
       .pipe(Effect.ignore);
     if (input.deleteData === true) {
-      // validPluginId held in installed(): the id is one path segment under data/.
+      // installed() parsed the key: it is one path segment under data/.
       const data = path.join(dataRoot, input.id);
       yield* fs
         .remove(data, { recursive: true, force: true })
@@ -867,8 +1194,7 @@ const make = Effect.gen(function* () {
     yield* writeAtomic(settingsFile, encodeSettings(withoutPlugin(settings, input.id))).pipe(
       Effect.mapError(filesystem("save the plugin settings")),
     );
-    const served = yield* catalog();
-    return yield* listing(served.source, served.catalog);
+    return yield* listing(yield* catalogs());
   }, lock.withPermits(1));
 
   const setEnabled = Effect.fn("AgentdPlugins.setEnabled")(function* (
@@ -892,8 +1218,7 @@ const make = Effect.gen(function* () {
       settingsFile,
       encodeSettings(withPluginEnabled(settings, input.id, input.enabled, input.projectId)),
     ).pipe(Effect.mapError(filesystem("save the plugin settings")));
-    const served = yield* catalog();
-    return yield* listing(served.source, served.catalog, input.projectId);
+    return yield* listing(yield* catalogs(), input.projectId);
   }, lock.withPermits(1));
 
   /** The message's UTF-8 attachments as the hook sees them; images and binary files are not shown. */
@@ -1060,14 +1385,14 @@ const make = Effect.gen(function* () {
   ) {
     const record: PluginSetupRecord = {
       schemaVersion: 1,
-      id: found.record.id,
+      id: found.key,
       version: found.record.version,
       commit: found.record.commit,
       status: reason === null ? "ready" : "failed",
       finishedAt: iso(yield* Clock.currentTimeMillis),
       ...(reason === null ? {} : { reason }),
     };
-    yield* writeAtomic(setupFile(found.record.id), encodeSetup(record)).pipe(Effect.ignore);
+    yield* writeAtomic(setupFile(found.key), encodeSetup(record)).pipe(Effect.ignore);
   });
 
   /** Runs setup to its end and records how it ended; output is kept only as the last line. */
@@ -1075,7 +1400,7 @@ const make = Effect.gen(function* () {
     found: Installed,
     entry: RunningSetup,
   ) {
-    const id = found.record.id;
+    const id = found.key;
     const declared = found.manifest!.setup!;
     const name = found.manifest?.name ?? id;
     const command = yield* resolveCommand(found.folder, declared.command);
@@ -1152,8 +1477,7 @@ const make = Effect.gen(function* () {
       ),
       Effect.forkIn(scope),
     );
-    const served = yield* catalog();
-    return yield* listing(served.source, served.catalog);
+    return yield* listing(yield* catalogs());
   }, lock.withPermits(1));
 
   const setupDone = (id: string) =>
@@ -1429,7 +1753,108 @@ const make = Effect.gen(function* () {
       return next;
     });
 
+  const addSource = Effect.fn("AgentdPlugins.addSource")(function* (
+    input: AgentdPluginSourceInput,
+  ) {
+    const repository = sourceRepository(input.repository);
+    if (repository === null) {
+      return yield* fail("invalid", `${input.repository} is not a GitHub repository (owner/repo).`);
+    }
+    if (repository === OFFICIAL_REPOSITORY) {
+      return yield* fail("invalid", "The official catalogue is always listed.");
+    }
+    const given = input.token?.trim() ?? "";
+    if (given.length > 0 && !TOKEN.test(given)) {
+      return yield* fail("invalid", "That token has spaces or characters a token cannot have.");
+    }
+    const token = given.length > 0 ? given : yield* sourceToken(repository);
+    // Read before saving, so a wrong name or token is said now rather than as an empty list.
+    const read = yield* githubCatalog(repository, token, true);
+    if (read.state !== "fetched") {
+      const sources = yield* readSources;
+      if (!sources.github.some((known) => known.repository === repository)) {
+        yield* fs.remove(sourceCacheFile(repository), { force: true }).pipe(Effect.ignore);
+      }
+      return yield* fail(
+        "download",
+        `The catalogue of ${repository} could not be read (${read.failure ?? "no catalogue"}). A private repository needs a token with Contents: read.`,
+      );
+    }
+    if (given.length > 0) {
+      yield* secrets
+        .set(sourceTokenName(repository), new TextEncoder().encode(given))
+        .pipe(Effect.mapError(filesystem("save the token")));
+    }
+    const sources = yield* readSources;
+    if (!sources.github.some((known) => known.repository === repository)) {
+      yield* writeSources({ ...sources, github: [...sources.github, { repository }] });
+    }
+    return yield* listing(yield* catalogs());
+  }, lock.withPermits(1));
+
+  const removeSource = Effect.fn("AgentdPlugins.removeSource")(function* (
+    input: AgentdPluginSourceRemoveInput,
+  ) {
+    const repository = sourceRepository(input.repository);
+    if (repository === OFFICIAL_REPOSITORY) {
+      return yield* fail("invalid", "The official catalogue cannot be removed.");
+    }
+    const sources = yield* readSources;
+    if (repository === null || !sources.github.some((known) => known.repository === repository)) {
+      return yield* fail("unknown", `${input.repository} is not a catalogue source.`);
+    }
+    yield* writeSources({
+      ...sources,
+      github: sources.github.filter((known) => known.repository !== repository),
+    });
+    yield* secrets.remove(sourceTokenName(repository)).pipe(Effect.ignore);
+    yield* fs.remove(sourceCacheFile(repository), { force: true }).pipe(Effect.ignore);
+    return yield* listing(yield* catalogs());
+  }, lock.withPermits(1));
+
+  const setDeveloperMode = Effect.fn("AgentdPlugins.setDeveloperMode")(function* (
+    input: AgentdPluginDeveloperModeInput,
+  ) {
+    const sources = yield* readSources;
+    yield* writeSources({ ...sources, developerMode: input.enabled });
+    return yield* listing(yield* catalogs());
+  }, lock.withPermits(1));
+
+  const addLocal = Effect.fn("AgentdPlugins.addLocal")(function* (input: AgentdPluginLocalInput) {
+    const sources = yield* readSources;
+    if (!sources.developerMode) {
+      return yield* fail("invalid", "Turn on developer mode to add a plugin from a folder.");
+    }
+    const given = input.path.trim();
+    if (!path.isAbsolute(given)) return yield* fail("invalid", "Give the folder's full path.");
+    const refused = (message: string) => () =>
+      new AgentdPluginError({ reason: "invalid", message });
+    const folder = yield* fs
+      .realPath(given)
+      .pipe(Effect.mapError(refused(`${given} cannot be read.`)));
+    const text = yield* fs
+      .readFileString(path.join(folder, PLUGIN_MANIFEST_FILE))
+      .pipe(Effect.mapError(refused(`${folder} has no ${PLUGIN_MANIFEST_FILE}.`)));
+    const parsed = parsePluginManifest(text);
+    if (parsed._tag === "Invalid") {
+      return yield* fail(
+        "invalid",
+        [`${PLUGIN_MANIFEST_FILE} in ${folder} is refused:`, ...parsed.reasons].join("\n"),
+      );
+    }
+    const id = parsed.manifest.id;
+    yield* writeSources({
+      ...sources,
+      local: [...sources.local.filter((local) => local.id !== id), { id, path: folder }],
+    });
+    return yield* listing(yield* catalogs());
+  }, lock.withPermits(1));
+
   return AgentdPluginsService.of({
+    addSource,
+    removeSource,
+    setDeveloperMode,
+    addLocal,
     list,
     install,
     remove,

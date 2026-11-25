@@ -93,6 +93,21 @@ export const getUrlBytes = Effect.fn("AgentdSkills.get")(function* (url: string)
   return new Uint8Array(buffer);
 });
 
+/** How a pinned folder is read: its tree from the GitHub API, each file from `fileUrl`. */
+export interface PinnedFetch {
+  readonly get: (url: string) => Effect.Effect<Uint8Array, string, HttpClient.HttpClient>;
+  readonly fileUrl: (
+    entry: PinnedSource,
+    file: { readonly source: string; readonly sha: string },
+  ) => string;
+}
+
+const ANONYMOUS_FETCH: PinnedFetch = {
+  get: getUrlBytes,
+  fileUrl: (entry, file) =>
+    `https://raw.githubusercontent.com/${urlPath(entry.repository, entry.commit, file.source)}`,
+};
+
 /**
  * Every file of a pinned folder, fetched and checked against the commit's ids; nothing is written.
  * Skills and plugins both install through this.
@@ -100,7 +115,9 @@ export const getUrlBytes = Effect.fn("AgentdSkills.get")(function* (url: string)
 export const downloadPinned = Effect.fn("AgentdSkills.download")(function* (
   entry: PinnedSource,
   layout?: Parameters<typeof planFiles>[2],
+  via: PinnedFetch = ANONYMOUS_FETCH,
 ) {
+  const getUrlBytes = via.get;
   const treeUrl = `https://api.github.com/repos/${urlPath(entry.repository)}/git/trees/${entry.commit}?recursive=1`;
   const treeBytes = yield* getUrlBytes(treeUrl).pipe(
     Effect.catch((detail) =>
@@ -114,7 +131,7 @@ export const downloadPinned = Effect.fn("AgentdSkills.download")(function* (
   if (plan._tag === "Refused") return yield* fail(plan.reason, plan.detail);
   const files: Array<{ readonly target: string; readonly bytes: Uint8Array }> = [];
   for (const file of plan.files) {
-    const url = `https://raw.githubusercontent.com/${urlPath(entry.repository, entry.commit, file.source)}`;
+    const url = via.fileUrl(entry, file);
     const bytes = yield* getUrlBytes(url).pipe(Effect.catch((detail) => fail("download", detail)));
     if (gitBlobId(bytes) !== file.sha) {
       return yield* fail("download", `${file.source} does not match commit ${entry.commit}.`);
