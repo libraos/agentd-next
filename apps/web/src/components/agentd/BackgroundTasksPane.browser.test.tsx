@@ -457,11 +457,11 @@ it("shows Core's park reason in Waiting and explicitly force-starts the task", a
 });
 
 it.each([
-  ["budget: worker spent its budget", "unpark", "Release this task in a LibraOS Core terminal."],
+  ["budget: worker spent its budget", "unpark", "Release this task in a LibraOS Engine terminal."],
   [
     "repository command: setup requires approval",
     "approval",
-    "Check the LibraOS Core Inbox for a command approval.",
+    "Check the LibraOS Engine Inbox for a command approval.",
   ],
 ] as const)("shows the required next step for %s", async (reason, parkAction, nextStep) => {
   const parked = setupQueuedTasks();
@@ -476,7 +476,7 @@ it.each([
   await expect.element(screen.getByText(nextStep, { exact: true })).toBeVisible();
   if (parkAction === "unpark") {
     await expect
-      .element(screen.getByText(`libraos-core handoff unpark ${parked.id}`, { exact: true }))
+      .element(screen.getByText(`libraos-engine handoff unpark ${parked.id}`, { exact: true }))
       .toBeVisible();
   }
 });
@@ -508,10 +508,10 @@ it("lists a task waiting on its own approval under Waiting with the answer comma
   );
   await expect.element(screen.getByText("Edit files in the shared checkout?")).toBeVisible();
   await expect
-    .element(screen.getByText("libraos-core approval answer apr-own --approve", { exact: true }))
+    .element(screen.getByText("libraos-engine approval answer apr-own --approve", { exact: true }))
     .toBeVisible();
   await expect
-    .element(screen.getByText("libraos-core approval answer apr-own --reject", { exact: true }))
+    .element(screen.getByText("libraos-engine approval answer apr-own --reject", { exact: true }))
     .toBeVisible();
   expect(screen.getByText("Merge another task?").all()).toHaveLength(0);
 });

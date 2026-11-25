@@ -86,7 +86,7 @@ function WorkerGatewayRow({
     if (result._tag === "Failure") {
       const error = squashAtomCommandFailure(result);
       setFailure(
-        error instanceof Error ? error.message : gt("LibraOS Core did not change the setting."),
+        error instanceof Error ? error.message : gt("LibraOS Engine did not change the setting."),
       );
     }
     onChanged();

@@ -1,16 +1,16 @@
 # LibraOS Next
 
-LibraOS Next is an IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Core](https://github.com/libraos/engine) runs, each with a goal, acceptance criteria, a check and a budget.
+LibraOS Next is an IDE for working with coding agents. You chat with an agent, work on a project with it, and hand tasks to workers that [LibraOS Engine](https://github.com/libraos/engine) runs, each with a goal, acceptance criteria, a check and a budget.
 
-It is BYOK (bring your own key): the app is free, includes no model access and sells none. You use the agent accounts and API keys you already have, and it favours no agent. LibraOS Core is the authority on tasks, approvals and workers: the app shows them and keeps no copy of its own as the truth.
+It is BYOK (bring your own key): the app is free, includes no model access and sells none. You use the agent accounts and API keys you already have, and it favours no agent. LibraOS Engine is the authority on tasks, approvals and workers: the app shows them and keeps no copy of its own as the truth.
 
 It runs on macOS, Linux and Windows.
 
-![A project thread with its branch, changes, background tasks and LibraOS Core workers beside the conversation](agentd/design/shots/session-panel.png)
+![A project thread with its branch, changes, background tasks and LibraOS Engine workers beside the conversation](agentd/design/shots/session-panel.png)
 
 ## Install the desktop app
 
-Installers are on the [releases page](https://github.com/libraos/next/releases), with LibraOS Core and its Skills inside. Earlier releases carry earlier names in the app and in the file names: AgentD Next (`AgentD-Next-…`), and up to 0.1.10-agentd.6 AgentD Desktop (`AgentD-Desktop-…`).
+Installers are on the [releases page](https://github.com/libraos/next/releases), with LibraOS Engine and its Skills inside. Earlier releases carry earlier names in the app and in the file names: AgentD Next (`AgentD-Next-…`), and up to 0.1.10-agentd.6 AgentD Desktop (`AgentD-Desktop-…`).
 
 | System                | File                                            |
 | --------------------- | ----------------------------------------------- |
@@ -70,18 +70,18 @@ One LibraOS key gives every agent its models, with no separate subscription for 
 2. In the app, open **Use an API key or gateway** (on the first run, or in **Settings → Providers**), choose **LibraOS Gateway** and the agent to use it with, paste the key into **LibraOS API key** and press **Connect**.
 3. In a chat, choose the agent marked **LibraOS Gateway** in the model picker.
 
-The key stays on that environment, and **Disconnect** removes it. LibraOS Core workers use the Gateway too, so tasks accept dollar budgets. Other gateways cannot be chosen on that screen yet; use an instance's environment variables for those.
+The key stays on that environment, and **Disconnect** removes it. LibraOS Engine workers use the Gateway too, so tasks accept dollar budgets. Other gateways cannot be chosen on that screen yet; use an instance's environment variables for those.
 
-**Join a team** is separate from keys: paste the **Team invitation link** from your team to enroll this device with its LibraOS Core server.
+**Join a team** is separate from keys: paste the **Team invitation link** from your team to enroll this device with its LibraOS Engine server.
 
 ## What you can do
 
 - **Chat or Code.** Chat is a conversation with an agent. Code is a project: its files, branch and changes sit beside the conversation.
-- **Hand a task to a worker.** From a session, or from a task card the chat drafts, start a LibraOS Core worker with a goal, acceptance criteria, a check command and a budget. The budget comes from LibraOS Core's estimate for similar tasks. **Run in the cloud** sends it to Cloud Workers instead of this machine.
-- **Follow the work.** The session panel lists the project's background tasks, running and finished, with live output and Stop, and every LibraOS Core worker running now, on this machine, a team node or in the cloud.
+- **Hand a task to a worker.** From a session, or from a task card the chat drafts, start a LibraOS Engine worker with a goal, acceptance criteria, a check command and a budget. The budget comes from LibraOS Engine's estimate for similar tasks. **Run in the cloud** sends it to Cloud Workers instead of this machine.
+- **Follow the work.** The session panel lists the project's background tasks, running and finished, with live output and Stop, and every LibraOS Engine worker running now, on this machine, a team node or in the cloud.
 - **Review the result.** A finished Cloud Workers task opens its changes in a review dialog with the diff viewer.
-- **See LibraOS Core's state.** The LibraOS Core page shows its status and checks, what needs you (approvals and messages), and the workers and team nodes.
-- **Set LibraOS Core up from the app.** When LibraOS Core is not set up yet, the app shows its End User Agreement and runs the setup when you accept. Chat and Code work without it.
+- **See LibraOS Engine's state.** The LibraOS Engine page shows its status and checks, what needs you (approvals and messages), and the workers and team nodes.
+- **Set LibraOS Engine up from the app.** When LibraOS Engine is not set up yet, the app shows its End User Agreement and runs the setup when you accept. Chat and Code work without it.
 
 | First run                                                            | Hand to a worker                                                                            |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -89,7 +89,9 @@ The key stays on that environment, and **Disconnect** removes it. LibraOS Core w
 
 ## Run it from source
 
-You need [LibraOS Core](https://github.com/libraos/engine) on `PATH`, as `libraos-core` or under its earlier name `agentd` (the installers bring their own), and the agents you want to use installed and signed in.
+You need [LibraOS Engine](https://github.com/libraos/engine) on `PATH` as `libraos-engine` (the installers bring their own), and the agents you want to use installed and signed in.
+
+Earlier names: LibraOS Engine was called LibraOS Core (until 2026-11-25) and before that agentd; the commands `libraos-core` and `agentd` still work, and the app finds them too.
 
 Install [Vite+](https://viteplus.dev/guide/), which provides the `vp` command and the pinned Node version:
 
@@ -108,7 +110,7 @@ Open the pairing URL the dev runner prints. To run the Electron app instead, use
 
 ## Build the installers
 
-Pushing a tag `v<version>` matching `apps/desktop/package.json` (for example `v0.2.0`) runs `.github/workflows/release.yml`. It builds the installers listed above, each with the same LibraOS Core release and its Skills inside, and adds them with `SHA256SUMS` and the updater's `latest*.yml` to a draft release. Installed apps are offered a release once it is published as the latest. Review the draft before publishing it. A manual run builds the same files as workflow artifacts without creating a release. The workflow picks the bundled LibraOS Core version from the manual input, then the `AGENTD_RELEASE` repository variable, then the latest release from `libraos/engine`.
+Pushing a tag `v<version>` matching `apps/desktop/package.json` (for example `v0.2.0`) runs `.github/workflows/release.yml`. It builds the installers listed above, each with the same LibraOS Engine release and its Skills inside, and adds them with `SHA256SUMS` and the updater's `latest*.yml` to a draft release. Installed apps are offered a release once it is published as the latest. Review the draft before publishing it. A manual run builds the same files as workflow artifacts without creating a release. The workflow picks the bundled LibraOS Engine version from the manual input, then the `AGENTD_RELEASE` repository variable, then the latest release from `libraos/engine`.
 
 To build on your own machine, use `agentd/scripts/build-desktop.sh linux`, `win` or `mac`. The Linux and Windows builds run in Docker, so a Linux host builds both; the Mac build needs a Mac. [agentd/design/build.md](./agentd/design/build.md) has the details.
 

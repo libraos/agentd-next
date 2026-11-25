@@ -275,11 +275,11 @@ export function StartTaskCloud({
               )
             ) : cloud.requested ? (
               <T>
-                Couldn’t reach LibraOS Core. Retry, or turn off Run in the cloud to run this task
+                Couldn’t reach LibraOS Engine. Retry, or turn off Run in the cloud to run this task
                 here.
               </T>
             ) : (
-              <T>Couldn’t reach LibraOS Core.</T>
+              <T>Couldn’t reach LibraOS Engine.</T>
             )}
           </p>
           <Button variant="outline" size="xs" disabled={disabled} onClick={cloud.refresh}>
@@ -459,7 +459,7 @@ export function StartTaskCloud({
                 </SelectItem>
                 <SelectItem value="subscription" disabled={subscriptionChoice.disabled}>
                   {subscriptionChoice.disabled ? (
-                    <T>Your subscription (needs LibraOS Core v0.1.14 or later)</T>
+                    <T>Your subscription (needs LibraOS Engine v0.1.14 or later)</T>
                   ) : (
                     <T>Your subscription</T>
                   )}
@@ -707,7 +707,7 @@ function ByokKeyFile({
       ) : problem === "unchecked" ? (
         <p id={errorId} role="status" className="text-xs text-muted-foreground">
           <T>
-            This connection can’t read files on this environment’s machine, so LibraOS Core checks
+            This connection can’t read files on this environment’s machine, so LibraOS Engine checks
             the key file when you start.
           </T>
         </p>
@@ -739,7 +739,7 @@ function SubscriptionPlan({
     claude: gt("Claude (Claude Code)"),
     codex: codexSupported
       ? gt("ChatGPT (Codex)")
-      : gt("ChatGPT (Codex): needs a newer LibraOS Core"),
+      : gt("ChatGPT (Codex): needs a newer LibraOS Engine"),
   };
   const state = subscription?.[plan] ?? null;
   const expires =
@@ -789,15 +789,19 @@ function SubscriptionPlan({
         {planProblem === "agentd" ? (
           <p>
             {plan === "codex" ? (
-              <T>Needs a newer LibraOS Core. Run libraos-core upgrade to use your ChatGPT plan.</T>
+              <T>
+                Needs a newer LibraOS Engine. Run libraos-engine upgrade to use your ChatGPT plan.
+              </T>
             ) : (
-              <T>Needs a newer LibraOS Core. Run libraos-core upgrade to use your Claude plan.</T>
+              <T>
+                Needs a newer LibraOS Engine. Run libraos-engine upgrade to use your Claude plan.
+              </T>
             )}
           </p>
         ) : planProblem === "windows" ? (
           <p>
             <T>
-              Setting up a subscription from this app isn’t available on Windows yet: LibraOS Core
+              Setting up a subscription from this app isn’t available on Windows yet: LibraOS Engine
               can’t keep the sign-in file private there.
             </T>
           </p>
@@ -806,7 +810,7 @@ function SubscriptionPlan({
             <p>
               {plan === "codex" ? (
                 planProblem === "invalid" ? (
-                  <T>LibraOS Core can’t use your ChatGPT sign-in. Sign in again in a terminal:</T>
+                  <T>LibraOS Engine can’t use your ChatGPT sign-in. Sign in again in a terminal:</T>
                 ) : (
                   <T>Your ChatGPT plan isn’t set up for Cloud Workers. Sign in in a terminal:</T>
                 )
@@ -824,13 +828,13 @@ function SubscriptionPlan({
                 <T>
                   Then enter the absolute path of Codex’s auth.json on that machine below (in the
                   .codex folder of its home folder, or in CODEX_HOME), or set it once with
-                  libraos-core config set cloud.codex_auth_file PATH. Run libraos-core config set in
-                  a terminal, then reopen this dialog.
+                  libraos-engine config set cloud.codex_auth_file PATH. Run libraos-engine config
+                  set in a terminal, then reopen this dialog.
                 </T>
               ) : (
                 <T>
                   Save the token alone in a private file (chmod 600), then enter its path below, or
-                  set it once with libraos-core config set cloud.claude_token_file PATH. Come back
+                  set it once with libraos-engine config set cloud.claude_token_file PATH. Come back
                   to this dialog when it’s saved.
                 </T>
               )}
@@ -839,12 +843,12 @@ function SubscriptionPlan({
         ) : state?.configured && file === "" ? (
           <p className="text-muted-foreground">
             {plan === "codex" ? (
-              <T>Using the ChatGPT sign-in LibraOS Core has set up.</T>
+              <T>Using the ChatGPT sign-in LibraOS Engine has set up.</T>
             ) : expires === null ? (
-              <T>Using the Claude token LibraOS Core has set up.</T>
+              <T>Using the Claude token LibraOS Engine has set up.</T>
             ) : (
               <T>
-                Using the Claude token LibraOS Core has set up. It runs out about{" "}
+                Using the Claude token LibraOS Engine has set up. It runs out about{" "}
                 <Var>{expires}</Var>.
               </T>
             )}

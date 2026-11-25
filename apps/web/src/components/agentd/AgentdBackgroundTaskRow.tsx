@@ -359,10 +359,10 @@ function TaskApprovals({ approvals }: { readonly approvals: readonly AgentdAppro
             {/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(approval.id) ? (
               <div className="flex flex-wrap gap-x-3 gap-y-1">
                 <code className="break-all">
-                  libraos-core approval answer {approval.id} --approve
+                  libraos-engine approval answer {approval.id} --approve
                 </code>
                 <code className="break-all">
-                  libraos-core approval answer {approval.id} --reject
+                  libraos-engine approval answer {approval.id} --reject
                 </code>
               </div>
             ) : null}
@@ -625,13 +625,13 @@ export function AgentdBackgroundTaskRow(props: {
           {parkAction === "unpark" ? (
             <span className="wrap-anywhere">
               <span>
-                <T>Release this task in a LibraOS Core terminal.</T>
+                <T>Release this task in a LibraOS Engine terminal.</T>
               </span>{" "}
-              <code>libraos-core handoff unpark {row.id}</code>
+              <code>libraos-engine handoff unpark {row.id}</code>
             </span>
           ) : parkAction === "approval" ? (
             <span>
-              <T>Check the LibraOS Core Inbox for a command approval.</T>
+              <T>Check the LibraOS Engine Inbox for a command approval.</T>
             </span>
           ) : null}
           {location === null || cloud || (queued && pickup) ? null : (

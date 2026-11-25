@@ -21,7 +21,7 @@ Each change to an upstream file is small and listed, one line per file with the 
 By area:
 
 - **Name and branding.** The product is LibraOS Next. No upstream name, icon or hosted service (app.t3.codes, T3 Connect, update feeds, stores) ships in our builds.
-- **Product profile.** LibraOS Core (agentd) is the authority for tasks, approvals and worker state; the app reads them from LibraOS Core and keeps no copy of its own as the truth. The app has no model access and prefers no agent.
+- **Product profile.** LibraOS Engine (agentd) is the authority for tasks, approvals and worker state; the app reads them from LibraOS Engine and keeps no copy of its own as the truth. The app has no model access and prefers no agent.
 - **Hidden features.** Upstream features we do not offer are hidden behind the product profile, not deleted, so their code still merges cleanly.
 - **Our own code.** New code lives under `agentd/`, `apps/web/src/components/agentd/` and `apps/server/src/agentd/` where it can. Files that are ours alone never conflict.
 

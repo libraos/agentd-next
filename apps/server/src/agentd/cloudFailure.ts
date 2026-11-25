@@ -14,7 +14,7 @@ export const CLOUD_REASONS = {
   credit: "There is not enough LibraOS credit for this dollar cap.",
   repository: "The repository owner must install the Cloud Workers GitHub App on this repository.",
   keyFile:
-    "LibraOS Core couldn’t use the provider key files. Check their paths, contents and permissions.",
+    "LibraOS Engine couldn’t use the provider key files. Check their paths, contents and permissions.",
   privateFile: "Choose a credential file that only your account can access.",
   subscriptionUnavailable:
     "Running on your Claude subscription isn’t available yet. Use LibraOS or your API key.",
@@ -32,7 +32,7 @@ export const CLOUD_REASONS = {
     "Your ChatGPT plan reached its usage limit. Wait for it to reset before trying again.",
   chatgptAuth: "Your ChatGPT plan isn’t set up for Codex. Run codex login in a terminal.",
   pickPlan: "Both a Claude and a ChatGPT plan are set up. Choose the plan for this task.",
-  teamServer: "Submit cloud tasks from a local LibraOS Core session, not through a team server.",
+  teamServer: "Submit cloud tasks from a local LibraOS Engine session, not through a team server.",
   providerSignIn:
     "The cloud worker could not sign in to the model provider. Check your model access before trying again.",
   checkFiles:
@@ -41,7 +41,7 @@ export const CLOUD_REASONS = {
   environment: "The cloud worker lost its environment. You can try the task again.",
   time: "The cloud worker ran out of time.",
   push: "The cloud worker could not save its branch to GitHub.",
-  submit: "LibraOS Core couldn’t submit this task to Cloud Workers.",
+  submit: "LibraOS Engine couldn’t submit this task to Cloud Workers.",
 } as const;
 
 const STATE_REASONS: Readonly<Record<string, string>> = {
@@ -186,12 +186,12 @@ export function cloudSetupReason(message: string): string {
   if (/refused the account key/i.test(said))
     return "The Job API refused this account key. Copy the whole key and try again.";
   if (/could not reach the Job API|TLS certificate/i.test(said))
-    return "LibraOS Core couldn’t reach Cloud Workers. Check this machine’s connection and try again.";
+    return "LibraOS Engine couldn’t reach Cloud Workers. Check this machine’s connection and try again.";
   if (/account balance/i.test(said))
     return "Cloud Workers couldn’t confirm the account balance. Try again in a moment.";
   if (/on one line|too long|could not read the account key/i.test(said))
     return "Paste the account key on one line.";
-  return said === "" ? "LibraOS Core couldn’t set up Cloud Workers." : said;
+  return said === "" ? "LibraOS Engine couldn’t set up Cloud Workers." : said;
 }
 
 /** The reason a finished cloud job shows; null while it is not in a failed state. */

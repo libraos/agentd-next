@@ -1816,7 +1816,7 @@
   "57e875b79b98ab82": "이슈 열기",
   "6d5d817b4e396ebf": "Use LibraOS Next in another app (MCP)",
   "a0cc19e60dd99851": "사용량 열기",
-  "437339361f0a6cb8": "Open LibraOS Core",
+  "49e1474cc59d5947": "Open LibraOS Engine",
   "46694969044eee98": "다음 작업 영역으로 포커스 이동",
   "0a1011328ba42eef": "이전 작업 영역으로 포커스 이동",
   "90896a7348c4e7ce": "설정 열기",
@@ -3229,15 +3229,15 @@
     }
   ],
   "7ecfd641e85ffecf": "Loading task details…",
-  "2ba8b47ae9aea162": "LibraOS Core",
-  "e0ceaf47e36fed56": "LibraOS Core: not installed",
-  "f292bfb82471ebc0": "LibraOS Core: not set up",
-  "5c37528860d76f8d": "LibraOS Core: needs attention",
-  "19ff3ca251ce862d": "LibraOS Core: on",
-  "4eff183421cc38a2": "LibraOS Core is not installed",
+  "5f26a4bf3350c7ad": "LibraOS Engine",
+  "37f5c126bb6919f1": "LibraOS Engine: not installed",
+  "3b21a5ebb7205d51": "LibraOS Engine: not set up",
+  "d44676dcadbcce58": "LibraOS Engine: needs attention",
+  "44b78f550aac1c57": "LibraOS Engine: on",
+  "7b5e0c21056bf07e": "LibraOS Engine is not installed",
   "4cb776fd3f81d172": "not set up",
   "43aaface25ccfdb5": "check failing: {check}",
-  "e319db21362a9533": "LibraOS Core did not answer",
+  "e2503265b33ce5b1": "LibraOS Engine did not answer",
   "79df225e749aac47": "set up, default worker {worker}",
   "7645bf73c388b4de": "set up",
   "b4bbe3036cb3f7ea": "checking…",
@@ -3247,19 +3247,19 @@
   "b29e1856c4aab31f": "이 머신",
   "e9530c0bbdc98bd2": "LibraOS account",
   "7f4fd9697b70d2ad": "Link account",
-  "3e7eb9bf932c2717": "LibraOS Core page",
+  "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
-  "8df7c40114dcf03c": "LibraOS Core의 watchdog 타이머를 켜지 못했습니다. 복구를 다시 시도하거나 터미널에서 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
-  "7687c6733ca04dfc": "LibraOS Core 백그라운드 서비스가 없거나 이전 AgentD Desktop에 속한 LibraOS Core로 실행되고 있으며, 이 앱의 LibraOS Core로 옮기지 못했습니다. 터미널에서 libraos-core install을 실행하세요.",
+  "a4976c03176917b0": "LibraOS Engine의 watchdog 타이머를 켜지 못했습니다. 복구를 다시 시도하거나 터미널에서 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
+  "dd26054eb688cbe6": "LibraOS Engine 백그라운드 서비스가 없거나 이전 AgentD Desktop에 속한 LibraOS Engine으로 실행되고 있으며, 이 앱의 LibraOS Engine으로 옮기지 못했습니다. 터미널에서 libraos-engine install을 실행하세요.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
-  "fe009c2d50ed1e42": [
+  "6c7cdcea63e2481b": [
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    " (your own LibraOS Core, kept)"
+    " (your own LibraOS Engine, kept)"
   ],
   "dfc8bb891b63700d": [
     {
@@ -3269,10 +3269,10 @@
     },
     " is not on your PATH"
   ],
-  "554083053b890173": "To run libraos-core in a terminal, add this line to your shell profile:",
+  "18115050c1d0ec2e": "To run libraos-engine in a terminal, add this line to your shell profile:",
   "a28dff6e4d10f8e1": "Got it",
-  "9cb48f8db1cc9633": [
-    "LibraOS Core의 watchdog 서비스가 ",
+  "094f3ee9de349a48": [
+    "LibraOS Engine의 watchdog 서비스가 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3280,8 +3280,8 @@
     },
     "을(를) 실행하고 있는데, 이는 없거나 이전 AgentD Desktop의 것입니다."
   ],
-  "aba21d387a74cfbb": [
-    "LibraOS Core의 대시보드 서비스가 ",
+  "fca97f2a98a5cdd5": [
+    "LibraOS Engine의 대시보드 서비스가 ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3289,61 +3289,61 @@
     },
     "을(를) 실행하고 있는데, 이는 없거나 이전 AgentD Desktop의 것입니다."
   ],
-  "c485394d478afc92": "LibraOS Core의 watchdog 서비스는 이 앱의 LibraOS Core를 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Core가 작업을 추적하지 않습니다. 복구하면 켜집니다.",
-  "9178fc20517ef8d0": "LibraOS Core의 워치독 서비스는 이 앱의 LibraOS Core를 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Core가 작업을 추적하지 않습니다. 해당 컴퓨터의 터미널에서 libraos-core install을 실행한 다음 systemctl --user daemon-reload와 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
-  "9658a992d66d175e": "LibraOS Core가 백그라운드 서비스 중 하나의 등록 내용을 읽지 못했고, libraos-core install이 그것도 다시 쓰기 때문에 복구를 제공하지 않습니다. 나중에 다시 시도하거나, 사용하는 LibraOS Core로 터미널에서 libraos-core install을 실행하세요.",
-  "b73aa16db5859b62": "systemd 드롭인이 이 서비스가 실행하는 프로그램을 설정하고 있고 libraos-core install은 드롭인을 바꾸지 않으므로, 이 서비스에는 복구가 제공되지 않습니다. ~/.config/systemd/user의 드롭인에서 ExecStart 줄을 지우고 systemctl --user daemon-reload를 실행하세요. 그런 다음 사용하는 LibraOS Core가 있는 터미널에서 watchdog은 libraos-core install, 대시보드는 libraos-core dash install을 실행하세요.",
-  "75910d787dd6e009": "LibraOS Core 백그라운드 서비스 중 하나가 없거나 이전 AgentD Desktop의 LibraOS Core를 실행하고 있고, 다른 하나는 사용자의 LibraOS Core를 실행하고 있습니다. 이 앱은 둘 다 그대로 두었습니다. 사용하는 LibraOS Core로 libraos-core install을 실행하세요. 실행하는 곳에 설정된 AGENTD_ROOT와 AGENTD_DB로 두 서비스를 모두 다시 씁니다. 대시보드가 자체 값을 사용한다면 그 후에 해당 값으로 libraos-core dash install을 실행하세요.",
-  "4ba0cc4eae170aec": "LibraOS Core의 백그라운드 서비스가 없거나 이전 AgentD Desktop에 속한 LibraOS Core를 실행하고 있습니다. 이 앱의 LibraOS Core는 앱을 닫으면 사라지므로 그대로 두었습니다. 터미널용 libraos-core를 설치한 다음 libraos-core install을 실행하세요.",
-  "967a0e2c2ff33b76": "LibraOS Core의 백그라운드 서비스가 아직 이 앱의 LibraOS Core를 실행하지 않습니다. 이전 LibraOS Core 서비스가 켜져 있는 동안 LibraOS Core는 이를 시작하지 않습니다. 터미널에서 이 명령을 실행한 다음 libraos-core install을 실행하세요.",
+  "65d1c3a386ae0b34": "LibraOS Engine의 watchdog 서비스는 이 앱의 LibraOS Engine을 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Engine이 작업을 추적하지 않습니다. 복구하면 켜집니다.",
+  "c0c5d5a806fef304": "LibraOS Engine의 워치독 서비스는 이 앱의 LibraOS Engine을 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Engine이 작업을 추적하지 않습니다. 해당 컴퓨터의 터미널에서 libraos-engine install을 실행한 다음 systemctl --user daemon-reload와 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
+  "637e9d7930e06b76": "LibraOS Engine이 백그라운드 서비스 중 하나의 등록 내용을 읽지 못했고, libraos-engine install이 그것도 다시 쓰기 때문에 복구를 제공하지 않습니다. 나중에 다시 시도하거나, 사용하는 LibraOS Engine으로 터미널에서 libraos-engine install을 실행하세요.",
+  "f167351521b8a3cf": "systemd 드롭인이 이 서비스가 실행하는 프로그램을 설정하고 있고 libraos-engine install은 드롭인을 바꾸지 않으므로, 이 서비스에는 복구가 제공되지 않습니다. ~/.config/systemd/user의 드롭인에서 ExecStart 줄을 지우고 systemctl --user daemon-reload를 실행하세요. 그런 다음 사용하는 LibraOS Engine이 있는 터미널에서 watchdog은 libraos-engine install, 대시보드는 libraos-engine dash install을 실행하세요.",
+  "47951d629e812dc1": "LibraOS Engine 백그라운드 서비스 중 하나가 없거나 이전 AgentD Desktop의 LibraOS Engine을 실행하고 있고, 다른 하나는 사용자의 LibraOS Engine을 실행하고 있습니다. 이 앱은 둘 다 그대로 두었습니다. 사용하는 LibraOS Engine으로 libraos-engine install을 실행하세요. 실행하는 곳에 설정된 AGENTD_ROOT와 AGENTD_DB로 두 서비스를 모두 다시 씁니다. 대시보드가 자체 값을 사용한다면 그 후에 해당 값으로 libraos-engine dash install을 실행하세요.",
+  "e4f4116e4b37ab49": "LibraOS Engine의 백그라운드 서비스가 없거나 이전 AgentD Desktop에 속한 LibraOS Engine을 실행하고 있습니다. 이 앱의 LibraOS Engine은 앱을 닫으면 사라지므로 그대로 두었습니다. 터미널용 libraos-core를 설치한 다음 libraos-engine install을 실행하세요.",
+  "315134288a9694ed": "LibraOS Engine의 백그라운드 서비스가 아직 이 앱의 LibraOS Engine을 실행하지 않습니다. 이전 LibraOS Engine 서비스가 켜져 있는 동안 LibraOS Engine은 이를 시작하지 않습니다. 터미널에서 이 명령을 실행한 다음 libraos-engine install을 실행하세요.",
   "ef7c30f129576625": "복구 중…",
   "afb4c74d1cc655a7": "복구…",
-  "d74a7c29542d8618": "LibraOS Core 백그라운드 서비스를 복구할까요?",
-  "9523284bd633ba32": [
-    "이 앱의 LibraOS Core(",
+  "c0a8577f50d53061": "LibraOS Engine 백그라운드 서비스를 복구할까요?",
+  "b9447f1140433209": [
+    "이 앱의 LibraOS Engine(",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    ")로 libraos-core install을 실행하고, Linux에서는 libraos-core dash install도 실행합니다. 대시보드와 watchdog을 이 앱의 LibraOS Core와 이 앱이 사용하는 루트로 다시 등록하며, 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
+    ")로 libraos-engine install을 실행하고, Linux에서는 libraos-engine dash install도 실행합니다. 대시보드와 watchdog을 이 앱의 LibraOS Engine과 이 앱이 사용하는 루트로 다시 등록하며, 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
   ],
-  "a3071fd3287604cd": [
-    "이 앱의 LibraOS Core(",
+  "592bbf01026e4fec": [
+    "이 앱의 LibraOS Engine(",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    ")로 libraos-core dash install을 실행합니다. 대시보드를 이 앱의 LibraOS Core와 이 앱이 사용하는 루트로 다시 등록합니다. 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
+    ")로 libraos-engine dash install을 실행합니다. 대시보드를 이 앱의 LibraOS Engine과 이 앱이 사용하는 루트로 다시 등록합니다. 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
   ],
-  "bc831480a29e0c33": [
-    "이 앱의 LibraOS Core(",
+  "a1b30519ff63281f": [
+    "이 앱의 LibraOS Engine(",
     {
       "i": 1,
       "k": "_gt_value_1",
       "v": "v"
     },
-    ")로 libraos-core install을 실행합니다. 워치독을 이 앱의 LibraOS Core와 이 앱이 사용하는 루트로 다시 등록합니다. 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
+    ")로 libraos-engine install을 실행합니다. 워치독을 이 앱의 LibraOS Engine과 이 앱이 사용하는 루트로 다시 등록합니다. 지금 설정된 AGENTD_ROOT 또는 AGENTD_DB는 유지되지 않습니다."
   ],
   "97848e9a3bfa3bf6": "복구",
-  "a6525c6f1285dcf7": "LibraOS Core",
+  "abeaffff3328cca8": "LibraOS Engine",
   "893bb44a7b9c9094": "새로 고침",
   "57af791aca31d90a": "Background task",
-  "64f174e1ce57ae01": "Back to LibraOS Core",
+  "85087e9a360819a2": "Back to LibraOS Engine",
   "2135340dc4b4c504": "Open a session to view this task in Background tasks.",
   "204167c06dc9fb6e": "Status",
   "9b5bce65d53a1bd8": "No environment is connected.",
-  "7413a6e5c0601f38": "LibraOS Core status requires read access to this environment.",
-  "4f3f0c29c58819fc": "LibraOS Core not found",
-  "55cf3ae17202ed32": "LibraOS Next carries its own LibraOS Core, and it could not be run. Reinstall LibraOS Next to restore it.",
-  "3d333f9ff5843f5f": [
+  "9dbad11980632c3f": "LibraOS Engine status requires read access to this environment.",
+  "38a3b120dbb9f25e": "LibraOS Engine not found",
+  "de14c8a2c6d05a44": "LibraOS Next carries its own LibraOS Engine, and it could not be run. Reinstall LibraOS Next to restore it.",
+  "7aaf8b276311c2f8": [
     "Follow the",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "LibraOS Core install guide"
+      "c": "LibraOS Engine install guide"
     },
     ", then make sure the binary is on ",
     {
@@ -3357,9 +3357,9 @@
   "1b7c524fccf06537": "Needs you",
   "db2fec7c6c08a6b4": "Workers",
   "8921053c4410665e": "Cloud Workers",
-  "d77e5b9351c9bbbe": "LibraOS Core에 연결할 수 없습니다.",
+  "92678e9a617583b6": "LibraOS Engine에 연결할 수 없습니다.",
   "9bbecec926c3b695": "다시 시도",
-  "3ba929d0a5a1cbb6": "This version of LibraOS Core has no Cloud Workers.",
+  "b60cef907e2250df": "This version of LibraOS Engine has no Cloud Workers.",
   "1df964aa41b32b25": "Cloud Workers aren’t set up on this machine.",
   "e959699c0a2955e1": [
     "Available LibraOS credit: ",
@@ -3391,21 +3391,21 @@
   "625c0b967ddc8ae6": "데이터 폴더에는 설정이 내려받은 파일이 들어 있습니다. 다시 설치한 뒤 더 빨리 설정하려면 남겨 두고, 디스크 공간을 확보하려면 삭제하세요.",
   "776cd21cbf3bbb48": "제거하고 데이터 유지",
   "b0e36fd2b8644e96": "제거하고 데이터 삭제",
-  "641e951923be2a64": "Couldn't read LibraOS Core",
+  "ee5915052adddc3d": "Couldn't read LibraOS Engine",
   "5a0125dd9241cdec": "불러오는 중…",
   "7fec02fafc537109": "Checks passed",
   "1c83f2488ecfb7e2": "Checks failed",
-  "e1b789fb7a369ca1": "LibraOS Core is not set up",
-  "a52fc03de96f83d9": [
+  "bb8ff647af64d83a": "LibraOS Engine is not set up",
+  "290669943840b23f": [
     "Run ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-core init"
+      "c": "libraos-engine init"
     },
     " on this environment."
   ],
-  "9d26e899373974f8": "Set up LibraOS Core",
+  "bbf0dcbf0d35994e": "Set up LibraOS Engine",
   "aeb3e97bdc42aa73": "Team",
   "a804d8c3337bb790": "Not joined",
   "6fb067a018b056c6": "Join a team",
@@ -3421,19 +3421,19 @@
   "5b2287f7b10cfa2f": "오프라인",
   "ff7073d416e5882b": "No task reported.",
   "5d4dbe8e9827c146": "No active workers or team nodes reported.",
-  "b320696175a79b7e": "LibraOS Core could not start libraos-core init.",
-  "b4622b73be88c45e": "libraos-core init asked a question this app does not answer, so it was stopped. Run libraos-core init in a terminal to answer it.",
-  "7c4a8fcdc54077d3": "libraos-core init took longer than 10 minutes and was stopped.",
-  "72c7dc3ecb235767": "libraos-core init could not be started.",
-  "a41023341e916cbe": "libraos-core init did not finish (exit code {code}). What it said is above.",
-  "0e63b4f672ac0575": "LibraOS Core End User Agreement",
+  "3efea7242b4fbde3": "LibraOS Engine could not start libraos-engine init.",
+  "5e8e79a840fa73a4": "libraos-engine init asked a question this app does not answer, so it was stopped. Run libraos-engine init in a terminal to answer it.",
+  "43f44f2c2f5529bb": "libraos-engine init took longer than 10 minutes and was stopped.",
+  "f29fecbceaa542c2": "libraos-engine init could not be started.",
+  "ac56383b244ef1c6": "libraos-engine init did not finish (exit code {code}). What it said is above.",
+  "d0023a6da6ea92fd": "LibraOS Engine End User Agreement",
   "4ff72c2acc7f6656": "불러오는 중…",
-  "e90b713baeb7fdb3": "libraos-core init output",
-  "1aee152c97637276": "Starting libraos-core init…",
-  "ad9ce2b63c71fa38": "LibraOS Core is set up",
+  "c305ec60ff2eaf59": "libraos-engine init output",
+  "2c0bf6749996c590": "Starting libraos-engine init…",
+  "e9331ab0d7f58665": "LibraOS Engine is set up",
   "037d1ca06ee913e4": "Link your LibraOS account",
   "fbfe0670ec81534a": "Checking your LibraOS account…",
-  "201173b036b612da": "이 버전의 LibraOS Core는 백그라운드 워커에 대한 선택을 받을 수 없어 워커가 먼저 묻습니다. 설정 → 워커를 확인하세요.",
+  "c010d6649a007125": "이 버전의 LibraOS Engine은 백그라운드 워커에 대한 선택을 받을 수 없어 워커가 먼저 묻습니다. 설정 → 워커를 확인하세요.",
   "e2db77e5b9643175": "Optional: link your LibraOS account to run tasks on Cloud Workers.",
   "fb4516dffeebe159": "완료",
   "025538a612b475ea": "Skip",
@@ -3451,8 +3451,8 @@
     ")"
   ],
   "dbea145f2ae126eb": "Read the agreement",
-  "ab22fa6906858a3e": [
-    "Couldn't read the agreement from LibraOS Core:",
+  "29a927e4a4af8aaf": [
+    "Couldn't read the agreement from LibraOS Engine:",
     " ",
     {
       "i": 1,
@@ -3470,19 +3470,19 @@
     },
     "."
   ],
-  "e2e4d0b81a641217": [
-    "Accept records that you accept the LibraOS Core End User Agreement and runs",
+  "a8d72835d7b80ce1": [
+    "Accept records that you accept the LibraOS Engine End User Agreement and runs",
     " ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-core init"
+      "c": "libraos-engine init"
     },
     " on this environment."
   ],
-  "fc7d6aab88e9d49a": "This connection cannot set up LibraOS Core on this environment.",
-  "d8c83e9f8d04bb7b": "Setting up LibraOS Core…",
-  "f5490c74c8cd89cd": "libraos-core init stopped",
+  "4612e959c2a469cd": "This connection cannot set up LibraOS Engine on this environment.",
+  "79021da5292c39c3": "Setting up LibraOS Engine…",
+  "39c8a94a7990f5be": "libraos-engine init stopped",
   "21d0ab2cb7685f9c": "나중에",
   "8ea6026d5157e5e2": "Setting up…",
   "86ae486300890787": "Accept and set up",
@@ -3498,7 +3498,7 @@
   "5b56b7c5d024d2f2": "출력을 불러오는 중…",
   "fc6012fd5e61997a": "No output yet.",
   "346e42415ac6d374": "이전 출력은 표시되지 않음",
-  "ab8abca7f3ef0096": "LibraOS Core could not change team work.",
+  "8b714c78c6b56338": "LibraOS Engine could not change team work.",
   "2443192ab5658745": "No agent installed",
   "30369af9f0646a93": "Choose",
   "ff1728d6a7065373": "Working",
@@ -3508,7 +3508,7 @@
   "9fd8bf4b7e928172": "While on, the team server can give this environment a task when you are not using the app. The agent works in a new branch of the folder and pushes it.",
   "066217798e6896ad": "Agent",
   "bfd26c6102d0b50b": "Project folder",
-  "1c191a52c2f9f971": "Worker ticket (only if LibraOS Core asks for one)",
+  "8ebbe48522c87a29": "Worker ticket (only if LibraOS Engine asks for one)",
   "24967071e70d3647": "Team work",
   "4f8d75498480050f": "This connection cannot change team work.",
   "518e22e50abc9e46": "Try a worker",
@@ -3554,28 +3554,28 @@
     }
   ],
   "bf2a9ad2aa1b287b": "No finished tasks.",
-  "91c0a885f98dca51": [
-    "LibraOS Core was not found in this environment. Follow the",
+  "6c3604d1e1a4eee6": [
+    "LibraOS Engine was not found in this environment. Follow the",
     " ",
     {
       "t": "a",
       "i": 1,
-      "c": "LibraOS Core installation guide"
+      "c": "LibraOS Engine installation guide"
     },
     " ",
     "and make sure the binary is on the server's path."
   ],
-  "61472fbfd766269c": [
-    "LibraOS Core is installed but not set up. Run ",
+  "56458133d40e6599": [
+    "LibraOS Engine is installed but not set up. Run ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-core init"
+      "c": "libraos-engine init"
     },
     " on the server to set it up."
   ],
-  "2478c38366ce25e2": [
-    "Couldn't load LibraOS Core tasks: ",
+  "61a4727dbde9c3e6": [
+    "Couldn't load LibraOS Engine tasks: ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3584,8 +3584,8 @@
   ],
   "8fcfbf58679817e7": "Loading background tasks…",
   "3ed9449038f86fe1": "No background tasks",
-  "b594324803fe0e40": "LibraOS Core tasks are unavailable in this environment.",
-  "0ec4ca07c68bdfc2": "No LibraOS Core tasks.",
+  "b28993a55d9ff8a3": "LibraOS Engine tasks are unavailable in this environment.",
+  "2a7bf85d9caf94ef": "No LibraOS Engine tasks.",
   "d6433c8ffd2cd20d": "전송 전 검사됨",
   "65af218e3466e202": "{names}이(가) 전송 전에 모든 메시지를 검사합니다.",
   "57dbcc229103c3f4": "메시지가 전송되지 않았습니다.",
@@ -3599,7 +3599,7 @@
   "2e0904a66ca09471": "원래 메시지",
   "5b30ae788fdc4fd0": "보내는 중…",
   "653405e4ed498d9f": "보내기",
-  "095e2a7965338fb5": "LibraOS Core could not start the task.",
+  "469091100b81efc0": "LibraOS Engine could not start the task.",
   "915c8a1b47d2c43e": "다른 작업 “{goal}”({taskId})이(가) 이미 이 폴더를 사용하고 있습니다.",
   "b9ea4a0a3fe98599": "다른 작업 {taskId}이(가) 이미 이 폴더를 사용하고 있습니다.",
   "f6d2b8c94d5046e6": "해당 워커가 아직 실행 중이라 여기서 해제할 수 없습니다. ‘그래도 시작’을 선택하면 두 작업이 모두 이 폴더에서 실행됩니다.",
@@ -3623,11 +3623,11 @@
     }
   ],
   "efa55bbb1d3aa45e": "변경 사항 검토",
-  "09923deab695aa51": "LibraOS Core couldn’t set up Cloud Workers.",
+  "159e6e46e277ba9c": "LibraOS Engine couldn’t set up Cloud Workers.",
   "1cdcb8450d2249b5": "Open Cloud Workers setup in LibraOS Console",
   "1b459a8c87861ade": "Create a key in LibraOS Console",
-  "0e21472257e0f9e5": "To set up Cloud Workers here, LibraOS Core needs an upgrade. Run this, then reopen this view:",
-  "4e0cb286dce5897b": "LibraOS Core didn’t say where it would send an account key, so none is asked for here.",
+  "4e9d356a897c8ccf": "To set up Cloud Workers here, LibraOS Engine needs an upgrade. Run this, then reopen this view:",
+  "ad4a60d4f1127836": "LibraOS Engine didn’t say where it would send an account key, so none is asked for here.",
   "d4303d9c68fbd944": "This connection can’t set up Cloud Workers.",
   "ea576c20385d20ea": "Set up Cloud Workers",
   "c0cc5c88f4caee14": "Create a Cloud Workers account key in LibraOS Console.",
@@ -3640,8 +3640,8 @@
     },
     ". A LibraOS Console key won’t work there."
   ],
-  "21ac73017af456a4": [
-    "Paste the key here. LibraOS Core sends it to ",
+  "b61fb07e0f2ca657": [
+    "Paste the key here. LibraOS Engine sends it to ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3664,11 +3664,11 @@
   "f1276edb3a3928b3": "가져온 세션에서 에이전트가 생성했습니다. 이 값은 그 세션을 설명하며, 이 세션이 아닙니다.",
   "5771ed9dc77641e2": "강조된 값은 여기에서 원래대로 복원되어 표시됩니다. 에이전트는 자리 표시자만 보았습니다.",
   "668e353261860b41": "Background work",
-  "d8c76ce5ec0d17bf": "Waiting for a LibraOS Core worker",
+  "8e47a67e3d028872": "Waiting for a LibraOS Engine worker",
   "8e7bdb314813b183": "Running",
   "2132a271f96567bb": "This session",
-  "3a14bb585ff3d1b4": [
-    "Waiting for LibraOS Core task ",
+  "b6cbdac9a756d17d": [
+    "Waiting for LibraOS Engine task ",
     {
       "i": 1,
       "k": "_gt_value_1",
@@ -3689,13 +3689,13 @@
   "ddd1940b8d6bbdd7": "Your subscription",
   "2582796b9cd929a5": "Claude (Claude Code)",
   "bb58748e4b230007": "ChatGPT (Codex)",
-  "f9fefcbe33b1eb93": "ChatGPT (Codex): needs a newer LibraOS Core",
+  "0ea88f03b9a32fd9": "ChatGPT (Codex): needs a newer LibraOS Engine",
   "5a34ca16d3ffeb8f": "원격 클라우드 머신에서 실행되며 그 리소스를 사용합니다.",
   "1b20197d1f4264ba": "이 컴퓨터에서 실행되며 이 컴퓨터의 리소스를 사용합니다.",
   "0606bddb2fb895bd": "Run in the cloud",
   "497643a79f9c7456": "이 체크아웃의 origin을 읽을 수 없습니다. 다시 시도하거나 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "6726fb80ed5fc0dd": "이 체크아웃의 origin을 읽을 수 없습니다.",
-  "7264d8b90232ea00": "LibraOS Core에 연결할 수 없습니다. 다시 시도하거나 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
+  "b0d1b4552be2c677": "LibraOS Engine에 연결할 수 없습니다. 다시 시도하거나 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "e2f5cc2eeccfc92b": "Cloud Workers require a GitHub repository as the checkout’s origin.",
   "16c7fc3b7eaea196": [
     "Cloud repository: ",
@@ -3716,7 +3716,7 @@
   "8f3320315e697b15": "Time limit in minutes (optional)",
   "4952a48d2f114ac9": "Enter a positive dollar cap and, if needed, a positive time limit.",
   "168a996246dfcd04": "Model access",
-  "66e6169f3f277e19": "Your subscription (needs LibraOS Core v0.1.14 or later)",
+  "30d3200a10b522ac": "Your subscription (needs LibraOS Engine v0.1.14 or later)",
   "75a0a0ea5970711f": "Your subscription",
   "2ae0b42ad8251297": "Worker time and inference are both billed to LibraOS credits.",
   "0d575788064a43d5": "Enter at least one absolute key file path on this environment’s machine. Do not paste the API key itself.",
@@ -3755,22 +3755,22 @@
     "을(를) 읽을 수 없습니다. 경로와 계정이 파일을 읽을 수 있는지 확인하세요."
   ],
   "cbc2d86edf351bfc": "이 키 파일을 확인할 수 없습니다.",
-  "5b88580b8185a035": "이 연결은 이 환경의 컴퓨터에 있는 파일을 읽을 수 없으므로 시작할 때 LibraOS Core가 키 파일을 확인합니다.",
+  "8de8789e201f95a9": "이 연결은 이 환경의 컴퓨터에 있는 파일을 읽을 수 없으므로 시작할 때 LibraOS Engine이 키 파일을 확인합니다.",
   "8590981f396d633b": "이 키 파일을 확인하는 중…",
   "0faf657712a9d10a": "Plan",
-  "5b311fe764356c4e": "Needs a newer LibraOS Core. Run libraos-core upgrade to use your ChatGPT plan.",
-  "6fb9e6f99d127e8b": "Needs a newer LibraOS Core. Run libraos-core upgrade to use your Claude plan.",
-  "4542e41e4362f1a0": "Setting up a subscription from this app isn’t available on Windows yet: LibraOS Core can’t keep the sign-in file private there.",
-  "6b2486d310b10e97": "LibraOS Core can’t use your ChatGPT sign-in. Sign in again in a terminal:",
+  "0dbadade61a0ef52": "Needs a newer LibraOS Engine. Run libraos-engine upgrade to use your ChatGPT plan.",
+  "ef7c37be80fefd83": "Needs a newer LibraOS Engine. Run libraos-engine upgrade to use your Claude plan.",
+  "2f0f13a3d4ae6ec1": "Setting up a subscription from this app isn’t available on Windows yet: LibraOS Engine can’t keep the sign-in file private there.",
+  "26d7ef6f29db2664": "LibraOS Engine can’t use your ChatGPT sign-in. Sign in again in a terminal:",
   "75191ad4c65ff49d": "Your ChatGPT plan isn’t set up for Cloud Workers. Sign in in a terminal:",
   "6f96d6861970cb51": "Your Claude token is missing, expired or not valid. Make a new one in a terminal:",
   "7921f79830f7d147": "Your Claude plan isn’t set up for Cloud Workers. Make a token in a terminal:",
-  "3d8d370fe93778f6": "Then enter the absolute path of Codex’s auth.json on that machine below (in the .codex folder of its home folder, or in CODEX_HOME), or set it once with libraos-core config set cloud.codex_auth_file PATH. Run libraos-core config set in a terminal, then reopen this dialog.",
-  "f5e9a5f279078deb": "Save the token alone in a private file (chmod 600), then enter its path below, or set it once with libraos-core config set cloud.claude_token_file PATH. Come back to this dialog when it’s saved.",
-  "f9fff7a3c8114822": "Using the ChatGPT sign-in LibraOS Core has set up.",
-  "82573b2994c6e1b1": "Using the Claude token LibraOS Core has set up.",
-  "dffd6aaef0c65a46": [
-    "Using the Claude token LibraOS Core has set up. It runs out about",
+  "65bcc2fc51e19cd0": "Then enter the absolute path of Codex’s auth.json on that machine below (in the .codex folder of its home folder, or in CODEX_HOME), or set it once with libraos-engine config set cloud.codex_auth_file PATH. Run libraos-engine config set in a terminal, then reopen this dialog.",
+  "2c3c593823112158": "Save the token alone in a private file (chmod 600), then enter its path below, or set it once with libraos-engine config set cloud.claude_token_file PATH. Come back to this dialog when it’s saved.",
+  "4b742852be38a66d": "Using the ChatGPT sign-in LibraOS Engine has set up.",
+  "2b045afc9619520f": "Using the Claude token LibraOS Engine has set up.",
+  "7fca411450cf946c": [
+    "Using the Claude token LibraOS Engine has set up. It runs out about",
     " ",
     {
       "i": 1,
@@ -3792,11 +3792,11 @@
   "3393b275f19c6391": "Enter a check command.",
   "fa2b5561ac2176d1": "Enter a check command that does not begin with a dash or contain a NUL character.",
   "ec2fce5d7b1b6db5": "Enter a positive budget such as 30m, $2, or 30m,$2.",
-  "fa356e2eaa068b19": "No dollar limit: LibraOS Core on this machine has no model prices.",
+  "615bec90299efcf1": "No dollar limit: LibraOS Engine on this machine has no model prices.",
   "de894e40af577557": "Use at most {limit} acceptance criteria, one per line, with no leading dashes or NUL characters.",
   "de780c2046b3f051": "Use the format OWNER/REPO#123.",
-  "36baee65e93f2ed8": "LibraOS Core가 이 프로젝트의 마지막 클라우드 제출을 확인하지 않았으며, 아직 시작될 수 있습니다. 이것으로 바꿀까요? 이전 제출이 시작되었다면 이것은 전송되지 않습니다.",
-  "f65889e4ca20133a": "LibraOS Core did not dispatch the task.",
+  "a706d9f544b72a6c": "LibraOS Engine이 이 프로젝트의 마지막 클라우드 제출을 확인하지 않았으며, 아직 시작될 수 있습니다. 이것으로 바꿀까요? 이전 제출이 시작되었다면 이것은 전송되지 않습니다.",
+  "7de89075088a48aa": "LibraOS Engine did not dispatch the task.",
   "06077698ed64f5df": "Started task {taskId}.",
   "27c99031d8a1610a": "The session’s agent did not return a usable draft. You can still fill in the form.",
   "8f660e6463ebada2": "Goal",
@@ -3809,7 +3809,7 @@
   "fe8a0b7a0c5d9c6f": "Budget",
   "e73e1115fbe0de91": "Working directory",
   "72985eae43f9def3": "Issue (optional)",
-  "5ba147cd9577f308": "LibraOS Core saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
+  "15ce110ff68c2ef2": "LibraOS Engine saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
   "4d4ec2226fc46ee3": "Task {taskId} was offered but did not start.",
   "6a06a09e3a1f8f65": "파일 권한을 변경할 수 없습니다.",
   "b2d4a97a97c93f80": "Review the task and its budget before starting a worker on your account.",
@@ -3817,7 +3817,7 @@
   "99ea3181ff9ebe91": "Draft from this conversation",
   "b98c20b1d8015a9d": "Hide details",
   "f5b66c481aa3e4df": "편집",
-  "3c3aeaf73e165d00": "This connection cannot start LibraOS Core tasks.",
+  "35ec983572b22590": "This connection cannot start LibraOS Engine tasks.",
   "b7088cd1c566d9c9": "바꾸기",
   "28eb5c34fe18cd54": "교체하지 않음",
   "cddd25f1fe0c5855": "Checking the earlier submission…",
@@ -3837,13 +3837,13 @@
   "25a62c0f3cb82bf9": "에이전트 선택",
   "183773bf44797c48": "One account for models (LibraOS Gateway) and for workers that run in the cloud (Cloud Workers). LibraOS bills you.",
   "dc753003eb5141eb": "Gateway connected",
-  "50154ef20a971c90": "Cloud Workers: set up LibraOS Core to use them",
+  "6dd4778f828e3cb2": "Cloud Workers: set up LibraOS Engine to use them",
   "7f34e079a903f364": "Gateway settings",
   "d84fb11c1a2470d4": "Use a LibraOS account",
   "dd396607cc1fad96": "You can use both, and change this later in Settings.",
   "1420f8f5fbf90c81": "워커 게이트웨이",
   "325e186bb43a24cc": "{name} 자체 로그인",
-  "423fba90cbe2fd93": "LibraOS Core가 설정을 변경하지 않았습니다.",
+  "49e8eb3d408b3484": "LibraOS Engine이 설정을 변경하지 않았습니다.",
   "d12615cd4265bb4f": "해당 게이트웨이에 사용할 모델이 없습니다.",
   "eee575164f96617a": "{name} 게이트웨이",
   "4ac7b33c2e9c58f1": "{name} 모델",
@@ -3859,8 +3859,8 @@
   "20b3ad4b5cfc93c2": "워커는 자신의 worktree에서 네트워크를 사용해 어떤 명령이든 실행합니다. 여전히 push, merge, 풀 리퀘스트 열기는 할 수 없고 예산과 검사도 그대로 적용됩니다.",
   "4f5f81d330b35a98": "백그라운드 워커가 묻지 않고 어디까지 할 수 있게 할까요?",
   "f42b518bc0c1e6bd": "나중에 설정 → 워커에서 바꿀 수 있습니다.",
-  "c32588273a53c967": "일부 역할이나 저장소는 워커를 묻지 않고 실행합니다. libraos-core config set으로 바꾸세요.",
-  "c4793f52576e7af5": "LibraOS Core는 터미널에서 설정한 경우에만 워커가 묻지 않고 실행하게 합니다. 다음을 실행하세요:",
+  "5bb4806d1f77802a": "일부 역할이나 저장소는 워커를 묻지 않고 실행합니다. libraos-engine config set으로 바꾸세요.",
+  "155cd8aa821751b8": "LibraOS Engine은 터미널에서 설정한 경우에만 워커가 묻지 않고 실행하게 합니다. 다음을 실행하세요:",
   "9285c646fccf4c5c": [
     "워커가 기다리는 중: ",
     {
@@ -3871,7 +3871,7 @@
   ],
   "f71e59801605bb1b": "워커가 권한 요청 같은 답을 기다리고 있습니다.",
   "e008e8da0c735c97": "터미널에서 답하세요:",
-  "d00e71b0fdc3823a": "워커 자체 세션이나 LibraOS Core 받은편지함에서 답하세요.",
+  "f6eab6b691b252e3": "워커 자체 세션이나 LibraOS Engine 받은편지함에서 답하세요.",
   "bf838fdca5910f8f": "Cloud Workers",
   "066644fe3ef88185": "Workers",
   "08a6807fe489a75f": "Suggest workers",
@@ -3881,13 +3881,13 @@
   "30e829a1a8a28216": "Dollars",
   "95b341922c1fa227": "Offer to hand a Code thread's task to a worker when a turn runs long or you send a message while it runs.",
   "7af00a32ca27332c": "Where Hand to a worker starts a task. You can change it for each task.",
-  "cbe61e7c71bb0365": "Cloud Workers need LibraOS Core set up and your LibraOS account linked on the LibraOS Core page.",
-  "e3e31c5db26e52ee": "LibraOS 계정이 연결되어 있습니다. 크레딧과 키는 LibraOS Core 페이지에 있습니다.",
-  "4518b66ab8d74046": "이 기기 대신 LibraOS 머신에서 작업을 실행합니다. LibraOS Core 페이지에서 설정하세요.",
+  "74c577ca01e5e076": "Cloud Workers need LibraOS Engine set up and your LibraOS account linked on the LibraOS Engine page.",
+  "b07e4e9b666d2694": "LibraOS 계정이 연결되어 있습니다. 크레딧과 키는 LibraOS Engine 페이지에 있습니다.",
+  "dc72cfb16b6923f1": "이 기기 대신 LibraOS 머신에서 작업을 실행합니다. LibraOS Engine 페이지에서 설정하세요.",
   "1001952bd82ee967": "Cloud Workers 관리",
   "232e5a93f6fd9568": "Enter whole minutes and a dollar amount above zero.",
-  "8f08a51c54f9d5c1": "Used when LibraOS Core has no estimate for the task. LibraOS Core on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
-  "6186fbaa913a7bb3": "Used when LibraOS Core has no estimate for the task.",
+  "5c5ca496f3dc7701": "Used when LibraOS Engine has no estimate for the task. LibraOS Engine on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
+  "dc1a56ecbf21637a": "Used when LibraOS Engine has no estimate for the task.",
   "45364730b756553d": "min",
   "fb2e161d9c17d766": "Waiting for a person",
   "129dc286945d9504": "Worker exited",
@@ -3904,15 +3904,15 @@
   "92ffc3a81f849f9c": "Needs work",
   "c0cdda8786778243": "The working directory is not a Git repository.",
   "423f5560c920e52f": "Check out a named branch in this working directory first.",
-  "6ddad0dd81bb32eb": "LibraOS Core on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
+  "d07a4adc846d994b": "LibraOS Engine on this machine has no model prices, so it cannot hold a dollar limit. Use minutes, such as 60m.",
   "ae8470f8ec58cfa1": "Cloud Workers용 이 체크아웃의 origin을 읽을 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
-  "86c7781f27e1c7af": "Cloud Workers를 확인하기 위해 LibraOS Core에 연결할 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
+  "576d127b20ad5743": "Cloud Workers를 확인하기 위해 LibraOS Engine에 연결할 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "a4aff358558707df": "This session has no project working directory.",
   "cee006e381c89877": "There is not enough LibraOS credit for Cloud Workers.",
   "7e4a9f1615efb801": "Sign in to LibraOS or connect the LibraOS Gateway to use LibraOS models.",
   "56e4f7ed70b61ddf": "Set up your ChatGPT plan, or choose another model access.",
   "ae8e59cdd9383873": "Set up your Claude plan, or choose another model access.",
-  "f733e8882af8f627": "Choose a worker. The default is set in LibraOS Core.",
+  "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
   "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
@@ -3924,11 +3924,11 @@
   "30ede58b70ed5890": "check: {check}",
   "38c3af13de81266b": "no check",
   "1da70a54f75e15f2": "No dollar limit: the budget names only minutes.",
-  "6f53e4edbecbd75d": "Budget up to {cap} (LibraOS Core has no estimate for similar tasks yet).",
+  "bad9e5dc1d8f4372": "Budget up to {cap} (LibraOS Engine has no estimate for similar tasks yet).",
   "b77cf4ce030a03fd": "Budget up to {cap} (similar tasks cost {low}–{high}).",
   "1105b01379db64cd": "The estimate comes from local runs of similar tasks.",
   "4dda41ea257ced6b": "{branch}에서 만든 새 브랜치로, 자체 워크트리에서 실행됩니다.",
-  "6f35daaa89f82b1f": "Cloud Workers를 확인하기 위해 LibraOS Core에 연결할 수 없습니다.",
+  "e100c30ab0c762bd": "Cloud Workers를 확인하기 위해 LibraOS Engine에 연결할 수 없습니다.",
   "2595e7b187340f8a": "OpenAI 키 칸의 파일에 Anthropic 키가 들어 있어 아무것도 제출되지 않았습니다. 각 키 파일을 해당 제공자의 칸에 넣으세요.",
   "c6053d841d41d8bc": "Anthropic 키 칸의 파일에 OpenAI 키가 들어 있어 아무것도 제출되지 않았습니다. 각 키 파일을 해당 제공자의 칸에 넣으세요.",
   "87e3e1be8d076ca6": "이 환경에 연결할 수 없습니다. 다시 시도하세요.",
@@ -4965,13 +4965,13 @@
       "v": "v"
     }
   ],
-  "99601ef6493bb992": "LibraOS Core workers",
+  "043210e0d6a4c37c": "LibraOS Engine workers",
   "8458762cc6877710": "Waiting for input",
-  "d7685310eb853b62": "LibraOS Core workers",
+  "34f7d273c01d6d05": "LibraOS Engine workers",
   "29374808171f5868": "cloud",
   "a911bfd3fce2fd40": "this machine",
-  "8463ffbd5f171b9a": "LibraOS Core was not found.",
-  "cec4ade1ebc16b62": "LibraOS Core tasks are unavailable.",
+  "108b66c76e705dd6": "LibraOS Engine was not found.",
+  "6e905e3f34d29117": "LibraOS Engine tasks are unavailable.",
   "b27e5cac5560a6ef": "No workers running",
   "f8cc6ac12ae1f393": [
     {
@@ -6984,9 +6984,9 @@
     }
   ],
   "dfe11f51692569f9": "Console에서 키를 다시 허용하고 공급자를 새로 고치거나, 연결을 해제하고 다른 키를 연결하세요.",
-  "a81c327f85464c94": "In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Core workers use the Gateway too, so tasks accept dollar budgets.",
-  "3583a9db3e7daf7d": "LibraOS Core is set up to use the Gateway.",
-  "8e7fed102e5c6022": "LibraOS Core did not take the key. What it said:",
+  "92a1ee648e2bbcb2": "In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Engine workers use the Gateway too, so tasks accept dollar budgets.",
+  "f43ad248f240cca1": "LibraOS Engine is set up to use the Gateway.",
+  "371706fe6a158246": "LibraOS Engine did not take the key. What it said:",
   "d356add77d113720": "연결 끊기",
   "44f19854f4f017e2": "LibraOS API key",
   "794958206cd1fa96": [
@@ -7043,8 +7043,8 @@
   "1066dd3e8114dba8": "LibraOS Next could not confirm this workspace.",
   "573a9e6b17f4e9e3": "새로 고침",
   "56d1b38be4375478": "Use an HTTPS invitation link. HTTP is only allowed for a server on this computer.",
-  "6cdd9a9c1a81586e": "This link must contain one valid LibraOS Core device ticket. Ask your team for a new link.",
-  "15571f0a82e5ceab": "Paste a complete LibraOS Core team invitation link.",
+  "1c4af61aab79e787": "This link must contain one valid LibraOS Engine device ticket. Ask your team for a new link.",
+  "98c9674268160097": "Paste a complete LibraOS Engine team invitation link.",
   "1c072a32088a81b0": "Could not join the team. Try again with a new invitation link.",
   "8396f40026de8a40": "Joined the team at {host}.",
   "5b70e26ecb354cb1": "You joined as {person}.",
@@ -12761,7 +12761,7 @@
   "e6fd69a8a3bb69e2": "모델 API API 키 OpenAI OpenRouter Anthropic Ollama LM Studio 사용자 지정 엔드포인트 기본 URL 스레드 제목 커밋 메시지",
   "f2b07faba1229ce7": "상태 확인 간격",
   "5c9dc9970db79fe2": "새로 고침 가용성 버전 인증 상태 모델 백그라운드 검사 초 끔",
-  "6d1aff07e8d807c0": "libraos core agentd suggest workers run tasks on cloud workers default budget",
+  "b4c942e4c8b3936a": "libraos engine libraos core agentd suggest workers run tasks on cloud workers default budget",
   "056ba6a180d114b5": "허용 끄기 켜기 열기 조작 미리 보기 도구 세션 프로젝트 재정의",
   "345075be6cacc171": "기기 호스트 ssh 원격 mac mini ID 키 연결 eas expo 클라우드 simlock 풀 게이트웨이 로컬 시뮬레이터",
   "a6b742430b05d6cc": "에이전트가 기기를 사용할 수 있음",
@@ -13408,9 +13408,9 @@
   "713a94447aee2972": "명세가 필요합니다: {details}",
   "2cd8d4fbd716bf5a": "프로젝트의 동시 작업 한도에 도달했습니다: {details}",
   "d424b7f77b6e69ca": "사용자의 동시 작업 한도에 도달했습니다: {details}",
-  "43fa372a3881f08b": "LibraOS Core 터미널에서 이 작업의 보류를 해제하세요.",
-  "be964c739d43b9db": "LibraOS Core 받은 편지함에서 명령 승인 요청을 확인하세요.",
-  "d8797e9632a9b67d": "LibraOS Core의 전체 메시지",
+  "5eceb3d89a7bfa33": "LibraOS Engine 터미널에서 이 작업의 보류를 해제하세요.",
+  "08396a09e73d2bda": "LibraOS Engine 받은 편지함에서 명령 승인 요청을 확인하세요.",
+  "abcd6c19a0e9a49f": "LibraOS Engine의 전체 메시지",
   "27531b85d5936cfc": "목표",
   "611d16d5b6bedc8c": "확인 명령",
   "aa70137b3132996e": "워커",

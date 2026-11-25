@@ -117,7 +117,7 @@ export function AgentdTeamNodeSwitch({
           ? ticket
             ? message.replaceAll(ticket, "[redacted]")
             : message
-          : gt("LibraOS Core could not change team work."),
+          : gt("LibraOS Engine could not change team work."),
       );
       return;
     }
@@ -205,7 +205,7 @@ export function AgentdTeamNodeSwitch({
       {!data.on ? (
         <div className="space-y-1">
           <Label htmlFor={`${id}-ticket`}>
-            <T>Worker ticket (only if LibraOS Core asks for one)</T>
+            <T>Worker ticket (only if LibraOS Engine asks for one)</T>
           </Label>
           <Input
             ref={ticketRef}

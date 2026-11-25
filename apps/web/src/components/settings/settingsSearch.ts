@@ -1107,7 +1107,9 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: msg("Workers"),
     to: "/settings/workers",
     searchTerms: [
-      msg("libraos core agentd suggest workers run tasks on cloud workers default budget"),
+      msg(
+        "libraos engine libraos core agentd suggest workers run tasks on cloud workers default budget",
+      ),
     ],
   },
   {

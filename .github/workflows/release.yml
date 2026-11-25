@@ -217,7 +217,7 @@ jobs:
           # The app's update prompt lists the notes' last lines first, each cut at 220 characters
           # (apps/desktop/src/updates/releaseNotes.ts), so AgentD Next installs read the last line.
           cat > notes.md <<EOF
-          LibraOS Next $VERSION, with LibraOS Core (agentd) $AGENTD_RELEASE and its Skills inside.
+          LibraOS Next $VERSION, with LibraOS Engine $AGENTD_RELEASE and its Skills inside.
 
           **Which file to download**
 

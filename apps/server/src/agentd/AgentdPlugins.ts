@@ -762,7 +762,7 @@ const make = Effect.gen(function* () {
     files: ReadonlyArray<HookUnshownAttachment>,
     map: AgentdPlaceholderMap,
   ) {
-    const fix = "Install it again or turn it off on the LibraOS Core page.";
+    const fix = "Install it again or turn it off on the LibraOS Engine page.";
     if (hook.needsSetup) {
       return yield* blocked(
         `${hook.name} is turned on but not set up, so the message was not sent. Set it up in Settings, Plugins.`,

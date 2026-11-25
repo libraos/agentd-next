@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LibraOS Next with LibraOS Core (agentd) inside. Usage: agentd/scripts/build-desktop.sh linux|win|mac [arm64|x64]
+# LibraOS Next with LibraOS Engine (agentd) inside. Usage: agentd/scripts/build-desktop.sh linux|win|mac [arm64|x64]
 #
 # Writes release/LibraOS-Next-<version>-<arch>.{deb,exe,dmg,zip}, LibraOS-Next-x86_64.AppImage (no
 # version in the name, so the updater replaces it in place) and the updater's latest*.yml. Nothing is

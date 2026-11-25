@@ -106,10 +106,10 @@ export function AgentdPage() {
   };
 
   return (
-    <AppRouteModal label={gt("LibraOS Core")}>
+    <AppRouteModal label={gt("LibraOS Engine")}>
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-7">
         <h1 className="text-lg font-semibold">
-          <T>LibraOS Core</T>
+          <T>LibraOS Engine</T>
         </h1>
         <div className="flex items-center gap-2">
           {canRead ? (
@@ -126,7 +126,7 @@ export function AgentdPage() {
           {selectedTask !== null ? (
             <AgentdSection id="agentd-task" title={<T>Background task</T>}>
               <Button size="sm" variant="outline" onClick={() => setSelectedTask(null)}>
-                <T>Back to LibraOS Core</T>
+                <T>Back to LibraOS Engine</T>
               </Button>
               <AgentdRead query={task}>
                 {(data) => (
@@ -156,19 +156,19 @@ export function AgentdPage() {
                   </p>
                 ) : !canRead ? (
                   <p className="text-sm text-muted-foreground">
-                    <T>LibraOS Core status requires read access to this environment.</T>
+                    <T>LibraOS Engine status requires read access to this environment.</T>
                   </p>
                 ) : notFound !== null ? (
                   <Alert variant="warning">
                     <AlertTitle>
-                      <T>LibraOS Core not found</T>
+                      <T>LibraOS Engine not found</T>
                     </AlertTitle>
                     <AlertDescription>
                       <p>{notFound.message}</p>
                       {notFound.bundled ? (
                         <p>
                           <T>
-                            LibraOS Next carries its own LibraOS Core, and it could not be run.
+                            LibraOS Next carries its own LibraOS Engine, and it could not be run.
                             Reinstall LibraOS Next to restore it.
                           </T>
                         </p>
@@ -182,7 +182,7 @@ export function AgentdPage() {
                               target="_blank"
                               rel="noreferrer"
                             >
-                              LibraOS Core install guide
+                              LibraOS Engine install guide
                             </a>
                             , then make sure the binary is on <code>PATH</code> on this environment.
                           </T>

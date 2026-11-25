@@ -75,7 +75,7 @@ const dialogState = Atom.make<{
 /** The question for agentd's replaceSubmission refusal, in the user's language. */
 export function replaceQuestion(gt: ReturnType<typeof useGT>): string {
   return gt(
-    "LibraOS Core hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
+    "LibraOS Engine hasn’t confirmed your last cloud submission for this project, and it may still start. Replace it with this one? If it started, this one isn’t sent.",
   );
 }
 
@@ -263,7 +263,7 @@ function StartTaskDialog({
   const budgetHint =
     budgetReason ??
     (plan.dollarBudgets === false
-      ? gt("No dollar limit: LibraOS Core on this machine has no model prices.")
+      ? gt("No dollar limit: LibraOS Engine on this machine has no model prices.")
       : null);
   const acceptReason = validation.accept
     ? gt(
@@ -346,7 +346,7 @@ function StartTaskDialog({
         setStartError(
           outcome.replaceSubmission !== null
             ? replaceQuestion(gt)
-            : showFailure(outcome.error, gt("LibraOS Core could not start the task.")),
+            : showFailure(outcome.error, gt("LibraOS Engine could not start the task.")),
         );
         return;
       case "offered":
@@ -355,7 +355,7 @@ function StartTaskDialog({
         setOfferedId(outcome.task.id);
         setOfferedEarlier(outcome.task.earlier === true);
         setBlocking(outcome.task.blocking ?? null);
-        setStartError(outcome.task.note ?? gt("LibraOS Core did not dispatch the task."));
+        setStartError(outcome.task.note ?? gt("LibraOS Engine did not dispatch the task."));
         return;
       case "started":
         useRightPanelStore.getState().open(rightPanelHostRef(threadRef), "background-tasks");
@@ -400,7 +400,7 @@ function StartTaskDialog({
       setUntrustedFolder(failure.untrustedFolder);
       return;
     }
-    setStartError(showFailure(failure, gt("LibraOS Core could not start the task.")));
+    setStartError(showFailure(failure, gt("LibraOS Engine could not start the task.")));
   }
 
   function fieldProps(field: keyof TaskFields, reason: string | null) {
@@ -571,7 +571,7 @@ function StartTaskDialog({
           ) : null}
           {!canStart && (
             <p className="text-muted-foreground text-sm">
-              <T>This connection cannot start LibraOS Core tasks.</T>
+              <T>This connection cannot start LibraOS Engine tasks.</T>
             </p>
           )}
           {startError !== null && (
@@ -588,7 +588,7 @@ function StartTaskDialog({
                   <p>
                     {cloud.enabled
                       ? gt(
-                          "LibraOS Core saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
+                          "LibraOS Engine saved task {taskId}, but it didn’t start in Cloud Workers. Check Background tasks for updates before trying again.",
                           { taskId: offeredId },
                         )
                       : gt("Task {taskId} was offered but did not start.", { taskId: offeredId })}
@@ -610,7 +610,7 @@ function StartTaskDialog({
                     <p className="wrap-anywhere">{refusal}</p>
                     <details className="text-muted-foreground text-xs">
                       <summary className="cursor-pointer">
-                        <T>Full message from LibraOS Core</T>
+                        <T>Full message from LibraOS Engine</T>
                       </summary>
                       <pre className="wrap-anywhere mt-1 whitespace-pre-wrap font-mono">
                         {startError}
