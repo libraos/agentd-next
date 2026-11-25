@@ -20,6 +20,8 @@ import {
   type SourceControlCloneRepositoryInput,
 } from "@t3tools/contracts";
 
+import * as HostProcess from "@t3tools/shared/HostProcess";
+
 import * as ServerConfig from "../config.ts";
 import type { GitCloneProgressLine } from "../project/gitCloneProgress.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
@@ -609,6 +611,43 @@ it.effect.each([
     );
 
     assert.deepStrictEqual(urls, [CLONE_URLS.sshUrl]);
+  }),
+);
+
+it.effect.each([
+  ["win32", "Git is not installed. Install it with `winget install --id Git.Git`, then try again."],
+  [
+    "linux",
+    "Git is not installed. Install the git package from your distribution, for example `sudo apt install git` or `sudo dnf install git`, then try again.",
+  ],
+  ["darwin", "Git is not installed. Install it with `xcode-select --install`, then try again."],
+] as const)("says Git is not installed on %s when git could not be started", ([platform, detail]) =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(
+      cloneInTemporaryDirectory(
+        {
+          execute: (input) =>
+            Effect.fail(
+              new GitCommandError({
+                operation: input.operation,
+                command: "git",
+                cwd: input.cwd,
+                detail: "Failed to spawn Git process.",
+                cause: PlatformError.systemError({
+                  _tag: "NotFound",
+                  module: "ChildProcess",
+                  method: "spawn",
+                  pathOrDescriptor: "git clone",
+                  syscall: "spawn git",
+                }),
+              }),
+            ),
+        },
+        { remoteUrl: CLONE_URLS.url },
+      ),
+    ).pipe(Effect.provideService(HostProcess.Platform, platform));
+
+    assert.strictEqual(error.detail, detail);
   }),
 );
 

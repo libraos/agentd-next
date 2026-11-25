@@ -83,6 +83,7 @@ import {
   PlugIcon,
   SquarePenIcon,
   TextSearchIcon,
+  TriangleAlertIcon,
   UserPlusIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
@@ -1107,6 +1108,8 @@ function OpenCommandPaletteDialog(props: {
     environmentId: EnvironmentId,
     readinessBySource: AddProjectRemoteSourceReadiness,
   ): CommandPaletteView["groups"] => {
+    // The Git URL source is ready exactly when git is; a folder still opens without it.
+    const gitMissingHint = readinessBySource("url").hint;
     const sourceItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [
       {
         kind: "action",
@@ -1115,6 +1118,24 @@ function OpenCommandPaletteDialog(props: {
         title: gt("Local folder"),
         description: gt("Browse a folder on disk"),
         icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
+        ...(gitMissingHint === null
+          ? {}
+          : {
+              titleTrailingContent: (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span className="ms-auto flex shrink-0" aria-label={gitMissingHint}>
+                        <TriangleAlertIcon className="size-4 text-warning" />
+                      </span>
+                    }
+                  />
+                  <TooltipPopup align="end" side="left">
+                    {gitMissingHint}
+                  </TooltipPopup>
+                </Tooltip>
+              ),
+            }),
         keepOpen: true,
         run: async () => {
           await startAddProjectBrowse(environmentId);
