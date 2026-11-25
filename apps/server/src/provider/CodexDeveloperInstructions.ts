@@ -62,7 +62,14 @@ export function buildCodexAdditionalContext(
       kind: "application",
       value: buildRuntimeInstructions({ harness: "Codex", ...runtime }),
     },
-    t3_code_background_wait: { kind: "application", value: CODEX_BACKGROUND_WAIT_INSTRUCTIONS },
+    ...(orchestration
+      ? {
+          t3_code_background_wait: {
+            kind: "application" as const,
+            value: CODEX_BACKGROUND_WAIT_INSTRUCTIONS,
+          },
+        }
+      : {}),
     ...(tools ? { t3_code_tools: { kind: "application", value: tools } } : {}),
   };
 }

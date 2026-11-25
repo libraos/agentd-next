@@ -7,5 +7,8 @@ place, with its exit code and output.
 
 - `apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.ts`: report `supportsBackgroundWait`, add `awaitBackgroundTasks` (matches a running root command by process id or item id), offer the late-exit continuation and stamp `completionWake: "always"` only for awaited commands, clear marks on exit and on `thread/closed`.
 - `apps/server/src/orchestration-v2/Adapters/CodexAdapterV2.test.ts`: cover the unawaited and awaited late exit; the existing wake tests mark their commands first.
-- `apps/server/src/provider/CodexDeveloperInstructions.ts`: tell Codex to call `background_wait` for a background command it waits on.
+- `apps/server/src/provider/CodexDeveloperInstructions.ts`: tell Codex to call `background_wait` for a background command it waits on, only when orchestration tools are on.
+- `apps/server/src/orchestration-v2/ProviderSessionManager.ts`: grant `background-wait` only with the task tools; with `enableAgentOrchestrationTools` off a session keeps only preview and device (#6). The credential-reuse check compares against the granted set, so it does not rotate on every open.
+- `apps/server/src/orchestration-v2/ProviderSessionManager.test.ts`: the orchestration-on full sets now include `background-wait` (the test adapter is Codex).
+- `apps/server/src/provider/CodexDeveloperInstructions.test.ts`: no `background_wait` line without orchestration tools.
 - `apps/server/src/provider/agentContextBudget.json`: Codex's additional context grows by the `background_wait` line.

@@ -92,6 +92,9 @@ describe("Codex context without orchestration tools", () => {
     NodeAssert.ok(!context(false).includes("Call `orchestrator_capabilities`"));
     NodeAssert.ok(context(false).includes("AgentD skill"));
     NodeAssert.ok(context(false).includes("html_preview"));
+    // background_wait is an orchestrator tool, so it is not there to call.
+    NodeAssert.ok(context(true).includes("`background_wait`"));
+    NodeAssert.ok(!context(false).includes("`background_wait`"));
   });
 });
 

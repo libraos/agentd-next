@@ -2566,7 +2566,15 @@ it.effect.each<{
   { enableAgentOrchestrationTools: false, expected: ["preview"] },
   {
     enableAgentOrchestrationTools: true,
-    expected: ["preview", "orchestration", "worktree", "pull-requests", "issues"],
+    // The test adapter (Codex) supports background_wait, an orchestrator tool.
+    expected: [
+      "preview",
+      "orchestration",
+      "worktree",
+      "pull-requests",
+      "issues",
+      "background-wait",
+    ],
   },
 ])(
   "ProviderSessionManagerV2 issues MCP credentials before opening and revokes them on close (orchestration tools $enableAgentOrchestrationTools)",
@@ -2720,7 +2728,7 @@ it.effect(
         const resolved = yield* registry.resolve(token!);
         assert.deepEqual(
           resolved?.capabilities,
-          new Set(["orchestration", "worktree", "pull-requests", "issues"]),
+          new Set(["orchestration", "worktree", "pull-requests", "issues", "background-wait"]),
         );
 
         yield* manager.close(providerSessionId);
