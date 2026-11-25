@@ -183,6 +183,8 @@ export class AgentdBridge extends Context.Service<
   }
 >()("t3/agentd/AgentdBridge") {}
 
+/** LibraOS Engine's command first, then its earlier names, all the same binary. */
+const ENGINE_COMMANDS = ["libraos-engine", "libraos-core", "agentd"] as const;
 // agentd's exit status for a command run before `agentd init`.
 const NOT_SET_UP_EXIT = 78;
 const TASKS_POLL_INTERVAL = Duration.seconds(5);
@@ -280,16 +282,20 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   // Resolved per call, so an agentd installed after the server started is found.
   const binary = Effect.gen(function* () {
     const configured = env.AGENTD_BIN?.trim() || undefined;
-    const found = yield* resolveCommandPath(configured ?? "agentd", { env }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, pathService),
-      Effect.provideService(HostProcess.Platform, platform),
-    );
+    let found: string | null = null;
+    for (const name of configured === undefined ? ENGINE_COMMANDS : [configured]) {
+      found = yield* resolveCommandPath(name, { env }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, pathService),
+        Effect.provideService(HostProcess.Platform, platform),
+      );
+      if (found !== null) break;
+    }
     if (found === null) {
       return yield* new AgentdNotFoundError({
         message:
           configured === undefined
-            ? "LibraOS Engine (libraos-core or agentd) was not found on PATH."
+            ? "LibraOS Engine (libraos-engine, libraos-core or agentd) was not found on PATH."
             : `LibraOS Engine was not found at AGENTD_BIN (${configured}).`,
         ...bundled,
       });

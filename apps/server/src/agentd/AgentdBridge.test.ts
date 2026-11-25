@@ -1289,6 +1289,42 @@ describe("AgentdBridge", () => {
     }),
   );
 
+  it.effect("runs libraos-engine from PATH, else libraos-core, else agentd", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      // Each case gets its own PATH: command lookups are cached per PATH.
+      const ranWith = Effect.fn(function* (installed: { early: string[]; late: string[] }) {
+        const root = yield* fs.makeTempDirectoryScoped();
+        for (const [dir, names] of Object.entries(installed)) {
+          yield* fs.makeDirectory(path.join(root, dir));
+          for (const name of names) {
+            yield* fs.writeFileString(path.join(root, dir, name), "#!/bin/sh\n");
+            yield* fs.chmod(path.join(root, dir, name), 0o755);
+          }
+        }
+        const commands: string[] = [];
+        const bridge = yield* makeBridge(
+          { PATH: `${path.join(root, "early")}:${path.join(root, "late")}` },
+          (input) => {
+            commands.push(input.command);
+            return Effect.succeed(output("[]"));
+          },
+        );
+        yield* Effect.exit(bridge.inbox);
+        return path.relative(root, commands[0]!);
+      });
+
+      expect(yield* ranWith({ early: ["agentd"], late: [] })).toBe(path.join("early", "agentd"));
+      expect(yield* ranWith({ early: ["agentd"], late: ["libraos-core"] })).toBe(
+        path.join("late", "libraos-core"),
+      );
+      expect(yield* ranWith({ early: ["agentd", "libraos-core"], late: ["libraos-engine"] })).toBe(
+        path.join("late", "libraos-engine"),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("asks before a Claude worker runs where Claude Code was never trusted", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
