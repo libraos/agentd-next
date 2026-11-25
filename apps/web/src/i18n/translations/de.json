@@ -13447,5 +13447,26 @@
   "92bedfa6ca611096": "gültiges Budget",
   "3f1b23143bc85a89": "Arbeitsverzeichnis",
   "32b1f76f321a351e": "Git-Repository",
-  "22db8b503d3c3c3b": "Noch nötig: {items}"
+  "22db8b503d3c3c3b": "Noch nötig: {items}",
+  "16d1944812d2d35e": "Der Ordner wurde verschoben oder existiert nicht mehr.",
+  "88e8402340477aa3": "Ordner in ~/Downloads oder ~/Documents/Codex, dein Home-Ordner und /tmp werden übersprungen.",
+  "b891dc8aa358bc23": "Verknüpfte Worktrees zählen zu ihrem Haupt-Checkout.",
+  "835e0fa0681d2385": "Ordner, die die App selbst verwaltet, etwa ihre eigenen Worktrees, werden übersprungen.",
+  "7d3fc912f9ca7397": "Nur der Verlauf von Claude Code, Codex und Pi wird gelesen.",
+  "edc977cd4ff69e4b": "Ordner ohne aufgezeichnete Unterhaltungen werden nicht aufgeführt.",
+  "b114b8a26d703b22": "Der Verlauf jedes Agenten wird bis zu 5.000 Unterhaltungsdateien gelesen.",
+  "b4ff03517cbfce2b": "{name} ist bereits ein Projekt",
+  "cf0501484cf78a4d": "{name} hinzugefügt",
+  "b2b7c942d07aa66a": [
+    "Keine Projekte in deinem ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "-Verlauf gefunden."
+  ],
+  "79f1ebb1b92c7c3a": "Ordner, die keine Git-Repositorys sind, stehen unter „Andere Ordner“.",
+  "0a27f8bda7e520ca": "Warum fehlt ein Projekt?",
+  "cac1df0798b1ea83": "Ordner hinzufügen…"
 }

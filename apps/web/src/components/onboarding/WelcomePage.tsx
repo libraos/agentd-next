@@ -7,7 +7,9 @@ import type {
   ServerConfig,
   ServerProvider,
 } from "@t3tools/contracts";
+import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { inferProjectTitleFromPath } from "@t3tools/client-runtime/state/projects";
 import { resolveProviderInstanceDisplayName as agentName } from "@t3tools/client-runtime/state/provider-instance-display";
 import {
   isAtomCommandInterrupted,
@@ -33,6 +35,7 @@ import { useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } fr
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { isElectron } from "../../env";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { readLocalApi } from "../../localApi";
 import { usePersistEnvironmentProviderInstanceMutation } from "../../hooks/useSettings";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { workspaceAreaProps } from "../../lib/workspaceFocus";
@@ -104,6 +107,16 @@ const AGENT_ONBOARDING_THREAD_ID = ThreadId.make("onboarding-agent-setup");
 const SCAN_LIMIT_MESSAGE = msg(
   "Scan limit reached. Some projects or conversations may be missing.",
 );
+// Mirrors the exclusions in apps/server/src/project/AgentSessionScanner.ts.
+const MISSING_PROJECT_REASONS = [
+  msg("The folder was moved or no longer exists."),
+  msg("Folders in ~/Downloads or ~/Documents/Codex, your home folder and /tmp are skipped."),
+  msg("Linked worktrees count toward their main checkout."),
+  msg("Folders the app manages itself, such as its own worktrees, are skipped."),
+  msg("Only Claude Code, Codex and Pi history is read."),
+  msg("Folders with no recorded conversations are not listed."),
+  msg("Each agent's history is read up to 5,000 conversation files."),
+];
 
 /**
  * First-run page for one computer: its agents and the projects found in agent history.
@@ -289,6 +302,7 @@ export function WelcomePage({
                         scan={scans[0]}
                         projectImport={projectImport}
                         isImporting={isImporting}
+                        canPickFolder={isPrimary && window.desktopBridge !== undefined}
                       />
                     }
                   />
@@ -737,15 +751,19 @@ function ProjectsSection({
   scan,
   projectImport,
   isImporting,
+  canPickFolder,
 }: {
   readonly scan: ReturnType<typeof useProjectScans>[number] | undefined;
   readonly projectImport: ReturnType<typeof useProjectImport>;
   readonly isImporting: boolean;
+  // The native folder dialog only exists in the desktop app, on its own computer.
+  readonly canPickFolder: boolean;
 }) {
   const gt = useGT();
   const m = useMessages();
   const importSourcesLabel = useImportSourcesLabel();
   const [reviewing, setReviewing] = useState(false);
+  const [picking, setPicking] = useState(false);
   const {
     canWrite,
     candidates,
@@ -757,6 +775,20 @@ function ProjectsSection({
     visibleImportError,
   } = projectImport;
   if (scan === undefined) return null;
+  const addFolder = async () => {
+    const api = readLocalApi();
+    if (!api) return;
+    setPicking(true);
+    const path = await api.dialogs.pickFolder().catch(() => null);
+    setPicking(false);
+    if (path && (await projectImport.addFolder(scan.environmentId, path))) setReviewing(true);
+  };
+  const missingHelp = (
+    <MissingProjectsHelp
+      onAddFolder={canPickFolder && canWrite ? addFolder : undefined}
+      disabled={picking || isImporting}
+    />
+  );
   if (scan.isPending && candidates.length === 0) {
     return (
       <ProjectsCard>
@@ -787,13 +819,20 @@ function ProjectsSection({
     );
   }
   if (candidates.length === 0) {
-    return scan.data?.truncated ? (
+    return (
       <ProjectsCard>
-        <p className="text-xs leading-10 text-muted-foreground" role="status">
-          {m(SCAN_LIMIT_MESSAGE)}
+        <p className="text-sm leading-8 text-muted-foreground" role="status">
+          {scan.data?.truncated ? (
+            m(SCAN_LIMIT_MESSAGE)
+          ) : (
+            <T>
+              No projects found in your <Var>{importSourcesLabel}</Var> history.
+            </T>
+          )}
         </p>
+        {missingHelp}
       </ProjectsCard>
-    ) : null;
+    );
   }
 
   const allKeys = candidates.map((candidate) => candidate.key);
@@ -895,8 +934,12 @@ function ProjectsSection({
               />
             </div>
           </ScrollArea>
+          <p className="px-2 pt-1 text-xs text-muted-foreground">
+            <T>Folders that are not git repositories are listed under Other folders.</T>
+          </p>
         </fieldset>
       ) : null}
+      {missingHelp}
       {scan.data?.truncated ? (
         <p className="pl-8 text-xs text-muted-foreground" role="status">
           {m(SCAN_LIMIT_MESSAGE)}
@@ -915,6 +958,38 @@ function ProjectsSection({
         <p className="pt-1 pl-8 text-sm text-destructive">{m(visibleImportError)}</p>
       ) : null}
     </ProjectsCard>
+  );
+}
+
+function MissingProjectsHelp({
+  onAddFolder,
+  disabled,
+}: {
+  readonly onAddFolder: (() => void) | undefined;
+  readonly disabled: boolean;
+}) {
+  const m = useMessages();
+  return (
+    <Collapsible className="ml-8">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        <CollapsibleTrigger className="group inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          <T>Why might a project be missing?</T>
+          <ChevronDownIcon className="size-3.5 group-data-panel-open:rotate-180" />
+        </CollapsibleTrigger>
+        {onAddFolder ? (
+          <Button variant="ghost" size="xs" disabled={disabled} onClick={onAddFolder}>
+            <T>Add a folder…</T>
+          </Button>
+        ) : null}
+      </div>
+      <CollapsiblePanel>
+        <ul className="list-disc space-y-0.5 pb-1 pl-4 text-xs text-muted-foreground">
+          {MISSING_PROJECT_REASONS.map((reason) => (
+            <li key={reason}>{m(reason)}</li>
+          ))}
+        </ul>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -1238,6 +1313,7 @@ function useProjectImport({
 }) {
   const writableEnvironments = useEnvironmentsWithScope(scans, AuthOrchestrationOperateScope);
   const gt = useGT();
+  const m = useMessages();
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const importThreads = useAtomCommand(agentSessionImport, { reportFailure: false });
   const importWarningRef = useRef("");
@@ -1295,6 +1371,40 @@ function useProjectImport({
     writableEnvironments.has(candidate.environmentId),
   );
   const visibleImportError = canWrite && canImport ? "" : IMPORT_PERMISSION_MESSAGE;
+
+  // A folder the scan offered is picked for import; any other becomes a project now. True when picked.
+  const addFolder = async (environmentId: EnvironmentId, path: string) => {
+    const key = onboardingProjectKey(environmentId, path);
+    if (candidates.some((candidate) => candidate.key === key)) {
+      setSelectedKeys(new Set([...selectedKeys, key]));
+      return true;
+    }
+    const name = inferProjectTitleFromPath(path);
+    if (resolveOnboardingProjectId(readProjects(), environmentId, { path }) !== null) {
+      toastManager.add({ type: "info", title: gt("{name} is already a project", { name }) });
+      return false;
+    }
+    const result = await createProject({
+      environmentId,
+      input: {
+        projectId: newProjectId(),
+        title: name,
+        workspaceRoot: path,
+        createWorkspaceRootIfMissing: false,
+        defaultModelSelection: null,
+      },
+    });
+    if (result._tag === "Success") {
+      toastManager.add({ type: "success", title: gt("Added {name}", { name }) });
+    } else if (!isAtomCommandInterrupted(result)) {
+      toastManager.add({
+        type: "error",
+        title: gt("Could not add {name}", { name }),
+        description: thrownErrorMessage(squashAtomCommandFailure(result), m) ?? undefined,
+      });
+    }
+    return false;
+  };
 
   const importedThreadTotal = () =>
     lastImportSelectionRef.current.reduce(
@@ -1482,6 +1592,7 @@ function useProjectImport({
     visibleImportError,
     runImport,
     finishAfterImport,
+    addFolder,
   };
 }
 

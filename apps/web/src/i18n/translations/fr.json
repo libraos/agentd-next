@@ -13446,5 +13446,26 @@
   "92bedfa6ca611096": "budget valide",
   "3f1b23143bc85a89": "répertoire de travail",
   "32b1f76f321a351e": "dépôt Git",
-  "22db8b503d3c3c3b": "Encore requis : {items}"
+  "22db8b503d3c3c3b": "Encore requis : {items}",
+  "16d1944812d2d35e": "Le dossier a été déplacé ou n’existe plus.",
+  "88e8402340477aa3": "Les dossiers dans ~/Downloads ou ~/Documents/Codex, votre dossier personnel et /tmp sont ignorés.",
+  "b891dc8aa358bc23": "Les worktrees liés comptent pour leur checkout principal.",
+  "835e0fa0681d2385": "Les dossiers gérés par l’app elle-même, comme ses propres worktrees, sont ignorés.",
+  "7d3fc912f9ca7397": "Seul l’historique de Claude Code, Codex et Pi est lu.",
+  "edc977cd4ff69e4b": "Les dossiers sans conversation enregistrée ne sont pas listés.",
+  "b114b8a26d703b22": "L’historique de chaque agent est lu jusqu’à 5 000 fichiers de conversation.",
+  "b4ff03517cbfce2b": "{name} est déjà un projet",
+  "cf0501484cf78a4d": "{name} ajouté",
+  "b2b7c942d07aa66a": [
+    "Aucun projet trouvé dans votre historique ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "79f1ebb1b92c7c3a": "Les dossiers qui ne sont pas des dépôts git sont listés sous « Autres dossiers ».",
+  "0a27f8bda7e520ca": "Pourquoi un projet peut-il manquer ?",
+  "cac1df0798b1ea83": "Ajouter un dossier…"
 }

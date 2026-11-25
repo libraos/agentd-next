@@ -13453,5 +13453,26 @@
   "92bedfa6ca611096": "giltig budget",
   "3f1b23143bc85a89": "arbetskatalog",
   "32b1f76f321a351e": "Git-repo",
-  "22db8b503d3c3c3b": "Behövs fortfarande: {items}"
+  "22db8b503d3c3c3b": "Behövs fortfarande: {items}",
+  "16d1944812d2d35e": "Mappen har flyttats eller finns inte längre.",
+  "88e8402340477aa3": "Mappar i ~/Downloads eller ~/Documents/Codex, din hemmapp och /tmp hoppas över.",
+  "b891dc8aa358bc23": "Länkade worktrees räknas till sin huvudsakliga utcheckning.",
+  "835e0fa0681d2385": "Mappar som appen själv hanterar, till exempel dess egna worktrees, hoppas över.",
+  "7d3fc912f9ca7397": "Endast historik från Claude Code, Codex och Pi läses.",
+  "edc977cd4ff69e4b": "Mappar utan sparade konversationer visas inte.",
+  "b114b8a26d703b22": "Varje agents historik läses upp till 5 000 konversationsfiler.",
+  "b4ff03517cbfce2b": "{name} är redan ett projekt",
+  "cf0501484cf78a4d": "{name} har lagts till",
+  "b2b7c942d07aa66a": [
+    "Inga projekt hittades i din ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "-historik."
+  ],
+  "79f1ebb1b92c7c3a": "Mappar som inte är git-repon visas under ”Andra mappar”.",
+  "0a27f8bda7e520ca": "Varför kan ett projekt saknas?",
+  "cac1df0798b1ea83": "Lägg till en mapp…"
 }

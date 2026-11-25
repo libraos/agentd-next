@@ -829,3 +829,77 @@ it("starts without importing when this connection cannot import projects", async
   await vi.waitFor(() => expect(state.onDone).toHaveBeenCalledOnce());
   expect(state.createProject).not.toHaveBeenCalled();
 });
+
+// The native folder dialog; acquired before mounting because the page reads it on render.
+function stubFolderPicker(...paths: Array<string | null>) {
+  const pickFolder = vi.fn<() => Promise<string | null>>();
+  for (const path of paths) pickFolder.mockResolvedValueOnce(path);
+  window.desktopBridge = { pickFolder } as unknown as NonNullable<typeof window.desktopBridge>;
+  return Object.assign(pickFolder, {
+    [Symbol.dispose]: () => {
+      delete window.desktopBridge;
+    },
+  });
+}
+
+it("explains missing projects and adds a folder the scan did not offer", async () => {
+  using _now = setup();
+  using pickFolder = stubFolderPicker("/elsewhere/notes", "/projects/second");
+  await using screen = await mountWelcome();
+  const reason = screen.getByText("Linked worktrees count toward their main checkout.");
+  expect(reason.query()).toBeNull();
+  await screen.getByRole("button", { name: "Why might a project be missing?" }).click();
+  await expect.element(reason).toBeVisible();
+  await expect
+    .element(screen.getByText("Each agent's history is read up to 5,000 conversation files."))
+    .toBeVisible();
+
+  await click("Add a folder…");
+  await vi.waitFor(() => expect(state.createProject).toHaveBeenCalledOnce());
+  expect(pickFolder).toHaveBeenCalledOnce();
+  expect(state.createProject).toHaveBeenCalledWith(
+    expect.objectContaining({
+      environmentId: primaryId,
+      input: expect.objectContaining({
+        title: "notes",
+        workspaceRoot: "/elsewhere/notes",
+        createWorkspaceRootIfMissing: false,
+      }),
+    }),
+  );
+
+  // A folder the scan did offer is picked for import with its threads instead.
+  await click("Add a folder…");
+  await expect
+    .element(screen.getByRole("button", { name: "Import 1 project and continue" }))
+    .toBeVisible();
+  await expect
+    .element(
+      screen.getByText("Folders that are not git repositories are listed under Other folders."),
+    )
+    .toBeVisible();
+  expect(state.createProject).toHaveBeenCalledOnce();
+});
+
+it("explains an empty scan and still lets a folder be added", async () => {
+  using _now = setup();
+  appAtomRegistry.set(candidatesAtom(), []);
+  using _pickFolder = stubFolderPicker("/elsewhere/notes");
+  await using screen = await mountWelcome();
+  await expect
+    .element(screen.getByText("No projects found in your Claude Code, Codex, and Pi history."))
+    .toBeVisible();
+  await screen.getByRole("button", { name: "Why might a project be missing?" }).click();
+  await expect
+    .element(screen.getByText("Folders with no recorded conversations are not listed."))
+    .toBeVisible();
+
+  await click("Add a folder…");
+  await vi.waitFor(() =>
+    expect(state.createProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ workspaceRoot: "/elsewhere/notes" }),
+      }),
+    ),
+  );
+});
