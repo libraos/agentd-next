@@ -6571,7 +6571,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         );
         assert.deepEqual(
           harness.continuationRequests.map((request) => request.delivery),
-          wakes.map(() => "message_text"),
+          wakes.map(() => "message_text" as const),
         );
         assert.deepEqual(
           harness.continuationRequests.map((request) => request.detail?.split("\n")[0]),
