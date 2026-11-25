@@ -627,6 +627,10 @@ it.effect("sign-in makes a key, connects it, keeps no token; disconnect revokes 
     for (const value of secrets.values()) {
       assert.notInclude(new TextDecoder().decode(value), SESSION_TOKEN);
     }
+    // The same agents a pasted key adds, Pi included.
+    const settings = yield* ServerSettingsService;
+    const instances = (yield* settings.getSettings).providerInstances;
+    for (const id of GATEWAY_INSTANCES) assert.property(instances, id);
 
     yield* gateway.signInStart("revoke");
     const revoking = yield* Effect.forkChild(gateway.signInWait);
@@ -638,6 +642,8 @@ it.effect("sign-in makes a key, connects it, keeps no token; disconnect revokes 
     assert.isFalse(disconnected.connected);
     assert.strictEqual(disconnected.notice, "The key was revoked in LibraOS.");
     assert.strictEqual(secrets.size, 0);
+    const remaining = Object.keys((yield* settings.getSettings).providerInstances);
+    for (const id of GATEWAY_INSTANCES) assert.notInclude(remaining, id);
   }).pipe(Effect.provide(layer));
 });
 
