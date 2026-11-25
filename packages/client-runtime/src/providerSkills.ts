@@ -43,12 +43,23 @@ export function isProviderSkillUserInvocable(
   return skill.enabled && skill.userInvocable !== false;
 }
 
+// agentd: the bundled LibraOS Core skills; Hand to a worker is their one entry in the app.
+const SLASH_MENU_HIDDEN_NAMES = new Set(["agentd", "agentd-setup"]);
+
+function isHiddenFromSlashMenu(name: string): boolean {
+  return SLASH_MENU_HIDDEN_NAMES.has(name.trim().toLowerCase());
+}
+
 export function getProviderSkillsForSlashMenu(
   skills: ReadonlyArray<ServerProviderSkill>,
   showSkillsInSlashMenu: boolean,
 ): ServerProviderSkill[] {
   return showSkillsInSlashMenu
-    ? dedupeProviderSkillsByName(skills.filter(isProviderSkillUserInvocable))
+    ? dedupeProviderSkillsByName(
+        skills.filter(
+          (skill) => isProviderSkillUserInvocable(skill) && !isHiddenFromSlashMenu(skill.name),
+        ),
+      )
     : [];
 }
 
@@ -57,7 +68,10 @@ export function getProviderSlashCommandsForSlashMenu(
   visibleSkills: ReadonlyArray<ServerProviderSkill>,
 ): ServerProviderSlashCommand[] {
   const skillNames = new Set(visibleSkills.map((skill) => skill.name.trim().toLowerCase()));
-  return slashCommands.filter((command) => !skillNames.has(command.name.trim().toLowerCase()));
+  return slashCommands.filter(
+    (command) =>
+      !skillNames.has(command.name.trim().toLowerCase()) && !isHiddenFromSlashMenu(command.name),
+  );
 }
 
 export function resolveProviderSkillSourceKind(

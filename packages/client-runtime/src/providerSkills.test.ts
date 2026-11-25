@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   createProviderWorkspaceSnapshotRefreshAtomFamily,
   getProviderSkillsForSlashMenu,
+  getProviderSlashCommandsForSlashMenu,
   hasCompleteProviderWorkspaceSnapshot,
   isProviderWorkspaceSnapshotScanning,
   resolveProviderSkillsForCwd,
@@ -82,6 +83,23 @@ describe("getProviderSkillsForSlashMenu", () => {
     ];
 
     expect(getProviderSkillsForSlashMenu(skills, true)).toEqual([enabledSkill]);
+  });
+
+  it("hides the bundled agentd skills and their commands, keeping other skills", () => {
+    const skills = [
+      { name: "agentd", path: "/home/u/.claude/skills/agentd/SKILL.md", enabled: true },
+      { name: "Agentd-Setup", path: "/home/u/.claude/skills/agentd-setup/SKILL.md", enabled: true },
+      { name: "browser", path: "/home/u/.claude/skills/browser/SKILL.md", enabled: true },
+    ];
+    const visibleSkills = getProviderSkillsForSlashMenu(skills, true);
+
+    expect(visibleSkills.map((skill) => skill.name)).toEqual(["browser"]);
+    expect(
+      getProviderSlashCommandsForSlashMenu(
+        [{ name: "agentd" }, { name: "agentd-setup" }, { name: "browser" }, { name: "review" }],
+        visibleSkills,
+      ),
+    ).toEqual([{ name: "review" }]);
   });
 });
 

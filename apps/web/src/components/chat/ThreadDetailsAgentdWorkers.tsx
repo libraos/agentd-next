@@ -1,7 +1,7 @@
 import { type AgentdTaskRow, type ScopedThreadRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { T, Var, useGT } from "gt-react";
-import { BotIcon, ListIcon } from "lucide-react";
+import { BotIcon, ListIcon, UserPlusIcon } from "lucide-react";
 import { useId } from "react";
 
 import { useClientSettings } from "../../hooks/useSettings";
@@ -9,6 +9,7 @@ import { useAgentdTasks } from "../../lib/agentdState";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { cn } from "../../lib/utils";
 import { groupWorkerActivity } from "../agentd/AgentdPage.logic";
+import { openStartTaskDialog, useCanStartTask } from "../agentd/StartTaskDialog";
 import { LiveDuration } from "./ThreadDetailsBackgroundTasks";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
@@ -55,6 +56,7 @@ export function ThreadDetailsAgentdWorkers({ threadRef }: { readonly threadRef: 
   const navigate = useNavigate();
   const { data: tasks, failure } = useAgentdTasks(threadRef.environmentId);
   const runTasksOn = useClientSettings((settings) => settings.agentdRunTasksOn);
+  const canStartTask = useCanStartTask(threadRef.environmentId);
   const activity = groupWorkerActivity(tasks ?? [], []);
   const workers = [
     ...activity.local,
@@ -113,6 +115,12 @@ export function ThreadDetailsAgentdWorkers({ threadRef }: { readonly threadRef: 
             <T>
               <Var>{workers.length - MAX_WORKERS}</Var> more
             </T>
+          </ThreadDetailsControl>
+        ) : null}
+        {canStartTask ? (
+          <ThreadDetailsControl onClick={() => openStartTaskDialog(threadRef)}>
+            <UserPlusIcon className={THREAD_DETAILS_PANEL_ICON_CLASS} aria-hidden />
+            <T>Hand to a worker</T>
           </ThreadDetailsControl>
         ) : null}
       </div>
