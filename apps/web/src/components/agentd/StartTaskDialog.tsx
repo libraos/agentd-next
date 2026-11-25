@@ -5,6 +5,7 @@ import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
 import {
   type AgentdBlockingTask,
   AgentdCommandError,
+  type AgentdRunTasksOn,
   type EnvironmentId,
   type MessageId,
   type ScopedThreadRef,
@@ -67,9 +68,17 @@ import {
 
 const isCommandError = Schema.is(AgentdCommandError);
 
+/** How Hand to a worker was opened: where to run, and whether the fields carry their own check. */
+export interface StartTaskDialogOptions {
+  readonly runOn?: AgentdRunTasksOn;
+  /** Only a goal is given, so the suggested check still fills the empty check. */
+  readonly suggestCheck?: boolean;
+}
+
 const dialogState = Atom.make<{
   readonly threadRef: ScopedThreadRef;
   readonly fields: TaskFields | null;
+  readonly options: StartTaskDialogOptions;
 } | null>(null).pipe(Atom.keepAlive, Atom.withLabel("agentd:start-task-dialog"));
 
 /** Opens Start task for the session, with fields from a task card's draft when given. */
@@ -80,8 +89,12 @@ export function replaceQuestion(gt: ReturnType<typeof useGT>): string {
   );
 }
 
-export function openStartTaskDialog(threadRef: ScopedThreadRef, fields: TaskFields | null = null) {
-  appAtomRegistry.set(dialogState, { threadRef, fields });
+export function openStartTaskDialog(
+  threadRef: ScopedThreadRef,
+  fields: TaskFields | null = null,
+  options: StartTaskDialogOptions = {},
+) {
+  appAtomRegistry.set(dialogState, { threadRef, fields, options });
 }
 
 /**
@@ -137,6 +150,7 @@ export function StartTaskDialogHost() {
           key={scopedThreadKey(opened.threadRef)}
           threadRef={opened.threadRef}
           initialFields={opened.fields}
+          options={opened.options}
           onClose={() => appAtomRegistry.set(dialogState, null)}
         />
       )}
@@ -190,10 +204,12 @@ function TaskField({
 function StartTaskDialog({
   threadRef,
   initialFields,
+  options,
   onClose,
 }: {
   readonly threadRef: ScopedThreadRef;
   readonly initialFields: TaskFields | null;
+  readonly options: StartTaskDialogOptions;
   readonly onClose: () => void;
 }) {
   const gt = useGT();
@@ -202,7 +218,9 @@ function StartTaskDialog({
   const { thread, cwd } = useTaskDirectory(threadRef);
   const startTurn = useOrchestrationCommand(threadEnvironment.startTurn, { reportFailure: false });
   const [editedFields, setEditedFields] = useState<TaskFields | null>(initialFields);
-  const [checkEdited, setCheckEdited] = useState(initialFields !== null);
+  const [checkEdited, setCheckEdited] = useState(
+    initialFields !== null && options.suggestCheck !== true,
+  );
   // A hand-filled task starts with its inputs open; a drafted one starts as its summary.
   const [editing, setEditing] = useState(initialFields === null);
   const [draft, setDraft] = useState<{ messageId: MessageId; previous: TaskFields } | null>(null);
@@ -232,6 +250,7 @@ function StartTaskDialog({
   const cloud = useStartTaskCloud(cwd, environmentId, {
     estimate: defaults?.estimate ?? null,
     gatewayConnected,
+    runOn: options.runOn,
   });
   const plan = useTaskPlan({
     threadRef,

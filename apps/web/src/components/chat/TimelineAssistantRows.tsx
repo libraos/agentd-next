@@ -26,6 +26,7 @@ import { useV2ItemSupport } from "../../state/v2ItemSupport";
 import { TimelineRowCtx, TimelineRowActivityCtx, type TimelineRow } from "./timelineRowContext";
 import { MESSAGE_HEADING_LEVEL, MessageAuthorHeading } from "./TimelineRowParts";
 import { taskDraftReply } from "../agentd/startTask.logic";
+import { RemainingWorkOffer } from "../agentd/RemainingWorkOffer";
 import { TaskDraftCard } from "../agentd/TaskDraftCard";
 import {
   RestoredPlaceholdersNote,
@@ -104,6 +105,17 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
             message={row.message}
             showCopyButton={row.showAssistantCopyButton}
             copyStreaming={row.assistantCopyStreaming}
+          />
+        ) : null}
+        {row.showAssistantMeta &&
+        ctx.threadRef &&
+        ctx.canOperateThread &&
+        row.projectedItem?.item.type === "assistant_message" ? (
+          <RemainingWorkOffer
+            threadRef={ctx.threadRef}
+            messageId={row.message.id}
+            runId={row.message.runId}
+            finalMessage={row.projectedItem.item.text}
           />
         ) : null}
       </div>

@@ -5469,6 +5469,8 @@ interface ActiveClaudeTurnContext {
   compaction: Extract<OrchestrationV2TurnItem, { type: "compaction" }> | null;
   readonly ignoredTaskIds: Set<string>;
   readonly announcedUsageLimits: Set<string>;
+  // MCP tools this turn called; a plugin server's sign-in notice waits for one of its own.
+  readonly calledMcpTools: Set<string>;
   authenticationFailureMessage: string | undefined;
   readonly rejectedRateLimitTypes: Set<string>;
   readonly rateLimitResetTimes: Map<string, string | null>;
@@ -5570,6 +5572,8 @@ interface ClaudeLiveQueryContext {
   receivedInit: boolean;
   // Init listed a server still connecting or needing a sign-in; a result checks which it was.
   checkMcpSignIns: boolean;
+  // Plugin servers that need a sign-in Claude has not tried to use yet.
+  readonly heldMcpSignIns: Set<string>;
   // From system/init; feature-detects control requests such as MCP Apps.
   capabilities: ReadonlySet<string>;
   claudeCodeVersion: string | undefined;
@@ -9006,6 +9010,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             );
             return presented;
           }
+          if (input.toolName.startsWith("mcp__")) input.context.calledMcpTools.add(input.toolName);
           const subagent =
             input.parentToolUseId === null
               ? undefined
@@ -9133,7 +9138,17 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           liveQuery: ClaudeLiveQueryContext,
           context: ActiveClaudeTurnContext,
         ) {
-          if (!liveQuery.checkMcpSignIns) return;
+          const calledServer = (server: string) => {
+            const prefix = claudeMcpToolPrefix(server);
+            for (const tool of context.calledMcpTools) if (tool.startsWith(prefix)) return true;
+            return false;
+          };
+          if (
+            !liveQuery.checkMcpSignIns &&
+            !Array.from(liveQuery.heldMcpSignIns).some(calledServer)
+          ) {
+            return;
+          }
           const statuses = yield* liveQuery.query.mcpServerStatus.pipe(
             Effect.timeoutOrElse({
               duration: "2 seconds",
@@ -9142,12 +9157,18 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             Effect.orElseSucceed((): ReadonlyArray<ClaudeMcpServerStatus> => []),
           );
           liveQuery.checkMcpSignIns = statuses.some((status) => status.status === "pending");
+          liveQuery.heldMcpSignIns.clear();
           for (const status of statuses) {
             const key = mcpSignInKey(liveQuery.nativeThreadId, status.name);
             if (status.status === "connected") announcedMcpSignIns.delete(key);
             // Every claude.ai connector the user never connected reports this too.
             if (status.status !== "needs-auth" || status.scope === "claudeai") continue;
             if (announcedMcpSignIns.has(key)) continue;
+            // Installed plugins bring servers the user may never use; ask only once Claude tries one.
+            if (status.source === "plugin" && !calledServer(status.name)) {
+              liveQuery.heldMcpSignIns.add(status.name);
+              continue;
+            }
             announcedMcpSignIns.add(key);
             const nativeItemId = `mcp-sign-in:${context.providerTurnId}:${status.name}`;
             const now = yield* DateTime.now;
@@ -13839,6 +13860,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             openedPermissionMode: queryOptions.permissionMode,
             receivedInit: false,
             checkMcpSignIns: false,
+            heldMcpSignIns: new Set(),
             capabilities: new Set(),
             claudeCodeVersion: undefined,
             permissionMode: queryOptions.permissionMode,
@@ -14189,6 +14211,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               compaction: null,
               ignoredTaskIds: new Set(),
               announcedUsageLimits: new Set(),
+              calledMcpTools: new Set(),
               authenticationFailureMessage: undefined,
               rejectedRateLimitTypes: new Set(),
               rateLimitResetTimes: new Map(),

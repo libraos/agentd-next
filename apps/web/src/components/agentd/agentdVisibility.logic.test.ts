@@ -6,10 +6,14 @@ import {
   offerAccountLink,
   OFFER_AFTER_MS,
   parseDefaultBudget,
+  parseMaxWorkers,
   projectHasRunningWorker,
+  remainingWorkOffer,
   showFirstTaskCard,
+  suggestedMaxWorkers,
   workerOffer,
   workerOfferSignal,
+  workerReadiness,
 } from "./agentdVisibility.logic";
 
 describe("agentdIndicatorState", () => {
@@ -24,6 +28,92 @@ describe("agentdIndicatorState", () => {
     [{ setUp: true, ok: true }, "AgentdCommandError", "on"],
   ] as const)("%j with %s reads %s", (status, failure, expected) => {
     expect(agentdIndicatorState(status, failure)).toBe(expected);
+  });
+});
+
+describe("workerReadiness", () => {
+  const pass = (id: string) => ({ id, status: "pass", detail: null, fix: null });
+  const loggedOut = {
+    id: "claude-login",
+    status: "fail",
+    detail: "not logged in, and neither is codex",
+    fix: "claude auth login",
+  };
+  const status = {
+    checks: [pass("binary"), pass("claude-login"), pass("codex-login")],
+    defaultWorker: "claude",
+    missingSkills: [],
+  } as const;
+  const base = { engine: "on", status, isRepo: true } as const;
+
+  it("is ready only when the engine, the worker's sign-in and the repository all hold", () => {
+    expect(workerReadiness(base)).toEqual({ kind: "ready", missingSkills: [] });
+    expect(workerReadiness({ ...base, isRepo: false })).toEqual({
+      kind: "setup-required",
+      missing: "repository",
+    });
+    expect(
+      workerReadiness({ ...base, status: { ...status, checks: [pass("binary"), loggedOut] } }),
+    ).toEqual({ kind: "setup-required", missing: "sign-in", worker: "claude", check: loggedOut });
+  });
+
+  it.each([
+    ["not-installed", { kind: "setup-required", missing: "engine", engine: "not-installed" }],
+    ["not-set-up", { kind: "setup-required", missing: "engine", engine: "not-set-up" }],
+    ["unknown", { kind: "unknown" }],
+  ] as const)("names an engine that is %s", (engine, expected) => {
+    expect(workerReadiness({ ...base, engine, status: null })).toEqual(expected);
+  });
+
+  it("fails on a failing required check with agentd's fix, or when agentd does not answer", () => {
+    const server = { id: "server", status: "fail", detail: "device revoked", fix: "join again" };
+    expect(
+      workerReadiness({ ...base, engine: "attention", status: { ...status, checks: [server] } }),
+    ).toEqual({ kind: "setup-failed", missing: "engine", check: server });
+    expect(workerReadiness({ ...base, engine: "attention", status: null })).toEqual({
+      kind: "setup-failed",
+      missing: "engine",
+    });
+  });
+
+  it("checks the chosen worker's sign-in, and none for Cloud Workers", () => {
+    const codexOut = {
+      id: "codex-login",
+      status: "optional",
+      detail: "not logged in",
+      fix: "codex login",
+    };
+    const mixed = { ...status, checks: [pass("claude-login"), codexOut] };
+    expect(workerReadiness({ ...base, status: mixed })).toMatchObject({ kind: "ready" });
+    expect(workerReadiness({ ...base, status: mixed, worker: "codex" })).toMatchObject({
+      missing: "sign-in",
+      worker: "codex",
+    });
+    expect(workerReadiness({ ...base, status: mixed, worker: "codex", cloud: true })).toMatchObject(
+      { kind: "ready" },
+    );
+    expect(workerReadiness({ ...base, status: { ...status, defaultWorker: null } })).toMatchObject({
+      missing: "sign-in",
+      worker: null,
+    });
+  });
+
+  it("warns about missing Skills without blocking, for the default worker only", () => {
+    const skills = { ...status, missingSkills: ["agentd-setup"] };
+    expect(workerReadiness({ ...base, status: skills })).toEqual({
+      kind: "ready",
+      missingSkills: ["agentd-setup"],
+    });
+    const opencode = { ...skills, checks: [...skills.checks, pass("opencode-worker")] };
+    expect(workerReadiness({ ...base, status: opencode, worker: "opencode" })).toEqual({
+      kind: "ready",
+      missingSkills: [],
+    });
+  });
+
+  it("waits for the project's git status, and judges the machine alone with no project", () => {
+    expect(workerReadiness({ ...base, isRepo: null })).toEqual({ kind: "unknown" });
+    expect(workerReadiness({ ...base, isRepo: undefined })).toMatchObject({ kind: "ready" });
   });
 });
 
@@ -129,5 +219,74 @@ describe("offerAccountLink", () => {
     [{ supported: false, problem: "setup" }, false],
   ] as const)("%j offers the link step: %s", (account, expected) => {
     expect(offerAccountLink(account)).toBe(expected);
+  });
+});
+
+describe("suggestedMaxWorkers", () => {
+  it.each([
+    [1, 1],
+    [4, 1],
+    [7, 1],
+    [8, 2],
+    [16, 4],
+    [30, 7],
+    [512, 64],
+  ])("%i CPUs suggest %i workers", (cpus, expected) => {
+    expect(suggestedMaxWorkers(cpus)).toBe(expected);
+  });
+});
+
+describe("parseMaxWorkers", () => {
+  it.each([
+    ["3", 3],
+    [" 12 ", 12],
+    ["64", 64],
+    ["0", null],
+    ["65", null],
+    ["2.5", null],
+    ["-1", null],
+    ["", null],
+  ] as const)("%j reads as %s", (text, expected) => {
+    expect(parseMaxWorkers(text)).toBe(expected);
+  });
+});
+
+describe("remainingWorkOffer", () => {
+  const offers = {
+    finalMessage: "Fixed the parser.\n\nStatus: remaining: update the docs",
+    latestTurn: true,
+    turnRunning: false,
+    awaitingUser: false,
+    suggestWorkers: true,
+    agentdSetUp: true,
+    canStartTask: true,
+    hasWorkingDirectory: true,
+    dismissed: false,
+    cloudLinked: false,
+  };
+
+  it("offers the remaining work, with cloud only where Cloud Workers is linked", () => {
+    expect(remainingWorkOffer(offers)).toEqual({ remaining: "update the docs", cloud: false });
+    expect(remainingWorkOffer({ ...offers, cloudLinked: true })).toEqual({
+      remaining: "update the docs",
+      cloud: true,
+    });
+  });
+
+  it.each([
+    [{ finalMessage: "All set.\nStatus: done" }],
+    [{ finalMessage: "Status: blocked: which branch?" }],
+    [{ finalMessage: "There is work remaining." }],
+    [{ finalMessage: "Status: remaining: docs\nThen I stopped." }],
+    [{ latestTurn: false }],
+    [{ turnRunning: true }],
+    [{ awaitingUser: true }],
+    [{ dismissed: true }],
+    [{ suggestWorkers: false }],
+    [{ agentdSetUp: false }],
+    [{ canStartTask: false }],
+    [{ hasWorkingDirectory: false }],
+  ])("%j makes no offer", (change) => {
+    expect(remainingWorkOffer({ ...offers, ...change })).toBeNull();
   });
 });

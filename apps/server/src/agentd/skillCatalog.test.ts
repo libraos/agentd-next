@@ -10,6 +10,7 @@ import {
   resolveInside,
   safeRelativePath,
   skillsDirectory,
+  workerSkillsDirectories,
 } from "./skillCatalog.ts";
 
 const COMMIT = "c".repeat(40);
@@ -82,6 +83,16 @@ describe("skillsDirectory", () => {
     const host = { platform, home, env };
     expect(skillsDirectory("claude", host)).toBe(claude);
     expect(skillsDirectory("codex", host)).toBe(codex);
+    expect(workerSkillsDirectories("claude", host)).toEqual([claude]);
+    expect(workerSkillsDirectories("opencode", host).slice(0, 2)).toEqual([claude, codex]);
+  });
+
+  it("finds opencode's own Skills under XDG_CONFIG_HOME, else ~/.config", () => {
+    const host = { platform: "linux", home: "/usr/u", env: {} } as const;
+    expect(workerSkillsDirectories("opencode", host)[2]).toBe("/usr/u/.config/opencode/skills");
+    expect(
+      workerSkillsDirectories("opencode", { ...host, env: { XDG_CONFIG_HOME: "/x" } })[2],
+    ).toBe("/x/opencode/skills");
   });
 });
 

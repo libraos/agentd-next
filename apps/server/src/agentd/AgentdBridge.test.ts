@@ -1,3 +1,5 @@
+import * as NodeOS from "node:os";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -181,6 +183,10 @@ describe("AgentdBridge", () => {
           '"onPath":false,"pathLine":"export PATH=\\"~/.local/bin:$PATH\\"","skills":[]}\n',
       );
       const env = { AGENTD_BIN: process.execPath, AGENTD_DESKTOP_INSTALL_RECORD: recordPath };
+      // opencode reads agentd's Skills from Claude Code's folder too; one of the two is there.
+      const home = yield* fs.makeTempDirectoryScoped();
+      yield* fs.makeDirectory(`${home}/.claude/skills/agentd`, { recursive: true });
+      yield* fs.writeFileString(`${home}/.claude/skills/agentd/SKILL.md`, "# agentd\n");
       const bridge = yield* makeBridge(env, (input) => {
         calls.push(input.args);
         const key = input.args.join(" ");
@@ -195,7 +201,7 @@ describe("AgentdBridge", () => {
         if (key === "handoff list --limit 20 --json") return Effect.succeed(output(LIST_JSON));
         if (key === "handoff show hof-a6e5f4e329 --json") return Effect.succeed(output(SHOW_JSON));
         return Effect.die(`unexpected agentd ${key}`);
-      });
+      }).pipe(Effect.provideService(HostProcess.HomeDirectory, home));
 
       expect(yield* bridge.status).toEqual({
         version: "agentd v0.1.13 0d0b360a58c0",
@@ -204,6 +210,8 @@ describe("AgentdBridge", () => {
         defaultWorker: "opencode",
         dollarBudgets: false,
         maxWorkers: 2,
+        missingSkills: ["agentd-setup"],
+        cpuCount: NodeOS.availableParallelism(),
         teamServer: "https://team.example:8443/agentd",
         firstSetup: false,
         checks: [
@@ -353,6 +361,20 @@ describe("AgentdBridge", () => {
       expect(calls.filter((call) => call.startsWith("config set"))).toEqual([
         "config set dispatch.permission_mode guarded",
       ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("sets the local worker limit with the number given", () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const key = input.args.join(" ");
+        calls.push(key);
+        if (key === "config set dispatch.max_workers 3") return Effect.succeed(output(""));
+        return Effect.die(`unexpected agentd ${key}`);
+      });
+      yield* bridge.setMaxWorkers(3);
+      expect(calls).toEqual(["config set dispatch.max_workers 3"]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

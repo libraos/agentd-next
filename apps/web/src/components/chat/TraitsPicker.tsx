@@ -2,6 +2,7 @@ import {
   buildTraitsTriggerDisplay,
   getDescriptorStringValue,
   getTraitSelectChange,
+  providerOptionDescription,
   replaceDescriptorCurrentValue,
   selectableProviderOptionChoices,
   isReasoningSelect,
@@ -460,7 +461,7 @@ const TraitsMenuContent = memo(function TraitsMenuContentImpl(props: TraitsSelec
                     </span>
                     {option.description ? (
                       <span className="max-w-56 text-pretty text-muted-foreground/80 text-xs">
-                        {option.description}
+                        {providerOptionDescription(option.description, resolve)}
                       </span>
                     ) : null}
                   </span>

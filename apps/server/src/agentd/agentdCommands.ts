@@ -130,6 +130,7 @@ export const agentdArgs = {
   doctor: () => ["doctor", "--json"],
   defaultWorker: () => ["config", "get", "dispatch.default_tool"],
   maxWorkers: () => ["config", "get", "dispatch.max_workers"],
+  setMaxWorkers: (max: number) => ["config", "set", "dispatch.max_workers", String(max)],
   configHelp: () => ["config", "--help"],
   workerModel: (tool: AgentdWorkerTool) => ["config", "get", `dispatch.${tool}_model`],
   /** `url` "" clears the gateway and its key file. */

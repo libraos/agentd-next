@@ -102,6 +102,10 @@ describe("RPC authorization scopes", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.agentdRepairServices)).toBe(
       AuthEnvironmentMaintainScope,
     );
+    // The local worker limit is agentd's config on the host.
+    expect(requiredScopeForRpcMethod(WS_METHODS.agentdSetMaxWorkers)).toBe(
+      AuthEnvironmentMaintainScope,
+    );
   });
 
   it("lets file readers see a task folder and takes source control to add a repository to it", () => {

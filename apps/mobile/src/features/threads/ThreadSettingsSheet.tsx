@@ -1,6 +1,7 @@
 import {
   getPromptControlledTraits,
   getTraitSelectChange,
+  providerOptionDescription,
 } from "@t3tools/client-runtime/model-traits";
 import { T, useGT, useLocale, useMessages } from "gt-react-native";
 import * as Dialog from "../../components/ui/Dialog";
@@ -1241,7 +1242,7 @@ function ThreadSettingsChoiceContent(props: {
             rows: selectableChoices(activeDescriptor).map((choice) => ({
               id: choice.id,
               label: choice.label,
-              description: choice.description,
+              description: providerOptionDescription(choice.description, m),
               disabled: false,
               selected:
                 choice.id ===

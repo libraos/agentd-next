@@ -207,6 +207,11 @@ const REASONING_EFFORT_LABELS: Readonly<Record<string, string>> = {
   ultra: "Ultra",
 };
 
+// Codex's own text for ultra omits the cost; clients show a translated version keyed on the id.
+const REASONING_EFFORT_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  ultra: "Delegates to sub-agents on its own, so it costs more",
+};
+
 const DEFAULT_SERVICE_TIER_ID = "default";
 
 const SERVICE_TIER_DESCRIPTIONS: Readonly<Record<string, string>> = {
@@ -284,19 +289,18 @@ export function codexDefaultReasoningEffortOverride(model: string): "medium" | u
 export function mapCodexModelCapabilities(
   model: CodexSchema.V2ModelListResponse__Model,
 ): ModelCapabilities {
-  const reasoningOptions = model.supportedReasoningEfforts.map(({ reasoningEffort }) =>
-    reasoningEffort ===
-    (codexDefaultReasoningEffortOverride(model.model) ?? model.defaultReasoningEffort)
-      ? {
-          id: reasoningEffort,
-          label: reasoningEffortLabel(reasoningEffort),
-          isDefault: true,
-        }
-      : {
-          id: reasoningEffort,
-          label: reasoningEffortLabel(reasoningEffort),
-        },
-  );
+  const reasoningOptions = model.supportedReasoningEfforts.map(({ reasoningEffort }) => {
+    const description = REASONING_EFFORT_DESCRIPTIONS[reasoningEffort];
+    return {
+      id: reasoningEffort,
+      label: reasoningEffortLabel(reasoningEffort),
+      ...(description ? { description } : {}),
+      ...(reasoningEffort ===
+      (codexDefaultReasoningEffortOverride(model.model) ?? model.defaultReasoningEffort)
+        ? { isDefault: true }
+        : {}),
+    };
+  });
   const defaultReasoning = reasoningOptions.find((option) => option.isDefault)?.id;
   const serviceTiers =
     model.serviceTiers && model.serviceTiers.length > 0
@@ -370,6 +374,21 @@ export function mapCodexModelCapabilities(
   return createModelCapabilities({
     optionDescriptors,
   });
+}
+
+/** ChatGPT token sharing rejects service tiers, and the managed runtime runs with multi-agent off. */
+export function managedCodexModelCapabilities(capabilities: ModelCapabilities): ModelCapabilities {
+  return {
+    ...capabilities,
+    optionDescriptors: (capabilities.optionDescriptors ?? []).flatMap((descriptor) => {
+      if (descriptor.id === "serviceTier") return [];
+      if (descriptor.id !== "reasoningEffort" || descriptor.type !== "select") return [descriptor];
+      const { currentValue, ...rest } = descriptor;
+      const options = descriptor.options.filter((option) => option.id !== "ultra");
+      const kept = currentValue === undefined || currentValue === "ultra" ? {} : { currentValue };
+      return [{ ...rest, options, ...kept }];
+    }),
+  };
 }
 
 function parseCodexModelListResponse(

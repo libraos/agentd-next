@@ -151,6 +151,7 @@ export function useAgentdCommands() {
     lowerPermissionMode: useAtomCommand(agentdEnvironment.lowerPermissionMode, {
       reportFailure: false,
     }),
+    setMaxWorkers: useAtomCommand(agentdEnvironment.setMaxWorkers, { reportFailure: false }),
   };
 }
 

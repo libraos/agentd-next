@@ -60,6 +60,26 @@ export function getDescriptorStringValue(
   return typeof value === "string" ? value : null;
 }
 
+// Option descriptions the server sends in English, keyed by that text. Codex's Ultra comes first.
+const PROVIDER_OPTION_DESCRIPTIONS: ReadonlyMap<string, string> = new Map([
+  [
+    "Delegates to sub-agents on its own, so it costs more",
+    msg("Delegates to sub-agents on its own, so it costs more", {
+      $context: "description of a reasoning effort level",
+    }),
+  ],
+]);
+
+/** A provider option's description in the reader's language, where the clients know its text. */
+export function providerOptionDescription(
+  description: string | undefined,
+  resolve: MFunctionType = mFallback,
+): string | undefined {
+  const message =
+    description === undefined ? undefined : PROVIDER_OPTION_DESCRIPTIONS.get(description);
+  return message === undefined ? description : resolve(message);
+}
+
 // Prompt-injected levels such as Ultrathink still work when typed, but pickers do not offer them.
 export function selectableProviderOptionChoices(
   descriptor: Extract<ProviderOptionDescriptor, { type: "select" }>,

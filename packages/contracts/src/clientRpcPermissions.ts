@@ -112,6 +112,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.agentdSetupStart]: AuthEnvironmentMaintainScope,
   // Lowering the worker permission mode writes agentd's config on this host.
   [WS_METHODS.agentdLowerPermissionMode]: AuthEnvironmentMaintainScope,
+  // The local worker limit is agentd's config on this host.
+  [WS_METHODS.agentdSetMaxWorkers]: AuthEnvironmentMaintainScope,
   // Skills are written into, and removed from, the agents' Skills folders on this host.
   [WS_METHODS.agentdSkillsInstall]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdSkillsRemove]: AuthEnvironmentMaintainScope,

@@ -10,9 +10,22 @@ Open **Hand to a worker** from the slash menu (type `/` in the composer), from t
 command palette, or from the suggestion above the composer when a turn runs long. Fill in the
 goal, acceptance criteria, check command and budget, then choose **Start**.
 
+The **Background workers** line at the bottom of the sidebar says whether a worker can start
+from the open project: **Ready**, **Setup required** or **Setup failed**. Ready needs LibraOS
+Engine set up with no failing check, the default worker signed in, and a Git repository. Click
+the line for the reason and its fix. **Hand to a worker** makes the same check and starts nothing
+until it passes. Missing LibraOS Engine Skills only show a warning.
+
 For a worker on your machine, the working directory must be a Git repository on a named branch.
 From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
 checkout alone.
+
+When a turn ends with work the agent says it could not finish, the reply offers **Run locally**,
+**Run in cloud** (once Cloud Workers are set up) and **Keep in chat**. The first two open **Hand to
+a worker** with that work as the goal; nothing starts until you choose **Start**.
+
+**Settings → Workers → Local workers at once** sets how many workers run on your machine at the
+same time. It suggests a number for the machine's CPU cores, used only if you choose it.
 
 In **Background tasks**, a queued local task with no agent chosen waits until someone
 starts it. Use **Start with…** to choose an agent for the working directory shown in the

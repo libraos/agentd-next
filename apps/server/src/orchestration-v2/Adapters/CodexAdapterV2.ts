@@ -915,6 +915,29 @@ function codexCyberAccess(
   return descriptor?.type === "select" ? { defaultProgram: descriptor.currentValue } : undefined;
 }
 
+const CODEX_ULTRA_EFFORT = "ultra";
+
+/** Ultra makes Codex hand work to sub-agents on its own; the managed runtime runs with multi-agent off. */
+function codexSelectedReasoningEffort(
+  modelSelection: ModelSelection,
+  options: { readonly multiAgent: boolean },
+): string | undefined {
+  const selected = getModelSelectionStringOptionValue(modelSelection, "reasoningEffort");
+  return (
+    (selected === CODEX_ULTRA_EFFORT && !options.multiAgent ? undefined : selected) ??
+    codexDefaultReasoningEffortOverride(modelSelection.model)
+  );
+}
+
+/** thread/start has no effort field, so ultra goes as config; other levels still wait for turn/start. */
+export function codexThreadStartEffort(
+  modelSelection: ModelSelection,
+  options: { readonly multiAgent: boolean },
+): string | undefined {
+  const effort = codexSelectedReasoningEffort(modelSelection, options);
+  return effort === CODEX_ULTRA_EFFORT ? effort : undefined;
+}
+
 export const buildCodexTurnStartParams = Effect.fn("CodexAdapterV2.buildCodexTurnStartParams")(
   function* (input: {
     readonly nativeThreadId: string;
@@ -928,6 +951,8 @@ export const buildCodexTurnStartParams = Effect.fn("CodexAdapterV2.buildCodexTur
     readonly orchestrationToolsAvailable?: boolean;
     /** ChatGPT token sharing does not accept service tiers. */
     readonly omitServiceTier?: boolean;
+    /** The managed runtime runs with multi-agent off, so it never sends ultra effort. */
+    readonly multiAgentDisabled?: boolean;
     readonly appContext?: ProviderAdapter.ProviderAdapterV2TurnInput["appContext"];
     /** Set only for a model that offers Cyber Access; custom models never do. */
     readonly cyberAccess?: { readonly defaultProgram: string | undefined } | undefined;
@@ -953,9 +978,9 @@ export const buildCodexTurnStartParams = Effect.fn("CodexAdapterV2.buildCodexTur
             ],
           }
         : baseSandboxPolicy;
-    const selectedEffort =
-      getModelSelectionStringOptionValue(input.modelSelection, "reasoningEffort") ??
-      codexDefaultReasoningEffortOverride(input.modelSelection.model);
+    const selectedEffort = codexSelectedReasoningEffort(input.modelSelection, {
+      multiAgent: input.multiAgentDisabled !== true,
+    });
     const effort =
       selectedEffort === undefined ? undefined : yield* decodeTurnReasoningEffort(selectedEffort);
     const serviceTier =
@@ -1711,6 +1736,7 @@ function codexThreadRuntimeParams(input: {
   readonly stdioMcpServers?: ReadonlyArray<string>;
   readonly modelSelection?: { readonly model: string };
   readonly runtimePolicy?: ProviderAdapter.ProviderAdapterV2RuntimePolicy;
+  readonly startEffort?: string | undefined;
 }): {
   readonly cwd?: string;
   readonly model?: string;
@@ -1730,6 +1756,7 @@ function codexThreadRuntimeParams(input: {
     ...(input.modelSelection === undefined ? {} : { model: input.modelSelection.model }),
     config: {
       ...CODEX_THREAD_CONFIG,
+      ...(input.startEffort === undefined ? {} : { model_reasoning_effort: input.startEffort }),
       // One app-server serves many threads, so the id goes in per-thread shell config, not its env.
       ...(input.threadId === null
         ? {}
@@ -8100,6 +8127,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
               deviceToolsAvailable: mcpSession?.capabilities?.has("device") ?? false,
               orchestrationToolsAvailable: mcpSession?.capabilities?.has("orchestration") ?? true,
               omitServiceTier: adapterOptions.resolveRuntime !== undefined,
+              multiAgentDisabled: adapterOptions.resolveRuntime !== undefined,
               ...(turnInput.appContext === undefined ? {} : { appContext: turnInput.appContext }),
               ...(configuredReasoningSummary === undefined ? {} : { configuredReasoningSummary }),
             });
@@ -8509,6 +8537,9 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                     stdioMcpServers,
                     modelSelection: threadInput.modelSelection,
                     runtimePolicy: threadInput.runtimePolicy,
+                    startEffort: codexThreadStartEffort(threadInput.modelSelection, {
+                      multiAgent: adapterOptions.resolveRuntime === undefined,
+                    }),
                   }),
                   // Codex tags the child's MCP calls with thread_source "subagent".
                   ...(IdAllocator.isDelegatedTaskThread(threadInput.threadId)

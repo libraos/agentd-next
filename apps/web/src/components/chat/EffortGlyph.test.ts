@@ -37,9 +37,12 @@ describe("resolveEffortGlyph", () => {
     expect(resolveEffortGlyph(codex, "ultra")?.special).toBe("Ultra");
   });
 
-  it("names Ultracode and Ultrathink instead of drawing a level", () => {
+  it("names Ultracode, Ultrathink and Codex's Ultra instead of drawing a level", () => {
     expect(resolveEffortGlyph(claude, "ultracode")?.special).toBe("Ultracode");
     expect(resolveEffortGlyph(claude, "ultrathink")?.special).toBe("Ultrathink");
+    const codex = descriptor(["low", "medium", "high", "xhigh", "max", "ultra"]);
+    expect(resolveEffortGlyph(codex, "ultra")?.special).toBe("Ultra");
+    expect(resolveEffortGlyph(codex, "xhigh")).toMatchObject({ count: 4, filled: 4 });
   });
 
   it("draws the lowest level as one bar, and an off level as none", () => {
