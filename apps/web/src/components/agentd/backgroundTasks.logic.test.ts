@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  agentdTaskApprovals,
   agentdTaskBelongsToProject,
   agentdTaskBudgetUse,
+  agentdTaskSection,
   finishedAgentdTaskLabel,
   isFinishedAgentdTask,
   isQueuedAgentdTask,
@@ -60,6 +62,49 @@ describe("background task states", () => {
     ["declined", true],
   ])("classifies %s as finished: %s", (state, finished) => {
     expect(isFinishedAgentdTask(state)).toBe(finished);
+  });
+
+  const claimed = {
+    id: "hof-123abc",
+    state: "claimed",
+    workerState: null,
+    workerRunning: true,
+    runsOn: "local",
+  } as const;
+  const approval = (handoff: string | null) => ({ id: "apr-1", handoff });
+
+  it.each([
+    ["no approval", "running", claimed, []],
+    ["an approval for another task", "running", claimed, [approval("hof-999fff")]],
+    ["an approval without a task", "running", claimed, [approval(null)]],
+    ["its own approval", "waiting", claimed, [approval(claimed.id)]],
+    [
+      "its own approval while queued",
+      "waiting",
+      { ...claimed, state: "offered", workerRunning: false },
+      [approval(claimed.id)],
+    ],
+    [
+      "its own approval in the cloud",
+      "running",
+      { ...claimed, runsOn: "cloud" },
+      [approval(claimed.id)],
+    ],
+    [
+      "its own approval once done",
+      "finished",
+      { ...claimed, state: "done" },
+      [approval(claimed.id)],
+    ],
+  ] as const)("lists a task with %s under %s", (_case, section, status, approvals) => {
+    expect(agentdTaskSection(status, null, approvals)).toBe(section);
+  });
+
+  it("keeps only the task's own approvals", () => {
+    const own = approval("hof-123abc");
+    expect(
+      agentdTaskApprovals([approval("hof-999fff"), own, approval(null)], "hof-123abc"),
+    ).toEqual([own]);
   });
 
   it.each([

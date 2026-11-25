@@ -18,7 +18,9 @@ In **Background tasks**, a queued local task with no agent chosen waits until so
 starts it. Use **Start with…** to choose an agent for the working directory shown in the
 menu, or **Stop** to cancel the task. Tasks addressed to a recipient or waiting for a remote
 worker show who can pick them up. If Core pauses automatic retries, look under **Waiting**
-for the reason. Use **Start anyway** to retry an eligible task in its listed checkout.
+for the reason. Use **Start anyway** to retry an eligible task in its listed checkout. A task
+whose worker asks for your approval also waits there: open its card to read the request and
+the commands that approve or reject it.
 
 ## Get a task card from the conversation
 

@@ -1,5 +1,10 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { AgentdTaskRow, EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import type {
+  AgentdApproval,
+  AgentdTaskRow,
+  EnvironmentId,
+  ScopedThreadRef,
+} from "@t3tools/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { T, Var } from "gt-react";
 
@@ -9,13 +14,14 @@ import { deriveThreadPendingBackgroundTasks } from "../ChatView.logic";
 import { useCommandOutputStreaming } from "../chat/CommandOutputPanel";
 import { AgentdBackgroundTaskRow } from "./AgentdBackgroundTaskRow";
 import {
+  type AgentdTaskSection,
+  agentdTaskSection,
   isFinishedAgentdTask,
-  isQueuedAgentdTask,
-  isWaitingAgentdTask,
 } from "./backgroundTasks.logic";
 import { SessionBackgroundTaskRow } from "./SessionBackgroundTaskRow";
 
 const EMPTY_ROWS: readonly AgentdTaskRow[] = [];
+const EMPTY_APPROVALS: readonly AgentdApproval[] = [];
 
 const taskSections = Atom.family((environmentId: EnvironmentId) =>
   Atom.make((get) => {
@@ -23,13 +29,19 @@ const taskSections = Atom.family((environmentId: EnvironmentId) =>
       get(agentdEnvironment.tasks({ environmentId, input: {} })),
       () => EMPTY_ROWS,
     );
-    const running: AgentdTaskRow[] = [];
-    const queued: AgentdTaskRow[] = [];
-    const waiting: AgentdTaskRow[] = [];
-    const finished: AgentdTaskRow[] = [];
+    const approvals = AsyncResult.getOrElse(
+      get(agentdEnvironment.approvals({ environmentId, input: {} })),
+      () => EMPTY_APPROVALS,
+    );
+    const sections: Record<AgentdTaskSection, AgentdTaskRow[]> = {
+      running: [],
+      queued: [],
+      waiting: [],
+      finished: [],
+    };
     for (const row of rows) {
       if (isFinishedAgentdTask(row.state)) {
-        finished.push(row);
+        sections.finished.push(row);
         continue;
       }
       const result = get(agentdEnvironment.task({ environmentId, input: { id: row.id } }));
@@ -40,11 +52,9 @@ const taskSections = Atom.family((environmentId: EnvironmentId) =>
         runsOn: task?.runsOn ?? row.runsOn,
         workerState: row.workerState ?? task?.workerState ?? null,
       };
-      if (task?.parked || isWaitingAgentdTask(status, task?.budgetState)) waiting.push(row);
-      else if (isQueuedAgentdTask(status)) queued.push(row);
-      else running.push(row);
+      sections[agentdTaskSection(status, task, approvals)].push(row);
     }
-    return { running, queued, waiting, finished };
+    return sections;
   }),
 );
 

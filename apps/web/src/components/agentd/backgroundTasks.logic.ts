@@ -1,4 +1,5 @@
 import type {
+  AgentdApproval,
   AgentdTask,
   AgentdTaskRow,
   AgentdTaskVerdict,
@@ -89,7 +90,7 @@ function needsPerson(
   );
 }
 
-export function isWaitingAgentdTask(
+function isWaitingAgentdTask(
   row: Pick<AgentdTaskRow, "state" | "workerState" | "runsOn" | "a2aState">,
   budgetState?: string | null,
 ): boolean {
@@ -103,6 +104,36 @@ export function isWaitingAgentdTask(
       row.state === "checkpoint" ||
       row.state === "blocked")
   );
+}
+
+/** The pending approvals agentd holds for a task: those whose handoff is the task's id. */
+export function agentdTaskApprovals<Approval extends Pick<AgentdApproval, "handoff">>(
+  approvals: ReadonlyArray<Approval>,
+  id: string,
+): Approval[] {
+  return approvals.filter((approval) => approval.handoff === id);
+}
+
+export type AgentdTaskSection = "running" | "queued" | "waiting" | "finished";
+
+/** The Background tasks section a task is listed under; a pending approval needs a person. */
+export function agentdTaskSection(
+  status: Pick<
+    AgentdTaskRow,
+    "id" | "state" | "workerState" | "workerRunning" | "runsOn" | "a2aState"
+  >,
+  details: Pick<AgentdTask, "parked" | "budgetState"> | null,
+  approvals: ReadonlyArray<Pick<AgentdApproval, "handoff">>,
+): AgentdTaskSection {
+  if (isFinishedAgentdTask(status.state)) return "finished";
+  if (
+    details?.parked ||
+    isWaitingAgentdTask(status, details?.budgetState) ||
+    (status.runsOn !== "cloud" && agentdTaskApprovals(approvals, status.id).length > 0)
+  ) {
+    return "waiting";
+  }
+  return isQueuedAgentdTask(status) ? "queued" : "running";
 }
 
 export function queuedAgentdTaskReason(
