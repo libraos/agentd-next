@@ -13520,5 +13520,11 @@
   "79f1ebb1b92c7c3a": "Ordner, die keine Git-Repositorys sind, stehen unter „Andere Ordner“.",
   "0a27f8bda7e520ca": "Warum fehlt ein Projekt?",
   "cac1df0798b1ea83": "Ordner hinzufügen…",
-  "703b05c595a6ff1e": "Wartet auf deine Freigabe"
+  "703b05c595a6ff1e": "Wartet auf deine Freigabe",
+  "12cafaa8907f87d8": "Git hat auf diesem Computer keinen Namen oder keine E-Mail, daher kann ein Worker seine Arbeit nicht committen.",
+  "a9f14d01cdb4969e": "Git-Name und -E-Mail",
+  "b05cd1b6f694caf1": "Git konnte sie nicht speichern.",
+  "03872ce8bd1d4d7d": "Deine E-Mail",
+  "72e1a5debd79c29b": "Git setzt diesen Namen und diese E-Mail in die Commits des Workers, in jedem Repository hier.",
+  "7792fafc90026734": "Diese Verbindung kann die Git-Einstellungen dieses Computers nicht ändern."
 }

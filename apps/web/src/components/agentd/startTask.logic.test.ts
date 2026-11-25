@@ -191,8 +191,13 @@ it("names the first problem that stops a Start", () => {
     worker: "claude" as const,
     hasDirectory: true,
     branch: null,
+    gitIdentityMissing: false,
   };
   expect(taskStartProblem(ok)).toBeNull();
+  expect(taskStartProblem({ ...ok, gitIdentityMissing: true })).toBe("git-identity");
+  expect(taskStartProblem({ ...ok, gitIdentityMissing: true, branch: "not-repo" })).toBe(
+    "not-repo",
+  );
   expect(taskStartProblem({ ...ok, worker: null })).toBe("worker");
   expect(taskStartProblem({ ...ok, branch: "protected" })).toBeNull();
   expect(taskStartProblem({ ...ok, branch: "detached" })).toBe("detached");
@@ -200,6 +205,8 @@ it("names the first problem that stops a Start", () => {
   expect(taskStartProblem({ ...ok, hasDirectory: false })).toBe("no-directory");
   const cloud = { ...ok, cloud: true, signedIn: true, branch: "protected" as const };
   expect(taskStartProblem(cloud)).toBeNull();
+  // A cloud worker commits as its own account, not this host's Git identity.
+  expect(taskStartProblem({ ...cloud, gitIdentityMissing: true })).toBeNull();
   expect(taskStartProblem({ ...cloud, balanceUsd: 0 })).toBe("balance");
   expect(taskStartProblem({ ...cloud, creditProblem: true })).toBe("balance");
   expect(taskStartProblem({ ...cloud, signedIn: false })).toBe("sign-in");
@@ -241,6 +248,7 @@ it("lists what a Start still needs, in form order", () => {
   ]);
   // A detached checkout is a problem line of its own, not an input to fill in.
   expect(taskMissingInputs({ ...ready, problem: "detached" })).toEqual([]);
+  expect(taskMissingInputs({ ...ready, problem: "git-identity" })).toEqual(["git-identity"]);
   // Cloud Workers take no local worker, and their check is optional.
   expect(taskMissingInputs({ ...ready, cloud: true, check: "required", worker: null })).toEqual([]);
   expect(taskMissingInputs({ ...ready, cloud: true, check: "invalid" })).toEqual(["check"]);

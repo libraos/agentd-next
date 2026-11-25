@@ -804,6 +804,21 @@ export const AgentdTaskDefaults = Schema.Struct({
 });
 export type AgentdTaskDefaults = typeof AgentdTaskDefaults.Type;
 
+export const AgentdGitIdentityInput = Schema.Struct({ cwd: AbsolutePath });
+export type AgentdGitIdentityInput = typeof AgentdGitIdentityInput.Type;
+/** `git config user.name` / `user.email` as Git resolves them in the folder; "" when unset. */
+export const AgentdGitIdentity = Schema.Struct({ name: Schema.String, email: Schema.String });
+export type AgentdGitIdentity = typeof AgentdGitIdentity.Type;
+const GitIdentityText = Schema.String.check(
+  Schema.isMaxLength(200),
+  Schema.isPattern(/^[^\0\r\n]*\S[^\0\r\n]*$/),
+);
+export const AgentdSetGitIdentityInput = Schema.Struct({
+  name: GitIdentityText,
+  email: GitIdentityText,
+});
+export type AgentdSetGitIdentityInput = typeof AgentdSetGitIdentityInput.Type;
+
 export const AgentdTaskOthersInput = Schema.Struct({
   cwd: AbsolutePath,
   issue: Schema.NullOr(IssueRef),

@@ -13519,5 +13519,11 @@
   "79f1ebb1b92c7c3a": "Les dossiers qui ne sont pas des dépôts git sont listés sous « Autres dossiers ».",
   "0a27f8bda7e520ca": "Pourquoi un projet peut-il manquer ?",
   "cac1df0798b1ea83": "Ajouter un dossier…",
-  "703b05c595a6ff1e": "En attente de votre approbation"
+  "703b05c595a6ff1e": "En attente de votre approbation",
+  "12cafaa8907f87d8": "Git n’a ni nom ni e-mail sur cet ordinateur, donc un worker ne peut pas commiter son travail.",
+  "a9f14d01cdb4969e": "nom et e-mail Git",
+  "b05cd1b6f694caf1": "Git n’a pas pu les enregistrer.",
+  "03872ce8bd1d4d7d": "Votre e-mail",
+  "72e1a5debd79c29b": "Git met ce nom et cet e-mail sur les commits du worker, dans chaque dépôt ici.",
+  "7792fafc90026734": "Cette connexion ne peut pas modifier les réglages Git de cet ordinateur."
 }

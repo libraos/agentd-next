@@ -13519,5 +13519,11 @@
   "79f1ebb1b92c7c3a": "Pastas que não são repositórios git aparecem em \"Outras pastas\".",
   "0a27f8bda7e520ca": "Por que um projeto pode estar faltando?",
   "cac1df0798b1ea83": "Adicionar uma pasta…",
-  "703b05c595a6ff1e": "Aguardando sua aprovação"
+  "703b05c595a6ff1e": "Aguardando sua aprovação",
+  "12cafaa8907f87d8": "O Git não tem nome nem e-mail neste computador, então um worker não consegue fazer commit do trabalho.",
+  "a9f14d01cdb4969e": "nome e e-mail do Git",
+  "b05cd1b6f694caf1": "O Git não conseguiu salvá-los.",
+  "03872ce8bd1d4d7d": "Seu e-mail",
+  "72e1a5debd79c29b": "O Git coloca este nome e e-mail nos commits do worker, em todos os repositórios daqui.",
+  "7792fafc90026734": "Esta conexão não pode alterar as configurações do Git deste computador."
 }

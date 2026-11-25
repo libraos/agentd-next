@@ -88,6 +88,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.agentdStopTask]: AuthOrchestrationOperateScope,
   // A check is a command agentd runs in the task's folder on this host.
   [WS_METHODS.agentdRecheckTask]: AuthOrchestrationOperateScope,
+  // Setting the Git identity writes the global Git config of the user the server runs as.
+  [WS_METHODS.agentdSetGitIdentity]: AuthEnvironmentMaintainScope,
   // Connecting an agent edits its config on this host; joining a team links the host to a server.
   [WS_METHODS.agentdConnectAgent]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdJoinTeam]: AuthEnvironmentMaintainScope,

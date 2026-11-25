@@ -29,6 +29,9 @@ import {
   type AgentdServicesRepairInput,
   type AgentdTaskDefaults,
   type AgentdTaskDefaultsInput,
+  type AgentdGitIdentity,
+  type AgentdGitIdentityInput,
+  type AgentdSetGitIdentityInput,
   type AgentdCloudTaskInput,
   type AgentdCommandOutput,
   type AgentdConnectAgentInput,
@@ -143,6 +146,12 @@ export class AgentdBridge extends Context.Service<
     readonly taskDefaults: (
       input: AgentdTaskDefaultsInput,
     ) => Effect.Effect<AgentdTaskDefaults, AgentdError>;
+    /** The Git identity a worker's commits in cwd would carry; "" for a part that is unset. */
+    readonly gitIdentity: (
+      input: AgentdGitIdentityInput,
+    ) => Effect.Effect<AgentdGitIdentity, AgentdError>;
+    /** `git config --global user.name` and `user.email`, for every repository of this user. */
+    readonly setGitIdentity: (input: AgentdSetGitIdentityInput) => Effect.Effect<{}, AgentdError>;
     readonly taskOthers: (
       input: AgentdTaskOthersInput,
     ) => Effect.Effect<ReadonlyArray<AgentdTaskOther>>;
@@ -216,6 +225,8 @@ function sameRows(a: ReadonlyArray<AgentdTaskRow>, b: ReadonlyArray<AgentdTaskRo
     })
   );
 }
+
+const GIT_IDENTITY_KEYS = ["user.name", "user.email"] as const;
 
 const commandError = (message: string, notSetUp = false) =>
   new AgentdCommandError({ message, notSetUp });
@@ -960,6 +971,57 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     return { estimate, check };
   });
 
+  // "git" goes through the runner's resolver, which finds git.exe on Windows.
+  const git = (argv: ReadonlyArray<string>, cwd?: string) =>
+    runner
+      .run({ command: "git", args: argv, cwd, timeout: Duration.seconds(10) })
+      .pipe(
+        Effect.mapError((error) =>
+          commandError(
+            error._tag === "ProcessTimeoutError"
+              ? "Git did not answer in time."
+              : "Git could not be run.",
+          ),
+        ),
+      );
+
+  const gitIdentity = Effect.fn("AgentdBridge.gitIdentity")(function* ({
+    cwd,
+  }: AgentdGitIdentityInput) {
+    const [name, email] = yield* Effect.forEach(
+      GIT_IDENTITY_KEYS,
+      (key) =>
+        git(["config", "--get", key], cwd).pipe(
+          Effect.flatMap((output) =>
+            // `--get` exits 1 when the key is unset anywhere Git looks.
+            output.code === 0
+              ? Effect.succeed(output.stdout.trim())
+              : output.code === 1
+                ? Effect.succeed("")
+                : Effect.fail(
+                    commandError(output.stderr.trim() || "Git could not read its config."),
+                  ),
+          ),
+        ),
+      { concurrency: "unbounded" },
+    );
+    return { name: name ?? "", email: email ?? "" };
+  });
+
+  const setGitIdentity = Effect.fn("AgentdBridge.setGitIdentity")(function* (
+    input: AgentdSetGitIdentityInput,
+  ) {
+    for (const [key, value] of [
+      ["user.name", input.name.trim()],
+      ["user.email", input.email.trim()],
+    ] as const) {
+      const output = yield* git(["config", "--global", "--", key, value]);
+      if (output.code !== 0)
+        return yield* commandError(output.stderr.trim() || "Git could not save its config.");
+    }
+    return {};
+  });
+
   const permissionMode = Effect.gen(function* () {
     const read = (key: Parameters<typeof agentdArgs.configGet>[0]) =>
       run(agentdArgs.configGet(key)).pipe(
@@ -1045,6 +1107,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     cloudKeyFile,
     repairServices: repairAgentdServices,
     taskDefaults,
+    gitIdentity,
+    setGitIdentity,
     taskOthers,
     binary,
     setupBinary,
