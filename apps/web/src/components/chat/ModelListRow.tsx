@@ -17,6 +17,8 @@ export interface ModelRowSource {
   readonly slug: string;
   readonly label: string;
   readonly color: string;
+  /** Why this source cannot be picked, such as its agent not being installed. */
+  readonly disabledReason?: string | null | undefined;
 }
 
 function SourceDot({ color }: { readonly color: string }) {
@@ -141,6 +143,8 @@ export const ModelListRow = memo(function ModelListRow(props: {
                 variant={source.instanceId === props.instanceId ? "outline" : "ghost-muted"}
                 data-model-source-choice={source.label}
                 aria-pressed={source.instanceId === props.instanceId}
+                disabled={Boolean(source.disabledReason)}
+                title={source.disabledReason ?? undefined}
                 onClick={(event) => {
                   event.stopPropagation();
                   props.onPickSource?.(source.instanceId, source.slug);
