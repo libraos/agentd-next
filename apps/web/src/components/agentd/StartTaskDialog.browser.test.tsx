@@ -1517,105 +1517,124 @@ it("keeps Start disabled until each BYOK path is checked, and says when one can'
   await expect.element(start).toBeEnabled();
 });
 
-it("checks each BYOK key file's provider and privacy, and remembers the paths that were sent, closed or not", async () => {
+/** Opens the Start dialog with Cloud Workers and Your API key chosen. */
+async function renderKeyFileDialog() {
+  await using stack = new AsyncDisposableStack();
+  stack.use(await renderDialog());
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await page.getByRole("combobox", { name: "Model access" }).click();
+  await page.getByRole("option", { name: "Your API key" }).click();
+  return stack.move();
+}
+
+function openaiKeyFile(path: string) {
+  state.keyFiles[path] = { provider: "openai", readable: true, openToOthers: false };
+}
+
+it("checks each BYOK key file's provider and privacy before Start", async () => {
   setup("feature/export");
   state.cloud = cloudReady();
   state.keyFiles = {
     "/home/me/anthropic.key": { provider: "anthropic", readable: true, openToOthers: false },
     "/home/me/shared.key": { provider: "openai", readable: true, openToOthers: true },
-    "/home/me/openai.key": { provider: "openai", readable: true, openToOthers: false },
   };
+  openaiKeyFile("/home/me/openai.key");
   state.fixKeyFile.mockResolvedValue(
     AsyncResult.success({ provider: "openai", readable: true, openToOthers: false }),
   );
   state.start.mockResolvedValue(
     AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
   );
-  {
-    await using _screen = await renderDialog();
-    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
-    await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
-    await page.getByRole("combobox", { name: "Model access" }).click();
-    await page.getByRole("option", { name: "Your API key" }).click();
-    const start = page.getByRole("button", { name: "Start", exact: true });
-    const openai = page.getByLabelText("OpenAI key file path");
-    await userEvent.fill(openai, "/home/me/anthropic.key");
-    await expect
-      .element(page.getByText("This is an Anthropic key; choose it under Anthropic key file."))
-      .toBeVisible();
-    await expect.element(start).toBeDisabled();
+  await using _screen = await renderKeyFileDialog();
+  await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  const openai = page.getByLabelText("OpenAI key file path");
+  await userEvent.fill(openai, "/home/me/anthropic.key");
+  await expect
+    .element(page.getByText("This is an Anthropic key; choose it under Anthropic key file."))
+    .toBeVisible();
+  await expect.element(start).toBeDisabled();
 
-    await userEvent.fill(openai, "/home/me/shared.key");
-    await expect
-      .element(
-        page.getByText(
-          "/home/me/shared.key can be read by other users. Run chmod 600 /home/me/shared.key, then try again.",
-        ),
-      )
-      .toBeVisible();
-    await expect.element(start).toBeDisabled();
-    await page.getByRole("button", { name: "Fix permissions" }).click();
-    expect(state.fixKeyFile).toHaveBeenCalledWith({
-      environmentId: thread.environmentId,
-      input: { path: "/home/me/shared.key" },
-    });
-    // Fixed in a terminal instead: Check again reads the same path anew.
-    state.keyFiles["/home/me/shared.key"] = {
-      provider: "openai",
-      readable: true,
-      openToOthers: false,
-    };
-    await page.getByRole("button", { name: "Check again" }).click();
-    await expect.element(page.getByText(/can be read by other users/)).not.toBeInTheDocument();
-    await expect.element(start).toBeEnabled();
+  await userEvent.fill(openai, "/home/me/shared.key");
+  await expect
+    .element(
+      page.getByText(
+        "/home/me/shared.key can be read by other users. Run chmod 600 /home/me/shared.key, then try again.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(start).toBeDisabled();
+  await page.getByRole("button", { name: "Fix permissions" }).click();
+  expect(state.fixKeyFile).toHaveBeenCalledWith({
+    environmentId: thread.environmentId,
+    input: { path: "/home/me/shared.key" },
+  });
+  // Fixed in a terminal instead: Check again reads the same path anew.
+  openaiKeyFile("/home/me/shared.key");
+  await page.getByRole("button", { name: "Check again" }).click();
+  await expect.element(page.getByText(/can be read by other users/)).not.toBeInTheDocument();
+  await expect.element(start).toBeEnabled();
 
-    await userEvent.fill(openai, "/home/me/openai.key");
-    await expect.element(start).toBeEnabled();
-    await start.click();
-    await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
-  }
+  await userEvent.fill(openai, "/home/me/openai.key");
+  await expect.element(start).toBeEnabled();
+  await start.click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+});
+
+/** Starts a cloud task with an OpenAI key file, as one that worked: the next dialog remembers it. */
+async function startWithOpenAiKey(path: string) {
+  openaiKeyFile(path);
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-123abc", started: true, note: null }),
+  );
+  await using _screen = await renderKeyFileDialog();
+  await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
+  await userEvent.fill(page.getByLabelText("OpenAI key file path"), path);
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+}
+
+it("keeps the key path a started task was sent with, not one the cloud refused", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  await startWithOpenAiKey("/home/me/openai.key");
   // The next task starts with the path that was sent, in its own field.
   openStartTaskDialog(threadRef);
   {
     // A task agentd recorded but the cloud didn't take keeps the last path that worked.
-    state.keyFiles["/home/me/other.key"] = {
-      provider: "openai",
-      readable: true,
-      openToOthers: false,
-    };
+    openaiKeyFile("/home/me/other.key");
     state.start.mockResolvedValue(
       AsyncResult.success({ id: "hof-456def", started: false, note: "Refused." }),
     );
-    await using _screen = await renderDialog();
-    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+    await using _screen = await renderKeyFileDialog();
+    await expect
+      .element(page.getByLabelText("OpenAI key file path"))
+      .toHaveValue("/home/me/openai.key");
     await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
-    await page.getByRole("combobox", { name: "Model access" }).click();
-    await page.getByRole("option", { name: "Your API key" }).click();
     await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/other.key");
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await expect.element(page.getByText("Refused.")).toBeVisible();
     await page.getByRole("button", { name: "Close" }).first().click();
   }
   openStartTaskDialog(threadRef);
+  await using _screen = await renderKeyFileDialog();
+  await expect
+    .element(page.getByLabelText("OpenAI key file path"))
+    .toHaveValue("/home/me/openai.key");
+  await expect.element(page.getByLabelText("Anthropic key file path")).toHaveValue("");
+});
+
+it("never shows an earlier submission's task as this draft's start, nor keeps its key path", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  await startWithOpenAiKey("/home/me/openai.key");
+  openStartTaskDialog(threadRef);
   {
-    await using _screen = await renderDialog();
-    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
-    await page.getByRole("combobox", { name: "Model access" }).click();
-    await page.getByRole("option", { name: "Your API key" }).click();
-    await expect
-      .element(page.getByLabelText("OpenAI key file path"))
-      .toHaveValue("/home/me/openai.key");
-    await expect.element(page.getByLabelText("Anthropic key file path")).toHaveValue("");
-    // An earlier submission's task agentd found isn't this draft's: never shown as its start, and
-    // its paths aren't kept.
-    state.keyFiles["/home/me/draft.key"] = {
-      provider: "openai",
-      readable: true,
-      openToOthers: false,
-    };
+    openaiKeyFile("/home/me/draft.key");
     state.start.mockResolvedValue(
       AsyncResult.success({ id: "hof-777eee", started: false, earlier: true, note: "Earlier." }),
     );
+    await using _screen = await renderKeyFileDialog();
     await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
     await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/draft.key");
     await page.getByRole("button", { name: "Start", exact: true }).click();
@@ -1632,24 +1651,21 @@ it("checks each BYOK key file's provider and privacy, and remembers the paths th
     await page.getByRole("button", { name: "Close" }).first().click();
   }
   openStartTaskDialog(threadRef);
+  await using _screen = await renderKeyFileDialog();
+  await expect
+    .element(page.getByLabelText("OpenAI key file path"))
+    .toHaveValue("/home/me/openai.key");
+});
+
+it("keeps the key path of a task saved without a receipt once sync shows it started, after the dialog was closed", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  openaiKeyFile("/home/me/later.key");
+  state.start.mockResolvedValue(
+    AsyncResult.success({ id: "hof-789aaa", started: false, note: "Recorded." }),
+  );
   {
-    await using _screen = await renderDialog();
-    await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
-    await page.getByRole("combobox", { name: "Model access" }).click();
-    await page.getByRole("option", { name: "Your API key" }).click();
-    await expect
-      .element(page.getByLabelText("OpenAI key file path"))
-      .toHaveValue("/home/me/openai.key");
-    // One agentd saved without a receipt keeps its path once sync shows it started, after the
-    // dialog was closed too.
-    state.keyFiles["/home/me/later.key"] = {
-      provider: "openai",
-      readable: true,
-      openToOthers: false,
-    };
-    state.start.mockResolvedValue(
-      AsyncResult.success({ id: "hof-789aaa", started: false, note: "Recorded." }),
-    );
+    await using _screen = await renderKeyFileDialog();
     await userEvent.fill(page.getByLabelText("Goal"), "Fix export");
     await userEvent.fill(page.getByLabelText("OpenAI key file path"), "/home/me/later.key");
     await page.getByRole("button", { name: "Start", exact: true }).click();
@@ -1660,10 +1676,7 @@ it("checks each BYOK key file's provider and privacy, and remembers the paths th
     for (const listener of state.rowListeners) listener();
   }
   openStartTaskDialog(threadRef);
-  await using _screen = await renderDialog();
-  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
-  await page.getByRole("combobox", { name: "Model access" }).click();
-  await page.getByRole("option", { name: "Your API key" }).click();
+  await using _screen = await renderKeyFileDialog();
   await expect
     .element(page.getByLabelText("OpenAI key file path"))
     .toHaveValue("/home/me/later.key");
