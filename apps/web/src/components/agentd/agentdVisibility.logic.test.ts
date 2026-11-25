@@ -6,8 +6,11 @@ import {
   offerAccountLink,
   OFFER_AFTER_MS,
   parseDefaultBudget,
+  parseMaxWorkers,
   projectHasRunningWorker,
+  remainingWorkOffer,
   showFirstTaskCard,
+  suggestedMaxWorkers,
   workerOffer,
   workerOfferSignal,
   workerReadiness,
@@ -216,5 +219,74 @@ describe("offerAccountLink", () => {
     [{ supported: false, problem: "setup" }, false],
   ] as const)("%j offers the link step: %s", (account, expected) => {
     expect(offerAccountLink(account)).toBe(expected);
+  });
+});
+
+describe("suggestedMaxWorkers", () => {
+  it.each([
+    [1, 1],
+    [4, 1],
+    [7, 1],
+    [8, 2],
+    [16, 4],
+    [30, 7],
+    [512, 64],
+  ])("%i CPUs suggest %i workers", (cpus, expected) => {
+    expect(suggestedMaxWorkers(cpus)).toBe(expected);
+  });
+});
+
+describe("parseMaxWorkers", () => {
+  it.each([
+    ["3", 3],
+    [" 12 ", 12],
+    ["64", 64],
+    ["0", null],
+    ["65", null],
+    ["2.5", null],
+    ["-1", null],
+    ["", null],
+  ] as const)("%j reads as %s", (text, expected) => {
+    expect(parseMaxWorkers(text)).toBe(expected);
+  });
+});
+
+describe("remainingWorkOffer", () => {
+  const offers = {
+    finalMessage: "Fixed the parser.\n\nStatus: remaining: update the docs",
+    latestTurn: true,
+    turnRunning: false,
+    awaitingUser: false,
+    suggestWorkers: true,
+    agentdSetUp: true,
+    canStartTask: true,
+    hasWorkingDirectory: true,
+    dismissed: false,
+    cloudLinked: false,
+  };
+
+  it("offers the remaining work, with cloud only where Cloud Workers is linked", () => {
+    expect(remainingWorkOffer(offers)).toEqual({ remaining: "update the docs", cloud: false });
+    expect(remainingWorkOffer({ ...offers, cloudLinked: true })).toEqual({
+      remaining: "update the docs",
+      cloud: true,
+    });
+  });
+
+  it.each([
+    [{ finalMessage: "All set.\nStatus: done" }],
+    [{ finalMessage: "Status: blocked: which branch?" }],
+    [{ finalMessage: "There is work remaining." }],
+    [{ finalMessage: "Status: remaining: docs\nThen I stopped." }],
+    [{ latestTurn: false }],
+    [{ turnRunning: true }],
+    [{ awaitingUser: true }],
+    [{ dismissed: true }],
+    [{ suggestWorkers: false }],
+    [{ agentdSetUp: false }],
+    [{ canStartTask: false }],
+    [{ hasWorkingDirectory: false }],
+  ])("%j makes no offer", (change) => {
+    expect(remainingWorkOffer({ ...offers, ...change })).toBeNull();
   });
 });

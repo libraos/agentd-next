@@ -1,3 +1,5 @@
+import * as NodeOS from "node:os";
+
 import {
   AgentdApprovalListJson,
   AgentdCommandError,
@@ -181,6 +183,7 @@ export class AgentdBridge extends Context.Service<
     readonly permissionMode: Effect.Effect<AgentdPermissionModeState, AgentdError>;
     /** Sets it to guarded; the value is fixed, so the app can never raise the mode. */
     readonly lowerPermissionMode: Effect.Effect<AgentdPermissionModeState, AgentdError>;
+    readonly setMaxWorkers: (maxWorkers: number) => Effect.Effect<void, AgentdError>;
   }
 >()("t3/agentd/AgentdBridge") {}
 
@@ -592,6 +595,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       dollarBudgets,
       maxWorkers,
       missingSkills: defaultWorker === null ? null : yield* missingSkills(defaultWorker),
+      ...(status.setUp ? { cpuCount: NodeOS.availableParallelism() } : {}),
       binary: yield* binary,
       install,
       ...(servicesProblem === null ? {} : { servicesProblem }),
@@ -1208,6 +1212,9 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
       Effect.andThen(permissionMode),
       Effect.withSpan("AgentdBridge.lowerPermissionMode"),
     ),
+    setMaxWorkers: Effect.fn("AgentdBridge.setMaxWorkers")(function* (maxWorkers) {
+      yield* run(agentdArgs.setMaxWorkers(maxWorkers));
+    }),
   });
 });
 

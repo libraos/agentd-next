@@ -20,6 +20,13 @@ For a worker on your machine, the working directory must be a Git repository on 
 From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
 checkout alone.
 
+When a turn ends with work the agent says it could not finish, the reply offers **Run locally**,
+**Run in cloud** (once Cloud Workers are set up) and **Keep in chat**. The first two open **Hand to
+a worker** with that work as the goal; nothing starts until you choose **Start**.
+
+**Settings → Workers → Local workers at once** sets how many workers run on your machine at the
+same time. It suggests a number for the machine's CPU cores, used only if you choose it.
+
 In **Background tasks**, a queued local task with no agent chosen waits until someone
 starts it. Use **Start with…** to choose an agent for the working directory shown in the
 menu, or **Stop** to cancel the task. Tasks addressed to a recipient or waiting for a remote

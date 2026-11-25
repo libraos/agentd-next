@@ -18,6 +18,7 @@ import { SettingsPageContainer, SettingsRow, SettingsSection } from "../settings
 import { AgentdStatusLines, useCloudWorkersLinked } from "./AgentdIndicator";
 import { useAgentdState } from "./WorkerReadiness";
 import { openAgentdSetupDialog, useCanSetUpAgentd } from "./AgentdSetupDialog";
+import { LocalWorkerLimitRow } from "./LocalWorkerLimitRow";
 import { WorkerGatewaySettings } from "./WorkerGatewaySettings";
 import { WorkerPermissionModeRow } from "./WorkerPermissionMode";
 import { parseDefaultBudget } from "./agentdVisibility.logic";
@@ -119,6 +120,17 @@ export function WorkersSettings() {
             </Select>
           }
         />
+        {status?.setUp === true &&
+        environmentId !== null &&
+        status.maxWorkers !== undefined &&
+        status.maxWorkers !== null ? (
+          <LocalWorkerLimitRow
+            key={status.maxWorkers}
+            environmentId={environmentId}
+            maxWorkers={status.maxWorkers}
+            cpuCount={status.cpuCount ?? null}
+          />
+        ) : null}
         <DefaultBudgetRow
           key={budget}
           budget={budget}

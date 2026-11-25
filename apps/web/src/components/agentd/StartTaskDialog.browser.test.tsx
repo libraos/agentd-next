@@ -363,6 +363,19 @@ it("starts nothing while the worker is not signed in, and names the sign-in and 
     .toBeVisible();
   await expect.element(page.getByText("claude auth login")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  // A turn's Run locally opens the same dialog, so the same check holds it.
+  openStartTaskDialog(
+    threadRef,
+    { ...EMPTY_TASK_FIELDS, goal: "Update the docs" },
+    { runOn: "local", suggestCheck: true },
+  );
+  await expect.element(page.getByText("Update the docs").first()).toBeVisible();
+  await expect
+    .element(page.getByText("Claude Code is not signed in: not logged in, and neither is codex"))
+    .toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
   expect(state.start).not.toHaveBeenCalled();
 });
 
@@ -616,6 +629,24 @@ it("fills where and with what budget a task runs from Settings → Workers", asy
   await expect.element(page.getByLabelText("Time limit in minutes (optional)")).toHaveValue("45");
   await option.click();
   await expect.element(option).not.toBeChecked();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  // A turn's Run locally or Run in cloud chooses over Settings, and the check is still suggested.
+  state.defaults = { estimate: null, check: "go test ./..." };
+  for (const runOn of ["local", "cloud"] as const) {
+    openStartTaskDialog(
+      threadRef,
+      { ...EMPTY_TASK_FIELDS, goal: "Update the docs" },
+      { runOn, suggestCheck: true },
+    );
+    await expect.element(page.getByText("Update the docs")).toBeVisible();
+    await page.getByRole("button", { name: "Edit" }).click();
+    await expect.element(page.getByLabelText(/^Check command/)).toHaveValue("go test ./...");
+    const choice = page.getByRole("checkbox", { name: "Run in the cloud" });
+    if (runOn === "cloud") await expect.element(choice).toBeChecked();
+    else await expect.element(choice).not.toBeChecked();
+    await page.getByRole("button", { name: "Cancel" }).click();
+  }
 });
 
 it("checks an unknown cloud outcome before retrying and can replace an earlier submission", async () => {

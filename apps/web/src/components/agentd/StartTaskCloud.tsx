@@ -5,6 +5,7 @@ import {
   EnvironmentAuthorizationError,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   type AgentdCloudPlan,
+  type AgentdRunTasksOn,
   type AgentdCloudTaskInput,
   type AgentdTaskEstimate,
   type EnvironmentId,
@@ -68,9 +69,12 @@ export function useStartTaskCloud(
   {
     estimate,
     gatewayConnected,
+    runOn,
   }: {
     readonly estimate: Pick<AgentdTaskEstimate, "high"> | null;
     readonly gatewayConnected: boolean;
+    /** Where the person asked this task to run; else Settings → Workers chooses. */
+    readonly runOn?: AgentdRunTasksOn | undefined;
   },
 ) {
   const workerDefaults = useWorkerDefaults();
@@ -78,7 +82,7 @@ export function useStartTaskCloud(
     agentdEnvironment.cloudKeyFileFix.permissionAtom(environmentId),
   );
   // Settings → Workers chooses where a task starts; the checkbox still overrides it per task.
-  const [requested, setRequested] = useState(workerDefaults.runTasksOn === "cloud");
+  const [requested, setRequested] = useState((runOn ?? workerDefaults.runTasksOn) === "cloud");
   const availability = useAgentdCloudSetup(cwd, environmentId, false);
   const billing = useAgentdCloudSetup(
     requested && availability.data?.project ? cwd : null,

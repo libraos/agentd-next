@@ -428,6 +428,7 @@ import {
   AgentdEula,
   AgentdWorkerGateway,
   AgentdWorkerGatewayInput,
+  AgentdSetMaxWorkersInput,
   AgentdSetupState,
   AgentdSetupStartInput,
   AgentdPermissionModeState,
@@ -828,6 +829,7 @@ export const WS_METHODS = {
   agentdSubscribeSetup: "agentd.subscribeSetup",
   agentdPermissionMode: "agentd.permissionMode",
   agentdLowerPermissionMode: "agentd.lowerPermissionMode",
+  agentdSetMaxWorkers: "agentd.setMaxWorkers",
   agentdSkillsList: "agentd.skillsList",
   agentdSkillsInstall: "agentd.skillsInstall",
   agentdSkillsRemove: "agentd.skillsRemove",
@@ -2720,6 +2722,12 @@ const WsAgentdLowerPermissionModeRpc = Rpc.make(WS_METHODS.agentdLowerPermission
   error: AgentdRpcError,
 });
 
+const WsAgentdSetMaxWorkersRpc = Rpc.make(WS_METHODS.agentdSetMaxWorkers, {
+  payload: AgentdSetMaxWorkersInput,
+  success: Schema.Void,
+  error: AgentdRpcError,
+});
+
 const AgentdSkillsRpcError = Schema.Union([AgentdSkillError, EnvironmentAuthorizationError]);
 
 const WsAgentdSkillsListRpc = Rpc.make(WS_METHODS.agentdSkillsList, {
@@ -3137,6 +3145,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdSetupStartRpc,
   WsAgentdPermissionModeRpc,
   WsAgentdLowerPermissionModeRpc,
+  WsAgentdSetMaxWorkersRpc,
   WsAgentdSkillsListRpc,
   WsAgentdSkillsInstallRpc,
   WsAgentdSkillsRemoveRpc,

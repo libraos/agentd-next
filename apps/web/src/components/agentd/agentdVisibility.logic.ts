@@ -1,11 +1,13 @@
-import type {
-  AgentdCloudSetup,
-  AgentdDoctorCheck,
-  AgentdRunTasksOn,
-  AgentdStatus,
-  AgentdTaskRow,
-  AgentdWorkerTool,
+import {
+  AGENTD_MAX_WORKERS_LIMIT,
+  type AgentdCloudSetup,
+  type AgentdDoctorCheck,
+  type AgentdRunTasksOn,
+  type AgentdStatus,
+  type AgentdTaskRow,
+  type AgentdWorkerTool,
 } from "@t3tools/contracts";
+import { parseCompletionStatus } from "@t3tools/shared/orchestrationV2AutoContinuation";
 
 import type { taskBranchProblem } from "./startTask.logic";
 
@@ -171,4 +173,42 @@ export function offerAccountLink(
 ): boolean | null {
   if (account === null || account === undefined) return null;
   return account.supported && account.problem === "setup";
+}
+
+/** A local worker limit for this many CPUs: one worker per four cores, at least one. */
+export function suggestedMaxWorkers(cpuCount: number): number {
+  return Math.min(AGENTD_MAX_WORKERS_LIMIT, Math.max(1, Math.floor(cpuCount / 4)));
+}
+
+/** A typed local worker limit, or null when it is not a whole number agentd takes. */
+export function parseMaxWorkers(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d{1,3}$/.test(trimmed)) return null;
+  const max = Number(trimmed);
+  return max >= 1 && max <= AGENTD_MAX_WORKERS_LIMIT ? max : null;
+}
+
+/**
+ * The offer under a finished turn whose status line says work is left: hand it to a worker here
+ * or in Cloud Workers, or keep it in the chat. Only the thread's latest turn, once it is idle.
+ */
+export function remainingWorkOffer(input: {
+  /** The turn's final assistant message as stored, status line included. */
+  readonly finalMessage: string;
+  readonly latestTurn: boolean;
+  readonly turnRunning: boolean;
+  readonly awaitingUser: boolean;
+  readonly suggestWorkers: boolean;
+  readonly agentdSetUp: boolean;
+  readonly canStartTask: boolean;
+  readonly hasWorkingDirectory: boolean;
+  readonly dismissed: boolean;
+  readonly cloudLinked: boolean;
+}): { readonly remaining: string; readonly cloud: boolean } | null {
+  if (!input.latestTurn || input.turnRunning || input.awaitingUser || input.dismissed) return null;
+  if (!input.suggestWorkers || !input.agentdSetUp || !input.canStartTask) return null;
+  if (!input.hasWorkingDirectory) return null;
+  const status = parseCompletionStatus(input.finalMessage);
+  if (status?.type !== "remaining") return null;
+  return { remaining: status.detail, cloud: input.cloudLinked };
 }
