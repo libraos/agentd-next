@@ -40,7 +40,7 @@ agentd/scripts/sync-upstream.sh             # merge into a new branch sync/upstr
 
 The script fetches `upstream`, reports how many commits we are behind and ahead, and lists the files changed both by us and by upstream since the merge base: those are where conflicts and silent breakage come from. Without `--dry-run` it creates `sync/upstream-<date>` from the current commit and merges `upstream/main` into it. It never pushes and never touches `main`. `--dry-run` changes no branch, index or working tree; it only updates the `upstream/main` remote-tracking ref (`--no-fetch` skips even that).
 
-After the merge: resolve conflicts, run `vp i`, run `vp run check:changed` and the tests near each conflicted file, then open a pull request from the sync branch to `main`. Merge it with a merge commit, not a squash, so the next merge base is upstream's commit.
+After the merge: resolve conflicts, run `vp i`, run `vp run check:changed` and the tests near each conflicted file, then open a pull request from the sync branch to `main` once [the checks below](#before-merging-a-sync) pass. Merge it with a merge commit, not a squash, so the next merge base is upstream's commit.
 
 ## Resolving the usual conflicts
 
@@ -50,6 +50,22 @@ After the merge: resolve conflicts, run `vp i`, run `vp run check:changed` and t
 - `AGENTS.md`: keep our own section at the top and take upstream's text for the rest.
 - `README.md` is ours entirely; `LICENSE` is upstream's and never changes here.
 - Translation catalogs (`*/i18n/translations/*.json`): take upstream's, then regenerate once with `vp run i18n:generate` and translate our keys.
+
+## Before merging a sync
+
+Every sync gets the full tests and a security check before its pull request merges.
+
+- **Tests.** Run the whole `check-changed` with an hour per step: `node scripts/check-changed.ts --timeout 3600 origin/main`. The default 900 seconds is too short for a sync's test step, which then never runs. Run each failing file on `main` too: a test that passes there and fails on the branch is the sync's to fix, in code first, in the test only where our patch changes the behaviour (record why in the sync's note).
+- **Security.** Review what upstream changed since the merge base, and how the merge resolved it:
+  - new process launches, shell use, and commands read from repository files (`t3.json`, project settings, manifests);
+  - new RPC methods, HTTP routes and MCP tools, and the scope each one needs;
+  - new outbound endpoints, telemetry or uploads (our builds contact no upstream hosted service by default and read no other app's login files);
+  - file access outside the workspace, archive and XML parsing;
+  - inbound webhooks, and URLs the server fetches for a client;
+  - new dependencies, release-age exemptions and CI workflows;
+  - upstream's own security fixes in the range, each still present after the merge.
+
+  Note the result in the sync's `agentd/patches/sync-<date>.md`, and file what is left as issues.
 
 ## Versions
 
