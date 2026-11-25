@@ -4,10 +4,12 @@ import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime"
 import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
 import {
   type AgentdBlockingTask,
+  AgentdCommandError,
   type EnvironmentId,
   type MessageId,
   type ScopedThreadRef,
 } from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
 import { Atom } from "effect/reactivity";
 import { T, useGT } from "gt-react";
 import { type ReactNode, useId, useState } from "react";
@@ -61,6 +63,8 @@ import {
   useTaskDirectory,
   useTaskPlan,
 } from "./taskPlan";
+
+const isCommandError = Schema.is(AgentdCommandError);
 
 const dialogState = Atom.make<{
   readonly threadRef: ScopedThreadRef;
@@ -195,7 +199,9 @@ function StartTaskDialog({
   const [privateFile, setPrivateFile] = useState<string | null>(null);
   const [fixingFile, setFixingFile] = useState(false);
   const [untrustedFolder, setUntrustedFolder] = useState<string | null>(null);
-  const { cloudKeyFileFix } = useAgentdCommands();
+  const { cloudKeyFileFix, retryStart } = useAgentdCommands();
+  const canRetry = useAtomValue(agentdEnvironment.retryStart.permissionAtom(environmentId));
+  const [retrying, setRetrying] = useState(false);
   const projection = useThreadProjection(draft === null ? null : threadRef)?.projection;
   const reply = draft === null ? null : conversationTaskDraft(projection, draft.messageId);
   const drafting = reply?.kind === "waiting";
@@ -259,6 +265,9 @@ function StartTaskDialog({
     (cloud.waiting && cloud.unreachable) ||
     (cloud.enabled && !cloud.budgetValid);
   const disabled = starting || drafting || offeredId !== null || !plan.ready;
+  // A local task agentd saved but didn't dispatch: Retry dispatches it, never offering it again.
+  const retryable =
+    offeredId !== null && blocking === null && !cloud.enabled && worker !== null && canRetry;
   const missing = disabled && !starting && !drafting && offeredId === null ? plan.missing : null;
   // agentd's own refusal is raw CLI text: one plain line, the rest folded below it.
   const refusal = offeredId !== null && startError !== null ? refusalLine(startError) : null;
@@ -349,6 +358,32 @@ function StartTaskDialog({
     });
   }
 
+  async function retry(trustedFolder?: string) {
+    if (!retryable || retrying) return;
+    setRetrying(true);
+    setUntrustedFolder(null);
+    const result = await retryStart({
+      environmentId,
+      input: {
+        id: offeredId,
+        worker,
+        action: "queued",
+        ...(trustedFolder ? { trustedFolder } : {}),
+      },
+    });
+    setRetrying(false);
+    if (result._tag === "Success") {
+      settle({ kind: result.value.started ? "started" : "offered", task: result.value });
+      return;
+    }
+    const failure = squashAtomCommandFailure(result);
+    if (isCommandError(failure) && failure.untrustedFolder !== undefined) {
+      setUntrustedFolder(failure.untrustedFolder);
+      return;
+    }
+    setStartError(showFailure(failure, gt("LibraOS Core could not start the task.")));
+  }
+
   function fieldProps(field: keyof TaskFields, reason: string | null) {
     const fieldId = `${id}-${field}`;
     return {
@@ -375,7 +410,7 @@ function StartTaskDialog({
         if (!open && !plan.startingRef.current) onClose();
       }}
     >
-      <DialogPopup showCloseButton={!starting}>
+      <DialogPopup showCloseButton={!starting && !retrying}>
         <DialogHeader>
           <DialogTitle>
             <T>Hand to a worker</T>
@@ -649,9 +684,14 @@ function StartTaskDialog({
               {missing}
             </p>
           ) : null}
-          <Button type="button" variant="outline" disabled={starting} onClick={onClose}>
+          <Button type="button" variant="outline" disabled={starting || retrying} onClick={onClose}>
             {offeredId === null ? <T>Cancel</T> : <T>Close</T>}
           </Button>
+          {retryable && (
+            <Button type="button" disabled={retrying} onClick={() => void retry()}>
+              {retrying ? <T>Starting…</T> : <T>Retry</T>}
+            </Button>
+          )}
           {offeredId === null && (
             <Button
               type="button"
@@ -675,7 +715,9 @@ function StartTaskDialog({
         </DialogFooter>
         <ClaudeTrustDialog
           folder={untrustedFolder}
-          onTrust={() => submit(null, true)}
+          onTrust={() =>
+            offeredId === null ? submit(null, true) : void retry(untrustedFolder ?? undefined)
+          }
           onCancel={() => setUntrustedFolder(null)}
         />
       </DialogPopup>

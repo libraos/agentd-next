@@ -36,6 +36,7 @@ import { TaskDraftCard } from "./TaskDraftCard";
 
 const state = vi.hoisted(() => ({
   start: vi.fn(),
+  retryStart: vi.fn(),
   configure: vi.fn(),
   cloudRefresh: vi.fn(),
   refresh: vi.fn(),
@@ -68,6 +69,7 @@ vi.mock("~/lib/agentdState", async () => {
   return {
     agentdEnvironment: {
       startTask: { permissionAtom: () => allowed },
+      retryStart: { permissionAtom: () => allowed },
       cloudConfigure: { permissionAtom: () => allowed, label: "cloud-configure" },
       cloudKeyFileFix: { permissionAtom: () => allowed },
     },
@@ -96,7 +98,10 @@ vi.mock("~/lib/agentdState", async () => {
         refresh,
       };
     },
-    useAgentdCommands: () => ({ cloudKeyFileFix: state.fixKeyFile }),
+    useAgentdCommands: () => ({
+      cloudKeyFileFix: state.fixKeyFile,
+      retryStart: state.retryStart,
+    }),
     useAgentdCloudAccount: () => ({
       data: state.cloud,
       error: null,
@@ -178,6 +183,7 @@ function setup(
   state.draft = false;
   useComposerDraftStore.setState({ draftThreadsByThreadKey: {} });
   state.start.mockReset();
+  state.retryStart.mockReset();
   state.configure.mockReset();
   state.cloudRefresh.mockReset();
   state.refresh
@@ -320,6 +326,61 @@ it("asks before a Claude worker runs in an untrusted folder, and starts only on 
     environmentId: thread.environmentId,
     input: expect.objectContaining({ worker: "claude", trustClaudeFolder: true }),
   });
+});
+
+it("retries a task agentd offered but didn't dispatch as the same task, never offering it again", async () => {
+  setup("feature/export");
+  const offered = (note: string) =>
+    AsyncResult.success({ id: "hof-123abc", started: false, note } satisfies AgentdStartTaskResult);
+  state.start.mockResolvedValueOnce(offered("Worker is not connected."));
+  state.retryStart
+    .mockResolvedValueOnce(offered("Worker is still not connected."))
+    .mockResolvedValueOnce(
+      AsyncResult.failure(
+        Cause.fail(new AgentdCommandError({ message: "agentd is not running.", notSetUp: false })),
+      ),
+    )
+    .mockResolvedValueOnce(
+      AsyncResult.success({
+        id: "hof-123abc",
+        started: true,
+        note: null,
+      } satisfies AgentdStartTaskResult),
+    );
+  await using _screen = await renderDialog();
+  await fillTask();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  const alert = page.getByRole("alert");
+  await expect
+    .element(alert.getByText("Task hof-123abc was offered but did not start."))
+    .toBeVisible();
+  await expect.element(alert.getByText("Worker is not connected.")).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Start", exact: true }))
+    .not.toBeInTheDocument();
+  const retry = page.getByRole("button", { name: "Retry" });
+  await expect.element(retry).toBeEnabled();
+  expect(retry.element().previousElementSibling?.textContent).toBe("Close");
+
+  await retry.click();
+  await expect.element(alert.getByText("Worker is still not connected.")).toBeVisible();
+  await retry.click();
+  await expect.element(alert.getByText("agentd is not running.")).toBeVisible();
+  await expect
+    .element(alert.getByText("Task hof-123abc was offered but did not start."))
+    .toBeVisible();
+  await retry.click();
+  await expect.element(page.getByText("Started task hof-123abc.")).toBeVisible();
+  await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+  expect(state.start).toHaveBeenCalledTimes(1);
+  expect(state.retryStart.mock.calls).toEqual(
+    Array.from({ length: 3 }, () => [
+      {
+        environmentId: thread.environmentId,
+        input: { id: "hof-123abc", worker: "opencode", action: "queued" },
+      },
+    ]),
+  );
 });
 
 it("starts a cloud task with a dollar cap and a provider key path, without the local branch gate", async () => {
