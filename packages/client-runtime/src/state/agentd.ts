@@ -274,6 +274,15 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdLowerPermissionMode,
       scheduler,
     }),
+    setMaxWorkers: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:set-max-workers",
+      tag: WS_METHODS.agentdSetMaxWorkers,
+      scheduler,
+      onSettled: (target, registry) =>
+        Effect.sync(() =>
+          registry.refresh(status({ environmentId: target.environmentId, input: {} })),
+        ),
+    }),
     // A backup of this computer's agentd memory, encrypted to the asking device's public key.
     backupCreate: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:backup-create",

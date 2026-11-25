@@ -13554,5 +13554,16 @@
   "1a52fbc8aa1453cd": "Sign in on the environment:",
   "5bd250b220ee92e3": "This project is not a Git repository.",
   "abd3e4b0ab4573a3": "Workers commit their work on a branch. Run this in the project folder, then make a first commit:",
-  "91da9ae63a2721e1": "To add them, run this on the environment:"
+  "91da9ae63a2721e1": "To add them, run this on the environment:",
+  "9b41cfc6a42a5187": "Local workers at once",
+  "0ed3af8010b5b837": "Enter a whole number from 1 to 64.",
+  "68dbb020108c4406": "Suggested for this machine’s {cpuCount} CPU cores: {suggested}.",
+  "cd044bb9c4bcb299": "Use {suggested}",
+  "079a0da47fea549a": "How many workers may run on this machine at the same time.",
+  "d0e094905eebd4ed": "Work left",
+  "733d7868da104e3b": "The agent says work is left",
+  "2de9a58927866c76": "Hand it to a worker, or keep going in this chat. Nothing starts until you confirm.",
+  "ba3c32789a5c3863": "Run locally",
+  "9bef49e4dda4870b": "Run in cloud",
+  "25d7a2ef0703a41a": "Keep in chat"
 }

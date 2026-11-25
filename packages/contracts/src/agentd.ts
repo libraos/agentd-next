@@ -320,6 +320,8 @@ export const AgentdStatus = Schema.Struct({
   dollarBudgets: Schema.optionalKey(Schema.NullOr(Schema.Boolean)),
   /** `dispatch.max_workers`: how many local workers may run at once. Null when agentd did not say. */
   maxWorkers: Schema.optionalKey(Schema.NullOr(Schema.Number)),
+  /** CPUs on the machine local workers run on, for a suggested `maxWorkers`. */
+  cpuCount: Schema.optionalKey(Schema.Number),
   teamServer: NullableString,
   checks: Schema.Array(AgentdDoctorCheck),
   /** The agentd binary the app runs. */
@@ -356,6 +358,14 @@ export const AgentdWorkerGatewayInput = Schema.Struct({
   ),
 });
 export type AgentdWorkerGatewayInput = typeof AgentdWorkerGatewayInput.Type;
+
+export const AGENTD_MAX_WORKERS_LIMIT = 64;
+
+/** `dispatch.max_workers`: how many local workers may run at once. */
+export const AgentdSetMaxWorkersInput = Schema.Struct({
+  maxWorkers: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: AGENTD_MAX_WORKERS_LIMIT })),
+});
+export type AgentdSetMaxWorkersInput = typeof AgentdSetMaxWorkersInput.Type;
 
 /** Where a task's worker runs: this machine, a team node that leased it, or agentd's cloud. */
 export const AgentdRunsOn = Schema.Literals(["local", "team", "cloud"]);

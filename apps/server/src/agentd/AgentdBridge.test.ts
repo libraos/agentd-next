@@ -1,3 +1,5 @@
+import * as NodeOS from "node:os";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -209,6 +211,7 @@ describe("AgentdBridge", () => {
         dollarBudgets: false,
         maxWorkers: 2,
         missingSkills: ["agentd-setup"],
+        cpuCount: NodeOS.availableParallelism(),
         teamServer: "https://team.example:8443/agentd",
         firstSetup: false,
         checks: [
@@ -358,6 +361,20 @@ describe("AgentdBridge", () => {
       expect(calls.filter((call) => call.startsWith("config set"))).toEqual([
         "config set dispatch.permission_mode guarded",
       ]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("sets the local worker limit with the number given", () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const bridge = yield* makeBridge({ AGENTD_BIN: process.execPath }, (input) => {
+        const key = input.args.join(" ");
+        calls.push(key);
+        if (key === "config set dispatch.max_workers 3") return Effect.succeed(output(""));
+        return Effect.die(`unexpected agentd ${key}`);
+      });
+      yield* bridge.setMaxWorkers(3);
+      expect(calls).toEqual(["config set dispatch.max_workers 3"]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

@@ -13546,5 +13546,16 @@
   "1a52fbc8aa1453cd": "Melde dich in der Umgebung an:",
   "5bd250b220ee92e3": "Dieses Projekt ist kein Git-Repository.",
   "abd3e4b0ab4573a3": "Worker committen ihre Arbeit auf einem Branch. Führe dies im Projektordner aus und erstelle dann einen ersten Commit:",
-  "91da9ae63a2721e1": "Um sie hinzuzufügen, führe dies in der Umgebung aus:"
+  "91da9ae63a2721e1": "Um sie hinzuzufügen, führe dies in der Umgebung aus:",
+  "9b41cfc6a42a5187": "Lokale Worker gleichzeitig",
+  "0ed3af8010b5b837": "Gib eine ganze Zahl von 1 bis 64 ein.",
+  "68dbb020108c4406": "Vorschlag für die {cpuCount} CPU-Kerne dieses Rechners: {suggested}.",
+  "cd044bb9c4bcb299": "{suggested} verwenden",
+  "079a0da47fea549a": "Wie viele Worker auf diesem Rechner gleichzeitig laufen dürfen.",
+  "d0e094905eebd4ed": "Verbleibende Arbeit",
+  "733d7868da104e3b": "Laut Agent ist noch Arbeit übrig",
+  "2de9a58927866c76": "Gib sie an einen Worker ab oder mach in diesem Chat weiter. Nichts startet, bevor du bestätigst.",
+  "ba3c32789a5c3863": "Lokal ausführen",
+  "9bef49e4dda4870b": "In der Cloud ausführen",
+  "25d7a2ef0703a41a": "Im Chat bleiben"
 }

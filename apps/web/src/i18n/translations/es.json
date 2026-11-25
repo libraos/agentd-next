@@ -13541,5 +13541,16 @@
   "1a52fbc8aa1453cd": "Inicia sesión en el entorno:",
   "5bd250b220ee92e3": "Este proyecto no es un repositorio Git.",
   "abd3e4b0ab4573a3": "Los workers confirman su trabajo en una rama. Ejecuta esto en la carpeta del proyecto y luego haz un primer commit:",
-  "91da9ae63a2721e1": "Para añadirlos, ejecuta esto en el entorno:"
+  "91da9ae63a2721e1": "Para añadirlos, ejecuta esto en el entorno:",
+  "9b41cfc6a42a5187": "Workers locales a la vez",
+  "0ed3af8010b5b837": "Escribe un número entero del 1 al 64.",
+  "68dbb020108c4406": "Sugerido para los {cpuCount} núcleos de CPU de esta máquina: {suggested}.",
+  "cd044bb9c4bcb299": "Usar {suggested}",
+  "079a0da47fea549a": "Cuántos workers pueden ejecutarse a la vez en esta máquina.",
+  "d0e094905eebd4ed": "Trabajo pendiente",
+  "733d7868da104e3b": "El agente indica que queda trabajo",
+  "2de9a58927866c76": "Pásalo a un worker o sigue en este chat. Nada empieza hasta que lo confirmes.",
+  "ba3c32789a5c3863": "Ejecutar en local",
+  "9bef49e4dda4870b": "Ejecutar en la nube",
+  "25d7a2ef0703a41a": "Seguir en el chat"
 }
