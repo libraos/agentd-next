@@ -11369,7 +11369,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             : command.feedbackStatus === "sent"
               ? "completed"
               : "cancelled",
-          title: "Feedback for the T3 team",
+          title: "Feedback for the LibraOS Next team",
           startedAt: existing?.startedAt ?? now,
           completedAt: pending ? null : now,
           updatedAt: now,
