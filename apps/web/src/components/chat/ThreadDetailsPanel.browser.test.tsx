@@ -273,7 +273,7 @@ it("shows a linked pull request in a folder that is not a git repository", async
   await expect.element(page.getByText("Not reported by this agent")).toBeVisible();
   await expect.element(page.getByRole("heading", { name: "Outputs" })).toBeVisible();
   const tasks = page.getByRole("region", { name: "Background tasks" });
-  await expect.element(tasks.getByText("LibraOS Core was not found.")).toBeVisible();
+  await expect.element(tasks.getByText("LibraOS Engine was not found.")).toBeVisible();
   await expect.element(tasks.getByText(/finished/)).not.toBeInTheDocument();
   await expect.element(page.getByText("#27513")).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Initialize Git" })).toBeVisible();

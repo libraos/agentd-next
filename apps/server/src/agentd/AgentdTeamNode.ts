@@ -168,9 +168,11 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
             }),
           )
           .pipe(
-            Effect.mapError(() => commandError(`LibraOS Core at ${binary} could not be started.`)),
+            Effect.mapError(() =>
+              commandError(`LibraOS Engine at ${binary} could not be started.`),
+            ),
             Effect.catchDefect(() =>
-              Effect.fail(commandError("LibraOS Core could not be started.")),
+              Effect.fail(commandError("LibraOS Engine could not be started.")),
             ),
           );
         yield* SubscriptionRef.update(node, (n): Node => ({ ...n, state: "waiting", note: null }));
@@ -191,7 +193,7 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
           );
         yield* Effect.all([read(child.stdout), read(child.stderr)], { concurrency: 2 });
         const code = yield* child.exitCode.pipe(Effect.orElseSucceed(() => null));
-        return said || `LibraOS Core worker ended (${code ?? "unknown"}).`;
+        return said || `LibraOS Engine worker ended (${code ?? "unknown"}).`;
       }),
     );
 
@@ -210,7 +212,7 @@ const make = Effect.fn("AgentdTeamNode.make")(function* () {
       const note = Exit.isSuccess(exit)
         ? exit.value
         : Exit.findErrorOption(exit).pipe((error) =>
-            error._tag === "Some" ? error.value.message : "LibraOS Core worker failed.",
+            error._tag === "Some" ? error.value.message : "LibraOS Engine worker failed.",
           );
       yield* SubscriptionRef.update(node, (n): Node => ({
         ...n,

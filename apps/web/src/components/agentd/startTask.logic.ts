@@ -106,7 +106,7 @@ export function taskBranchProblem(status: {
   return null;
 }
 
-export const TASK_DRAFT_PROMPT = `Draft a LibraOS Core worker task from this conversation. Draft only: do not call tools, run commands, change files, create or dispatch a task, or request approval. I will review the fields myself.
+export const TASK_DRAFT_PROMPT = `Draft a LibraOS Engine worker task from this conversation. Draft only: do not call tools, run commands, change files, create or dispatch a task, or request approval. I will review the fields myself.
 Respond with only a JSON object in this exact shape:
 {"goal":"","accept":[],"check":"","worker":null,"budget":"","issue":"","size":""}
 Write up to ${TASK_ACCEPT_LIMIT} acceptance criteria as an array of single-line strings. Suggest a check command but do not run it. Leave the budget and issue empty unless we discussed them. A budget uses minutes (30m), dollars ($2), or both (30m,$2); an issue uses OWNER/REPO#123. Leave worker null unless I asked for claude, codex, or opencode. Set size to "small" for a small fix or test, "feature" for a feature or integration, "complex" for a larger change, or "" if unsure. Use empty strings for unknown fields.`;

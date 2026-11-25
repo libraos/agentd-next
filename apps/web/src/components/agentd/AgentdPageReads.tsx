@@ -14,7 +14,7 @@ export function AgentdReadError({ error }: { error: string }) {
   return (
     <Alert variant="error">
       <AlertTitle>
-        <T>Couldn't read LibraOS Core</T>
+        <T>Couldn't read LibraOS Engine</T>
       </AlertTitle>
       <AlertDescription>{error}</AlertDescription>
     </Alert>
@@ -88,7 +88,7 @@ export function AgentdStatusDetails({
       {!status.setUp ? (
         <Alert variant="warning">
           <AlertTitle>
-            <T>LibraOS Core is not set up</T>
+            <T>LibraOS Engine is not set up</T>
           </AlertTitle>
           <AlertDescription>
             <p>
@@ -98,7 +98,7 @@ export function AgentdStatusDetails({
             </p>
             {onSetUp ? (
               <Button className="mt-2" size="sm" variant="outline" onClick={onSetUp}>
-                <T>Set up LibraOS Core</T>
+                <T>Set up LibraOS Engine</T>
               </Button>
             ) : null}
           </AlertDescription>

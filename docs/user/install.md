@@ -46,15 +46,15 @@ the first time you open the app. On macOS, try to open the app once, then use
 **More info → Run anyway** in the SmartScreen dialog. Do not override a malware
 warning or a block your organization enforces.
 
-The installers include LibraOS Core and its Skills. LibraOS Next is not in app stores
+The installers include LibraOS Engine and its Skills. LibraOS Next is not in app stores
 or package managers such as Homebrew, winget, the AUR or nixpkgs; the packages
 there are upstream's and not part of LibraOS Next.
 
-If Claude Code, Codex or opencode was connected to LibraOS Core (formerly
-agentd) by an earlier install whose copy is no longer there (for example AgentD
-Desktop's), LibraOS Next connects that agent again once, with the LibraOS Core it
-carries. An agent you never connected, or one connected to a copy that is still
-there, is left as it is; if the repair fails, LibraOS Core shows "needs attention"
+If Claude Code, Codex or opencode was connected to LibraOS Engine (formerly LibraOS Core,
+and agentd before that) by an earlier install whose copy is no longer there (for
+example AgentD Desktop's), LibraOS Next connects that agent again once, with the
+LibraOS Engine it carries. An agent you never connected, or one connected to a copy that is still
+there, is left as it is; if the repair fails, LibraOS Engine shows "needs attention"
 with its own fix.
 
 ### Linux

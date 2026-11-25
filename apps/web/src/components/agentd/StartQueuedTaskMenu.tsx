@@ -61,7 +61,7 @@ export function StartQueuedTaskMenu({
     setError(
       result.started || blocking
         ? null
-        : (result.note ?? gt("LibraOS Core could not start the task.")),
+        : (result.note ?? gt("LibraOS Engine could not start the task.")),
     );
   };
 

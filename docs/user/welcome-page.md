@@ -71,7 +71,7 @@ to the same gateway. In the model picker, look for the gateway name to select
 the instance that uses it.
 
 **Join a team** takes a **Team invitation link** from your team and enrolls this
-device with its LibraOS Core server. Joining needs maintenance access to the
+device with its LibraOS Engine server. Joining needs maintenance access to the
 environment.
 
 ## The `libraos-next` command

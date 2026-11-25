@@ -367,7 +367,7 @@ function GatewayConnectPanel({
             </T>
           ) : (
             <T>
-              In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Core
+              In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Engine
               workers use the Gateway too, so tasks accept dollar budgets.
             </T>
           )}
@@ -376,9 +376,9 @@ function GatewayConnectPanel({
           <div className="space-y-1">
             <p className="text-muted-foreground">
               {status.agentd.ok ? (
-                <T>LibraOS Core is set up to use the Gateway.</T>
+                <T>LibraOS Engine is set up to use the Gateway.</T>
               ) : (
-                <T>LibraOS Core did not take the key. What it said:</T>
+                <T>LibraOS Engine did not take the key. What it said:</T>
               )}
             </p>
             {status.agentd.ok || status.agentd.output === "" ? null : (

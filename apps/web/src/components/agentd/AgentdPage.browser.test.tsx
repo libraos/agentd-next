@@ -26,20 +26,20 @@ function AgentdEntryPoints() {
   );
 }
 
-it("opens LibraOS Core from the sidebar footer and the command palette", async () => {
+it("opens LibraOS Engine from the sidebar footer and the command palette", async () => {
   useCommandPaletteStore.setState(useCommandPaletteStore.getInitialState(), true);
   await using screen = await render(<AgentdEntryPoints />);
-  const dialog = page.getByRole("dialog", { name: "LibraOS Core" });
+  const dialog = page.getByRole("dialog", { name: "LibraOS Engine" });
 
-  await screen.getByRole("button", { name: "LibraOS Core", exact: true }).click();
+  await screen.getByRole("button", { name: "LibraOS Engine", exact: true }).click();
   await expect.element(dialog.getByRole("heading", { name: "Status" })).toBeVisible();
   expect(screen.router?.state.location.pathname).toBe("/agentd");
   await dialog.getByRole("button", { name: "Close" }).click();
   await expect.element(dialog).not.toBeInTheDocument();
   expect(screen.router?.state.location.pathname).toBe("/");
 
-  openCommandPalette({ query: "Open LibraOS Core" });
-  await page.getByRole("option", { name: "Open LibraOS Core" }).click();
+  openCommandPalette({ query: "Open LibraOS Engine" });
+  await page.getByRole("option", { name: "Open LibraOS Engine" }).click();
   await expect.element(dialog.getByRole("heading", { name: "Status" })).toBeVisible();
   expect(screen.router?.state.location.pathname).toBe("/agentd");
 });

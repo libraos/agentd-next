@@ -178,21 +178,21 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
         {failure?._tag === "AgentdNotFoundError" && failure.bundled ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              LibraOS Next carries its own LibraOS Core, and it could not be run. Reinstall LibraOS
-              Next to restore it.
+              LibraOS Next carries its own LibraOS Engine, and it could not be run. Reinstall
+              LibraOS Next to restore it.
             </T>
           </p>
         ) : failure?._tag === "AgentdNotFoundError" ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              LibraOS Core was not found in this environment. Follow the{" "}
+              LibraOS Engine was not found in this environment. Follow the{" "}
               <a
                 className="text-foreground underline"
                 href="https://github.com/libraos/engine#installation"
                 target="_blank"
                 rel="noreferrer"
               >
-                LibraOS Core installation guide
+                LibraOS Engine installation guide
               </a>{" "}
               and make sure the binary is on the server&apos;s path.
             </T>
@@ -200,14 +200,14 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
         ) : failure?._tag === "AgentdCommandError" && failure.notSetUp ? (
           <p className="text-muted-foreground" role="status">
             <T>
-              LibraOS Core is installed but not set up. Run <code>libraos-core init</code> on the
+              LibraOS Engine is installed but not set up. Run <code>libraos-core init</code> on the
               server to set it up.
             </T>
           </p>
         ) : error ? (
           <p className="wrap-anywhere text-destructive" role="alert">
             <T>
-              Couldn&apos;t load LibraOS Core tasks: <Var>{error}</Var>
+              Couldn&apos;t load LibraOS Engine tasks: <Var>{error}</Var>
             </T>
           </p>
         ) : data === null ? (
@@ -224,14 +224,18 @@ export function BackgroundTasksPane({ threadRef }: { readonly threadRef: ScopedT
                   </p>
                 ) : null}
                 <p>
-                  <T>LibraOS Core tasks are unavailable in this environment.</T>
+                  <T>LibraOS Engine tasks are unavailable in this environment.</T>
                 </p>
               </>
             )}
           </div>
         ) : data.length === 0 ? (
           <p className="text-muted-foreground" role="status">
-            {sessionTasks.length === 0 ? <T>No background tasks</T> : <T>No LibraOS Core tasks.</T>}
+            {sessionTasks.length === 0 ? (
+              <T>No background tasks</T>
+            ) : (
+              <T>No LibraOS Engine tasks.</T>
+            )}
           </p>
         ) : null}
       </div>

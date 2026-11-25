@@ -77,7 +77,7 @@ export function ThreadDetailsAgentdWorkers({ threadRef }: { readonly threadRef: 
   return (
     <ThreadDetailsSection
       headingId={headingId}
-      title={gt("LibraOS Core workers")}
+      title={gt("LibraOS Engine workers")}
       showHeading={false}
     >
       <div>
@@ -87,7 +87,7 @@ export function ThreadDetailsAgentdWorkers({ threadRef }: { readonly threadRef: 
             className="min-h-8 cursor-pointer rounded-sm hover:text-foreground focus-visible:outline-ring"
             onClick={() => void navigate({ to: "/agentd" })}
           >
-            <T>LibraOS Core workers</T>
+            <T>LibraOS Engine workers</T>
           </button>
           <span className="ms-1.5 font-normal">
             {runTasksOn === "cloud" ? <T>cloud</T> : <T>this machine</T>}
@@ -99,9 +99,9 @@ export function ThreadDetailsAgentdWorkers({ threadRef }: { readonly threadRef: 
         {failure !== null ? (
           <div className="px-2.5 text-xs text-muted-foreground">
             {failure._tag === "AgentdNotFoundError" ? (
-              <T>LibraOS Core was not found.</T>
+              <T>LibraOS Engine was not found.</T>
             ) : (
-              <T>LibraOS Core tasks are unavailable.</T>
+              <T>LibraOS Engine tasks are unavailable.</T>
             )}
           </div>
         ) : tasks === null ? null : workers.length === 0 ? (

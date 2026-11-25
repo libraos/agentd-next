@@ -1078,7 +1078,7 @@ export function resolveWindowsServerAsarIgnoreGlobs(arch: typeof BuildArch.Type)
   ];
 }
 
-// Upstream's 80 plus room for the bundled LibraOS Core, its Skills and our resources (100 in 0.2.3).
+// Upstream's 80 plus room for the bundled LibraOS Engine, its Skills and our resources (100 in 0.2.3).
 // It catches files that should not ship: 0.3.0's Pi added 7, now packed in the ASAR or dropped.
 export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 100;
 export const WINDOWS_SERVER_RESOURCE_SOURCE_DIR = "apps/desktop/prod-resources/windows-server";
@@ -2506,7 +2506,7 @@ export class AgentdCliMissingError extends Schema.TaggedError<AgentdCliMissingEr
 }
 
 /**
- * LibraOS Core's executable names, newest first. A release that publishes `libraos-core-*` assets
+ * LibraOS Engine's executable names, newest first. A release that publishes `libraos-core-*` assets
  * accepts that name for its hooks; an earlier one publishes only `agentd-*` and knows only `agentd`.
  */
 const CORE_EXECUTABLE_NAMES = ["libraos-core", "agentd"] as const;
@@ -2623,7 +2623,7 @@ export const stageAgentdCli = Effect.fn("stageAgentdCli")(function* (input: {
     yield* fs.chmod(destinationPath, 0o755);
   }
   yield* Effect.log(
-    `[desktop-artifact] Bundled LibraOS Core (${assets.join(", ")}) at ${destinationPath}.`,
+    `[desktop-artifact] Bundled LibraOS Engine (${assets.join(", ")}) at ${destinationPath}.`,
   );
 });
 
