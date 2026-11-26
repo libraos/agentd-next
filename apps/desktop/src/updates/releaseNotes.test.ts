@@ -299,4 +299,61 @@ describe("normalizeDesktopUpdateReleaseNotes", () => {
       omittedReleaseCount: 0,
     });
   });
+
+  // The layout agentd/scripts/release-notes.sh writes: the list, then download and update help.
+  const libraosNotes = {
+    markdown: [
+      "LibraOS Next 0.4.1, with LibraOS Engine v0.1.24 and its Skills inside.",
+      "",
+      "**What's new in 0.4.1**",
+      "",
+      "- **Plugin links.** Paste a link to its `catalog.json`.",
+      "- **Sign in with GitHub** is on by default.",
+      "- **LibraOS Engine v0.1.24**",
+      "",
+      "**Which file to download**",
+      "",
+      "- Windows: `LibraOS-Next-0.4.1-x64.exe`",
+      "",
+      "Still on the app's earlier version under its old name? Its update installs LibraOS Next.",
+      "",
+      "Check a download against `SHA256SUMS`.",
+    ].join("\n"),
+    html:
+      "<p>LibraOS Next 0.4.1, with LibraOS Engine v0.1.24 and its Skills inside.</p>\n" +
+      "<p><strong>What&#39;s new in 0.4.1</strong></p>\n<ul>\n" +
+      "<li><strong>Plugin links.</strong> Paste a link to its <code>catalog.json</code>.</li>\n" +
+      "<li><strong>Sign in with GitHub</strong> is on by default.</li>\n" +
+      "<li><strong>LibraOS Engine v0.1.24</strong></li>\n</ul>\n" +
+      "<p><strong>Which file to download</strong></p>\n<ul>\n" +
+      "<li>Windows: <code>LibraOS-Next-0.4.1-x64.exe</code></li>\n</ul>\n" +
+      "<p>Still on the app&#39;s earlier version under its old name? Its update installs LibraOS Next.</p>\n" +
+      "<p>Check a download against <code>SHA256SUMS</code>.</p>",
+  };
+
+  it.each(Object.entries(libraosNotes))(
+    "shows only the What's new list of LibraOS Next notes, in order (%s)",
+    (_, note) => {
+      expect(normalizeDesktopUpdateReleaseNotes(note, "0.4.1", "latest").releaseNotes).toEqual([
+        {
+          version: "0.4.1",
+          items: [
+            "**Plugin links.** Paste a link to its catalog.json.",
+            "**Sign in with GitHub** is on by default.",
+            "LibraOS Engine v0.1.24",
+          ],
+          totalItems: 3,
+        },
+      ]);
+    },
+  );
+
+  it("caps a long What's new list and counts the rest", () => {
+    const changes = Array.from({ length: 10 }, (_, index) => `Change ${index + 1}`);
+    const note = ["**What’s new in 0.5.0**", ...changes.map((c) => `- ${c}`), "", "**Signing**"];
+    expect(normalizeDesktopUpdateReleaseNotes(note.join("\n"), "0.5.0", "latest")).toEqual({
+      releaseNotes: [{ version: "0.5.0", items: changes.slice(0, 8), totalItems: 10 }],
+      omittedReleaseCount: 0,
+    });
+  });
 });
