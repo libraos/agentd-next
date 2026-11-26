@@ -4088,6 +4088,7 @@
   "5c5ca496f3dc7701": "Used when LibraOS Engine has no estimate for the task. LibraOS Engine on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
   "dc1a56ecbf21637a": "Used when LibraOS Engine has no estimate for the task.",
   "45364730b756553d": "min",
+  "5810051944742768": "이 명령은 프로젝트의 파일을 실행합니다. 승인은 지금 상태의 파일에 적용되며, 그중 하나라도 바뀌면 다시 승인을 요청합니다:",
   "a2947c86f59136c0": "수신자가 작업을 맡을 때까지 대기 중",
   "36065867b7adee54": "원격 작업자를 기다리는 중",
   "86c28db793e779c6": "에이전트가 선택되지 않아 자동으로 시작되지 않음",

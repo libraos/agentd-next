@@ -158,8 +158,10 @@ project's settings. Approving needs a client that can use the terminal (`termina
 
 An approval is kept on the environment, not in the repository, and covers the exact text of one
 command for one project. When the text in `t3.json` changes, for example after a pull, the command
-stops running until you approve the new text. An approval covers the command text only: when the
-command runs a script file, later changes to that file do not ask again.
+stops running until you approve the new text. An approval also covers the project's own files the
+command names, such as `scripts/new-workspace.sh`, as they are when you approve: when one of them
+changes or goes away, the command asks again. The approval lists those files. A file the command
+reaches only through a variable, or one outside the project folder, is not covered.
 
 While a command is not approved:
 

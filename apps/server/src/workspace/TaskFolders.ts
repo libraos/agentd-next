@@ -420,7 +420,12 @@ const make = Effect.gen(function* () {
         );
       const approved = yield* (
         approvals
-          .isApproved({ projectId: project.projectId, kind, command: text })
+          .isApproved({
+            projectId: project.projectId,
+            projectRoot: project.projectRoot,
+            kind,
+            command: text,
+          })
           // An approval that cannot be read is not one.
           .pipe(
             Effect.catch((cause) =>
@@ -1702,16 +1707,18 @@ const make = Effect.gen(function* () {
     "TaskFolders.layoutCommands",
   )(function* (projectId) {
     const project = yield* readProject("read", projectId);
-    const layout = yield* worktreeLayout(path.resolve(project.workspaceRoot));
+    const projectRoot = path.resolve(project.workspaceRoot);
+    const layout = yield* worktreeLayout(projectRoot);
     const declared = (["create", "remove"] as const).flatMap((kind) => {
       const command = layout?.[kind];
       return command === undefined ? [] : [{ kind, command }];
     });
     return {
       commands: yield* Effect.forEach(declared, ({ kind, command }) =>
-        approvals
-          .isApproved({ projectId, kind, command })
-          .pipe(Effect.map((approved) => ({ kind, command, approved }))),
+        Effect.all({
+          approved: approvals.isApproved({ projectId, projectRoot, kind, command }),
+          files: approvals.repositoryFiles({ projectRoot, command }),
+        }).pipe(Effect.map(({ approved, files }) => ({ kind, command, approved, files }))),
       ),
     };
   });

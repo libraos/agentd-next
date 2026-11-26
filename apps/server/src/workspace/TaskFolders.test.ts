@@ -1188,7 +1188,7 @@ const layoutProject = Effect.gen(function* () {
       .layoutCommands(projectId)
       .pipe(Effect.map(({ commands }) => commands.map((command) => command.approved))),
   );
-  return { fileSystem, path, run, project, ran, writeLayout, createFor, approved };
+  return { fileSystem, path, tmp, run, project, ran, writeLayout, createFor, approved };
 });
 
 it.live("runs a project's layout command only once its exact text is approved", () =>
@@ -1220,6 +1220,86 @@ it.live("runs a project's layout command only once its exact text is approved", 
       // The old text coming back is the approved text again.
       yield* writeLayout("create-1", "remove-1");
       assert.deepEqual(yield* approved, [true, true]);
+    }),
+  ),
+);
+
+it.live("asks again when a repository file an approved layout command runs has changed", () =>
+  withState((state) =>
+    Effect.gen(function* () {
+      const { fileSystem, path, tmp, run, project, ran, createFor, approved } =
+        yield* layoutProject;
+      const scripts = path.join(project, "scripts");
+      yield* fileSystem.makeDirectory(scripts);
+      const writeScripts = (create: string, remove: string) =>
+        Effect.all([
+          fileSystem.writeFileString(
+            path.join(scripts, "create.sh"),
+            `touch "${path.join(tmp, create)}" && git worktree add -q -b "$T3_WORKTREE_BRANCH" "$T3_WORKTREE_PROJECT_PATH"\n`,
+          ),
+          fileSystem.writeFileString(
+            path.join(scripts, "remove.sh"),
+            `touch "${path.join(tmp, remove)}"\n`,
+          ),
+        ]);
+      yield* writeScripts("create-1", "remove-1");
+      yield* fileSystem.writeFileString(
+        path.join(project, "t3.json"),
+        JSON.stringify({
+          worktreeLayout: { create: "sh scripts/create.sh", remove: "sh ./scripts/remove.sh" },
+        }),
+      );
+      state.workspaceRoot = project;
+      const taskFolders = yield* TaskFolders.TaskFolders;
+
+      // The approval covers the scripts the commands name, and the settings say which.
+      const { commands } = yield* taskFolders.layoutCommands(projectId);
+      assert.deepEqual(
+        commands.map(({ kind, files }) => ({ kind, files })),
+        [
+          { kind: "create", files: ["scripts/create.sh"] },
+          { kind: "remove", files: ["scripts/remove.sh"] },
+        ],
+      );
+      yield* approveLayoutCommands;
+      assert.deepEqual(yield* approved, [true, true]);
+      const kept = yield* createFor("kept");
+      assert.isTrue(yield* ran("create-1"));
+      const keptFolder = (yield* taskFolders.find(kept!.worktree.path))!;
+
+      // Same command text, changed scripts: neither runs until a person approves again.
+      yield* writeScripts("create-2", "remove-2");
+      assert.deepEqual(yield* approved, [false, false]);
+      const refused = yield* createFor("two").pipe(Effect.flip);
+      assert.include(refused.detail, "nobody has approved as it is written now");
+      assert.isFalse(yield* ran("create-2"));
+      assert.equal(yield* run(project, "branch", "--list", "two"), "");
+      yield* taskFolders.remove({
+        root: keptFolder.root,
+        force: true,
+        forget: false,
+        projectCommands: "permitted",
+      });
+      assert.isFalse(yield* ran("remove-2"));
+      assert.isFalse(yield* fileSystem.exists(kept!.worktree.path));
+
+      // A script that is gone is a change too.
+      yield* fileSystem.remove(path.join(scripts, "remove.sh"));
+      assert.deepEqual(yield* approved, [false, false]);
+      yield* writeScripts("create-2", "remove-2");
+
+      // Approved again as the scripts are now, both run.
+      yield* approveLayoutCommands;
+      assert.deepEqual(yield* approved, [true, true]);
+      const three = yield* createFor("three");
+      assert.isTrue(yield* ran("create-2"));
+      yield* taskFolders.remove({
+        root: (yield* taskFolders.find(three!.worktree.path))!.root,
+        force: true,
+        forget: true,
+        projectCommands: "permitted",
+      });
+      assert.isTrue(yield* ran("remove-2"));
     }),
   ),
 );
@@ -1488,6 +1568,40 @@ it.live.each([
       assert.isFalse(yield* ran("create-1"));
       // Nothing was laid out, so the project's teardown has nothing to undo.
       assert.isFalse(yield* ran("remove-1"));
+      assert.equal(yield* run(project, "branch", "--list", "one"), "");
+    }),
+  ),
+);
+
+it.live("leaves a layout command unrun when a script it runs changes while it waits its turn", () =>
+  withState((state) =>
+    Effect.gen(function* () {
+      const { fileSystem, path, tmp, run, project, ran, createFor } = yield* layoutProject;
+      const script = path.join(project, "create.sh");
+      const writeScript = (marker: string) =>
+        fileSystem.writeFileString(
+          script,
+          `touch "${path.join(tmp, marker)}" && git worktree add -q -b "$T3_WORKTREE_BRANCH" "$T3_WORKTREE_PROJECT_PATH"\n`,
+        );
+      yield* writeScript("create-1");
+      yield* fileSystem.writeFileString(
+        path.join(project, "t3.json"),
+        JSON.stringify({ worktreeLayout: { create: "sh create.sh" } }),
+      );
+      state.workspaceRoot = project;
+      yield* approveLayoutCommands;
+      // The second listing is the one made when the command's turn has come.
+      let listings = 0;
+      state.onBranchListing = Effect.suspend(() =>
+        ++listings === 2 ? writeScript("create-2").pipe(Effect.orDie) : Effect.void,
+      );
+
+      const refused = yield* createFor("one").pipe(Effect.flip);
+
+      assert.equal(listings, 2);
+      assert.include(refused.detail, "nobody has approved as it is written now");
+      assert.isFalse(yield* ran("create-1"));
+      assert.isFalse(yield* ran("create-2"));
       assert.equal(yield* run(project, "branch", "--list", "one"), "");
     }),
   ),

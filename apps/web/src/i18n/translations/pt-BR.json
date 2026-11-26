@@ -4089,6 +4089,7 @@
   "5c5ca496f3dc7701": "Used when LibraOS Engine has no estimate for the task. LibraOS Engine on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
   "dc1a56ecbf21637a": "Used when LibraOS Engine has no estimate for the task.",
   "45364730b756553d": "min",
+  "5810051944742768": "Este comando executa arquivos do projeto. A aprovação vale para eles como estão agora, e qualquer alteração em um deles pede aprovação de novo:",
   "a2947c86f59136c0": "Aguardando o destinatário assumir a tarefa",
   "36065867b7adee54": "Aguardando um worker remoto",
   "86c28db793e779c6": "Não iniciará por conta própria: nenhum agente foi escolhido",

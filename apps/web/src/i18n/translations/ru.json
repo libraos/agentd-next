@@ -4089,6 +4089,7 @@
   "5c5ca496f3dc7701": "Used when LibraOS Engine has no estimate for the task. LibraOS Engine on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
   "dc1a56ecbf21637a": "Used when LibraOS Engine has no estimate for the task.",
   "45364730b756553d": "min",
+  "5810051944742768": "Эта команда запускает файлы проекта. Одобрение распространяется на них в нынешнем виде, а любое изменение любого из них потребует одобрения снова:",
   "a2947c86f59136c0": "Ожидает, пока получатель возьмёт задачу",
   "36065867b7adee54": "Ожидает удалённого исполнителя",
   "86c28db793e779c6": "Не запустится сама: агент не выбран",

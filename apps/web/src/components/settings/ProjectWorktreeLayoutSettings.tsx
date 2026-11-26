@@ -15,6 +15,7 @@ import { useManagedPolicy } from "../../state/managedPolicy";
 import { useEnvironmentQuery } from "../../state/query";
 import { useEnvironmentScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { WorktreeLayoutCommandFiles } from "../agentd/WorktreeLayoutCommandFiles";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { toastManager } from "../ui/toast";
@@ -177,6 +178,7 @@ function CheckoutWorktreeLayout({
           <pre className="mb-2 max-h-48 overflow-auto whitespace-pre-wrap wrap-anywhere rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
             {command.command}
           </pre>
+          <WorktreeLayoutCommandFiles className="mb-2" files={command.files} />
         </SettingsRow>
       ))}
       {!canApprove ? (
