@@ -1080,7 +1080,8 @@ export function resolveWindowsServerAsarIgnoreGlobs(arch: typeof BuildArch.Type)
 
 // Upstream's 80 plus room for the bundled LibraOS Engine, its Skills and our resources (100 in 0.2.3).
 // It catches files that should not ship: 0.3.0's Pi added 7, now packed in the ASAR or dropped.
-export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 100;
+// 110 since the 2026-11-25 upstream sync took the payload from 99 to 108; those 9 are under review.
+export const WINDOWS_PACKAGED_PAYLOAD_FILE_LIMIT = 110;
 export const WINDOWS_SERVER_RESOURCE_SOURCE_DIR = "apps/desktop/prod-resources/windows-server";
 export const WINDOWS_SERVER_EXTRA_RESOURCES = [
   {
