@@ -106,6 +106,10 @@ describe("RPC authorization scopes", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.agentdSetMaxWorkers)).toBe(
       AuthEnvironmentMaintainScope,
     );
+    // So is the gateway and model every local worker sends its requests to.
+    expect(requiredScopeForRpcMethod(WS_METHODS.agentdSetWorkerGateway)).toBe(
+      AuthEnvironmentMaintainScope,
+    );
   });
 
   it("lets file readers see a task folder and takes source control to add a repository to it", () => {
