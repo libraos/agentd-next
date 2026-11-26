@@ -3343,6 +3343,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "Det gick inte att slå på LibraOS Engines watchdog-timer. Försök reparera igen, eller kör systemctl --user enable --now agentd-watchdog.timer i en terminal.",
+  "6c9c238b5a1a566d": "Det gick inte att ersätta startprogrammet för LibraOS Engines bakgrundstjänster. Försök med Reparera igen, eller kör libraos-core install i en terminal.",
   "00f2bb125bfc3c7c": "LibraOS Engines bakgrundstjänster kör en LibraOS Engine som saknas eller hör till gamla AgentD Desktop, och det gick inte att flytta dem till den här appens LibraOS Engine. Kör libraos-core install i en terminal.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3381,6 +3382,15 @@
       "v": "v"
     },
     ", som saknas eller hör till gamla AgentD Desktop."
+  ],
+  "5c9b9a597ed845b2": [
+    "LibraOS Engines bakgrundstjänster startar via ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", som en äldre LibraOS Engine skrev. Windows kan blockera det (Smart App Control), så bakgrundsarbetare kan inte starta förrän det har ersatts. Reparera skriver det som den här appens LibraOS Engine har med sig."
   ],
   "65d1c3a386ae0b34": "LibraOS Engines watchdog-tjänst kör den här appens LibraOS Engine, men systemd har inte slagit på dess timer, så LibraOS Engine följer inte dina uppgifter medan appen är stängd. Reparera slår på den.",
   "0f140b58c1bbefd9": "LibraOS Engines watchdog-tjänst kör den här appens LibraOS Engine, men systemd har inte slagit på dess timer, så LibraOS Engine följer inte dina uppgifter medan appen är stängd. Kör libraos-core install på den datorn och sedan systemctl --user daemon-reload och systemctl --user enable --now agentd-watchdog.timer i en terminal.",

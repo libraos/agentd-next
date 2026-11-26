@@ -3344,6 +3344,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "Das Einschalten des Watchdog-Timers von LibraOS Engine ist fehlgeschlagen. Versuche erneut zu reparieren oder führe systemctl --user enable --now agentd-watchdog.timer in einem Terminal aus.",
+  "6c9c238b5a1a566d": "Das Ersetzen des Starters der Hintergrunddienste von LibraOS Engine ist fehlgeschlagen. Versuche Reparieren erneut oder führe libraos-core install in einem Terminal aus.",
   "00f2bb125bfc3c7c": "Die Hintergrunddienste von LibraOS Engine laufen mit einer LibraOS Engine, die fehlt oder zum alten AgentD Desktop gehört, und sie auf die LibraOS Engine dieser App umzustellen ist fehlgeschlagen. Führe libraos-core install in einem Terminal aus.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3382,6 +3383,15 @@
       "v": "v"
     },
     " aus, das fehlt oder zum alten AgentD Desktop gehört."
+  ],
+  "5c9b9a597ed845b2": [
+    "Die Hintergrunddienste von LibraOS Engine starten über ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", den eine ältere LibraOS Engine geschrieben hat. Windows kann ihn blockieren (Smart App Control), sodass Hintergrund-Worker erst starten können, wenn er ersetzt ist. Reparieren schreibt den, den die LibraOS Engine dieser App mitbringt."
   ],
   "65d1c3a386ae0b34": "Der Watchdog-Dienst von LibraOS Engine führt die LibraOS Engine dieser App aus, aber systemd hat seinen Timer nicht eingeschaltet, daher verfolgt LibraOS Engine deine Aufgaben nicht, solange diese App geschlossen ist. Reparieren schaltet ihn ein.",
   "0f140b58c1bbefd9": "Der Watchdog-Dienst von LibraOS Engine führt die LibraOS Engine dieser App aus, aber systemd hat seinen Timer nicht eingeschaltet, daher verfolgt LibraOS Engine deine Aufgaben nicht, solange diese App geschlossen ist. Führe auf diesem Rechner in einem Terminal libraos-core install aus, danach systemctl --user daemon-reload und systemctl --user enable --now agentd-watchdog.timer.",

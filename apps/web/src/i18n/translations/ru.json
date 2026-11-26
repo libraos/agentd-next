@@ -3343,6 +3343,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "Не удалось включить таймер watchdog LibraOS Engine. Попробуйте восстановить ещё раз или выполните systemctl --user enable --now agentd-watchdog.timer в терминале.",
+  "6c9c238b5a1a566d": "Не удалось заменить загрузчик фоновых служб LibraOS Engine. Попробуйте «Исправить» ещё раз или выполните libraos-core install в терминале.",
   "00f2bb125bfc3c7c": "Фоновые службы LibraOS Engine запускают отсутствующий LibraOS Engine или LibraOS Engine из старого AgentD Desktop, и перевести их на LibraOS Engine этого приложения не удалось. Выполните libraos-core install в терминале.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3381,6 +3382,15 @@
       "v": "v"
     },
     ", который отсутствует или принадлежит старому AgentD Desktop."
+  ],
+  "5c9b9a597ed845b2": [
+    "Фоновые службы LibraOS Engine запускаются через ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", который записала более старая версия LibraOS Engine. Windows может блокировать его (Smart App Control), и фоновые воркеры не запустятся, пока его не заменить. «Исправить» запишет тот, что входит в LibraOS Engine этого приложения."
   ],
   "65d1c3a386ae0b34": "Служба watchdog LibraOS Engine запускает LibraOS Engine этого приложения, но systemd не включил её таймер, поэтому LibraOS Engine не следит за вашими задачами, пока это приложение закрыто. Восстановление включит его.",
   "0f140b58c1bbefd9": "Служба watchdog LibraOS Engine запускает LibraOS Engine этого приложения, но systemd не включил её таймер, поэтому LibraOS Engine не следит за вашими задачами, пока это приложение закрыто. На этой машине выполните в терминале libraos-core install, затем systemctl --user daemon-reload и systemctl --user enable --now agentd-watchdog.timer.",

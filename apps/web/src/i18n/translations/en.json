@@ -3343,6 +3343,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "Turning on LibraOS Engine’s watchdog timer failed. Try Repair again, or run systemctl --user enable --now agentd-watchdog.timer in a terminal.",
+  "6c9c238b5a1a566d": "Replacing the launcher of LibraOS Engine’s background services failed. Try Repair again, or run libraos-core install in a terminal.",
   "00f2bb125bfc3c7c": "LibraOS Engine’s background services run a LibraOS Engine that is missing or belongs to the old AgentD Desktop, and moving them to this app’s LibraOS Engine failed. Run libraos-core install in a terminal.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3381,6 +3382,15 @@
       "v": "v"
     },
     ", which is missing or belongs to the old AgentD Desktop."
+  ],
+  "5c9b9a597ed845b2": [
+    "LibraOS Engine’s background services start through ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", which an older LibraOS Engine wrote. Windows may block it (Smart App Control), so background workers can’t start until it is replaced. Repair writes the one this app’s LibraOS Engine carries."
   ],
   "65d1c3a386ae0b34": "LibraOS Engine’s watchdog service runs this app’s LibraOS Engine, but systemd hasn’t turned on its timer, so LibraOS Engine doesn’t follow your tasks while this app is closed. Repair turns it on.",
   "0f140b58c1bbefd9": "LibraOS Engine’s watchdog service runs this app’s LibraOS Engine, but systemd hasn’t turned on its timer, so LibraOS Engine doesn’t follow your tasks while this app is closed. On that machine, run libraos-core install, then systemctl --user daemon-reload and systemctl --user enable --now agentd-watchdog.timer in a terminal.",

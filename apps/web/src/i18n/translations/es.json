@@ -3343,6 +3343,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "No se pudo activar el temporizador del watchdog de LibraOS Engine. Vuelve a intentar Reparar o ejecuta systemctl --user enable --now agentd-watchdog.timer en una terminal.",
+  "6c9c238b5a1a566d": "No se pudo reemplazar el lanzador de los servicios en segundo plano de LibraOS Engine. Vuelve a intentar Reparar o ejecuta libraos-core install en una terminal.",
   "00f2bb125bfc3c7c": "Los servicios en segundo plano de LibraOS Engine usan un LibraOS Engine que falta o que pertenece al antiguo AgentD Desktop, y no se pudieron pasar al LibraOS Engine de esta app. Ejecuta libraos-core install en una terminal.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3381,6 +3382,15 @@
       "v": "v"
     },
     ", que falta o pertenece al antiguo AgentD Desktop."
+  ],
+  "5c9b9a597ed845b2": [
+    "Los servicios en segundo plano de LibraOS Engine se inician mediante ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    ", que escribió una versión anterior de LibraOS Engine. Windows puede bloquearlo (Smart App Control), así que los workers en segundo plano no pueden iniciarse hasta que se reemplace. Reparar escribe el que incluye el LibraOS Engine de esta app."
   ],
   "65d1c3a386ae0b34": "El servicio watchdog de LibraOS Engine ejecuta el LibraOS Engine de esta app, pero systemd no ha activado su temporizador, así que LibraOS Engine no sigue tus tareas mientras esta app está cerrada. Reparar lo activa.",
   "0f140b58c1bbefd9": "El servicio watchdog de LibraOS Engine ejecuta el LibraOS Engine de esta app, pero systemd no ha activado su temporizador, así que LibraOS Engine no sigue tus tareas mientras esta app está cerrada. En esa máquina, ejecuta libraos-core install y después systemctl --user daemon-reload y systemctl --user enable --now agentd-watchdog.timer en una terminal.",

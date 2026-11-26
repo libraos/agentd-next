@@ -3341,6 +3341,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "LibraOS Engine の watchdog タイマーを有効にできませんでした。もう一度修復するか、ターミナルで systemctl --user enable --now agentd-watchdog.timer を実行してください。",
+  "6c9c238b5a1a566d": "LibraOS Engine のバックグラウンドサービスのランチャーを置き換えられませんでした。もう一度「修復」を試すか、ターミナルで libraos-core install を実行してください。",
   "00f2bb125bfc3c7c": "LibraOS Engine のバックグラウンドサービスは、見つからない LibraOS Engine か旧 AgentD Desktop の LibraOS Engine で動いており、このアプリの LibraOS Engine への切り替えに失敗しました。ターミナルで libraos-core install を実行してください。",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3379,6 +3380,15 @@
       "v": "v"
     },
     " を実行していますが、これは見つからないか旧 AgentD Desktop のものです。"
+  ],
+  "5c9b9a597ed845b2": [
+    "LibraOS Engine のバックグラウンドサービスは ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " から起動しますが、これは古い LibraOS Engine が書き込んだものです。Windows がブロックする場合があり（Smart App Control）、置き換えるまでバックグラウンドワーカーは起動できません。「修復」でこのアプリの LibraOS Engine が持つランチャーを書き込みます。"
   ],
   "65d1c3a386ae0b34": "LibraOS Engine の watchdog サービスはこのアプリの LibraOS Engine を実行していますが、systemd がそのタイマーを有効にしていないため、このアプリを閉じている間 LibraOS Engine はタスクを追跡しません。修復で有効にします。",
   "0f140b58c1bbefd9": "LibraOS Engine のウォッチドッグサービスはこのアプリの LibraOS Engine を実行していますが、systemd がそのタイマーを有効にしていないため、このアプリを閉じている間 LibraOS Engine はタスクを追跡しません。そのマシンのターミナルで libraos-core install を実行し、続けて systemctl --user daemon-reload と systemctl --user enable --now agentd-watchdog.timer を実行してください。",

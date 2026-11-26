@@ -1268,6 +1268,56 @@ describe("AgentdBridge", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("checks the services again once a new install pass is recorded", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const units = path.join(home, ".config", "systemd", "user");
+      yield* fs.makeDirectory(units, { recursive: true });
+      const unit = path.join(units, "agentd-dash.service");
+      yield* fs.writeFileString(unit, `[Service]\nExecStart=${process.execPath} dash\n`);
+      const record = path.join(home, "agentd-install.json");
+      const pass = (action: string) =>
+        fs.writeFileString(
+          record,
+          JSON.stringify({
+            action,
+            path: path.join(home, "agentd"),
+            directory: home,
+            onPath: true,
+            pathLine: null,
+            skills: [],
+          }),
+        );
+      yield* pass("unchanged");
+      const bridge = yield* makeBridge(
+        {
+          PATH: "",
+          AGENTD_BIN: process.execPath,
+          AGENTD_DESKTOP_BUNDLED: "1",
+          AGENTD_DESKTOP_INSTALL_RECORD: record,
+        },
+        (input) => {
+          const key = input.args.join(" ");
+          if (key === "version") return Effect.succeed(output("agentd v0.1.15\n"));
+          if (key === "doctor --json") return Effect.succeed(output(DOCTOR_JSON, 1));
+          return Effect.succeed(output(""));
+        },
+      ).pipe(
+        Effect.provideService(HostProcess.Platform, "linux"),
+        Effect.provideService(HostProcess.HomeDirectory, home),
+      );
+      expect(yield* bridge.status).not.toHaveProperty("servicesProblem");
+      // The services broke after the start check; the same pass doesn't look again.
+      yield* fs.writeFileString(unit, "[Service]\nExecStart=/gone/agentd dash\n");
+      expect(yield* bridge.status).not.toHaveProperty("servicesProblem");
+      // A later install pass (a new agentd placed) does.
+      yield* pass("replaced");
+      expect((yield* bridge.status).servicesProblem).toMatchObject({ moves: ["dash"] });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("answers every method with AgentdNotFoundError when there is no agentd", () =>
     Effect.gen(function* () {
       const bridge = yield* makeBridge({ PATH: "" }, () => Effect.die("agentd must not run"));

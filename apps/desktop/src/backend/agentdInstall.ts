@@ -3,6 +3,12 @@
 // run, see libraos/agentd-desktop#13, or Set up LibraOS Engine's Accept) and never without a bundle.
 // No client config is changed.
 import { AgentdInstallRecord } from "@t3tools/contracts";
+import {
+  rootTaskDefinition,
+  schtasksText,
+  taskAgentd,
+  windowsPathKey,
+} from "@t3tools/shared/agentdTasks";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -25,6 +31,7 @@ const { logInfo, logWarning } = makeComponentLogger("desktop-agentd-install");
 export const AGENTD_INSTALL_RECORD_ENV = "AGENTD_DESKTOP_INSTALL_RECORD";
 /** Beside a binary this app placed on Windows; the uninstaller removes only such a binary. */
 const AGENTD_INSTALL_MARKER = "agentd-desktop-installed";
+const SERVICES_TIMEOUT = "2 minutes";
 const SKILLS = [
   ["agentd-setup", "SKILL.md"],
   ["agentd", "SKILL-agentd.md"],
@@ -46,6 +53,26 @@ export const decideAgentdInstall = (input: {
   const order = AgentdBinary.compareAgentdVersions(input.installedVersion, input.bundledVersion);
   if (order === null) return "kept-unknown";
   return order > 0 ? "kept-newer" : "replaced";
+};
+
+/**
+ * The agentd whose install refreshes this root's Windows services after a new agentd was placed:
+ * the one its tasks run, when every task there is runs this app's (`ours`). Null when there are
+ * none, one can't be read, or one runs an agentd the user chose: install rewrites both tasks.
+ */
+export const servicesRefreshAgentd = (
+  definitions: ReadonlyArray<string | null | undefined>,
+  ours: ReadonlyArray<string>,
+): string | null => {
+  let agentd: string | null = null;
+  for (const definition of definitions) {
+    if (definition === null) continue;
+    const runs = definition === undefined ? null : taskAgentd(definition);
+    if (runs === null) return null;
+    if (!ours.some((own) => windowsPathKey(own) === windowsPathKey(runs))) return null;
+    agentd ??= runs;
+  }
+  return agentd;
 };
 
 const sameDirectory = (a: string, b: string, windows: boolean) => {
@@ -217,6 +244,45 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
       if (!covered) yield* placeSkills(path.join(opencodeHome, "skills"));
     }
 
+    // Windows: this root's services run a launcher the agentd that registered them wrote, which an
+    // older Engine left unsigned. The new agentd's install writes the one it carries (libraos/next#297).
+    let services: AgentdInstallRecord["services"];
+    if (windows && placed) {
+      const run = (command: string, args: ReadonlyArray<string>) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const handle = yield* spawner.spawn(
+              ChildProcess.make(command, args, {
+                stdin: "ignore",
+                stderr: "ignore",
+                extendEnv: true,
+                windowsHide: true,
+              }),
+            );
+            const [chunks, exitCode] = yield* Effect.all(
+              [Stream.runCollect(handle.stdout), handle.exitCode],
+              { concurrency: "unbounded" },
+            );
+            return { ok: exitCode === 0, text: schtasksText(Buffer.concat(chunks)) };
+          }),
+        ).pipe(
+          Effect.timeoutOption(SERVICES_TIMEOUT),
+          Effect.map(Option.getOrElse(() => ({ ok: false, text: "" }))),
+          Effect.orElseSucceed(() => ({ ok: false, text: "" })),
+        );
+      const root = envValue(env, "AGENTD_ROOT", true)?.trim() || undefined;
+      const listing: { current: string | null | undefined } = { current: undefined };
+      const definitions = yield* Effect.forEach(["watchdog", "dash"] as const, (service) =>
+        rootTaskDefinition(service, root, (args) => run("schtasks", args), listing),
+      );
+      const agentd = servicesRefreshAgentd(definitions, [target, bundled.value]);
+      if (agentd !== null) {
+        const installed = yield* run(agentd, ["install"]);
+        services = { agentd, ok: installed.ok };
+        if (!installed.ok) yield* logWarning("could not refresh agentd's services", services);
+      }
+    }
+
     let onPath = pathEntries.some((entry) => sameDirectory(entry, directory, windows));
     if (windows && !kept) {
       const powershell = (overrides: Record<string, string>) =>
@@ -267,6 +333,7 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
       onPath,
       pathLine: onPath || windows ? null : `export PATH="${directory}:$PATH"`,
       skills: skillsWritten,
+      ...(services === undefined ? {} : { services }),
     };
     yield* fs.makeDirectory(environment.stateDir, { recursive: true });
     yield* fs.writeFileString(installRecordPath(environment), `${yield* encodeRecord(record)}\n`);

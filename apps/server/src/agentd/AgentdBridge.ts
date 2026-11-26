@@ -85,7 +85,13 @@ import * as AgentdJson from "./agentdJson.ts";
 import { AGENTD_BACKUP_FILE, agentdBackupFileName } from "./agentdBackup.ts";
 import { blockingRefusal } from "./blockedStart.ts";
 import type { WorkerGatewayChoice } from "./workerGatewaySetting.ts";
-import { detectServices, repairServices, serviceAgentd, setupAgentd } from "./agentdServices.ts";
+import {
+  detectServices,
+  ownInstall,
+  repairServices,
+  serviceAgentd,
+  setupAgentd,
+} from "./agentdServices.ts";
 import { makeClaudeTrust, projectFolder } from "./claudeTrust.ts";
 import { makeCloudKeyFile } from "./cloudKeyFile.ts";
 import { AGENTD_SKILLS, workerSkillsDirectories } from "./skillCatalog.ts";
@@ -388,26 +394,38 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
 
   // The desktop app's last pass installing agentd for the terminal and agents, when it ran one.
   const recordPath = env.AGENTD_DESKTOP_INSTALL_RECORD?.trim();
-  const readInstallRecord = recordPath
-    ? fs.readFileString(recordPath).pipe(
-        Effect.flatMap(decodeInstallRecord),
-        Effect.orElseSucceed(() => null),
-      )
+  const readInstallText = recordPath
+    ? fs.readFileString(recordPath).pipe(Effect.orElseSucceed(() => null))
     : Effect.succeed(null);
+  const decodeInstallText = (text: string | null) =>
+    text === null
+      ? Effect.succeed(null)
+      : decodeInstallRecord(text).pipe(Effect.orElseSucceed(() => null));
+  const readInstallRecord = readInstallText.pipe(Effect.flatMap(decodeInstallText));
 
   // agentd's services on a missing or old agentd: checked on start and after a Repair, never moved
   // unless the user confirms Repair.
   let servicesProblem: AgentdServicesProblem | null = null;
+  // The install pass the last check read: a later pass (a new agentd placed, its services
+  // refreshed or not) is checked again.
+  let checkedInstall: string | null | undefined;
   const bundledBinary = env.AGENTD_DESKTOP_BUNDLED === "1" ? env.AGENTD_BIN?.trim() : undefined;
   const home = bundledBinary ? yield* HostProcess.HomeDirectory : "";
   const serviceDeps = bundledBinary
-    ? readInstallRecord.pipe(
+    ? readInstallText.pipe(
+        Effect.tap((text) =>
+          Effect.sync(() => {
+            checkedInstall = text;
+          }),
+        ),
+        Effect.flatMap(decodeInstallText),
         Effect.map((installed) => ({
           bundled: bundledBinary,
           target: serviceAgentd(bundledBinary, env.APPDIR, installed),
           platform,
           home,
           root: env.AGENTD_ROOT,
+          installed: ownInstall(installed),
           run: runner.run,
         })),
       )
@@ -549,7 +567,8 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
 
   const status: AgentdBridge["Service"]["status"] = Effect.gen(function* () {
     // A problem shown is read again, so services the user fixed by hand stop showing on Refresh.
-    if (servicesProblem !== null) yield* checkServices().pipe(Effect.ignore);
+    const passChanged = serviceDeps !== null && (yield* readInstallText) !== checkedInstall;
+    if (servicesProblem !== null || passChanged) yield* checkServices().pipe(Effect.ignore);
     const [version, doctor] = yield* Effect.all([run(agentdArgs.version()), readDoctor], {
       concurrency: 2,
     }).pipe(

@@ -403,6 +403,10 @@
       "types": "./src/FeatureFlags.ts",
       "import": "./src/FeatureFlags.ts"
     },
+    "./agentdTasks": {
+      "types": "./src/agentdTasks.ts",
+      "import": "./src/agentdTasks.ts"
+    },
     "./HostProcess": {
       "types": "./src/HostProcess.ts",
       "import": "./src/HostProcess.ts"

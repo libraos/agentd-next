@@ -494,4 +494,82 @@ describe("agentd services", () => {
       expect(acted(runs).every(([command]) => command === "schtasks")).toBe(true);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
+
+  it.effect(
+    "reports a launcher the agentd its tasks run doesn't carry, and Repair runs its install",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const root = path.join(home, ".local", "share", "agentd");
+        const services = path.join(root, "services");
+        // The bundled path has a space, so init ran as the copy the install pass placed.
+        const bundled = path.join(
+          home,
+          "Programs",
+          "LibraOS Next",
+          "resources",
+          "agentd",
+          "agentd.exe",
+        );
+        const installed = path.join(home, "Local", "Programs", "agentd", "agentd.exe");
+        const launcher = path.join(services, "agentd-service.exe");
+        for (const dir of [services, path.dirname(bundled), path.dirname(installed)])
+          yield* fs.makeDirectory(dir, { recursive: true });
+        const signed = "MZ signed launcher v0.1.23";
+        yield* fs.writeFileString(installed, `MZ agentd v0.1.23 ... ${signed} ...`);
+        yield* fs.writeFileString(bundled, `MZ agentd v0.1.23 ... ${signed} ...`);
+        yield* fs.writeFileString(launcher, "MZ unsigned launcher of 2026-11-19");
+        let runs = installed;
+        const launched = (service: string) =>
+          `<Actions Context="Author"><Exec><Command>${launcher}</Command><Arguments>&quot;${runs}&quot; service-run --env &quot;${path.join(services, `agentd-${service}.env`)}&quot; --log x.log -- ${service}</Arguments></Exec></Actions>`;
+        const calls: Array<ReadonlyArray<string>> = [];
+        const run: ProcessRunner.ProcessRunner["Service"]["run"] = (input) => {
+          calls.push([input.command, ...input.args]);
+          if (input.command !== "schtasks") return Effect.succeed(output(""));
+          if (input.args[1] === "/FO") return Effect.succeed(output(""));
+          const service = /agentd-(watchdog|dash)-[0-9a-f]{8}$/.exec(input.args[2] ?? "")?.[1];
+          return Effect.succeed(service ? output(launched(service)) : output("", 1));
+        };
+        const deps = { bundled, target: bundled, platform: "win32", home, root, installed, run };
+
+        const stale = yield* detectServices(deps);
+        // The launcher task runs this app's agentd: not a service the user kept, nor a stale one.
+        expect(stale).toEqual({
+          services: [],
+          agentd: bundled,
+          moves: ["watchdog", "dash"],
+          launcher: { path: launcher, agentd: installed },
+        });
+        expect(calls.every(([command]) => command === "schtasks")).toBe(true);
+        // Repair runs the install of the agentd the tasks run, which writes the launcher it carries.
+        expect(yield* repairServices(deps, stale!)).toEqual({ ok: true });
+        expect(calls.at(-1)).toEqual([installed, "install"]);
+
+        // Once the launcher is the one it carries, nothing to report.
+        yield* fs.writeFileString(launcher, signed);
+        expect(yield* detectServices(deps)).toBe(null);
+        // Before the install pass's record names the copy, the tasks' agentd is the user's own.
+        expect(yield* detectServices({ ...deps, installed: null })).toBe(null);
+        yield* fs.writeFileString(launcher, "MZ unsigned launcher of 2026-11-19");
+        expect(yield* detectServices({ ...deps, installed: null })).toBe(null);
+        // A launcher task on the user's own agentd is kept, its launcher theirs to refresh.
+        const own = path.join(home, "tools", "agentd.exe");
+        yield* fs.makeDirectory(path.dirname(own), { recursive: true });
+        yield* fs.writeFileString(own, "MZ agentd v0.1.30");
+        runs = own;
+        expect(yield* detectServices(deps)).toBe(null);
+        // A launcher task on a missing agentd is stale, reported by the agentd it runs.
+        runs = path.join(home, "gone", "agentd.exe");
+        expect(yield* detectServices(deps)).toEqual({
+          services: [
+            { name: "watchdog", program: runs },
+            { name: "dash", program: runs },
+          ],
+          agentd: bundled,
+          moves: ["watchdog", "dash"],
+        });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });
