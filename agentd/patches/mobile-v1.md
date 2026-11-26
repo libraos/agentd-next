@@ -19,6 +19,13 @@ removing it would fight every upstream sync.
   signing fingerprint is not known yet.
 - `apps/mobile/src/features/settings/lib/legal-document-url.ts`: the Legal page opens this build's
   telemetry notice, as web's privacy link does, instead of upstream's marketing site.
+- `apps/mobile/src/Stack.tsx`: the `SettingsEngine` route (`settings/engine/:environmentId`),
+  titled LibraOS Engine. Its name starts with `Settings` so it opens as a Settings page.
+- `apps/mobile/src/features/settings/SettingsEnvironmentDetailRouteScreen.tsx`: a LibraOS Engine
+  row on a connected environment this device may read.
+- `apps/mobile/src/i18n/translations/*.json`: the new strings, translated.
 
-Ours: `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
+Ours: `apps/mobile/src/state/agentd.ts`, `apps/mobile/src/features/engine/` (the read-only
+LibraOS Engine screen: tasks by section, Stop for a device with operate permission, approvals
+listed to answer on the computer), `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
 `scripts/mobile-release-check.allow.json`.

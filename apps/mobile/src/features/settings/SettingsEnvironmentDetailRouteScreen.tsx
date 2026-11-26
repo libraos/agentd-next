@@ -252,6 +252,16 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
               </Text>
             ) : null}
             {notice ? <Text className="px-2 text-sm text-foreground-muted">{notice}</Text> : null}
+            {connected && canRead ? (
+              <SettingsSection title="LibraOS Engine">
+                <SettingsActionRow
+                  icon="person.2"
+                  label="LibraOS Engine"
+                  description={gt("Background tasks and the approvals waiting on you")}
+                  onPress={() => navigation.navigate("SettingsEngine", { environmentId })}
+                />
+              </SettingsSection>
+            ) : null}
             {config && !outdated ? (
               <>
                 <SettingsSection title="LibraOS Next">

@@ -79,6 +79,7 @@ import {
 } from "./features/threads/ThreadRouteScreen";
 import { McpAppFullscreenScreen } from "./features/threads/McpAppFullscreenScreen";
 import { ConnectionsRouteScreen } from "./features/connection/ConnectionsRouteScreen";
+import { EngineRouteScreen } from "./features/engine/EngineRouteScreen";
 import { ConnectionsNewRouteScreen } from "./features/connection/ConnectionsNewRouteScreen";
 import { AddProjectDestinationRoute } from "./features/projects/AddProjectDestinationRoute";
 import { AddProjectLocalRoute } from "./features/projects/AddProjectLocalRoute";
@@ -170,6 +171,7 @@ const ROUTE_TITLES: Readonly<Record<string, string>> = {
   Settings: msg("Settings"),
   SettingsEnvironments: msg("Environments"),
   SettingsEnvironmentDetail: msg("Environment"),
+  SettingsEngine: "LibraOS Engine",
   SettingsEnvironmentNewThreads: msg("Threads"),
   SettingsEnvironmentSourceControl: msg("Source control & issues"),
   SettingsSourceControlProvider: msg("Provider", {
@@ -250,6 +252,11 @@ const SETTINGS_SCREENS = {
   SettingsEnvironmentDetail: createNativeStackScreen({
     screen: SettingsEnvironmentDetailRouteScreen,
     linking: "settings/environments/:environmentId",
+    options: settingsPage(),
+  }),
+  SettingsEngine: createNativeStackScreen({
+    screen: EngineRouteScreen,
+    linking: "settings/engine/:environmentId",
     options: settingsPage(),
   }),
   // Old links to New threads and Agent behavior open Threads, which absorbed them.
