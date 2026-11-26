@@ -38,6 +38,7 @@ import {
   packWindowsServerAsar,
   preflightWindowsDesktopBuild,
   renderMacPasskeyEntitlements,
+  renderMacRuntimeEntitlements,
   resolveMacFileExclusions,
   resolveMacWebAuthnEntitlements,
   resolveMacPasskeySigningConfiguration,
@@ -1726,6 +1727,24 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       rpDomains: ["example.clerk.accounts.dev"],
       provisioningProfilePath: "/tmp/t3code.provisionprofile",
     });
+  });
+
+  it("signs macOS without a provisioning profile using only the runtime entitlements", () => {
+    const entitlements = renderMacRuntimeEntitlements();
+
+    for (const key of [
+      "com.apple.security.cs.allow-jit",
+      "com.apple.security.cs.allow-unsigned-executable-memory",
+      "com.apple.security.cs.disable-library-validation",
+      "com.apple.security.automation.apple-events",
+      "com.apple.security.device.camera",
+      "com.apple.security.device.audio-input",
+    ]) {
+      assert.include(entitlements, `<key>${key}</key>`);
+    }
+    assert.notInclude(entitlements, "com.apple.application-identifier");
+    assert.notInclude(entitlements, "com.apple.developer.associated-domains");
+    assert.match(entitlements, /^<\?xml[\s\S]*<dict>[\s\S]*<\/dict>\n<\/plist>\n$/u);
   });
 
   it("normalizes explicit macOS passkey RP domains and renders required entitlements", () => {
