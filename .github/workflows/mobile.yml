@@ -97,7 +97,8 @@ jobs:
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb shell cmd uimode night yes
-            bash apps/mobile/maestro/run-flows.sh 10.0.2.2 "$RUNNER_TEMP/ui-android"
+            adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 1; done'
+            bash apps/mobile/maestro/run-flows.sh 10.0.2.2 "$RUNNER_TEMP/ui-android" || { adb wait-for-device; bash apps/mobile/maestro/run-flows.sh 10.0.2.2 "$RUNNER_TEMP/ui-android-retry"; }
       - name: Upload screenshots
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -107,6 +108,9 @@ jobs:
             ${{ runner.temp }}/ui-android/screenshots
             ${{ runner.temp }}/ui-android/maestro
             ${{ runner.temp }}/ui-android/host/server.log
+            ${{ runner.temp }}/ui-android-retry/screenshots
+            ${{ runner.temp }}/ui-android-retry/maestro
+            ${{ runner.temp }}/ui-android-retry/host/server.log
           if-no-files-found: warn
 
   ui-ios:
@@ -137,7 +141,10 @@ jobs:
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
             -derivedDataPath "$RUNNER_TEMP/ios-build" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER=
       - name: Install Maestro
         run: bash .github/scripts/install-maestro.sh
       - name: Run the flows on a simulator
