@@ -10,7 +10,8 @@ removing it would fight every upstream sync.
 - `apps/mobile/app.config.ts`: ids `com.libraos.next(.dev|.preview)`, Apple team `3NP2A75X35`,
   slug `libraos-next`, no `owner`, updates off with no feed, no EAS project id, no Clerk extras,
   no default trace endpoint, the `@clerk/expo` plugin only with the hosted relay, and the version
-  follows `apps/desktop/package.json` unless `T3CODE_MOBILE_VERSION` is set.
+  follows `apps/desktop/package.json` unless `T3CODE_MOBILE_VERSION` is set, and
+  `T3CODE_MOBILE_BUILD_NUMBER` numbers a store build on both platforms.
 - `apps/mobile/app.config.test.ts`: the new ids and the absence of every upstream service.
 - `apps/mobile/eas.json`: no `channel` or `environment` of upstream's EAS project, no App Store
   app id, no pinned TestFlight version.
@@ -38,4 +39,7 @@ Ours: `apps/mobile/src/state/agentd.ts`, `apps/mobile/src/features/engine/` (the
 LibraOS Engine screen: tasks by section, Stop for a device with operate permission, approvals
 listed to answer on the computer), `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
 `scripts/mobile-release-check.allow.json`, `scripts/mobile-ui-host.ts` (the server UI tests
-pair with, with no LibraOS Engine) and its test, `apps/mobile/maestro/` (the UI test flows).
+pair with, with no LibraOS Engine) and its test, `apps/mobile/maestro/` (the UI test flows and
+`run-flows.sh`), `.github/workflows/mobile.yml` (UI tests; release check, signing and upload to
+TestFlight and Play internal testing), `.github/scripts/install-maestro.sh`,
+`agentd/design/mobile-release-checklist.md` and the Mobile section of `agentd/design/build.md`.

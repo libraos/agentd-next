@@ -234,6 +234,9 @@ const clerkPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
   { theme: "./clerk-theme.json", appleSignIn: !isIosPersonalTeamBuild },
 ];
 
+// CI numbers each store build with its run; the stores refuse a build number they have seen.
+const buildNumber = repoEnv.T3CODE_MOBILE_BUILD_NUMBER?.trim() || undefined;
+
 const config: ExpoConfig = {
   name: variant.appName,
   slug: "libraos-next",
@@ -255,6 +258,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     requireFullScreen: process.env.T3_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
+    ...(buildNumber ? { buildNumber } : {}),
     // Avoid Personal Team fallback: it cannot sign App Groups, Apple sign-in or push entitlements.
     appleTeamId: "3NP2A75X35",
     associatedDomains: HOSTED_APP_HOST ? [`applinks:${HOSTED_APP_HOST}`] : [],
@@ -294,6 +298,7 @@ const config: ExpoConfig = {
   android: {
     icon: variant.assets.appIcon,
     package: variant.androidPackage,
+    ...(buildNumber ? { versionCode: Number(buildNumber) } : {}),
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),

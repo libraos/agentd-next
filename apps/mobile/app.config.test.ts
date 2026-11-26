@@ -4,7 +4,13 @@ import appleAppSiteAssociation from "../web/public/.well-known/apple-app-site-as
 
 // Keep config parsing independent of local env files and build credentials.
 vi.mock("../../scripts/lib/public-config.ts", () => ({
-  loadRepoEnv: () => ({ APP_VARIANT: process.env.APP_VARIANT }),
+  loadRepoEnv: () => ({
+    APP_VARIANT: process.env.APP_VARIANT,
+    // app.config.ts copies this into process.env, where undefined would become "undefined".
+    ...(process.env.T3CODE_MOBILE_BUILD_NUMBER
+      ? { T3CODE_MOBILE_BUILD_NUMBER: process.env.T3CODE_MOBILE_BUILD_NUMBER }
+      : {}),
+  }),
 }));
 
 afterEach(() => {
@@ -55,4 +61,14 @@ it("links copied thread URLs of a hosted web app only when HOSTED_APP_HOST names
   expect(config.android?.intentFilters?.[0]?.data).toEqual([
     { scheme: "https", host: "app.example.test", pathPrefix: "/threads/" },
   ]);
+});
+
+it("numbers a store build from T3CODE_MOBILE_BUILD_NUMBER on both platforms, and only then", async () => {
+  const unnumbered = await loadConfig("production");
+  expect(unnumbered.ios?.buildNumber).toBeUndefined();
+  expect(unnumbered.android?.versionCode).toBeUndefined();
+  vi.stubEnv("T3CODE_MOBILE_BUILD_NUMBER", "42");
+  const numbered = await loadConfig("production");
+  expect(numbered.ios?.buildNumber).toBe("42");
+  expect(numbered.android?.versionCode).toBe(42);
 });
