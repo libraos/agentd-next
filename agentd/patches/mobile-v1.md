@@ -17,3 +17,8 @@ removing it would fight every upstream sync.
 - `apps/web/public/.well-known/apple-app-site-association.json`: our team and ids.
 - `apps/web/public/.well-known/assetlinks.json`: empty; no hosted web app exists and the Play
   signing fingerprint is not known yet.
+- `apps/mobile/src/features/settings/lib/legal-document-url.ts`: the Legal page opens this build's
+  telemetry notice, as web's privacy link does, instead of upstream's marketing site.
+
+Ours: `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
+`scripts/mobile-release-check.allow.json`.
