@@ -115,9 +115,89 @@ export function sourceRepository(input: string): string | null {
   return repository.toLowerCase();
 }
 
+/** What a pasted source names: a repository, and for a link into a folder, what follows `tree/`. */
+export interface SourceLink {
+  readonly repository: string;
+  /** The branch, then the folder; the branch may hold slashes, so only the end is matched. */
+  readonly tree?: string;
+}
+
+const GITHUB_HOSTS = new Set(["github.com", "www.github.com"]);
+
+/**
+ * A source as typed or pasted: `owner/repo`, the repository's link, a link to a folder in it
+ * (`github.com/OWNER/REPO/tree/BRANCH/PATH`) or to its catalog.json (on github.com or the raw
+ * host). Anything else is null, and nothing here ever names a folder on this computer.
+ */
+export function parseSourceLink(input: string): SourceLink | null {
+  const trimmed = input.trim();
+  const plain = sourceRepository(trimmed);
+  if (plain !== null) return { repository: plain };
+  let url: URL;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" || url.username !== "" || url.password !== "" || url.port !== "") {
+    return null;
+  }
+  let segments: Array<string>;
+  try {
+    segments = url.pathname
+      .split("/")
+      .filter((segment) => segment.length > 0)
+      .map(decodeURIComponent);
+  } catch {
+    return null;
+  }
+  const [owner = "", name = "", ...rest] = segments;
+  const repository = sourceRepository(`${owner}/${name}`);
+  if (repository === null) return null;
+  if (url.host === "raw.githubusercontent.com") {
+    return rest.length >= 2 && rest.at(-1) === "catalog.json" ? { repository } : null;
+  }
+  if (!GITHUB_HOSTS.has(url.host)) return null;
+  if (rest.length === 0) return { repository };
+  if (rest[0] === "tree" && rest.length >= 2) {
+    return rest.length === 2 ? { repository } : { repository, tree: rest.slice(1).join("/") };
+  }
+  if (rest[0] === "blob" && rest.length >= 3 && rest.at(-1) === "catalog.json") {
+    return { repository };
+  }
+  return null;
+}
+
+export type LinkedPlugin =
+  | { readonly _tag: "Found"; readonly id: string }
+  | { readonly _tag: "Elsewhere"; readonly id: string; readonly repository: string }
+  | { readonly _tag: "Missing" };
+
+/** The catalogue's plugin whose folder a link's `tree` ends with, pinned in `repository`. */
+export function linkedPlugin(
+  catalog: PluginCatalog | undefined,
+  repository: string,
+  tree: string,
+): LinkedPlugin {
+  let elsewhere: LinkedPlugin = { _tag: "Missing" };
+  for (const entry of catalog?.plugins ?? []) {
+    if (!tree.endsWith(`/${entry.source.path}`)) continue;
+    const pinned = githubRepository(entry.source.url)?.toLowerCase() ?? entry.source.url;
+    if (pinned === repository) return { _tag: "Found", id: entry.id };
+    elsewhere = { _tag: "Elsewhere", id: entry.id, repository: pinned };
+  }
+  return elsewhere;
+}
+
 /** The catalogue sources a person added, and developer mode's local folders. */
 export const PluginSources = Schema.Struct({
-  github: Schema.Array(Schema.Struct({ repository: Schema.String })),
+  github: Schema.Array(
+    Schema.Struct({
+      repository: Schema.String,
+      /** The person confirmed reading it with the server's GitHub connection; nothing of it is kept. */
+      githubConnection: Schema.optionalKey(Schema.Boolean),
+    }),
+  ),
   developerMode: Schema.Boolean,
   /** Local plugins by id; each is read from its folder every time, not copied. */
   local: Schema.Array(Schema.Struct({ id: Schema.String, path: Schema.String })),
