@@ -3,7 +3,14 @@ import { describe, expect, it } from "@effect/vitest";
 import { cloudJobNote } from "./agentdCloud.ts";
 import { AgentdCommandError } from "@t3tools/contracts";
 
-import { CLOUD_REASONS, cloudReason, openKeyFile, startErrorFor } from "./cloudFailure.ts";
+import {
+  CLOUD_REASONS,
+  cloudFailureReason,
+  cloudReason,
+  openKeyFile,
+  refusedBeforeTask,
+  startErrorFor,
+} from "./cloudFailure.ts";
 
 describe("cloudJobNote", () => {
   it.each([
@@ -75,6 +82,68 @@ describe("cloudReason", () => {
     ["the key file can be read or written by others", CLOUD_REASONS.privateFile],
   ] as const)("%s", (message, reason) => {
     expect(cloudReason(message)).toBe(reason);
+  });
+});
+
+// libraos/next#287: the job result when the hosted gateway had no usable provider credential.
+const GATEWAY_503 = `API Error: 503 auth_unavailable: no auth available (providers=claude, model=claude-sonnet-5-5;
+last upstream error: unauthorized: token: [REDACTED] "error_description": "Refresh token: [REDACTED]);
+check Claude auth/key session and cooldown state via /v0/management/auth-files.
+This is a server-side issue, usually temporary — try again in a moment.
+If it persists, check your inference gateway (api.example.com).
+level=fatal msg="exec failed with exit code 1"`;
+
+describe("gateway model access unavailable", () => {
+  it.each(["failed_verification", "failed"])(
+    "a %s job whose gateway had no auth is not blamed on the check or the user",
+    (state) => {
+      const note = cloudFailureReason(state, [GATEWAY_503, null]);
+      expect(note).toBe(CLOUD_REASONS.gatewayUnavailable);
+      expect(cloudJobNote(state, [GATEWAY_503])).toBe(CLOUD_REASONS.gatewayUnavailable);
+    },
+  );
+
+  it("does not blame the user's credentials or quote the gateway's internals", () => {
+    const reason = CLOUD_REASONS.gatewayUnavailable;
+    expect(reason).not.toBe(CLOUD_REASONS.providerSignIn);
+    expect(reason).not.toBe(CLOUD_REASONS.subscriptionSignIn);
+    expect(reason).not.toMatch(/management|auth-files|\/v0\//);
+    expect(reason).toMatch(/try again later/i);
+    expect(reason).toMatch(/subscription or API key/i);
+  });
+
+  it("matches the gateway's own wording even beside other credential words", () => {
+    expect(cloudReason("503 auth_unavailable: no auth available (providers=codex)")).toBe(
+      CLOUD_REASONS.gatewayUnavailable,
+    );
+    // An OAuth 401 upstream inside the gateway's message is still the gateway's.
+    expect(
+      cloudReason(
+        "API Error: 503 auth_unavailable: no auth available (providers=claude; last upstream error: OAuth authentication_error 401)",
+      ),
+    ).toBe(CLOUD_REASONS.gatewayUnavailable);
+  });
+
+  it.each([
+    [
+      "failed",
+      "wrote /home/me/auth-503/auth_service/out.log",
+      "The cloud worker could not finish the task.",
+    ],
+    ["failed_verification", "check exited 1 in acme/auth-unavailable-503", CLOUD_REASONS.check],
+    ["failed", "API Error: 503 Service Unavailable", "The cloud worker could not finish the task."],
+    ["failed", "OAuth access token is invalid (401)", CLOUD_REASONS.subscriptionSignIn],
+    [
+      "failed",
+      "Codex could not sign in with your ChatGPT login: refresh token expired",
+      CLOUD_REASONS.chatgptSignIn,
+    ],
+  ] as const)("%s: %s keeps its reason", (state, message, note) => {
+    expect(cloudFailureReason(state, [message])).toBe(note);
+  });
+
+  it("is not a refusal before a task, since the job was created and ran", () => {
+    expect(refusedBeforeTask(GATEWAY_503)).toBe(false);
   });
 });
 

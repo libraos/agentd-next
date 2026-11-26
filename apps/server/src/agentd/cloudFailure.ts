@@ -33,6 +33,8 @@ export const CLOUD_REASONS = {
   chatgptAuth: "Your ChatGPT plan isn’t set up for Codex. Run codex login in a terminal.",
   pickPlan: "Both a Claude and a ChatGPT plan are set up. Choose the plan for this task.",
   teamServer: "Submit cloud tasks from a local LibraOS Engine session, not through a team server.",
+  gatewayUnavailable:
+    "LibraOS model access couldn’t reach the model provider. This isn’t your key, account or code. Try again later, or run the task on your own subscription or API key.",
   providerSignIn:
     "The cloud worker could not sign in to the model provider. Check your model access before trying again.",
   checkFiles:
@@ -69,8 +71,13 @@ export function cloudSetupProblem(message: string): CloudProblem | null {
   return null;
 }
 
+// The LibraOS gateway's answer when it holds no usable credential for the provider (libraos/next#287).
+const GATEWAY_UNAVAILABLE = /\b503 auth_unavailable\b|\bno auth available\b/i;
+
 /** A specific reason for agentd's message, or null when it names nothing this app recognises. */
 export function cloudReason(message: string): string | null {
+  // Before the sign-in patterns: the gateway's message quotes its own upstream 401 and tokens.
+  if (GATEWAY_UNAVAILABLE.test(message)) return CLOUD_REASONS.gatewayUnavailable;
   const setup = cloudSetupProblem(message);
   if (setup !== null) return CLOUD_REASONS[setup];
   if (/can be read or written by others|belongs to another user/i.test(message))
