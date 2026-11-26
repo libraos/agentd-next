@@ -14,6 +14,12 @@ import {
   resolveHookCommand,
   withoutPlugin,
   withPluginEnabled,
+  parsePluginKey,
+  pluginKey,
+  readPluginSources,
+  sortPluginKeys,
+  sourceRepository,
+  tokenAllowed,
 } from "./pluginCatalog.ts";
 
 const INPUT = { text: "hello", attachments: [{ id: "a", name: "a.txt", text: "one" }] };
@@ -273,5 +279,49 @@ describe("a manifest with MCP servers and settings", () => {
       _tag: "Missing",
       settings: ["outreach_token"],
     });
+  });
+});
+
+describe("plugin sources", () => {
+  it("keys plugins per source, keeping an official plugin's bare id", () => {
+    const github = { kind: "github", repository: "acme/plugins.x" } as const;
+    expect(pluginKey({ kind: "official" }, "redact")).toBe("redact");
+    expect(pluginKey(github, "redact")).toBe("gh~acme~plugins.x~redact");
+    expect(pluginKey({ kind: "local" }, "redact")).toBe("local~redact");
+    for (const origin of [{ kind: "official" } as const, github, { kind: "local" } as const]) {
+      expect(parsePluginKey(pluginKey(origin, "redact"))).toEqual({ origin, id: "redact" });
+    }
+    for (const bad of ["", "Redact", "gh~acme~redact", "gh~Acme~x~redact", "x~redact", "../a"]) {
+      expect(parsePluginKey(bad)).toBeNull();
+    }
+    expect(sortPluginKeys(["gh~a~b~redact", "zeta", "local~a", "alpha"])).toEqual([
+      "alpha",
+      "zeta",
+      "gh~a~b~redact",
+      "local~a",
+    ]);
+  });
+
+  it("reads a source as owner/repo in lower case, and refuses anything else", () => {
+    expect(sourceRepository("Acme/Plugins")).toBe("acme/plugins");
+    expect(sourceRepository(" github.com/acme/plugins ")).toBe("acme/plugins");
+    expect(sourceRepository("https://github.com/acme/plugins.git")).toBe("acme/plugins");
+    for (const bad of ["acme", "acme/plugins/extra", "https://gitlab.com/a/b", "a/..", "a/b."]) {
+      expect(sourceRepository(bad)).toBeNull();
+    }
+    expect(readPluginSources("not json")).toEqual({ github: [], developerMode: false, local: [] });
+  });
+
+  it("allows a token only on the GitHub API for its own repository", () => {
+    const allowed = (url: string) => tokenAllowed(url, "acme/plugins");
+    expect(allowed("https://api.github.com/repos/acme/plugins/contents/catalog.json")).toBe(true);
+    expect(allowed("https://api.github.com/repos/Acme/Plugins/git/blobs/abc")).toBe(true);
+    expect(allowed("https://api.github.com/repos/acme/plugins-other/contents/x")).toBe(false);
+    expect(allowed("https://api.github.com/repos/other/plugins/contents/x")).toBe(false);
+    expect(allowed("https://raw.githubusercontent.com/acme/plugins/HEAD/catalog.json")).toBe(false);
+    expect(allowed("http://api.github.com/repos/acme/plugins/x")).toBe(false);
+    expect(allowed("https://api.github.com.evil.example/repos/acme/plugins/x")).toBe(false);
+    expect(allowed("https://user@api.github.com/repos/acme/plugins/x")).toBe(false);
+    expect(allowed("https://api.github.com:8443/repos/acme/plugins/x")).toBe(false);
   });
 });

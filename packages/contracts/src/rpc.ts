@@ -473,6 +473,10 @@ import {
   AgentdPluginInput,
   AgentdPluginSettingsInput,
   AgentdPluginRemoveInput,
+  AgentdPluginDeveloperModeInput,
+  AgentdPluginLocalInput,
+  AgentdPluginSourceInput,
+  AgentdPluginSourceRemoveInput,
   AgentdPlugins,
   AgentdPluginsListInput,
 } from "./agentdPlugins.ts";
@@ -873,6 +877,10 @@ export const WS_METHODS = {
   agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
   agentdPluginsSetup: "agentd.pluginsSetup",
   agentdPluginsSetSettings: "agentd.pluginsSetSettings",
+  agentdPluginsAddSource: "agentd.pluginsAddSource",
+  agentdPluginsRemoveSource: "agentd.pluginsRemoveSource",
+  agentdPluginsSetDeveloperMode: "agentd.pluginsSetDeveloperMode",
+  agentdPluginsAddLocal: "agentd.pluginsAddLocal",
   agentdBeforeSendReview: "agentd.beforeSendReview",
   agentdBeforeSendConfirm: "agentd.beforeSendConfirm",
   agentdBeforeSendDiscard: "agentd.beforeSendDiscard",
@@ -2895,6 +2903,33 @@ const WsAgentdPluginsSetSettingsRpc = Rpc.make(WS_METHODS.agentdPluginsSetSettin
   error: AgentdPluginsRpcError,
 });
 
+/** Adds a GitHub catalogue, or replaces its token; refused when its catalog.json cannot be read. */
+const WsAgentdPluginsAddSourceRpc = Rpc.make(WS_METHODS.agentdPluginsAddSource, {
+  payload: AgentdPluginSourceInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+/** Drops a catalogue a person added and its token; its installed plugins stay until removed. */
+const WsAgentdPluginsRemoveSourceRpc = Rpc.make(WS_METHODS.agentdPluginsRemoveSource, {
+  payload: AgentdPluginSourceRemoveInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+const WsAgentdPluginsSetDeveloperModeRpc = Rpc.make(WS_METHODS.agentdPluginsSetDeveloperMode, {
+  payload: AgentdPluginDeveloperModeInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
+/** Developer mode: a local folder as a plugin, after the same manifest check as an install. */
+const WsAgentdPluginsAddLocalRpc = Rpc.make(WS_METHODS.agentdPluginsAddLocal, {
+  payload: AgentdPluginLocalInput,
+  success: AgentdPlugins,
+  error: AgentdPluginsRpcError,
+});
+
 const WsAgentdBeforeSendReviewRpc = Rpc.make(WS_METHODS.agentdBeforeSendReview, {
   payload: AgentdBeforeSendReviewInput,
   success: Schema.NullOr(AgentdBeforeSendReview),
@@ -3281,6 +3316,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdPluginsSetEnabledRpc,
   WsAgentdPluginsSetupRpc,
   WsAgentdPluginsSetSettingsRpc,
+  WsAgentdPluginsAddSourceRpc,
+  WsAgentdPluginsRemoveSourceRpc,
+  WsAgentdPluginsSetDeveloperModeRpc,
+  WsAgentdPluginsAddLocalRpc,
   WsAgentdBeforeSendReviewRpc,
   WsAgentdBeforeSendConfirmRpc,
   WsAgentdBeforeSendDiscardRpc,

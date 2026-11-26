@@ -23,11 +23,13 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { AgentdPluginContributions } from "./AgentdPluginContributions";
+import { PluginOriginBadge, usePluginOriginLabel } from "./AgentdPluginOrigin";
+import { AgentdPluginSources } from "./AgentdPluginSources";
 import { AgentdLoading, AgentdReadError } from "./AgentdPageReads";
 
 const SETUP_POLL_MS = 2_000;
 
-/** The AgentD page's plugins: install, turn on or off, and remove those from our catalogue. */
+/** The AgentD page's plugins: their catalogues, and install, turn on or off and remove each. */
 export function AgentdPagePlugins({ environmentId }: { readonly environmentId: EnvironmentId }) {
   const plugins = useAgentdPlugins(environmentId);
   const canChange = useAtomValue(agentdEnvironment.pluginsInstall.permissionAtom(environmentId));
@@ -42,28 +44,36 @@ export function AgentdPagePlugins({ environmentId }: { readonly environmentId: E
   if (plugins.error !== null) return <AgentdReadError error={plugins.error} />;
   const data = plugins.data;
   if (data === null) return <AgentdLoading />;
-  if (data.plugins.length === 0)
-    return (
-      <p className="text-sm text-muted-foreground">
-        {data.source === "none" ? (
-          <T>The plugin catalogue could not be reached.</T>
-        ) : (
-          <T>The catalogue has no plugins yet.</T>
-        )}
-      </p>
-    );
   return (
-    <ul className="space-y-3">
-      {data.plugins.map((plugin) => (
-        <PluginRow
-          key={plugin.id}
-          plugin={plugin}
-          environmentId={environmentId}
-          canChange={canChange}
-          onChanged={plugins.refresh}
-        />
-      ))}
-    </ul>
+    <>
+      <AgentdPluginSources
+        data={data}
+        environmentId={environmentId}
+        canChange={canChange}
+        onChanged={plugins.refresh}
+      />
+      {data.plugins.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {data.source === "none" ? (
+            <T>The plugin catalogue could not be reached.</T>
+          ) : (
+            <T>The catalogue has no plugins yet.</T>
+          )}
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {data.plugins.map((plugin) => (
+            <PluginRow
+              key={plugin.id}
+              plugin={plugin}
+              environmentId={environmentId}
+              canChange={canChange}
+              onChanged={plugins.refresh}
+            />
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -83,6 +93,9 @@ function PluginRow({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [confirmingInstall, setConfirmingInstall] = useState(false);
+  const originLabel = usePluginOriginLabel();
+  const local = plugin.origin.kind === "local";
   const setup = plugin.setup;
   const setUp = setup === undefined || setup.status === "ready";
   const settingUp = setup?.status === "running";
@@ -111,6 +124,7 @@ function PluginRow({
     <li className="flex flex-col gap-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{plugin.name}</span>
+        <PluginOriginBadge origin={plugin.origin} />
         <span className="text-muted-foreground">{plugin.installedVersion ?? plugin.version}</span>
         {plugin.state === "missing" && setUp && plugin.hooks.length > 0 ? (
           <Badge variant="error">
@@ -156,7 +170,7 @@ function PluginRow({
               size="xs"
               variant="outline"
               disabled={!canChange || busy}
-              onClick={() => void run(() => commands.install({ environmentId, input }))}
+              onClick={() => setConfirmingInstall(true)}
             >
               {update ? <T>Update</T> : <T>Install</T>}
             </Button>
@@ -172,6 +186,11 @@ function PluginRow({
               {setup.status === "needed" ? <T>Set up</T> : <T>Set up again</T>}
             </Button>
           ) : null}
+          {local ? (
+            <Button type="button" size="xs" variant="outline" disabled={busy} onClick={onChanged}>
+              <T>Read again</T>
+            </Button>
+          ) : null}
           {installed ? (
             <Button
               type="button"
@@ -179,7 +198,7 @@ function PluginRow({
               variant="outline"
               disabled={!canChange || busy || settingUp}
               onClick={() =>
-                setup === undefined
+                setup === undefined || local
                   ? void run(() => commands.remove({ environmentId, input }))
                   : setConfirmingRemove(true)
               }
@@ -189,6 +208,23 @@ function PluginRow({
           ) : null}
         </div>
       </div>
+      {plugin.origin.kind === "local" ? (
+        <p className="text-muted-foreground font-mono text-xs wrap-anywhere">
+          {plugin.origin.path}
+        </p>
+      ) : null}
+      {plugin.problems === undefined ? null : (
+        <div role="alert" className="text-destructive text-xs">
+          <p>
+            <T>Its manifest is refused, so it does not run until it reads again:</T>
+          </p>
+          <ul className="list-disc ps-4 wrap-anywhere">
+            {plugin.problems.map((problem) => (
+              <li key={problem}>{problem}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {plugin.description === "" ? null : (
         <p className="text-muted-foreground">{plugin.description}</p>
       )}
@@ -218,10 +254,54 @@ function PluginRow({
         <p className="text-destructive wrap-anywhere">{setup.reason}</p>
       ) : null}
       {failure === null ? null : (
-        <p role="alert" className="text-destructive wrap-anywhere">
+        <p role="alert" className="text-destructive whitespace-pre-line wrap-anywhere">
           {failure}
         </p>
       )}
+      <AlertDialog open={confirmingInstall} onOpenChange={setConfirmingInstall}>
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {gt("Install {name} {version}?", { name: plugin.name, version: plugin.version })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {gt("Source: {source}", { source: originLabel(plugin.origin) })}
+            </AlertDialogDescription>
+            {plugin.author === "" ? null : (
+              <p className="text-muted-foreground text-sm">
+                {gt("By {author} · {licence}", { author: plugin.author, licence: plugin.licence })}
+              </p>
+            )}
+            <p className="text-muted-foreground text-sm">
+              {plugin.origin.kind === "official" ? (
+                <T>
+                  From the LibraOS catalogue, pinned to the commit LibraOS reviewed. Its commands
+                  run on this computer with your access while it is on.
+                </T>
+              ) : (
+                <T>
+                  From a catalogue you added, not reviewed by LibraOS. It is pinned to the commit
+                  that catalogue names, and its commands run on this computer with your access while
+                  it is on.
+                </T>
+              )}
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline" />}>
+              <T>Cancel</T>
+            </AlertDialogClose>
+            <Button
+              onClick={() => {
+                setConfirmingInstall(false);
+                void run(() => commands.install({ environmentId, input }));
+              }}
+            >
+              {update ? <T>Update</T> : <T>Install</T>}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
       <AlertDialog open={confirmingRemove} onOpenChange={setConfirmingRemove}>
         <AlertDialogPopup>
           <AlertDialogHeader>

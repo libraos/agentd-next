@@ -10,7 +10,12 @@ import {
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { CatalogSource, resolveInside, safeRelativePath } from "./skillCatalog.ts";
+import {
+  CatalogSource,
+  githubRepository,
+  resolveInside,
+  safeRelativePath,
+} from "./skillCatalog.ts";
 
 // The plugin catalogue's pure parts: its format, a plugin's manifest, the enabled setting, and the
 // before-send hook's protocol. A hook is a command run with one JSON object on stdin that prints
@@ -26,9 +31,134 @@ export const PLUGIN_INSTALL_RECORD = ".agentd-plugin-install.json";
 
 const PLUGIN_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/;
-export const validPluginId = (id: string) => PLUGIN_ID.test(id);
+const validPluginId = (id: string) => PLUGIN_ID.test(id);
 export const validPluginVersion = (version: string) =>
   VERSION.test(version) && safeRelativePath(version) !== null;
+
+/** The official catalogue's repository; it is always a source and cannot be removed. */
+export const OFFICIAL_REPOSITORY = "libraos/plugins";
+
+/**
+ * Where a plugin came from. A GitHub source's repository is lower case, as GitHub ignores case.
+ */
+export type PluginOrigin =
+  | { readonly kind: "official" }
+  | { readonly kind: "github"; readonly repository: string }
+  | { readonly kind: "local" };
+
+// Keys are per source, so a catalogue cannot replace or shadow an official plugin. An official
+// plugin's key is its bare id, as before sources existed, so installs from then keep their
+// folder, settings and secrets. `~` is in no plugin id, owner or repository name, so a key is
+// unambiguous and is one safe path segment on every OS.
+const KEY_SEPARATOR = "~";
+
+/** `gh~owner~repo`: a GitHub source's folder under `plugins/cache/` and its secret's name. */
+export const sourceSegment = (repository: string) =>
+  `gh${KEY_SEPARATOR}${repository.replace("/", KEY_SEPARATOR)}`;
+
+/** The key a plugin is installed, turned on and configured under. */
+export function pluginKey(origin: PluginOrigin, id: string): string {
+  if (origin.kind === "official") return id;
+  if (origin.kind === "local") return `local${KEY_SEPARATOR}${id}`;
+  return `${sourceSegment(origin.repository)}${KEY_SEPARATOR}${id}`;
+}
+
+/** The origin and id in a key, or null when it is not one. */
+export function parsePluginKey(
+  key: string,
+): { readonly origin: PluginOrigin; readonly id: string } | null {
+  const parts = key.split(KEY_SEPARATOR);
+  const id = parts.at(-1) ?? "";
+  if (!validPluginId(id)) return null;
+  if (parts.length === 1) return { origin: { kind: "official" }, id };
+  if (parts.length === 2 && parts[0] === "local") return { origin: { kind: "local" }, id };
+  if (parts.length === 4 && parts[0] === "gh") {
+    const repository = sourceRepository(`${parts[1]}/${parts[2]}`);
+    return repository === null || repository !== `${parts[1]}/${parts[2]}`
+      ? null
+      : { origin: { kind: "github", repository }, id };
+  }
+  return null;
+}
+
+const isOfficialKey = (key: string) => !key.includes(KEY_SEPARATOR);
+
+/**
+ * Official plugins first, then by key: another catalogue's hook never runs before an official one,
+ * and its MCP server never takes an official server's name.
+ */
+export const sortPluginKeys = (keys: Iterable<string>): ReadonlyArray<string> =>
+  [...keys].toSorted((a, b) =>
+    isOfficialKey(a) === isOfficialKey(b)
+      ? a < b
+        ? -1
+        : a > b
+          ? 1
+          : 0
+      : isOfficialKey(a)
+        ? -1
+        : 1,
+  );
+
+/**
+ * `owner/repo` in lower case for what a person types as a catalogue source (`owner/repo`,
+ * `github.com/owner/repo` or its https URL), or null. A name ending in a dot is refused: Windows
+ * cannot create its folder.
+ */
+export function sourceRepository(input: string): string | null {
+  const trimmed = input
+    .trim()
+    .replace(/^https:\/\//, "")
+    .replace(/^github\.com\//, "");
+  const repository = githubRepository(`https://github.com/${trimmed}`);
+  if (repository === null || repository.endsWith(".")) return null;
+  return repository.toLowerCase();
+}
+
+/** The catalogue sources a person added, and developer mode's local folders. */
+export const PluginSources = Schema.Struct({
+  github: Schema.Array(Schema.Struct({ repository: Schema.String })),
+  developerMode: Schema.Boolean,
+  /** Local plugins by id; each is read from its folder every time, not copied. */
+  local: Schema.Array(Schema.Struct({ id: Schema.String, path: Schema.String })),
+});
+export type PluginSources = typeof PluginSources.Type;
+const EMPTY_PLUGIN_SOURCES: PluginSources = { github: [], developerMode: false, local: [] };
+const decodeSources = Schema.decodeUnknownOption(Schema.fromJsonString(PluginSources));
+/** No file, or one that does not read: only the official catalogue, developer mode off. */
+export const readPluginSources = (text: string): PluginSources =>
+  Option.getOrElse(decodeSources(text), () => EMPTY_PLUGIN_SOURCES);
+
+/** The secret store's name for a source's token; nothing else keeps it. */
+export const sourceTokenName = (repository: string) =>
+  `agentd-plugin-source.${sourceSegment(repository)}`;
+
+export const GITHUB_API = "https://api.github.com";
+
+/**
+ * Where a source's catalog.json is read on its default branch. With a token it is the GitHub API,
+ * the only host a token is sent to; without one, the raw host the official catalogue uses.
+ */
+export const sourceCatalogUrl = (repository: string, withToken: boolean) =>
+  withToken
+    ? `${GITHUB_API}/repos/${repository}/contents/catalog.json`
+    : `https://raw.githubusercontent.com/${repository}/HEAD/catalog.json`;
+
+/** Whether a request to `url` may carry the token of `repository`: the API, for that repository. */
+export function tokenAllowed(url: string, repository: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.protocol === "https:" &&
+    parsed.host === "api.github.com" &&
+    parsed.username === "" &&
+    parsed.pathname.toLowerCase().startsWith(`/repos/${repository.toLowerCase()}/`)
+  );
+}
 
 export const PluginCatalogEntry = Schema.Struct({
   id: Schema.String.check(Schema.isPattern(PLUGIN_ID)),
