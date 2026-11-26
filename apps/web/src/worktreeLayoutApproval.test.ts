@@ -76,11 +76,13 @@ const create: WorktreeLayoutCommand = {
   kind: "create",
   command: "./scripts/new-workspace.sh",
   approved: false,
+  files: ["scripts/new-workspace.sh"],
 };
 const remove: WorktreeLayoutCommand = {
   kind: "remove",
   command: "./scripts/remove-workspace.sh",
   approved: false,
+  files: ["scripts/remove-workspace.sh"],
 };
 const ensure = () =>
   ensureWorktreeLayoutApproved({ environmentId, projectId, projectTitle: "Shop" });

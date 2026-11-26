@@ -4077,6 +4077,7 @@
   "5c5ca496f3dc7701": "Used when LibraOS Engine has no estimate for the task. LibraOS Engine on this machine has no model prices, so tasks here get only the minutes; the dollar amount applies to Cloud Workers.",
   "dc1a56ecbf21637a": "Used when LibraOS Engine has no estimate for the task.",
   "45364730b756553d": "min",
+  "5810051944742768": "このコマンドはプロジェクト内のファイルを実行します。承認は現在の内容に対して有効で、いずれかが変更されると再度承認を求めます:",
   "a2947c86f59136c0": "受信者がタスクを引き受けるのを待っています",
   "36065867b7adee54": "リモートワーカーを待っています",
   "86c28db793e779c6": "エージェントが選択されていないため、自動では開始しません",

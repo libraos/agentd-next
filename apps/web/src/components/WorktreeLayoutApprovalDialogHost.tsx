@@ -7,6 +7,7 @@ import {
   respondToWorktreeLayoutApproval,
   subscribeWorktreeLayoutApprovalHost,
 } from "../worktreeLayoutApproval";
+import { WorktreeLayoutCommandFiles } from "./agentd/WorktreeLayoutCommandFiles";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -61,6 +62,7 @@ export function WorktreeLayoutApprovalDialogHost() {
                 <pre className="max-h-48 overflow-auto whitespace-pre-wrap wrap-anywhere rounded-md border bg-muted/40 px-3 py-2 font-mono text-xs">
                   {command.command}
                 </pre>
+                <WorktreeLayoutCommandFiles files={command.files} />
               </div>
             ))}
           </div>

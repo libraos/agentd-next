@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
@@ -109,8 +110,10 @@ export type WorktreeLayoutCommandKind = typeof WorktreeLayoutCommandKind.Type;
 export const WorktreeLayoutCommand = Schema.Struct({
   kind: WorktreeLayoutCommandKind,
   command: Schema.String,
-  /** A person approved this exact text for this project. */
+  /** A person approved this exact text for this project, and the files below as they are now. */
   approved: Schema.Boolean,
+  /** The project's own files the text names, from its root: a change to one asks again. */
+  files: Schema.Array(Schema.String).pipe(Schema.withDecodingDefault(Effect.succeed([]))),
 });
 export type WorktreeLayoutCommand = typeof WorktreeLayoutCommand.Type;
 

@@ -54,12 +54,28 @@ import { act, render } from "../../test/render";
 import { ensureWorktreeLayoutApproved } from "../worktreeLayoutApproval";
 import { WorktreeLayoutApprovalDialogHost } from "./WorktreeLayoutApprovalDialogHost";
 
-const ask = (command: string) => {
-  state.commands = [{ kind: "create", command, approved: false }];
+const ask = (command: string, files: ReadonlyArray<string> = []) => {
+  state.commands = [{ kind: "create", command, approved: false, files }];
   return ensureWorktreeLayoutApproved({ environmentId, projectId, projectTitle: "Shop" });
 };
 
 describe("worktree layout approval dialog", () => {
+  it("names the project files the approval covers", async () => {
+    state.approved = [];
+    await using _screen = await render(<WorktreeLayoutApprovalDialogHost />, { router: false });
+    let asked: ReturnType<typeof ask> | undefined;
+    await act(() => {
+      asked = ask("sh scripts/setup.sh", ["scripts/setup.sh"]);
+    });
+    await expect
+      .element(page.getByText("a change to any of them asks again", { exact: false }))
+      .toBeVisible();
+    await expect.element(page.getByRole("listitem")).toHaveTextContent("scripts/setup.sh");
+
+    await userEvent.click(page.getByRole("button", { name: "Cancel" }));
+    await expect(asked).resolves.toEqual({ status: "cancelled" });
+  });
+
   it("does not approve a request that replaced the one on screen when the press began", async () => {
     state.approved = [];
     await using _screen = await render(<WorktreeLayoutApprovalDialogHost />, { router: false });

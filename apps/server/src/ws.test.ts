@@ -2137,7 +2137,8 @@ it.effect(
         const services = Layer.mergeAll(
           layerUnusedConfigRpcServices,
           Layer.mock(TaskFolders.TaskFolders)({
-            layoutCommands: () => Effect.succeed({ commands: [{ ...approval, approved: true }] }),
+            layoutCommands: () =>
+              Effect.succeed({ commands: [{ ...approval, approved: true, files: [] }] }),
           }),
           Layer.mock(LayoutCommandApprovalWrites.LayoutCommandApprovalWrites)({
             set: (input) => Effect.sync(() => void recorded.push(input)),
