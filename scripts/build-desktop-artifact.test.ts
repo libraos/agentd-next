@@ -29,6 +29,7 @@ import {
   parseWslRuntimeArchiveMembers,
   readWorkspaceConfig,
   createBuildConfig,
+  DESKTOP_EXTRA_RESOURCES,
   DESKTOP_FILE_EXCLUSIONS,
   InvalidMacPasskeyRpDomainError,
   InvalidMacPasskeyPublishableKeyError,
@@ -815,6 +816,23 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       }),
     ),
   );
+
+  it("ships the resource monitor only as an extra resource, not inside app.asar", () => {
+    // The packaged app runs resources/resource-monitor; these copies were unused files in app.asar.unpacked.
+    for (const copy of [
+      "apps/desktop/resources/resource-monitor/t3-resource-monitor.exe",
+      "apps/desktop/prod-resources/resource-monitor/t3-resource-monitor.exe",
+    ]) {
+      assert.isTrue(
+        DESKTOP_FILE_EXCLUSIONS.some((glob) => NodePath.matchesGlob(copy, glob.slice(1))),
+        copy,
+      );
+    }
+    assert.deepInclude(DESKTOP_EXTRA_RESOURCES, {
+      from: "apps/desktop/prod-resources/resource-monitor",
+      to: "resource-monitor",
+    });
+  });
 
   it("drops the other architecture's Darwin prebuilds from single-architecture Mac builds", () => {
     const excludes = (arch: "arm64" | "x64" | "universal", file: string) =>
