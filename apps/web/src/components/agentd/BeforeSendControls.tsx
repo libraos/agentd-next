@@ -12,6 +12,8 @@ import { useContext, useEffect, useState } from "react";
 import { RegistryContext } from "@effect/atom-react";
 
 import { agentdEnvironment, useAgentdPluginCommands, useAgentdPlugins } from "~/lib/agentdState";
+
+import { usePluginOriginLabel } from "./AgentdPluginOrigin";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -41,9 +43,12 @@ export function BeforeSendControls({
   const gt = useGT();
   const plugins = useAgentdPlugins(environmentId, projectId);
   const active = plugins.data?.beforeSend === true;
+  const originLabel = usePluginOriginLabel();
   const names = (plugins.data?.plugins ?? [])
     .filter((plugin) => plugin.state === "on" && plugin.hooks.includes("before-send"))
-    .map((plugin) => plugin.name)
+    .map((plugin) =>
+      gt("{name} ({source})", { name: plugin.name, source: originLabel(plugin.origin) }),
+    )
     .join(", ");
   return (
     <>

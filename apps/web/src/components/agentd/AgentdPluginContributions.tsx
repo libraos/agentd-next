@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { usePluginOriginLabel } from "./AgentdPluginOrigin";
 
 /**
  * An installed plugin's MCP servers, exactly as they will be started, and the form for the
@@ -20,6 +21,7 @@ export function AgentdPluginContributions({
   readonly onSave: (values: Readonly<Record<string, string | null>>) => void;
 }) {
   const gt = useGT();
+  const originLabel = usePluginOriginLabel();
   const servers = plugin.mcpServers ?? [];
   const settings = plugin.settings ?? [];
   const [draft, setDraft] = useState<Readonly<Record<string, string>>>({});
@@ -35,6 +37,9 @@ export function AgentdPluginContributions({
               While this plugin is on, Claude Code and Codex agents started here get these MCP
               servers. Other agents do not get them.
             </T>
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {gt("Source: {source}", { source: originLabel(plugin.origin) })}
           </p>
           <ul className="flex flex-col gap-1">
             {servers.map((server) => (

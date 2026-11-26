@@ -61,10 +61,13 @@ function setup(beforeSend: boolean) {
   useBeforeSendReviewStore.setState({ request: null });
   state.plugins = {
     source: "cache",
+    sources: [{ repository: "libraos/plugins", official: true, hasToken: false, state: "cache" }],
+    developerMode: false,
     beforeSend,
     plugins: [
       {
         id: "redactor",
+        origin: { kind: "official" },
         name: "Redactor",
         description: "",
         author: "",
@@ -112,6 +115,10 @@ it("shows the indicator only while a before-send hook is ready, and asks for no 
     </TooltipProvider>,
   );
   await expect.element(screen.getByRole("img", { name: "Checked before sending" })).toBeVisible();
+  await userEvent.hover(screen.getByRole("img", { name: "Checked before sending" }));
+  await expect
+    .element(page.getByText("Redactor (Official) checks each message before it is sent."))
+    .toBeVisible();
 });
 
 it("closing the review sends nothing and discards the held message", async () => {

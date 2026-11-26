@@ -7,7 +7,8 @@ import { render } from "../../../test/render";
 import { AgentdPluginContributions } from "./AgentdPluginContributions";
 
 const plugin: AgentdPluginListing = {
-  id: "outreach",
+  id: "gh~acme~plugins~outreach",
+  origin: { kind: "github", repository: "acme/plugins" },
   name: "Outreach mailer",
   description: "",
   author: "",
@@ -44,6 +45,7 @@ it("shows each server's exact command and a settings form with the secret masked
     <AgentdPluginContributions plugin={plugin} disabled={false} onSave={onSave} />,
   );
   await expect.element(page.getByText("outreach mcp --stdio")).toBeVisible();
+  await expect.element(page.getByText("Source: acme (private)")).toBeVisible();
   await expect
     .element(page.getByText("Not given to agents until these are set: Outreach API key"))
     .toBeVisible();
