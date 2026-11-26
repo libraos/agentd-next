@@ -2139,6 +2139,7 @@
   "a3e9f03141af0ad0": "{device} wants to connect to {environment} through {product}. It shows code {code}. Approve it only if that code matches.",
   "be69189bf8746555": "Reconnecting",
   "c86db01e2b424c24": "Scanned QR code did not contain a pairing URL.",
+  "91bcaae7e58f5a1b": "This address reaches only this device. On your computer, make a pairing link with an address this device can reach, such as its local network or Tailscale address.",
   "eeb1b20fb97702ed": "Permissions have changed for {environment}",
   "c87e4484112112e3": "This connection still uses the old permissions, so some actions may no longer be available. Pair again using a new link with the permissions you need.",
   "9e33004237e3c6a0": "Got it",

@@ -1,0 +1,27 @@
+# A pairing address on 127.0.0.1 names the phone itself. With nothing listening there, pairing
+# must explain that within 15 seconds instead of spinning.
+appId: com.libraos.next
+name: A loopback pairing address is explained, not retried forever
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- extendedWaitUntil:
+    visible: "Pair with your computer"
+    timeout: 30000
+- tapOn: "Add environment"
+- extendedWaitUntil:
+    visible: "Address"
+    timeout: 10000
+- tapOn: "Address"
+- inputText: "127.0.0.1:9"
+- tapOn:
+    text: "Code"
+    index: 0
+- inputText: "LOOPBACK0000"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "This address reaches only this device.*"
+    timeout: 15000
+- takeScreenshot: pairing-loopback-dark

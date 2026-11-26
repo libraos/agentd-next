@@ -1,0 +1,42 @@
+# Pairs a release build with the server `scripts/mobile-ui-host.ts start` runs and opens the
+# LibraOS Engine screen. Release builds take no pairing link, so the flow types the Address and
+# Code that the host printed:
+#   maestro test -e HOST=... -e CODE=... -e ENVIRONMENT_ID=... -e ENVIRONMENT_NAME=... pair-and-engine.yaml
+# The device is in dark appearance before the flow starts; the screenshots are dark-theme.
+appId: com.libraos.next
+name: Pair with a real server and open the LibraOS Engine screen
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- extendedWaitUntil:
+    visible: "Pair with your computer"
+    timeout: 30000
+- takeScreenshot: home-dark
+
+- tapOn: "Add environment"
+- extendedWaitUntil:
+    visible: "Address"
+    timeout: 10000
+- takeScreenshot: pairing-dark
+- tapOn: "Address"
+- inputText: ${HOST}
+- tapOn:
+    text: "Code"
+    index: 0
+- inputText: ${CODE}
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: ${ENVIRONMENT_NAME}
+    timeout: 30000
+
+- openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+- extendedWaitUntil:
+    visible: "Background tasks and the approvals waiting on you"
+    timeout: 30000
+- tapOn: "Background tasks and the approvals waiting on you"
+- extendedWaitUntil:
+    visible: "Set up LibraOS Engine on your computer"
+    timeout: 30000
+- takeScreenshot: engine-dark

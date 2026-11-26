@@ -2139,6 +2139,7 @@
   "a3e9f03141af0ad0": "{device} vill ansluta till {environment} via {product}. Den visar koden {code}. Godkänn den bara om koden stämmer.",
   "be69189bf8746555": "Återansluter",
   "c86db01e2b424c24": "Den skannade QR-koden innehöll ingen parkopplings-URL.",
+  "91bcaae7e58f5a1b": "Den här adressen når bara den här enheten. Skapa en parkopplingslänk på datorn med en adress som den här enheten kan nå, till exempel dess adress i det lokala nätverket eller i Tailscale.",
   "eeb1b20fb97702ed": "Behörigheterna har ändrats för {environment}",
   "c87e4484112112e3": "Den här anslutningen använder fortfarande de gamla behörigheterna, så vissa åtgärder kanske inte längre är tillgängliga. Parkoppla igen med en ny länk med de behörigheter du behöver.",
   "9e33004237e3c6a0": "Uppfattat",

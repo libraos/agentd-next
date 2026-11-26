@@ -1,0 +1,16 @@
+# Runs after pair-and-engine.yaml and `scripts/mobile-ui-host.ts revoke-all`: the relaunched app
+# keeps the environment but no longer reaches it, so the LibraOS Engine row is gone.
+#   maestro test -e ENVIRONMENT_ID=... -e ENVIRONMENT_NAME=... pair-revoked.yaml
+appId: com.libraos.next
+name: A device the computer revoked has to pair again
+---
+- launchApp:
+    stopApp: true
+- openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+- extendedWaitUntil:
+    visible: ${ENVIRONMENT_NAME}
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Background tasks and the approvals waiting on you"
+    timeout: 30000
+- takeScreenshot: revoked-dark

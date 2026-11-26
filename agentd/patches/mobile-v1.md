@@ -27,6 +27,9 @@ removing it would fight every upstream sync.
   with no environment, the first screen asks to pair with your computer and says how.
 - `apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx`: without a relay,
   says notifications arrive while the app is open.
+- `apps/mobile/src/features/connection/pairing.ts` and its test, `apps/mobile/src/state/use-remote-environment-registry.ts`:
+  a failed pairing with a loopback address says it reaches only the phone. It is tried first
+  because a simulator's loopback is the computer.
 - `apps/mobile/src/i18n/translations/*.json`: the new strings, translated.
 - `docs/user/install.md`, `remote-access.md`, `telemetry.md`: name the phone apps; they send
   nothing by default.
@@ -34,4 +37,5 @@ removing it would fight every upstream sync.
 Ours: `apps/mobile/src/state/agentd.ts`, `apps/mobile/src/features/engine/` (the read-only
 LibraOS Engine screen: tasks by section, Stop for a device with operate permission, approvals
 listed to answer on the computer), `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
-`scripts/mobile-release-check.allow.json`.
+`scripts/mobile-release-check.allow.json`, `scripts/mobile-ui-host.ts` (the server UI tests
+pair with, with no LibraOS Engine) and its test, `apps/mobile/maestro/` (the UI test flows).

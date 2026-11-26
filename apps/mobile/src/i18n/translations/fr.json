@@ -2139,6 +2139,7 @@
   "a3e9f03141af0ad0": "{device} veut se connecter à {environment} via {product}. Il affiche le code {code}. N’approuvez que si ce code correspond.",
   "be69189bf8746555": "Reconnexion",
   "c86db01e2b424c24": "Le code QR scanné ne contenait pas d’URL d’appairage.",
+  "91bcaae7e58f5a1b": "Cette adresse ne mène qu'à cet appareil. Sur votre ordinateur, créez un lien d'appairage avec une adresse que cet appareil peut atteindre, comme son adresse sur le réseau local ou Tailscale.",
   "eeb1b20fb97702ed": "Les autorisations ont changé pour {environment}",
   "c87e4484112112e3": "Cette connexion utilise encore les anciennes autorisations ; certaines actions peuvent donc ne plus être disponibles. Appairez-la à nouveau avec un nouveau lien qui a les autorisations nécessaires.",
   "9e33004237e3c6a0": "Compris",
