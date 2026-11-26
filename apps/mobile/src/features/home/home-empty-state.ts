@@ -37,8 +37,13 @@ function deriveEmptyState(
 
   if (!catalogState.hasConnections) {
     return {
-      title: resolve(msg("No environments connected")),
-      detail: resolve(msg("Add an environment to load projects and start coding sessions.")),
+      title: resolve(msg("Pair with your computer")),
+      detail: resolve(
+        msg(
+          "On your computer, run {command} or open Settings → Sharing & access, then scan the code.",
+        ),
+        { command: "libraos-next pair" },
+      ),
       loading: false,
     };
   }

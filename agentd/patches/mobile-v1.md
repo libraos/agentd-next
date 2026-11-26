@@ -23,7 +23,13 @@ removing it would fight every upstream sync.
   titled LibraOS Engine. Its name starts with `Settings` so it opens as a Settings page.
 - `apps/mobile/src/features/settings/SettingsEnvironmentDetailRouteScreen.tsx`: a LibraOS Engine
   row on a connected environment this device may read.
+- `apps/mobile/src/features/home/home-empty-state.ts`, `apps/mobile/src/features/layout/WorkspaceEmptyDetail.tsx`:
+  with no environment, the first screen asks to pair with your computer and says how.
+- `apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx`: without a relay,
+  says notifications arrive while the app is open.
 - `apps/mobile/src/i18n/translations/*.json`: the new strings, translated.
+- `docs/user/install.md`, `remote-access.md`, `telemetry.md`: name the phone apps; they send
+  nothing by default.
 
 Ours: `apps/mobile/src/state/agentd.ts`, `apps/mobile/src/features/engine/` (the read-only
 LibraOS Engine screen: tasks by section, Stop for a device with operate permission, approvals

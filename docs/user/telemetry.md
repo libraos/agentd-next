@@ -39,6 +39,10 @@ Upstream's hosted relay, its relay connection traces, mobile crash reports and a
 activity for mobile notifications are not part of LibraOS Next: the releases have no
 relay configured, so none of these are sent.
 
+The LibraOS Next phone apps send nothing by default: no analytics, crash reports or
+traces. They talk only to the computers you pair them with. Notifications arrive while
+the app is open.
+
 ## Export diagnostics to your own receiver
 
 To send traces, metrics, or logs to an OpenTelemetry receiver, open
