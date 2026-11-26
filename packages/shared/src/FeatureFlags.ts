@@ -16,7 +16,7 @@ const VARIABLE = "T3CODE_FEATURE_FLAGS";
 const config = Config.all({
   secretProviders: Config.Boolean("secret_providers").pipe(Config.withDefault(false)),
   tanstackSource: Config.Boolean("tanstack_source").pipe(Config.withDefault(false)),
-  /** The public client ID of the LibraOS Next for GitHub app; unset turns its sign-in off. */
+  /** The public client ID of the GitHub app to sign in with; empty turns its sign-in off. */
   githubAppClientId: Config.option(Config.String("github_app_client_id")),
 });
 
@@ -43,21 +43,27 @@ const parse = (record: Record<string, string>) => config.parse(ConfigProvider.fr
 /** Our builds' earlier variable for the app's client ID; the flag wins when both are set. */
 const LEGACY_GITHUB_APP_CLIENT_ID = "T3CODE_GITHUB_APP_CLIENT_ID";
 
+/** The LibraOS Next GitHub app (github.com/apps/libraos-next). A public identifier, not a secret. */
+export const LIBRAOS_NEXT_GITHUB_APP_CLIENT_ID = "Iv23li6cv5OFAEY0qoob";
+
 export const resolve = Effect.fn("FeatureFlags.resolve")(function* (
   list: string | undefined,
   legacyGitHubAppClientId?: string,
 ) {
-  const flags = yield* parse(parseList(list)).pipe(
+  const record = parseList(list);
+  const flags = yield* parse(record).pipe(
     Effect.catch((error) =>
       Effect.logWarning(`Ignoring invalid ${VARIABLE}; every flag is off.`, error).pipe(
         Effect.andThen(parse({})),
       ),
     ),
   );
-  const legacy = legacyGitHubAppClientId?.trim() ?? "";
-  return Option.isNone(flags.githubAppClientId) && legacy !== ""
-    ? { ...flags, githubAppClientId: Option.some(legacy) }
-    : flags;
+  // A client ID set to empty, by the flag or the variable, turns sign-in off.
+  const clientId =
+    "github_app_client_id" in record
+      ? Option.getOrElse(flags.githubAppClientId, () => "")
+      : (legacyGitHubAppClientId?.trim() ?? LIBRAOS_NEXT_GITHUB_APP_CLIENT_ID);
+  return { ...flags, githubAppClientId: Option.some(clientId) };
 });
 
 export const layer = Layer.effect(
@@ -70,5 +76,6 @@ export const layer = Layer.effect(
 export const layerTest = (values: Partial<FeatureFlagValues> = {}) =>
   Layer.effect(
     FeatureFlags,
-    Effect.map(resolve(undefined), (defaults) => ({ ...defaults, ...values })),
+    // Sign-in stays off unless a test sets a client ID, so no test reaches GitHub by default.
+    Effect.map(resolve(undefined, ""), (defaults) => ({ ...defaults, ...values })),
   );

@@ -275,9 +275,9 @@ describe("GitHubAppSignIn", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("does nothing with the app when the server has no client ID", () => {
+  it.effect.each([null, ""])("does nothing with the app when the client ID is %j", (clientId) => {
     const { layer, requests } = harness({
-      clientId: null,
+      clientId,
       signIns: { "github.com": session() },
       handle: () => ({ body: { login: "octocat" } }),
     });

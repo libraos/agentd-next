@@ -47,9 +47,37 @@ order of precedence:
 
 1. A token saved in **Settings → Source control & issues → GitHub**. It is kept in the server's secret
    store, and works without the GitHub CLI.
-2. `GH_TOKEN` (`GH_ENTERPRISE_TOKEN` with `GH_HOST` for GitHub Enterprise Server) in the
+2. **Sign in with GitHub**, for github.com (see below).
+3. `GH_TOKEN` (`GH_ENTERPRISE_TOKEN` with `GH_HOST` for GitHub Enterprise Server) in the
    server's environment.
-3. [GitHub CLI](https://cli.github.com/) 2.81.0 or newer, signed in with `gh auth login`.
+4. [GitHub CLI](https://cli.github.com/) 2.81.0 or newer, signed in with `gh auth login`.
+
+#### Sign in with GitHub
+
+On github.com you can sign in through the [LibraOS Next GitHub app](https://github.com/apps/libraos-next)
+instead of handing over a token. It has a far higher API rate limit than a personal token or a `gh`
+login.
+
+1. Open **Settings → Source control & issues** and choose **Sign in with GitHub**.
+2. LibraOS Next shows a one-time code. Choose **Copy code & open GitHub**, paste the code on GitHub, and
+   approve. The code expires after a few minutes; start again if it does.
+
+The server keeps the sign-in and renews it on its own. LibraOS Next never sees your password, and the
+app holds no secret of its own.
+
+The app acts as you, and only on repositories it is installed on. It is installed on selected
+repositories of the libraos organization, so to use it you must be a member of libraos with access to
+the repository. Anywhere else, such as your own repositories or another organization, LibraOS Next
+uses your saved token, `GH_TOKEN` or `gh` login instead, and a notice offers to install the app
+there. Installing it on an account you own uses
+[this link](https://github.com/apps/libraos-next/installations/new); an organization owner decides
+for an organization.
+
+**Sign out** in the same place forgets the sign-in on this server. To revoke it on GitHub as well,
+choose **Manage on GitHub**.
+A server started with `T3CODE_GITHUB_APP_CLIENT_ID` set to empty, or with `github_app_client_id=` in
+`T3CODE_FEATURE_FLAGS`, offers no GitHub sign-in; either one set to another app's client ID signs in
+with that app.
 
 If `gh` is signed in to several accounts or hosts, expand **GitHub** in the same place to pick
 the account each host uses or turn a host off. A saved token or `GH_TOKEN` takes precedence
