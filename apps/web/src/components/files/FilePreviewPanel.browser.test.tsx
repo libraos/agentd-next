@@ -381,41 +381,41 @@ describe("source file scroll", () => {
   it.for([
     {
       label: "keeps a downward drag whose anchor stays mounted across a window shift",
-      // Stops scrolling partway when the full CI shard runs; passes alone.
-      quarantined: true,
       startLine: 65,
       initialScrollLine: 65,
       direction: "down" as const,
+      anchorUnmountsBeforeTarget: false,
       targetFirstMounted: 101,
       expectedIncludedLine: 121,
     },
     {
       label: "keeps a downward drag whose anchor unmounts on a window shift",
-      // Stops scrolling partway when the full CI shard runs; passes alone.
-      quarantined: true,
       startLine: 5,
       initialScrollLine: null,
       direction: "down" as const,
+      anchorUnmountsBeforeTarget: true,
       targetFirstMounted: 101,
       expectedIncludedLine: 121,
     },
     {
       label: "keeps an upward drag whose anchor unmounts on a window shift",
-      // Stops scrolling partway when the full CI shard runs; passes alone.
-      quarantined: true,
       startLine: 385,
       initialScrollLine: 385,
       direction: "up" as const,
+      anchorUnmountsBeforeTarget: false,
       targetFirstMounted: 201,
       expectedIncludedLine: 290,
     },
   ])(
     "$label",
-    async (
-      { startLine, initialScrollLine, direction, targetFirstMounted, expectedIncludedLine, ...row },
-      { skip },
-    ) => {
-      if ("quarantined" in row) skip("flaky in the full CI shard");
+    async ({
+      startLine,
+      initialScrollLine,
+      direction,
+      anchorUnmountsBeforeTarget,
+      targetFirstMounted,
+      expectedIncludedLine,
+    }) => {
       using _settings = setup();
       localStorage.setItem("t3code.renderMarkdown", "false");
       const style = document.createElement("style");
@@ -473,7 +473,6 @@ describe("source file scroll", () => {
       const startRect = startRow!.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
       const nearEdgeY = direction === "down" ? scrollerRect.bottom - 5 : scrollerRect.top + 5;
-      const outsideEdgeY = direction === "down" ? scrollerRect.bottom + 60 : scrollerRect.top - 60;
       const frame = window.frameElement?.getBoundingClientRect();
       const mouse = (type: "mousePressed" | "mouseMoved" | "mouseReleased", x: number, y: number) =>
         cdp().send("Input.dispatchMouseEvent", {
@@ -486,23 +485,51 @@ describe("source file scroll", () => {
         });
 
       const startX = direction === "up" ? startRect.left + 140 : startRect.left + 2;
+      const dragX = startRect.left + 80;
       // The editor records the drag anchor on the press's selectionchange; drag only after it.
       const anchored = new Promise((resolve) =>
         document.addEventListener("selectionchange", resolve, { once: true }),
       );
       await mouse("mousePressed", startX, startRect.top + 5);
       await anchored;
-      await mouse("mouseMoved", startRect.left + 80, nearEdgeY);
-      await mouse("mouseMoved", startRect.left + 80, outsideEdgeY);
-      await vi.waitFor(() => {
-        const firstMounted = Number(rows()[0]?.getAttribute("data-line"));
-        if (direction === "down") {
-          expect(firstMounted).toBeGreaterThanOrEqual(targetFirstMounted);
-        } else {
-          expect(firstMounted).toBeLessThanOrEqual(targetFirstMounted);
-        }
-      });
-      await mouse("mouseReleased", startRect.left + 80, outsideEdgeY);
+      await mouse("mouseMoved", dragX, nearEdgeY);
+
+      // The test scrolls the held drag itself: Chrome's edge auto-scroll stalls on a loaded
+      // runner, so waiting on it made these cases flaky (libraos/next#289).
+      const firstMounted = () => Number(rows()[0]?.getAttribute("data-line"));
+      const anchorMounted = () =>
+        [...rows()].some((row) => row.getAttribute("data-line") === String(startLine));
+      const lineAtPointer = () =>
+        shadowRoot()?.elementFromPoint(dragX, nearEdgeY)?.closest("[data-line]");
+      const reachedTarget = () =>
+        direction === "down"
+          ? firstMounted() >= targetFirstMounted
+          : firstMounted() <= targetFirstMounted;
+      expect(anchorMounted()).toBe(true);
+      let unmountedBeforeTarget = false;
+      for (let step = 0; !reachedTarget(); step++) {
+        if (!anchorMounted()) unmountedBeforeTarget = true;
+        expect(step, "the drag never reached its target window").toBeLessThan(40);
+        const top = scroller.scrollTop;
+        scroller.scrollTop = top + (direction === "down" ? 1 : -1) * (scroller.clientHeight / 2);
+        expect(scroller.scrollTop).not.toBe(top);
+        // Move only once a mounted line is under the pointer, so the selection extends onto it.
+        await vi.waitFor(
+          () => {
+            const row = lineAtPointer();
+            expect(row).toBeTruthy();
+            const rowRect = row!.getBoundingClientRect();
+            expect(rowRect.top).toBeLessThanOrEqual(nearEdgeY);
+            expect(rowRect.bottom).toBeGreaterThan(nearEdgeY);
+          },
+          { timeout: 5_000 },
+        );
+        await mouse("mouseMoved", dragX, nearEdgeY);
+      }
+      // Mid-drag for the second case; for the others, only the target window drops the anchor.
+      expect(unmountedBeforeTarget).toBe(anchorUnmountsBeforeTarget);
+      expect(anchorMounted()).toBe(false);
+      await mouse("mouseReleased", dragX, nearEdgeY);
 
       const overlayRanges = shadowRoot()!.querySelectorAll("[data-selection-range]");
       expect(overlayRanges.length).toBeGreaterThan(0);
@@ -519,7 +546,8 @@ describe("source file scroll", () => {
       );
       expect(handled).toBe(true);
       const copied = clipboardData.getData("text/plain");
-      expect(copied).toContain(`line ${startLine} `);
+      const anchorEnd = direction === "down" ? copied.split("\n")[0] : copied.split("\n").at(-1);
+      expect(anchorEnd).toMatch(new RegExp(`^line ${startLine} `));
       expect(copied).toContain(`line ${expectedIncludedLine} markdown content`);
     },
   );
