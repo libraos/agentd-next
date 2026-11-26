@@ -183,3 +183,31 @@ it("developer mode is off until turned on; a local folder is added, marked Local
   });
   await expect.element(page.getByText(/Expected no excess property/)).toBeVisible();
 });
+
+it("a plugin whose catalogue was removed stays installed and says its source is gone", async () => {
+  setup();
+  state.plugins = {
+    ...listing(false),
+    sources: [{ repository: "libraos/plugins", official: true, hasToken: false, state: "cache" }],
+    plugins: [
+      row({
+        id: "gh~acme~private~pass",
+        origin: { kind: "github", repository: "acme/private" },
+        name: "Acme pass",
+        installedVersion: "1.0.0",
+        enabled: true,
+        state: "on",
+        sourceRemoved: true,
+      }),
+    ],
+  };
+  await using _screen = await render(<AgentdPagePlugins environmentId={ENVIRONMENT} />);
+  await expect.element(page.getByText("acme (private)")).toBeVisible();
+  await expect.element(page.getByText("Source removed")).toBeVisible();
+  await expect
+    .element(page.getByText(/acme\/private is no longer a catalogue source/))
+    .toBeVisible();
+  await expect.element(page.getByRole("switch", { name: "Turn Acme pass on" })).toBeChecked();
+  await expect.element(page.getByRole("button", { name: "Update" })).not.toBeInTheDocument();
+  await expect.element(page.getByRole("button", { name: "Remove" })).toBeVisible();
+});

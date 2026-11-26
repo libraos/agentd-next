@@ -379,6 +379,11 @@ const sameOrigin = (a: PluginOrigin, b: PluginOrigin) =>
   a.kind === b.kind &&
   (a.kind !== "github" || (b.kind === "github" && a.repository === b.repository));
 
+/** A GitHub plugin's catalogue is still a source; the official one and local folders always are. */
+const isSource = (origin: PluginOrigin, sources: PluginSources) =>
+  origin.kind !== "github" ||
+  sources.github.some((known) => known.repository === origin.repository);
+
 interface Hook {
   readonly id: string;
   readonly name: string;
@@ -970,6 +975,7 @@ const make = Effect.gen(function* () {
       const projectEnabled =
         projectId === undefined ? undefined : settings.projects[projectId]?.[id];
       const contributed = found === null ? undefined : yield* contributions(found, settings);
+      const sourceRemoved = found !== null && !isSource(parsedKey.origin, all.sources);
       plugins.push({
         id,
         origin,
@@ -986,6 +992,7 @@ const make = Effect.gen(function* () {
         ...(setup === undefined ? {} : { setup }),
         ...(contributed === undefined ? {} : contributed),
         ...(found?.problems === undefined ? {} : { problems: found.problems }),
+        ...(sourceRemoved ? { sourceRemoved } : {}),
       } as const);
     }
     const sources = all.served.map((served): AgentdPluginSourceListing => ({
@@ -1076,17 +1083,20 @@ const make = Effect.gen(function* () {
     if (repository === null) {
       return yield* fail("download", `${entry.source.url} is not a GitHub repository.`);
     }
+    // A catalogue a person added installs only from its own repository, the one its token is for.
+    if (origin.kind === "github" && repository.toLowerCase() !== origin.repository) {
+      return yield* fail(
+        "invalid",
+        `${key.id} is pinned in ${repository}, not in ${origin.repository}; a catalogue you added installs only from its own repository.`,
+      );
+    }
     const pinned = {
       repository,
       commit: entry.source.sha,
       path: entry.source.path,
       notices: entry.source.notices,
     };
-    // The token is for its own repository: an entry pinned elsewhere is fetched without it.
-    const token =
-      origin.kind === "github" && repository.toLowerCase() === origin.repository
-        ? yield* sourceToken(origin.repository)
-        : undefined;
+    const token = origin.kind === "github" ? yield* sourceToken(origin.repository) : undefined;
     const files = yield* downloadPinned(
       pinned,
       PLUGIN_LAYOUT,
@@ -1804,11 +1814,14 @@ const make = Effect.gen(function* () {
     if (repository === null || !sources.github.some((known) => known.repository === repository)) {
       return yield* fail("unknown", `${input.repository} is not a catalogue source.`);
     }
+    // The token goes first: a source is never dropped with its token left behind.
+    yield* secrets
+      .remove(sourceTokenName(repository))
+      .pipe(Effect.mapError(filesystem(`remove the token of ${repository}`)));
     yield* writeSources({
       ...sources,
       github: sources.github.filter((known) => known.repository !== repository),
     });
-    yield* secrets.remove(sourceTokenName(repository)).pipe(Effect.ignore);
     yield* fs.remove(sourceCacheFile(repository), { force: true }).pipe(Effect.ignore);
     return yield* listing(yield* catalogs());
   }, lock.withPermits(1));

@@ -93,6 +93,8 @@ export const AgentdPluginListing = Schema.Struct({
   settings: Schema.optionalKey(Schema.Array(AgentdPluginSettingListing)),
   /** A local plugin whose manifest is refused now: why. It is not run until it reads again. */
   problems: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** Installed from a catalogue that is no longer a source: it stays and runs, but cannot update. */
+  sourceRemoved: Schema.optionalKey(Schema.Literal(true)),
 });
 export type AgentdPluginListing = typeof AgentdPluginListing.Type;
 

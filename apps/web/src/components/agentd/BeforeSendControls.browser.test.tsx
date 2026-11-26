@@ -121,6 +121,39 @@ it("shows the indicator only while a before-send hook is ready, and asks for no 
     .toBeVisible();
 });
 
+it("the indicator names each plugin's source: Official, OWNER (private) or Local", async () => {
+  setup(true);
+  const official = state.plugins!.plugins[0]!;
+  state.plugins = {
+    ...state.plugins!,
+    developerMode: true,
+    plugins: [
+      official,
+      {
+        ...official,
+        id: "gh~acme~private~redactor",
+        origin: { kind: "github", repository: "acme/private" },
+        name: "Acme redactor",
+      },
+      {
+        ...official,
+        id: "local~draft",
+        origin: { kind: "local", path: "/dev/draft" },
+        name: "Draft",
+      },
+    ],
+  };
+  await using screen = await render(controls, { router: false }); // no route is read
+  await userEvent.hover(screen.getByRole("img", { name: "Checked before sending" }));
+  await expect
+    .element(
+      page.getByText(
+        "Redactor (Official), Acme redactor (acme (private)), Draft (Local) checks each message before it is sent.",
+      ),
+    )
+    .toBeVisible();
+});
+
 it("closing the review sends nothing and discards the held message", async () => {
   const { onSent } = setup(true);
   await using _screen = await render(controls, { router: false }); // no route is read
