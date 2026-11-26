@@ -189,6 +189,9 @@ jobs:
         env:
           IOS_DIST_P12: ${{ secrets.IOS_DIST_P12 }}
           IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          IOS_PROFILE_APP: ${{ secrets.IOS_PROFILE_APP }}
+          IOS_PROFILE_WIDGETS: ${{ secrets.IOS_PROFILE_WIDGETS }}
+          IOS_PROFILE_SHARING: ${{ secrets.IOS_PROFILE_SHARING }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -209,45 +212,77 @@ jobs:
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
           rm -f "$work/dist.p12"
 
-          # xcodebuild and altool take the App Store Connect key as a file.
-          mkdir -p "$work/keys"
-          (umask 077 && printf '%s' "$APPLE_API_KEY_P8" > "$work/keys/AuthKey_$APPLE_API_KEY_ID.p8")
-          unset APPLE_API_KEY_P8
-          auth=(
-            -allowProvisioningUpdates
-            -authenticationKeyPath "$work/keys/AuthKey_$APPLE_API_KEY_ID.p8"
-            -authenticationKeyID "$APPLE_API_KEY_ID"
-            -authenticationKeyIssuerID "$APPLE_API_ISSUER"
-          )
+          # Each target signs with its own App Store profile, made by hand for its bundle id.
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          xcode_profiles_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles_dir" "$xcode_profiles_dir"
+          profile_map="$work/profiles.txt"
+          : > "$profile_map"
+          for encoded in "$IOS_PROFILE_APP" "$IOS_PROFILE_WIDGETS" "$IOS_PROFILE_SHARING"; do
+            printf '%s' "$encoded" | base64 --decode > "$work/profile.mobileprovision"
+            security cms -D -i "$work/profile.mobileprovision" > "$work/profile.plist"
+            uuid=$(plutil -extract UUID raw "$work/profile.plist")
+            name=$(plutil -extract Name raw "$work/profile.plist")
+            app_id=$(plutil -extract Entitlements.application-identifier raw "$work/profile.plist")
+            cp "$work/profile.mobileprovision" "$profiles_dir/$uuid.mobileprovision"
+            cp "$work/profile.mobileprovision" "$xcode_profiles_dir/$uuid.mobileprovision"
+            printf '%s\t%s\n' "${app_id#*.}" "$name" >> "$profile_map"
+          done
+          unset IOS_PROFILE_APP IOS_PROFILE_WIDGETS IOS_PROFILE_SHARING
 
           workspace=$(ls -d ios/*.xcworkspace | head -n 1)
+          project="ios/$(basename "$workspace" .xcworkspace).xcodeproj"
+          # Prebuild writes automatic signing; switch every signed target to its profile by bundle id.
+          ruby -rxcodeproj -e '
+            map = File.readlines(ARGV[1], chomp: true).to_h { |line| line.split("\t", 2) }
+            project = Xcodeproj::Project.open(ARGV[0])
+            project.targets.each do |target|
+              target.build_configurations.each do |config|
+                next unless config.name == "Release"
+                id = config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"]
+                next if id.nil?
+                name = map[id] or abort("No App Store profile for #{id}")
+                config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                config.build_settings["DEVELOPMENT_TEAM"] = "3NP2A75X35"
+                config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = name
+              end
+            end
+            project.save
+          ' "$project" "$profile_map"
+
           xcodebuild archive \
             -workspace "$workspace" \
             -scheme "$(basename "$workspace" .xcworkspace)" \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$work/app.xcarchive" \
-            "${auth[@]}" \
-            DEVELOPMENT_TEAM=3NP2A75X35 \
             CURRENT_PROJECT_VERSION="$T3CODE_MOBILE_BUILD_NUMBER"
 
-          cat > "$work/export.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store-connect</string>
-            <key>teamID</key><string>3NP2A75X35</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>destination</key><string>export</string>
-          </dict>
-          </plist>
-          PLIST
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0"><dict>'
+            echo '<key>method</key><string>app-store-connect</string>'
+            echo '<key>teamID</key><string>3NP2A75X35</string>'
+            echo '<key>signingStyle</key><string>manual</string>'
+            echo '<key>signingCertificate</key><string>Apple Distribution</string>'
+            echo '<key>destination</key><string>export</string>'
+            echo '<key>provisioningProfiles</key><dict>'
+            while IFS=$'\t' read -r id name; do
+              echo "<key>$id</key><string>$name</string>"
+            done < "$profile_map"
+            echo '</dict></dict></plist>'
+          } > "$work/export.plist"
           xcodebuild -exportArchive \
             -archivePath "$work/app.xcarchive" \
             -exportOptionsPlist "$work/export.plist" \
-            -exportPath "$work/export" \
-            "${auth[@]}"
+            -exportPath "$work/export"
+
+          # altool takes the App Store Connect key as a file.
+          mkdir -p "$work/keys"
+          (umask 077 && printf '%s' "$APPLE_API_KEY_P8" > "$work/keys/AuthKey_$APPLE_API_KEY_ID.p8")
+          unset APPLE_API_KEY_P8
 
           # Uploads to App Store Connect, where the build reaches TestFlight; releasing it is manual.
           API_PRIVATE_KEYS_DIR="$work/keys" xcrun altool --upload-app --type ios \
