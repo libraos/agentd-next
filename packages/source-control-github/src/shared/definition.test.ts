@@ -1,7 +1,7 @@
 import { recognizeRemoteWith } from "@t3tools/source-control-core/shared/definition";
 import { describe, expect, it } from "vite-plus/test";
 
-import { definition } from "./definition.ts";
+import { APP_SIGN_IN, definition } from "./definition.ts";
 
 const parse = (url: string) => definition.parseChangeRequestUrl(new URL(url));
 
@@ -208,5 +208,11 @@ describe("GitHub media URLs", () => {
     });
     expect(rawFileUrl("https://github.com/owner/repo", "a.png", "main")).toBeNull();
     expect(rawFileUrl("https://github.example.com/owner/repo", "a.png")).toBeNull();
+  });
+});
+
+describe("GitHub app sign-in", () => {
+  it("installs the LibraOS Next app", () => {
+    expect(APP_SIGN_IN.installUrl).toBe("https://github.com/apps/libraos-next/installations/new");
   });
 });
