@@ -6,9 +6,11 @@ The desktop app checks the [releases page](https://github.com/libraos/next/relea
 at launch and every four hours, and asks before installing a new release
 (**Settings → About** also has **Check for Updates**). On Windows and Linux (the
 AppImage or the `.deb`) it downloads the update, checks it against the checksum the
-release lists, and installs it. On macOS, where builds are not notarized, it opens
-the release page instead: download the new version, check it against `SHA256SUMS`,
-and install it over the old one (see [Install LibraOS Next](./install.md#desktop-app)).
+release lists, and installs it. On macOS it does the same from 0.4.0, the first
+notarized release. Versions up to 0.3.1 were not notarized, so on macOS they open
+the release page instead: download 0.4.0 or later, check it against `SHA256SUMS`,
+and install it over the old one once (see [Install LibraOS Next](./install.md#desktop-app)).
+On Windows, a version from 0.4.0 installs only updates signed by Nebula Nova, Inc.
 Your threads, settings and data stay, since the new version uses the same app id
 and data folder.
 

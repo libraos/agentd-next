@@ -19,12 +19,13 @@ Installers are on the [releases page](https://github.com/libraos/next/releases),
 | Windows (x64)         | `LibraOS-Next-…-x64.exe`                        |
 | Linux (x64)           | `LibraOS-Next-x86_64.AppImage` or `…-amd64.deb` |
 
-Download from the official releases page and check the installer against `SHA256SUMS` before opening it. A matching checksum checks the file against the published checksum; it is not a publisher signature. Windows installers after 0.3.1 are signed by Nebula Nova, Inc.: right-click the `.exe`, choose **Properties → Digital Signatures**, and check that it names Nebula Nova, Inc.; do not run one that does not. Windows installers up to 0.3.1 are unsigned, and macOS beta builds are ad-hoc signed and not notarized. If you verified the download, trust the source, and your organization's policy allows it, use the operating system's per-app option:
+Download from the official releases page and check the installer against `SHA256SUMS` before opening it. A matching checksum checks the file against the published checksum; it is not a publisher signature. From 0.4.0, the installers are signed by Nebula Nova, Inc.:
 
-- **macOS:** Move the app to Applications and try to open it once. If macOS reports that it cannot verify the developer, go to **System Settings → Privacy & Security → Open Anyway** and confirm. See [Apple's guidance](https://support.apple.com/en-us/102445).
-- **Windows:** If Microsoft Defender SmartScreen shows **Windows protected your PC** (an unsigned installer, or a signed release it does not know yet), choose **More info → Run anyway** if available. See [Microsoft's SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+- **macOS:** the app is signed with Nebula Nova's Developer ID and notarized by Apple. Move it to Applications and open it; macOS asks once to confirm an app downloaded from the internet, and names no unverified developer.
+- **Windows:** to check the installer, right-click the `.exe`, choose **Properties → Digital Signatures**, and check that it names Nebula Nova, Inc.; do not run one that does not. Microsoft Defender SmartScreen may still show **Windows protected your PC** for a while after a release, until it knows the release: check that it names Nebula Nova, Inc. as the publisher, then choose **More info → Run anyway**. See [Microsoft's SmartScreen guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+- **Linux:** the AppImage and `.deb` are not signed; check them against `SHA256SUMS`.
 
-Do not override a malware warning or a block enforced by your organization.
+Releases up to 0.3.1 are unsigned on Windows and not notarized on macOS; to open one, use **System Settings → Privacy & Security → Open Anyway** on macOS ([Apple's guidance](https://support.apple.com/en-us/102445)) and **More info → Run anyway** on Windows. Do not override a malware warning or a block enforced by your organization.
 
 The app finds agents on your login shell's `PATH` and in the folders their installers use, such as `~/.local/bin`, `~/.claude/local` and `/opt/homebrew/bin`. Its command line tool is `libraos-next`; the first run offers to put it on `PATH`.
 
