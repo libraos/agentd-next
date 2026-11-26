@@ -1,8 +1,8 @@
 name: Mobile
 
-# Pull requests run the UI tests on both platforms. A mobile-v* tag or a manual run also checks
-# the release build for upstream endpoints, then signs it and uploads it to TestFlight and Play's
-# internal track. Nothing here publishes to either store's production track.
+# Every run checks the release build for upstream endpoints and runs the UI tests on both
+# platforms. A mobile-v* tag or a manual run then signs the build and uploads it to TestFlight and
+# Play's internal track. Nothing here publishes to either store's production track.
 on:
   workflow_dispatch:
   push:
@@ -34,7 +34,6 @@ env:
 jobs:
   check:
     name: Release build reaches no upstream service
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
