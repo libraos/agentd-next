@@ -10,6 +10,7 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
 import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as References from "effect/References";
 
@@ -420,7 +421,7 @@ it.effect("the token goes only to the API for its own repository and is kept now
 
       // Only the secret store holds it, in a file only this user can read.
       const found: Array<string> = [];
-      const walk = (dir: string): Effect.Effect<void, unknown> =>
+      const walk = (dir: string): Effect.Effect<void, PlatformError.PlatformError> =>
         Effect.gen(function* () {
           for (const name of yield* h.fs.readDirectory(dir)) {
             const file = h.path.join(dir, name);
