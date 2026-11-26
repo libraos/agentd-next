@@ -120,6 +120,8 @@ function ServicesNotice({
   const [repairing, setRepairing] = useState(false);
   const [failure, setFailure] = useState<{ message: string | null; command?: string } | null>(null);
   const agentd = problem.agentd;
+  // Repair runs the install of the agentd a stale launcher's tasks run, which keeps them on it.
+  const installer = problem.launcher?.agentd ?? agentd;
   const command = failure?.command ?? problem.command;
   const both = problem.moves.length > 1;
 
@@ -158,6 +160,16 @@ function ServicesNotice({
           )}
         </p>
       ))}
+      {problem.launcher !== undefined ? (
+        <p className="break-words">
+          <T>
+            LibraOS Engine’s background services start through <Var>{problem.launcher.path}</Var>,
+            which an older LibraOS Engine wrote. Windows may block it (Smart App Control), so
+            background workers can’t start until it is replaced. Repair writes the one this app’s
+            LibraOS Engine carries.
+          </T>
+        </p>
+      ) : null}
       {problem.watchdogOff === true ? (
         <p>
           {allowed ? (
@@ -235,9 +247,13 @@ function ServicesNotice({
               ? gt(
                   "Turning on LibraOS Engine’s watchdog timer failed. Try Repair again, or run systemctl --user enable --now agentd-watchdog.timer in a terminal.",
                 )
-              : gt(
-                  "LibraOS Engine’s background services run a LibraOS Engine that is missing or belongs to the old AgentD Desktop, and moving them to this app’s LibraOS Engine failed. Run libraos-core install in a terminal.",
-                ))}
+              : problem.services.length === 0 && problem.launcher !== undefined
+                ? gt(
+                    "Replacing the launcher of LibraOS Engine’s background services failed. Try Repair again, or run libraos-core install in a terminal.",
+                  )
+                : gt(
+                    "LibraOS Engine’s background services run a LibraOS Engine that is missing or belongs to the old AgentD Desktop, and moving them to this app’s LibraOS Engine failed. Run libraos-core install in a terminal.",
+                  ))}
         </p>
       ) : null}
       {agentd !== null && problem.moves.length > 0 && allowed ? (
@@ -259,7 +275,8 @@ function ServicesNotice({
             <AlertDialogDescription>
               {both ? (
                 <T>
-                  This runs libraos-core install from this app’s LibraOS Engine (<Var>{agentd}</Var>
+                  This runs libraos-core install from this app’s LibraOS Engine (
+                  <Var>{installer}</Var>
                   ), and on Linux libraos-core dash install too. It re-registers both the dashboard
                   and the watchdog with this app’s LibraOS Engine and the root this app uses; an
                   AGENTD_ROOT or AGENTD_DB they set now isn’t kept.
@@ -272,7 +289,8 @@ function ServicesNotice({
                 </T>
               ) : (
                 <T>
-                  This runs libraos-core install from this app’s LibraOS Engine (<Var>{agentd}</Var>
+                  This runs libraos-core install from this app’s LibraOS Engine (
+                  <Var>{installer}</Var>
                   ). It re-registers the watchdog with this app’s LibraOS Engine and the root this
                   app uses; an AGENTD_ROOT or AGENTD_DB it sets now isn’t kept.
                 </T>

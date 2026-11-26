@@ -3345,6 +3345,7 @@
   "c3727a4e60abc199": "LibraOS Engine 页面",
   "19ccb9ca234d58ce": "Worker 设置",
   "a4976c03176917b0": "无法开启 LibraOS Engine 的 watchdog 定时器。请再次尝试修复，或在终端中运行 systemctl --user enable --now agentd-watchdog.timer。",
+  "6c9c238b5a1a566d": "替换 LibraOS Engine 后台服务的启动器失败。请再次尝试“修复”，或在终端中运行 libraos-core install。",
   "00f2bb125bfc3c7c": "LibraOS Engine 的后台服务运行的是已缺失或属于旧版 AgentD Desktop 的 LibraOS Engine，且未能改用此应用的 LibraOS Engine。请在终端中运行 libraos-core install。",
   "8b9fa521cecb4f8d": "使用",
   "803dbf99343f4441": "已为终端安装",
@@ -3383,6 +3384,15 @@
       "v": "v"
     },
     "，它已缺失或属于旧版 AgentD Desktop。"
+  ],
+  "5c9b9a597ed845b2": [
+    "LibraOS Engine 的后台服务通过 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " 启动，它由旧版 LibraOS Engine 写入。Windows 可能会阻止它（Smart App Control），因此在替换之前后台 worker 无法启动。“修复”会写入此应用的 LibraOS Engine 自带的启动器。"
   ],
   "65d1c3a386ae0b34": "LibraOS Engine 的 watchdog 服务运行的是此应用的 LibraOS Engine，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Engine 不会跟进你的任务。修复会将其开启。",
   "0f140b58c1bbefd9": "LibraOS Engine 的 watchdog 服务运行的是此应用的 LibraOS Engine，但 systemd 尚未开启它的定时器，因此此应用关闭时 LibraOS Engine 不会跟进你的任务。请在那台机器的终端中运行 libraos-core install，然后运行 systemctl --user daemon-reload 和 systemctl --user enable --now agentd-watchdog.timer。",

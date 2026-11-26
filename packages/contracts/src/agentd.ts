@@ -270,6 +270,11 @@ export const AgentdInstallRecord = Schema.Struct({
   /** The line to add to a shell profile when the folder is not on PATH; the app never edits one. */
   pathLine: Schema.NullOr(Schema.String),
   skills: Schema.Array(Schema.String),
+  /**
+   * Windows: this root's services ran this app's agentd when the pass placed a new one, so that
+   * agentd's install ran to write the service launcher it carries. Absent when it didn't run.
+   */
+  services: Schema.optionalKey(Schema.Struct({ agentd: Schema.String, ok: Schema.Boolean })),
 });
 export type AgentdInstallRecord = typeof AgentdInstallRecord.Type;
 
@@ -293,6 +298,11 @@ export const AgentdServicesProblem = Schema.Struct({
   command: Schema.optionalKey(Schema.String),
   /** Linux: the watchdog runs this app's agentd, but systemd hasn't enabled or started its timer. */
   watchdogOff: Schema.optionalKey(Schema.Boolean),
+  /**
+   * Windows: the services run this app's agentd through ROOT\services\agentd-service.exe, but that
+   * launcher isn't the one this agentd carries (an older release's). Repair runs `agentd`'s install.
+   */
+  launcher: Schema.optionalKey(Schema.Struct({ path: Schema.String, agentd: Schema.String })),
 });
 export type AgentdServicesProblem = typeof AgentdServicesProblem.Type;
 

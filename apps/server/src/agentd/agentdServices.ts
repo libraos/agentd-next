@@ -1,19 +1,24 @@
-// @effect-diagnostics-next-line nodeBuiltinImport:off -- A sync digest names the Windows tasks.
-import * as NodeCrypto from "node:crypto";
-// @effect-diagnostics-next-line nodeBuiltinImport:off -- agentd cleans Windows roots as POSIX paths.
-import * as NodePathPosix from "node:path/posix";
-
 import type {
   AgentdInstallRecord,
   AgentdServiceName,
   AgentdServicesProblem,
   AgentdServicesRepairResult,
 } from "@t3tools/contracts";
+import {
+  launcherEmbedded,
+  rootTaskDefinition,
+  schtasksText,
+  taskAgentd,
+  taskLauncher,
+  windowsPathKey,
+} from "@t3tools/shared/agentdTasks";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
 import type { ProcessRunner } from "../processRunner.ts";
+
+export { schtasksText, taskEnvFile, taskNames, taskProgram } from "@t3tools/shared/agentdTasks";
 
 // A service whose agentd is missing or the old AgentD Desktop's is only reported. Repair, which the
 // user confirms, re-registers it with the agentd this app carries: its own `install` (and `dash
@@ -51,6 +56,13 @@ export function serviceAgentd(
   return ours && !inMount(installed.path) ? installed.path : null;
 }
 
+/** The agentd the install pass placed, when it placed or matched this app's (not one it kept). */
+export function ownInstall(installed: AgentdInstallRecord | null): string | null {
+  return installed !== null && ["installed", "replaced", "unchanged"].includes(installed.action)
+    ? installed.path
+    : null;
+}
+
 // agentd connects no client to an agentd whose path has a space or a quote.
 const UNCONNECTABLE = /[\s"']/;
 
@@ -64,15 +76,6 @@ export function setupAgentd(bundled: string, installed: AgentdInstallRecord | nu
   const ours =
     installed !== null && ["installed", "replaced", "unchanged"].includes(installed.action);
   return ours && !UNCONNECTABLE.test(installed.path) ? installed.path : bundled;
-}
-
-function unescapeXml(text: string): string {
-  return text
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
 }
 
 type PlistValue = string | boolean | ReadonlyArray<PlistValue> | ReadonlyMap<string, PlistValue>;
@@ -207,14 +210,6 @@ function parsePlist(xml: string): PlistValue | undefined {
 const isDict = (value: PlistValue | undefined): value is ReadonlyMap<string, PlistValue> =>
   value instanceof Map;
 
-/** The env file an agentd task runs with: its `service-run --env FILE`, ROOT\services\NAME.env. */
-export function taskEnvFile(xml: string): string | null {
-  const args = /<Arguments>([\s\S]*?)<\/Arguments>/.exec(xml.replaceAll("\0", ""))?.[1];
-  if (args === undefined) return null;
-  const match = /(?:^|\s)--env\s+(?:"([^"]*)"|(\S+))/.exec(unescapeXml(args));
-  return match?.[1] ?? match?.[2] ?? null;
-}
-
 /** The program a LaunchAgent runs: its Program, else its first ProgramArguments string. */
 export function plistProgram(plist: string): string | null {
   const parsed = parsePlist(plist);
@@ -257,45 +252,6 @@ export function dropInDirs(unit: string): ReadonlyArray<string> {
   return [...dirs, `${type.slice(1)}.d`];
 }
 
-/** `schtasks /Query /XML` output as text: UTF-16 when it starts with a byte order mark or a NUL. */
-export function schtasksText(bytes: Uint8Array): string {
-  const utf16 = (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes.length > 1 && bytes[1] === 0);
-  return new TextDecoder(utf16 ? "utf-16le" : "utf-8").decode(bytes);
-}
-
-/** The program of a scheduled task's first action, from `schtasks /Query /XML`. */
-export function taskProgram(xml: string): string | null {
-  const command = /<Command>([\s\S]*?)<\/Command>/.exec(xml.replaceAll("\0", ""))?.[1];
-  return command === undefined ? null : unescapeXml(command.trim()).replace(/^"(.*)"$/, "$1");
-}
-
-/** Whether a `schtasks /Query /FO CSV /NH` listing names the task (names compare without case). */
-function listsTask(listing: string, task: string): boolean {
-  const name = `"${task.toLowerCase()}"`;
-  return listing
-    .replaceAll("\0", "")
-    .toLowerCase()
-    .split(/\r?\n/)
-    .some((line) => line.trimStart().startsWith(name));
-}
-
-/** A Windows root as agentd's task names compare it (schtasksRootKey): cleaned, lower case. */
-function windowsRootKey(root: string): string {
-  const cleaned = NodePathPosix.normalize(root.replaceAll("\\", "/"));
-  return (cleaned.length > 1 ? cleaned.replace(/\/+$/, "") : cleaned).toLowerCase();
-}
-
-/** agentd's task names for a root (schtasksTaskName): plain for the default root. */
-export function taskNames(service: ServiceName, root: string | undefined): ReadonlyArray<string> {
-  const plain = `\\LibraOS\\agentd-${service}`;
-  if (root === undefined || root.trim() === "") return [plain];
-  const hash = NodeCrypto.createHash("sha256")
-    .update(windowsRootKey(root))
-    .digest("hex")
-    .slice(0, 8);
-  return [`${plain}-${hash}`, plain];
-}
-
 /**
  * The program systemd has loaded for a unit whose file changed since its last reload, from
  * `systemctl show -p NeedDaemonReload -p ExecStart`; null when it has none pending.
@@ -336,6 +292,8 @@ interface ServiceDeps {
   readonly platform: string;
   readonly home: string;
   readonly root: string | undefined;
+  /** The agentd the desktop app's install pass placed for the terminal, when it is this app's. */
+  readonly installed?: string | null;
   readonly run: ProcessRunner["Service"]["run"];
 }
 
@@ -366,7 +324,7 @@ const runner =
  * whether systemd runs the watchdog timer.
  */
 export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps: ServiceDeps) {
-  const { bundled, target, platform, home, root } = deps;
+  const { bundled, target, platform, home, root, installed } = deps;
   const exec = runner(deps.run);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -396,16 +354,10 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
     }
     return { unit, text };
   });
-  // Every task Task Scheduler has, read once: a failed query is an absent task only when this
-  // listing reads and doesn't name it (schtasks' own error text is in the system's language).
-  let listing: string | null | undefined;
-  const listed = Effect.fn("AgentdServices.listTasks")(function* (task: string) {
-    if (listing === undefined) {
-      const all = yield* exec("schtasks", ["/Query", "/FO", "CSV", "/NH"]);
-      listing = all.ok ? all.text : null;
-    }
-    return listing === null ? undefined : listsTask(listing, task);
-  });
+  // Every task Task Scheduler has, read once by the first query that fails.
+  const listing: { current: string | null | undefined } = { current: undefined };
+  // Tasks that run their agentd through this root's windowless launcher.
+  const launchers = new Map<ServiceName, { launcher: string; agentd: string }>();
   // Services whose program a drop-in sets: agentd install rewrites only the unit file itself.
   const overridden: ServiceName[] = [];
   const program = Effect.fn("AgentdServices.program")(function* (name: ServiceName) {
@@ -417,29 +369,11 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
       return plist === null || plist === undefined ? plist : (plistProgram(plist) ?? undefined);
     }
     if (platform === "win32") {
-      const names = taskNames(name, root);
-      const legacy = names[1];
-      for (const task of names) {
-        const query = yield* exec("schtasks", ["/Query", "/TN", task, "/XML"]);
-        if (!query.ok) {
-          const there = yield* listed(task);
-          if (there === false) continue;
-          return undefined;
-        }
-        const envFile = taskEnvFile(query.text);
-        // The plain legacy name may be another root's task: only one whose env file is this root's.
-        const owner =
-          envFile === null
-            ? null
-            : NodePathPosix.dirname(NodePathPosix.dirname(envFile.replaceAll("\\", "/")));
-        if (
-          task === legacy &&
-          (owner === null || windowsRootKey(owner) !== windowsRootKey(root ?? ""))
-        )
-          continue;
-        return taskProgram(query.text) ?? undefined;
-      }
-      return null;
+      const xml = yield* rootTaskDefinition(name, root, (args) => exec("schtasks", args), listing);
+      if (xml === null || xml === undefined) return xml;
+      const launched = taskLauncher(xml);
+      if (launched !== null) launchers.set(name, launched);
+      return taskAgentd(xml) ?? undefined;
     }
     const unit = yield* unitText(`agentd-${name}.service`);
     if (unit === null || unit === undefined) return unit;
@@ -449,6 +383,13 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
   });
 
   const agentd = target ?? bundled;
+  const windows = platform === "win32";
+  const samePath = (a: string, b: string) =>
+    windows ? windowsPathKey(a) === windowsPathKey(b) : a === b;
+  // This app's own agentd: the one services register, the bundled one, and the copy the install
+  // pass placed for the terminal, which a Windows task runs when the bundled path has a space.
+  const ours = (file: string) =>
+    [agentd, bundled, installed].some((own) => own != null && samePath(file, own));
   const services: Array<{ name: ServiceName; program: string }> = [];
   // Services on another working agentd, the user's own: never moved.
   const kept: ServiceName[] = [];
@@ -476,8 +417,23 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
     const runs = platform === "linux" && file === agentd ? ((yield* loaded(name)) ?? file) : file;
     const exists = yield* fs.exists(runs).pipe(Effect.orElseSucceed(() => false));
     if (isStaleProgram(runs, exists, agentd)) services.push({ name, program: runs });
-    else if (runs !== agentd) kept.push(name);
-    else if (name === "watchdog") watchdogOnTarget = true;
+    else if (!ours(runs)) kept.push(name);
+    else if (name === "watchdog" && runs === agentd) watchdogOnTarget = true;
+  }
+  // A launcher this app's agentd doesn't carry (an Engine upgrade left the one an older release
+  // wrote, which Smart App Control may block): its install writes the one it carries.
+  let launcher: { path: string; agentd: string } | null = null;
+  for (const name of SERVICES) {
+    const launched = launchers.get(name);
+    if (launched === undefined || !ours(launched.agentd) || launcher !== null) continue;
+    const current = yield* Effect.all([
+      fs.readFile(launched.launcher),
+      fs.readFile(launched.agentd),
+    ]).pipe(
+      Effect.map(([bytes, carrier]) => launcherEmbedded(bytes, carrier)),
+      Effect.orElseSucceed(() => false),
+    );
+    if (!current) launcher = { path: launched.launcher, agentd: launched.agentd };
   }
   let command: string | null = null;
   let watchdogOff = false;
@@ -506,7 +462,7 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
       watchdogOff = ["inactive", "failed"].includes(state.text.split("\n")[0]!.trim());
     }
   }
-  if (services.length === 0 && command === null && !watchdogOff) return null;
+  if (services.length === 0 && command === null && !watchdogOff && launcher === null) return null;
   // install registers both services on macOS and Windows, absent ones included, so it would move
   // one kept on the user's agentd or one it couldn't read too: no Repair then, and the user
   // confirms both. On Linux each service is re-registered on its own, unless a drop-in sets it.
@@ -533,6 +489,7 @@ export const detectServices = Effect.fn("AgentdServices.detect")(function* (deps
     ...(stuck.length > 0 ? { overridden: stuck } : {}),
     ...(command === null ? {} : { command }),
     ...(watchdogOff ? { watchdogOff } : {}),
+    ...(launcher === null ? {} : { launcher }),
   } satisfies AgentdServicesProblem;
 });
 
@@ -548,8 +505,11 @@ export const repairServices = Effect.fn("AgentdServices.repair")(function* (
   const exec = runner(deps.run);
   if (target === null || problem.moves.length === 0)
     return { ok: false } satisfies AgentdServicesRepairResult;
+  // A stale launcher is written by the install of the agentd its tasks run, which keeps them on it.
   if (platform === "darwin" || platform === "win32")
-    return { ok: (yield* exec(target, ["install"])).ok } satisfies AgentdServicesRepairResult;
+    return {
+      ok: (yield* exec(problem.launcher?.agentd ?? target, ["install"])).ok,
+    } satisfies AgentdServicesRepairResult;
   let ok = true;
   let command: string | null = null;
   if (problem.moves.includes("watchdog")) {

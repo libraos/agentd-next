@@ -3342,6 +3342,7 @@
   "c3727a4e60abc199": "LibraOS Engine page",
   "19ccb9ca234d58ce": "Worker settings",
   "a4976c03176917b0": "LibraOS Engine의 watchdog 타이머를 켜지 못했습니다. 복구를 다시 시도하거나 터미널에서 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
+  "6c9c238b5a1a566d": "LibraOS Engine 백그라운드 서비스의 런처를 교체하지 못했습니다. 복구를 다시 시도하거나 터미널에서 libraos-core install을 실행하세요.",
   "00f2bb125bfc3c7c": "LibraOS Engine 백그라운드 서비스가 없거나 이전 AgentD Desktop에 속한 LibraOS Engine으로 실행되고 있으며, 이 앱의 LibraOS Engine으로 옮기지 못했습니다. 터미널에서 libraos-core install을 실행하세요.",
   "8b9fa521cecb4f8d": "Uses",
   "803dbf99343f4441": "Installed for the terminal",
@@ -3380,6 +3381,15 @@
       "v": "v"
     },
     "을(를) 실행하고 있는데, 이는 없거나 이전 AgentD Desktop의 것입니다."
+  ],
+  "5c9b9a597ed845b2": [
+    "LibraOS Engine의 백그라운드 서비스는 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "을(를) 통해 시작되며, 이 파일은 이전 LibraOS Engine이 작성했습니다. Windows가 이를 차단할 수 있어(Smart App Control) 교체하기 전까지 백그라운드 워커가 시작되지 않습니다. 복구하면 이 앱의 LibraOS Engine에 포함된 런처를 작성합니다."
   ],
   "65d1c3a386ae0b34": "LibraOS Engine의 watchdog 서비스는 이 앱의 LibraOS Engine을 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Engine이 작업을 추적하지 않습니다. 복구하면 켜집니다.",
   "0f140b58c1bbefd9": "LibraOS Engine의 워치독 서비스는 이 앱의 LibraOS Engine을 실행하지만 systemd가 타이머를 켜지 않아, 이 앱이 닫혀 있는 동안 LibraOS Engine이 작업을 추적하지 않습니다. 해당 컴퓨터의 터미널에서 libraos-core install을 실행한 다음 systemctl --user daemon-reload와 systemctl --user enable --now agentd-watchdog.timer를 실행하세요.",
