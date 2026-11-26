@@ -102,10 +102,50 @@ const PRIVATE_CATALOG = JSON.stringify({
   plugins: [
     entry("pass", "acme/private", "plugins/pass"),
     entry("tools", "acme/private", "plugins/tools"),
-    // Pinned in another repository: fetched without the token.
+    // Pinned in another repository: refused, as the token is for acme/private alone.
     entry("elsewhere", "other/public", "elsewhere"),
+    // Its folder is not in the pinned commit's tree.
+    entry("ghost", "acme/private", "plugins/ghost"),
   ],
 });
+// Catalogues that name a folder on this computer: never read, so no local plugin comes of them.
+const LOCAL_CATALOGS: Record<string, string> = {
+  "acme/local-path": JSON.stringify({
+    version: 1,
+    plugins: [
+      {
+        ...entry("devtool", "acme/private", "plugins/pass"),
+        source: {
+          url: "https://github.com/acme/local-path",
+          path: "/home/me/dev-plugin",
+          sha: PRIVATE_COMMIT,
+        },
+      },
+    ],
+  }),
+  "acme/file-url": JSON.stringify({
+    version: 1,
+    plugins: [
+      {
+        ...entry("devtool", "acme/private", "plugins/pass"),
+        source: { url: "file:///home/me/dev-plugin", path: "dev-plugin", sha: PRIVATE_COMMIT },
+      },
+    ],
+  }),
+  "acme/outside": JSON.stringify({
+    version: 1,
+    plugins: [
+      {
+        ...entry("devtool", "acme/private", "plugins/pass"),
+        source: {
+          url: "https://github.com/acme/outside",
+          path: "../../dev-plugin",
+          sha: PRIVATE_COMMIT,
+        },
+      },
+    ],
+  }),
+};
 
 const tree = (repo: Repo) =>
   JSON.stringify({
@@ -138,6 +178,9 @@ function fakeGithub(seen: Array<Seen>, tamper: { blob: boolean }) {
     "https://api.github.com/repos/acme/private/contents/catalog.json",
     secret(PRIVATE_CATALOG),
   );
+  for (const [name, catalog] of Object.entries(LOCAL_CATALOGS)) {
+    routes.set(`https://api.github.com/repos/${name}/contents/catalog.json`, secret(catalog));
+  }
   for (const [name, repo] of Object.entries(REPOS)) {
     const treeUrl = `https://api.github.com/repos/${name}/git/trees/${repo.commit}?recursive=1`;
     routes.set(treeUrl, name === "acme/private" ? secret(tree(repo)) : ok(tree(repo)));
@@ -273,6 +316,7 @@ it.effect("adds a private catalogue with a token, lists its plugins and removes 
     expect(added.plugins.map((plugin) => [plugin.id, plugin.origin])).toEqual([
       ["pass", { kind: "official" }],
       ["gh~acme~private~elsewhere", { kind: "github", repository: "acme/private" }],
+      ["gh~acme~private~ghost", { kind: "github", repository: "acme/private" }],
       [PRIVATE_PASS, { kind: "github", repository: "acme/private" }],
       ["gh~acme~private~tools", { kind: "github", repository: "acme/private" }],
     ]);
@@ -285,12 +329,36 @@ it.effect("adds a private catalogue with a token, lists its plugins and removes 
       (yield* h.service.addSource({ repository: "libraos/plugins" }).pipe(Effect.flip)).reason,
     ).toBe("invalid");
 
+    yield* h.service.install({ id: PRIVATE_PASS });
+    yield* h.service.setEnabled({ id: PRIVATE_PASS, enabled: true });
+    const tokenFile = h.path.join(h.config.secretsDir, "agentd-plugin-source.gh~acme~private.bin");
+    expect(yield* h.fs.exists(tokenFile)).toBe(true);
+
+    // The token file goes; the plugin installed from it stays, runs, and says its source is gone.
     const removed = yield* h.service.removeSource({ repository: "acme/private" });
     expect(removed.sources.map((source) => source.repository)).toEqual(["libraos/plugins"]);
-    expect(removed.plugins.map((plugin) => plugin.id)).toEqual(["pass"]);
+    expect(yield* h.fs.exists(tokenFile)).toBe(false);
     expect(
       yield* h.secrets.get("agentd-plugin-source.gh~acme~private").pipe(Effect.map((v) => v._tag)),
     ).toBe("None");
+    expect(
+      removed.plugins.map((plugin) => [plugin.id, plugin.installedVersion, plugin.sourceRemoved]),
+    ).toEqual([
+      ["pass", undefined, undefined],
+      [PRIVATE_PASS, "1.0.0", true],
+    ]);
+    expect(removed.plugins[1]).toMatchObject({ enabled: true, state: "on" });
+    expect((yield* h.service.install({ id: PRIVATE_PASS }).pipe(Effect.flip)).message).toContain(
+      "no longer a source",
+    );
+    yield* h.send;
+    expect(h.ran).toHaveLength(1);
+
+    // Added again, it is a source's plugin once more.
+    const again = yield* h.service.addSource({ repository: "acme/private", token: TOKEN });
+    expect(again.plugins.find((plugin) => plugin.id === PRIVATE_PASS)?.sourceRemoved).toBe(
+      undefined,
+    );
   }).pipe(Effect.provide(dependencies)),
 );
 
@@ -386,7 +454,7 @@ it.effect("the token goes only to the API for its own repository and is kept now
       expect(wrong.message).not.toContain(TOKEN);
 
       const listings = [yield* h.service.addSource({ repository: "acme/private", token: TOKEN })];
-      for (const id of [PRIVATE_PASS, "gh~acme~private~tools", "gh~acme~private~elsewhere"]) {
+      for (const id of [PRIVATE_PASS, "gh~acme~private~tools"]) {
         listings.push(yield* h.service.install({ id }));
         listings.push(yield* h.service.setEnabled({ id, enabled: true }));
       }
@@ -410,9 +478,11 @@ it.effect("the token goes only to the API for its own repository and is kept now
         expect.objectContaining({ authorization: undefined }),
         expect.objectContaining({ authorization: undefined }),
       ]);
-      expect(
-        h.seen.filter((request) => request.url.includes("other/public")).length,
-      ).toBeGreaterThan(0);
+      const failures = [
+        yield* h.service.install({ id: "gh~acme~private~elsewhere" }).pipe(Effect.flip),
+        yield* h.service.install({ id: "gh~acme~private~ghost" }).pipe(Effect.flip),
+      ];
+      expect(JSON.stringify(failures)).not.toContain(TOKEN);
 
       expect(JSON.stringify(listings)).not.toContain(TOKEN);
       expect(JSON.stringify(servers)).not.toContain(TOKEN);
@@ -589,4 +659,56 @@ it.effect(
       expect(yield* h.fs.exists(h.path.join(good, "hook.sh"))).toBe(true);
       expect((yield* h.service.list({})).plugins.map((plugin) => plugin.id)).toEqual(["pass"]);
     }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect(
+  "refuses a private entry in another repository or outside its commit's tree, writing nothing",
+  () =>
+    Effect.gen(function* () {
+      const h = yield* harness;
+      yield* h.service.addSource({ repository: "acme/private", token: TOKEN });
+      const cache = h.path.join(h.config.stateDir, "plugins", "cache", "gh~acme~private");
+
+      const elsewhere = yield* h.service
+        .install({ id: "gh~acme~private~elsewhere" })
+        .pipe(Effect.flip);
+      expect(elsewhere.reason).toBe("invalid");
+      expect(elsewhere.message).toContain("pinned in other/public, not in acme/private");
+      // Nothing was asked of the other repository, with the token or without it.
+      expect(h.seen.filter((request) => request.url.includes("other/public"))).toEqual([]);
+
+      const ghost = yield* h.service.install({ id: "gh~acme~private~ghost" }).pipe(Effect.flip);
+      expect(ghost.reason).toBe("download");
+      expect(ghost.message).toContain(
+        `plugins/ghost/agentd-plugin.json is not in commit ${PRIVATE_COMMIT}`,
+      );
+      expect(yield* h.fs.exists(cache)).toBe(false);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("a catalogue cannot add a local folder, even with developer mode on", () =>
+  Effect.gen(function* () {
+    const h = yield* harness;
+    const folder = h.path.join(h.config.baseDir, "dev-plugin");
+    yield* h.fs.makeDirectory(folder, { recursive: true });
+    yield* h.fs.writeFileString(h.path.join(folder, "agentd-plugin.json"), manifest("devtool"));
+    yield* h.fs.writeFileString(h.path.join(folder, "hook.sh"), HOOK);
+    yield* h.service.setDeveloperMode({ enabled: true });
+
+    for (const repository of Object.keys(LOCAL_CATALOGS)) {
+      const refused = yield* h.service.addSource({ repository, token: TOKEN }).pipe(Effect.flip);
+      expect(refused.message).toContain("not a plugin catalogue");
+    }
+    const listed = yield* h.service.list({});
+    expect(listed.sources.map((source) => source.repository)).toEqual(["libraos/plugins"]);
+    expect(listed.plugins.map((plugin) => [plugin.id, plugin.origin.kind])).toEqual([
+      ["pass", "official"],
+    ]);
+    const sources = JSON.parse(
+      yield* h.fs.readFileString(h.path.join(h.config.stateDir, "plugins", "sources.json")),
+    );
+    expect(sources.local).toEqual([]);
+    yield* h.send;
+    expect(h.ran).toEqual([]);
+  }).pipe(Effect.provide(dependencies)),
 );

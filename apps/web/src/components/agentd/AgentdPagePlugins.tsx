@@ -125,6 +125,11 @@ function PluginRow({
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{plugin.name}</span>
         <PluginOriginBadge origin={plugin.origin} />
+        {plugin.sourceRemoved === true ? (
+          <Badge variant="warning">
+            <T>Source removed</T>
+          </Badge>
+        ) : null}
         <span className="text-muted-foreground">{plugin.installedVersion ?? plugin.version}</span>
         {plugin.state === "missing" && setUp && plugin.hooks.length > 0 ? (
           <Badge variant="error">
@@ -211,6 +216,14 @@ function PluginRow({
       {plugin.origin.kind === "local" ? (
         <p className="text-muted-foreground font-mono text-xs wrap-anywhere">
           {plugin.origin.path}
+        </p>
+      ) : null}
+      {plugin.sourceRemoved === true && plugin.origin.kind === "github" ? (
+        <p className="text-muted-foreground text-xs">
+          {gt(
+            "{repository} is no longer a catalogue source. This plugin stays installed and keeps working, but it cannot be updated until the catalogue is added again.",
+            { repository: plugin.origin.repository },
+          )}
         </p>
       ) : null}
       {plugin.problems === undefined ? null : (
