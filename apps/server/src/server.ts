@@ -918,7 +918,13 @@ const layerRuntimeDependencies = layerRuntimeCoreDependencies.pipe(
   // The same layer the event sink uses; memoized, subscriptions and batch ranking share it.
   Layer.provideMerge(ThreadViewers.layer),
   Layer.provideMerge(layerResourceDiagnostics),
-  Layer.provideMerge(layerAgentd),
+  // Plugins read private catalogues with Source control's GitHub connection: the same drivers.
+  Layer.provideMerge(
+    layerAgentd.pipe(
+      Layer.provide(layerSourceControlProviderRegistry),
+      Layer.provide(layerServerSettings),
+    ),
+  ),
   Layer.provideMerge(TraceDiagnostics.layer),
   Layer.provideMerge(TriageService.layer.pipe(Layer.provide(GitVcsDriver.layer))),
   // Layers memoize by reference, so this is the same policy the settings layer reads.

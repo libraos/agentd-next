@@ -30,6 +30,7 @@ import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as ClaudeAdapterV2 from "../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import * as CodexAdapterV2 from "../orchestration-v2/Adapters/CodexAdapterV2.ts";
+import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import * as AgentdPlugins from "./AgentdPlugins.ts";
 import { PLUGIN_CATALOG_URL } from "./pluginCatalog.ts";
 import { gitBlobId } from "./skillCatalog.ts";
@@ -195,6 +196,9 @@ const harness = (
             Layer.succeed(HostProcess.HomeDirectory, config.baseDir),
             Layer.succeed(HostProcess.Environment, {}),
             runner,
+            Layer.succeed(AgentdGitHubConnection.AgentdGitHubConnection, {
+              credential: () => Effect.succeedNone,
+            }),
           ),
         ),
       ),

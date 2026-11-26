@@ -31,6 +31,8 @@ const row = (
 const state = vi.hoisted(() => ({
   plugins: null as AgentdPlugins | null,
   commands: {} as Record<string, ReturnType<typeof vi.fn>>,
+  /** The server's GitHub connection as Source control settings reports it. */
+  github: { account: null as string | null, signedOut: false, needed: false },
 }));
 
 vi.mock(import("@effect/atom-react"), async (importOriginal) => ({
@@ -52,6 +54,19 @@ vi.mock(import("~/lib/agentdState"), async (importOriginal) => {
       state.commands) as unknown as typeof actual.useAgentdPluginCommands,
   };
 });
+
+// Stands in for Source control's own Sign in with GitHub panel, which has its own tests.
+vi.mock(import("./AgentdGitHubConnection"), () => ({
+  useAgentdGitHubConnection: (_environmentId, needed) => {
+    state.github.needed ||= needed;
+    return {
+      account: state.github.account,
+      signInPanel: state.github.signedOut ? (
+        <button type="button">Sign in with GitHub</button>
+      ) : null,
+    };
+  },
+}));
 
 function listing(developerMode: boolean): AgentdPlugins {
   return {
@@ -89,6 +104,7 @@ const ok = () => vi.fn().mockResolvedValue({ _tag: "Success", value: {} });
 
 function setup() {
   state.plugins = listing(false);
+  state.github = { account: null, signedOut: false, needed: false };
   state.commands = {
     install: ok(),
     remove: ok(),
@@ -111,7 +127,7 @@ it("lists catalogues, adds one with a token and removes it; the official one has
     .element(page.getByRole("button", { name: "Remove libraos/plugins" }))
     .not.toBeInTheDocument();
 
-  await userEvent.type(page.getByLabelText("Repository"), "other/plugins");
+  await userEvent.type(page.getByLabelText("Repository or link"), "other/plugins");
   await userEvent.type(page.getByLabelText("Token (private repositories only)"), "tok-123");
   await expect
     .element(page.getByLabelText("Token (private repositories only)"))
@@ -210,4 +226,128 @@ it("a plugin whose catalogue was removed stays installed and says its source is 
   await expect.element(page.getByRole("switch", { name: "Turn Acme pass on" })).toBeChecked();
   await expect.element(page.getByRole("button", { name: "Update" })).not.toBeInTheDocument();
   await expect.element(page.getByRole("button", { name: "Remove" })).toBeVisible();
+});
+
+it("a pasted link to a private plugin asks to use the GitHub connection, then opens its install", async () => {
+  setup();
+  state.github.account = "octo";
+  const link = "https://github.com/acme/private/tree/main/plugins/pass";
+  const added: AgentdPlugins = {
+    ...listing(false),
+    sources: [
+      { repository: "libraos/plugins", official: true, hasToken: false, state: "cache" },
+      {
+        repository: "acme/private",
+        official: false,
+        hasToken: false,
+        githubConnection: true,
+        state: "fetched",
+      },
+    ],
+    linked: "gh~acme~private~pass",
+  };
+  state.plugins = { ...listing(false), sources: listing(false).sources.slice(0, 1) };
+  state.commands.addSource = vi
+    .fn()
+    .mockResolvedValueOnce({
+      _tag: "Failure",
+      cause: Cause.fail(
+        new AgentdPluginError({
+          reason: "githubConnection",
+          message:
+            "acme/private could not be read without signing in to GitHub; it may be private.",
+          githubConnection: { repository: "acme/private", connected: true },
+        }),
+      ),
+    })
+    .mockResolvedValueOnce({ _tag: "Success", value: added });
+  await using screen = await render(<AgentdPagePlugins environmentId={ENVIRONMENT} />);
+  // Nothing private yet: Source control is not scanned for the account.
+  expect(state.github.needed).toBe(false);
+
+  await userEvent.type(page.getByLabelText("Repository or link"), link);
+  await page.getByRole("button", { name: "Add catalogue" }).click();
+  expect(state.commands.addSource).toHaveBeenLastCalledWith({
+    environmentId: ENVIRONMENT,
+    input: { repository: link },
+  });
+  await expect
+    .element(page.getByText("Use your GitHub connection (octo) to read acme/private?"))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Sign in with GitHub" }))
+    .not.toBeInTheDocument();
+  // Asked, not refused: the server's message is not shown as an error.
+  await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
+
+  await page.getByRole("button", { name: "Use my GitHub connection" }).click();
+  expect(state.commands.addSource).toHaveBeenLastCalledWith({
+    environmentId: ENVIRONMENT,
+    input: { repository: link, useGitHubConnection: true },
+  });
+  state.plugins = added;
+  await screen.rerender(<AgentdPagePlugins environmentId={ENVIRONMENT} />);
+  await expect.element(page.getByText("Uses your GitHub connection (octo)")).toBeVisible();
+  await expect.element(page.getByText("Install Acme pass 1.0.0?")).toBeVisible();
+  await expect.element(page.getByText("Source: acme (private)")).toBeVisible();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Install" }).click();
+  expect(state.commands.install).toHaveBeenCalledExactlyOnceWith({
+    environmentId: ENVIRONMENT,
+    input: { id: "gh~acme~private~pass" },
+  });
+  await expect.element(page.getByLabelText("Repository or link")).toHaveValue("");
+});
+
+it("signed out of GitHub, it offers Sign in with GitHub, says to run gh auth login, and a token still works", async () => {
+  setup();
+  state.github.signedOut = true;
+  state.commands.addSource = vi
+    .fn()
+    .mockResolvedValueOnce({
+      _tag: "Failure",
+      cause: Cause.fail(
+        new AgentdPluginError({
+          reason: "githubConnection",
+          message:
+            "other/plugins could not be read without signing in to GitHub; it may be private.",
+          githubConnection: { repository: "other/plugins", connected: true },
+        }),
+      ),
+    })
+    .mockResolvedValueOnce({
+      _tag: "Failure",
+      cause: Cause.fail(
+        new AgentdPluginError({
+          reason: "githubConnection",
+          message:
+            "LibraOS Next has no GitHub connection that can read this repository. Sign in with GitHub, or run gh auth login, and try again; or give a read-only token for this repository.",
+          githubConnection: { repository: "other/plugins", connected: false },
+        }),
+      ),
+    })
+    .mockResolvedValueOnce({ _tag: "Success", value: listing(false) });
+  await using _screen = await render(<AgentdPagePlugins environmentId={ENVIRONMENT} />);
+
+  await userEvent.type(page.getByLabelText("Repository or link"), "other/plugins");
+  await page.getByRole("button", { name: "Add catalogue" }).click();
+  await expect.element(page.getByText("Connect GitHub to read other/plugins")).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Sign in with GitHub" })).toBeVisible();
+  await page.getByRole("button", { name: "Try again" }).click();
+  expect(state.commands.addSource).toHaveBeenLastCalledWith({
+    environmentId: ENVIRONMENT,
+    input: { repository: "other/plugins", useGitHubConnection: true },
+  });
+  await expect.element(page.getByText("Connect GitHub to read other/plugins")).toBeVisible();
+  await expect.element(page.getByText(/run gh auth login on the computer/)).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect.element(page.getByRole("alert")).toBeInTheDocument();
+  expect(page.getByRole("alert").element().textContent).toContain("or run gh auth login");
+
+  await userEvent.type(page.getByLabelText("Token (private repositories only)"), "tok-123");
+  await page.getByRole("button", { name: "Add catalogue" }).click();
+  expect(state.commands.addSource).toHaveBeenLastCalledWith({
+    environmentId: ENVIRONMENT,
+    input: { repository: "other/plugins", token: "tok-123" },
+  });
+  await expect.element(page.getByRole("alert")).not.toBeInTheDocument();
 });

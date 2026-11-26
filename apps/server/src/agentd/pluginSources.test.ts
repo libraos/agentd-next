@@ -9,14 +9,17 @@ import * as FileSystem from "effect/FileSystem";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as Redacted from "effect/Redacted";
 import * as References from "effect/References";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import * as AgentdPlugins from "./AgentdPlugins.ts";
 import { PLUGIN_CATALOG_URL } from "./pluginCatalog.ts";
 import { gitBlobId } from "./skillCatalog.ts";
@@ -26,9 +29,12 @@ import { gitBlobId } from "./skillCatalog.ts";
 // repository carried it, and no file, log line, listing, hook or MCP launch holds it.
 
 const TOKEN = "github_pat_SENTINEL_0123456789";
+// What the server's GitHub connection gives (the App's token or the account's own): a sentinel.
+const SIGN_IN = "ghs_CONNECTION_SENTINEL_9876543210";
 const OFFICIAL_COMMIT = "b".repeat(40);
 const PRIVATE_COMMIT = "a".repeat(40);
 const PUBLIC_COMMIT = "d".repeat(40);
+const OPEN_COMMIT = "e".repeat(40);
 const text = (value: string) => new TextEncoder().encode(value);
 const HOOK = "#!/bin/sh\ncat >/dev/null\n";
 
@@ -73,6 +79,14 @@ const REPOS: Record<string, Repo> = {
       "plugins/tools/server.sh": text("#!/bin/sh\nexit 0\n"),
     },
   },
+  // A public catalogue, read anonymously from the raw host.
+  "acme/open": {
+    commit: OPEN_COMMIT,
+    files: {
+      "plugins/open-tool/agentd-plugin.json": text(manifest("open-tool")),
+      "plugins/open-tool/hook.sh": text(HOOK),
+    },
+  },
   "other/public": {
     commit: PUBLIC_COMMIT,
     files: {
@@ -106,6 +120,14 @@ const PRIVATE_CATALOG = JSON.stringify({
     entry("elsewhere", "other/public", "elsewhere"),
     // Its folder is not in the pinned commit's tree.
     entry("ghost", "acme/private", "plugins/ghost"),
+  ],
+});
+const OPEN_CATALOG = JSON.stringify({
+  version: 1,
+  plugins: [
+    entry("open-tool", "acme/open", "plugins/open-tool"),
+    // Its folder is in another repository, so a link into acme/open cannot name it.
+    entry("borrowed", "other/public", "elsewhere"),
   ],
 });
 // Catalogues that name a folder on this computer: never read, so no local plugin comes of them.
@@ -174,6 +196,7 @@ function fakeGithub(seen: Array<Seen>, tamper: { blob: boolean }) {
   const secret = (body: string | Uint8Array) => (authorized: boolean) =>
     authorized ? { status: 200, body } : { status: 404 };
   routes.set(PLUGIN_CATALOG_URL, ok(OFFICIAL_CATALOG));
+  routes.set("https://raw.githubusercontent.com/acme/open/HEAD/catalog.json", ok(OPEN_CATALOG));
   routes.set(
     "https://api.github.com/repos/acme/private/contents/catalog.json",
     secret(PRIVATE_CATALOG),
@@ -214,7 +237,9 @@ function fakeGithub(seen: Array<Seen>, tamper: { blob: boolean }) {
     Effect.sync(() => {
       const authorization = request.headers["authorization"];
       seen.push({ url: request.url, authorization });
-      const reply = routes.get(request.url)?.(authorization === `Bearer ${TOKEN}`) ?? {
+      const authorized =
+        authorization === `Bearer ${TOKEN}` || authorization === `Bearer ${SIGN_IN}`;
+      const reply = routes.get(request.url)?.(authorized) ?? {
         status: 404,
       };
       return HttpClientResponse.fromWeb(
@@ -230,6 +255,24 @@ function fakeGithub(seen: Array<Seen>, tamper: { blob: boolean }) {
 
 const PROJECT = ProjectId.make("project-1");
 
+/** The server's GitHub connection: the token it reads a repository with, null when none. */
+interface Connection {
+  token: string | null;
+  /** The repositories the plugins asked it for, in order. */
+  readonly asked: Array<string>;
+}
+
+const output = (stdout: string, code: number) => ({
+  stdout,
+  stderr: "",
+  code: ChildProcessSpawner.ExitCode(code),
+  timedOut: false,
+  stdoutTruncated: false,
+  stderrTruncated: false,
+  stdoutInvalidUtf8: false,
+  stderrInvalidUtf8: false,
+});
+
 const harness = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -238,20 +281,22 @@ const harness = Effect.gen(function* () {
   const seen: Array<Seen> = [];
   const tamper = { blob: false };
   const ran: Array<{ readonly cwd: string | undefined; readonly input: string }> = [];
+  const connection: Connection = { token: null, asked: [] };
   const runner = Layer.succeed(ProcessRunner.ProcessRunner, {
-    run: (input) => {
-      ran.push({ cwd: input.cwd, input: JSON.stringify(input) });
-      return Effect.succeed({
-        stdout: JSON.stringify({ decision: "pass" }),
-        stderr: "",
-        code: ChildProcessSpawner.ExitCode(0),
-        timedOut: false,
-        stdoutTruncated: false,
-        stderrTruncated: false,
-        stdoutInvalidUtf8: false,
-        stderrInvalidUtf8: false,
-      });
-    },
+    run: (input) =>
+      Effect.sync(() => {
+        ran.push({ cwd: input.cwd, input: JSON.stringify(input) });
+        return output(JSON.stringify({ decision: "pass" }), 0);
+      }),
+  });
+  const github = Layer.succeed(AgentdGitHubConnection.AgentdGitHubConnection, {
+    credential: (repository) =>
+      Effect.sync(() => {
+        connection.asked.push(repository);
+        return connection.token === null
+          ? Option.none()
+          : Option.some(Redacted.make(connection.token));
+      }),
   });
   const context = yield* Layer.build(
     AgentdPlugins.layer.pipe(
@@ -261,6 +306,7 @@ const harness = Effect.gen(function* () {
           Layer.succeed(HostProcess.HomeDirectory, config.baseDir),
           Layer.succeed(HostProcess.Environment, {}),
           runner,
+          github,
         ),
       ),
     ),
@@ -274,7 +320,7 @@ const harness = Effect.gen(function* () {
     attachments: [],
     source: "web",
   });
-  return { fs, path, config, secrets, service, seen, tamper, ran, send };
+  return { fs, path, config, secrets, service, seen, tamper, ran, send, connection };
 });
 
 const dependencies = ServerSecretStore.layer.pipe(
@@ -300,8 +346,8 @@ it.effect("adds a private catalogue with a token, lists its plugins and removes 
     const refused = yield* h.service
       .addSource({ repository: "github.com/Acme/Private" })
       .pipe(Effect.flip);
-    expect(refused.reason).toBe("download");
-    expect(refused.message).toContain("Contents: read");
+    expect(refused.reason).toBe("githubConnection");
+    expect(refused.githubConnection).toEqual({ repository: "acme/private", connected: true });
     expect((yield* h.service.list({})).sources).toHaveLength(1);
 
     const added = yield* h.service.addSource({
@@ -710,5 +756,313 @@ it.effect("a catalogue cannot add a local folder, even with developer mode on", 
     expect(sources.local).toEqual([]);
     yield* h.send;
     expect(h.ran).toEqual([]);
+  }).pipe(Effect.provide(dependencies)),
+);
+
+type Harness = Effect.Success<typeof harness>;
+
+/** Every file under `dir` whose text holds `needle`. */
+const filesHolding = (h: Harness, dir: string, needle: string) =>
+  Effect.gen(function* () {
+    const found: Array<string> = [];
+    const walk = (at: string): Effect.Effect<void, PlatformError.PlatformError> =>
+      Effect.gen(function* () {
+        for (const name of yield* h.fs.readDirectory(at)) {
+          const file = h.path.join(at, name);
+          const info = yield* h.fs.stat(file);
+          if (info.type === "Directory") yield* walk(file);
+          else if ((yield* h.fs.readFileString(file)).includes(needle)) found.push(file);
+        }
+      });
+    yield* walk(dir);
+    return found;
+  });
+
+const readSourcesFile = (h: Harness) =>
+  h.fs
+    .readFileString(h.path.join(h.config.stateDir, "plugins", "sources.json"))
+    .pipe(Effect.map((text) => JSON.parse(text)));
+
+it.effect(
+  "a pasted repository, catalog.json or plugin folder link adds the source; a plugin link names its plugin",
+  () =>
+    Effect.gen(function* () {
+      const h = yield* harness;
+      for (const link of [
+        "https://github.com/Acme/Open",
+        "github.com/acme/open/",
+        "https://github.com/acme/open.git",
+        "https://github.com/acme/open/tree/main",
+        "https://github.com/acme/open/blob/main/catalog.json",
+        "https://raw.githubusercontent.com/acme/open/refs/heads/main/catalog.json",
+      ]) {
+        const added = yield* h.service.addSource({ repository: link });
+        expect(added.sources.map((source) => [source.repository, source.hasToken])).toEqual([
+          ["libraos/plugins", false],
+          ["acme/open", false],
+        ]);
+        expect(added.linked).toBeUndefined();
+        yield* h.service.removeSource({ repository: "acme/open" });
+      }
+
+      // A plugin folder's link, with a branch name that holds a slash.
+      for (const link of [
+        "https://github.com/acme/open/tree/main/plugins/open-tool",
+        "github.com/acme/open/tree/feature/next/plugins/open-tool/?tab=readme#top",
+      ]) {
+        const added = yield* h.service.addSource({ repository: link });
+        expect(added.linked).toBe("gh~acme~open~open-tool");
+        expect(added.sources.map((source) => source.repository)).toEqual([
+          "libraos/plugins",
+          "acme/open",
+        ]);
+      }
+      // The install is the catalogue's pinned commit, whatever branch the link named.
+      const installed = yield* h.service.install({ id: "gh~acme~open~open-tool" });
+      expect(
+        installed.plugins.find((plugin) => plugin.id === "gh~acme~open~open-tool"),
+      ).toMatchObject({ installedVersion: "1.0.0", origin: { kind: "github" } });
+      const record = JSON.parse(
+        yield* h.fs.readFileString(
+          h.path.join(
+            h.config.stateDir,
+            "plugins",
+            "cache",
+            "gh~acme~open",
+            "gh~acme~open~open-tool",
+            "1.0.0",
+            ".agentd-plugin-install.json",
+          ),
+        ),
+      );
+      expect(record.commit).toBe(OPEN_COMMIT);
+
+      // An official plugin's link opens its install without adding a source.
+      const official = yield* h.service.addSource({
+        repository: "https://github.com/libraos/plugins/tree/main/plugins/pass",
+      });
+      expect(official.linked).toBe("pass");
+      expect(official.sources).toHaveLength(2);
+      // Public sources are read anonymously; the GitHub connection was never asked.
+      expect(h.connection.asked).toEqual([]);
+      expect(h.seen.every((request) => request.authorization === undefined)).toBe(true);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect(
+  "refuses a link to no plugin of the catalogue, one pinned elsewhere, and anything not GitHub",
+  () =>
+    Effect.gen(function* () {
+      const h = yield* harness;
+      yield* h.service.setDeveloperMode({ enabled: true });
+      const missing = yield* h.service
+        .addSource({ repository: "https://github.com/acme/open/tree/main/plugins/nope" })
+        .pipe(Effect.flip);
+      expect(missing.reason).toBe("unknown");
+      expect(missing.message).toContain("no plugin in the folder that link names");
+      // The catalogue lists borrowed, but its folder is in other/public, not acme/open.
+      const elsewhere = yield* h.service
+        .addSource({ repository: "https://github.com/acme/open/tree/main/elsewhere" })
+        .pipe(Effect.flip);
+      expect(elsewhere.reason).toBe("invalid");
+      expect(elsewhere.message).toContain("pinned in other/public, not in acme/open");
+      expect(
+        (yield* h.service
+          .addSource({ repository: "https://github.com/libraos/plugins/tree/main/plugins/nope" })
+          .pipe(Effect.flip)).reason,
+      ).toBe("unknown");
+
+      const folder = h.path.join(h.config.baseDir, "dev-plugin");
+      yield* h.fs.makeDirectory(folder, { recursive: true });
+      yield* h.fs.writeFileString(h.path.join(folder, "agentd-plugin.json"), manifest("devtool"));
+      for (const link of [
+        folder,
+        `file://${folder}`,
+        "~/dev-plugin",
+        "./dev-plugin",
+        "C:\\Users\\me\\dev-plugin",
+        "\\\\server\\share\\dev-plugin",
+        "https://gitlab.com/acme/open",
+        "https://github.com.evil.example/acme/open",
+        "http://github.com/acme/open",
+        "https://me@github.com/acme/open",
+        "https://github.com/acme/open/issues/1",
+        "https://github.com/acme/open/blob/main/plugins/open-tool/hook.sh",
+      ]) {
+        const refused = yield* h.service.addSource({ repository: link }).pipe(Effect.flip);
+        expect([link, refused.reason]).toEqual([link, "invalid"]);
+      }
+      const listed = yield* h.service.list({});
+      expect(listed.sources.map((source) => source.repository)).toEqual(["libraos/plugins"]);
+      expect(listed.plugins.map((plugin) => plugin.origin.kind)).toEqual(["official"]);
+      const sources = yield* readSourcesFile(h);
+      expect(sources).toMatchObject({ github: [], local: [] });
+      expect(
+        yield* h.fs.exists(
+          h.path.join(h.config.stateDir, "plugins", "catalogs", "gh~acme~open.json"),
+        ),
+      ).toBe(false);
+      expect(h.connection.asked).toEqual([]);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect(
+  "a private repository reads with the GitHub connection once confirmed for that source",
+  () =>
+    Effect.gen(function* () {
+      const logs: Array<string> = [];
+      const capture = Logger.make((options) => {
+        logs.push(JSON.stringify(options.message), String(options.cause));
+      });
+      yield* Effect.gen(function* () {
+        const h = yield* harness;
+        h.connection.token = SIGN_IN;
+        const link = "https://github.com/acme/private/tree/main/plugins/pass";
+
+        // Asked first; the connection is not read before the confirm.
+        const asked = yield* h.service.addSource({ repository: link }).pipe(Effect.flip);
+        expect(asked.reason).toBe("githubConnection");
+        expect(asked.githubConnection).toEqual({ repository: "acme/private", connected: true });
+        expect(h.connection.asked).toEqual([]);
+        expect((yield* h.service.list({})).sources).toHaveLength(1);
+
+        const added = yield* h.service.addSource({ repository: link, useGitHubConnection: true });
+        expect(added.linked).toBe(PRIVATE_PASS);
+        expect(added.sources[1]).toEqual({
+          repository: "acme/private",
+          official: false,
+          hasToken: false,
+          githubConnection: true,
+          state: "cache",
+        });
+        expect(h.connection.asked).toEqual(["acme/private"]);
+        expect(yield* readSourcesFile(h)).toMatchObject({
+          github: [{ repository: "acme/private", githubConnection: true }],
+        });
+
+        // Asked again for each fetch, without asking the person again.
+        const listings = [added];
+        for (const id of [PRIVATE_PASS, "gh~acme~private~tools"]) {
+          listings.push(yield* h.service.install({ id }));
+          listings.push(yield* h.service.setEnabled({ id, enabled: true }));
+        }
+        expect(h.connection.asked).toEqual(["acme/private", "acme/private", "acme/private"]);
+        // The plugin's own link, pasted again, needs no confirm for a source already confirmed.
+        listings.push(yield* h.service.addSource({ repository: link }));
+        listings.push(yield* h.service.list({ projectId: PROJECT }));
+        yield* h.send;
+        const servers = yield* h.service.mcpServers(PROJECT);
+
+        // Sent only to the API for that repository, and never across the redirect.
+        const carried = h.seen.filter((request) => request.authorization !== undefined);
+        expect(carried.length).toBeGreaterThan(0);
+        for (const request of carried) {
+          expect(request.url).toMatch(/^https:\/\/api\.github\.com\/repos\/acme\/private\//);
+          expect(request.authorization).toBe(`Bearer ${SIGN_IN}`);
+        }
+        expect(
+          h.seen.filter(
+            (request) =>
+              request.url.startsWith("https://objects.example/") || request.url.endsWith("?hop=2"),
+          ),
+        ).toEqual([
+          expect.objectContaining({ authorization: undefined }),
+          expect.objectContaining({ authorization: undefined }),
+        ]);
+
+        // Confirmed for acme/private only: another repository is asked about, not read with it.
+        const before = h.connection.asked.length;
+        const other = yield* h.service
+          .addSource({ repository: "acme/local-path" })
+          .pipe(Effect.flip);
+        expect(other.reason).toBe("githubConnection");
+        expect(h.connection.asked.length).toBe(before);
+
+        // Kept nowhere: not the secret store, sources.json, the catalogue cache, a listing,
+        // a hook, an MCP launch, an error or a log line.
+        const failures = [
+          yield* h.service.install({ id: "gh~acme~private~elsewhere" }).pipe(Effect.flip),
+          yield* h.service.install({ id: "gh~acme~private~ghost" }).pipe(Effect.flip),
+        ];
+        expect(yield* filesHolding(h, h.config.baseDir, SIGN_IN)).toEqual([]);
+        expect(
+          yield* h.secrets
+            .get("agentd-plugin-source.gh~acme~private")
+            .pipe(Effect.map((v) => v._tag)),
+        ).toBe("None");
+        expect(JSON.stringify([listings, failures, servers, h.ran])).not.toContain(SIGN_IN);
+        expect(h.ran.length).toBeGreaterThan(0);
+
+        // Removed, it is asked about again before the connection is read.
+        yield* h.service.removeSource({ repository: "acme/private" });
+        const again = h.connection.asked.length;
+        expect((yield* h.service.addSource({ repository: link }).pipe(Effect.flip)).reason).toBe(
+          "githubConnection",
+        );
+        expect(h.connection.asked.length).toBe(again);
+      }).pipe(
+        Effect.provide(Logger.layer([capture])),
+        Effect.provideService(References.MinimumLogLevel, "All"),
+      );
+      expect(logs.join("\n")).not.toContain(SIGN_IN);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect(
+  "with no GitHub connection the error says to sign in or run gh auth login; a token still works",
+  () =>
+    Effect.gen(function* () {
+      const h = yield* harness;
+      const none = yield* h.service
+        .addSource({ repository: "acme/private", useGitHubConnection: true })
+        .pipe(Effect.flip);
+      expect(none.reason).toBe("githubConnection");
+      expect(none.githubConnection).toEqual({ repository: "acme/private", connected: false });
+      expect(none.message).toContain("run gh auth login");
+      expect((yield* h.service.list({})).sources).toHaveLength(1);
+
+      // A connection that cannot read the repository says so, and the credential is not in it.
+      h.connection.token = "ghs_WRONG_ACCOUNT_000000";
+      const wrong = yield* h.service
+        .addSource({ repository: "acme/private", useGitHubConnection: true })
+        .pipe(Effect.flip);
+      expect(wrong.message).toContain("could not be read with your GitHub connection");
+      expect(wrong.message).not.toContain("ghs_WRONG_ACCOUNT");
+
+      const added = yield* h.service.addSource({ repository: "acme/private", token: TOKEN });
+      expect(added.sources[1]).toEqual({
+        repository: "acme/private",
+        official: false,
+        hasToken: true,
+        state: "cache",
+      });
+      yield* h.service.install({ id: PRIVATE_PASS });
+      // A source with a token never asks the connection.
+      expect(h.connection.asked).toEqual(["acme/private", "acme/private"]);
+    }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("switching a source between a token and the connection keeps one way of reading it", () =>
+  Effect.gen(function* () {
+    const h = yield* harness;
+    h.connection.token = SIGN_IN;
+    yield* h.service.addSource({ repository: "acme/private", token: TOKEN });
+    const connected = yield* h.service.addSource({
+      repository: "acme/private",
+      useGitHubConnection: true,
+    });
+    expect(connected.sources[1]).toMatchObject({ hasToken: false, githubConnection: true });
+    expect(
+      yield* h.secrets.get("agentd-plugin-source.gh~acme~private").pipe(Effect.map((v) => v._tag)),
+    ).toBe("None");
+    const token = yield* h.service.addSource({ repository: "acme/private", token: TOKEN });
+    expect(token.sources[1]).toEqual({
+      repository: "acme/private",
+      official: false,
+      hasToken: true,
+      state: "cache",
+    });
+    expect(yield* readSourcesFile(h)).toMatchObject({ github: [{ repository: "acme/private" }] });
+    expect((yield* readSourcesFile(h)).github[0].githubConnection).toBeUndefined();
   }).pipe(Effect.provide(dependencies)),
 );

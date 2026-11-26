@@ -109,6 +109,8 @@ export const AgentdPluginSourceListing = Schema.Struct({
   /** The official catalogue: always there, cannot be removed. */
   official: Schema.Boolean,
   hasToken: Schema.Boolean,
+  /** Read with the server's GitHub connection (Settings, Source control), as the person confirmed. */
+  githubConnection: Schema.optionalKey(Schema.Literal(true)),
   state: AgentdPluginCatalogState,
 });
 export type AgentdPluginSourceListing = typeof AgentdPluginSourceListing.Type;
@@ -121,6 +123,8 @@ export const AgentdPlugins = Schema.Struct({
   /** Local folders can be added as plugins; off by default. */
   developerMode: Schema.Boolean,
   plugins: Schema.Array(AgentdPluginListing),
+  /** After adding a source from a plugin folder's link: that plugin's key, to offer its install. */
+  linked: Schema.optionalKey(Schema.String),
   /** Whether a send in the project asked for runs at least one before-send hook. */
   beforeSend: Schema.Boolean,
 });
@@ -149,11 +153,20 @@ export const AgentdPluginSettingsInput = Schema.Struct({
 export type AgentdPluginSettingsInput = typeof AgentdPluginSettingsInput.Type;
 
 export const AgentdPluginSourceInput = Schema.Struct({
-  /** owner/repo, github.com/owner/repo or its https URL. */
+  /**
+   * owner/repo, or a GitHub link: the repository, a plugin folder in it (.../tree/BRANCH/PATH) or
+   * its catalog.json.
+   */
   repository: Schema.String,
   /** A read-only token for a private repository (fine-grained, Contents: read). Kept in the
    * server's secret store and sent only to the GitHub API for this repository. */
   token: Schema.optionalKey(Schema.String),
+  /**
+   * The person confirmed reading this repository with the server's GitHub connection: the GitHub
+   * App where it covers the repository, else the account's own credential. Read for each fetch and
+   * never kept by plugins.
+   */
+  useGitHubConnection: Schema.optionalKey(Schema.Boolean),
 });
 export type AgentdPluginSourceInput = typeof AgentdPluginSourceInput.Type;
 
@@ -185,6 +198,8 @@ export const AgentdPluginErrorReason = Schema.Literals([
   "filesystem",
   "invalid",
   "setup",
+  /** The repository did not read anonymously: ask to use the GitHub connection, or connect one. */
+  "githubConnection",
 ]);
 export type AgentdPluginErrorReason = typeof AgentdPluginErrorReason.Type;
 
@@ -193,6 +208,13 @@ export class AgentdPluginError extends Schema.TaggedError<AgentdPluginError>()(
   {
     reason: AgentdPluginErrorReason,
     message: Schema.String,
+    /**
+     * With githubConnection: the repository to ask about, and whether the server had a connection
+     * to read it with (false once the person confirmed and there was none).
+     */
+    githubConnection: Schema.optionalKey(
+      Schema.Struct({ repository: Schema.String, connected: Schema.Boolean }),
+    ),
   },
 ) {}
 

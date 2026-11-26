@@ -20,6 +20,9 @@ import {
   sortPluginKeys,
   sourceRepository,
   tokenAllowed,
+  linkedPlugin,
+  parseSourceLink,
+  type PluginCatalog,
 } from "./pluginCatalog.ts";
 
 const INPUT = { text: "hello", attachments: [{ id: "a", name: "a.txt", text: "one" }] };
@@ -310,6 +313,73 @@ describe("plugin sources", () => {
       expect(sourceRepository(bad)).toBeNull();
     }
     expect(readPluginSources("not json")).toEqual({ github: [], developerMode: false, local: [] });
+  });
+
+  it("reads a pasted link as its repository and, for a folder, what follows tree/", () => {
+    expect(parseSourceLink("Acme/Plugins")).toEqual({ repository: "acme/plugins" });
+    expect(parseSourceLink("https://www.github.com/acme/plugins/")).toEqual({
+      repository: "acme/plugins",
+    });
+    expect(parseSourceLink("github.com/acme/plugins/tree/main/plugins/redact")).toEqual({
+      repository: "acme/plugins",
+      tree: "main/plugins/redact",
+    });
+    expect(parseSourceLink("https://github.com/acme/plugins/tree/main")).toEqual({
+      repository: "acme/plugins",
+    });
+    expect(parseSourceLink("https://github.com/acme/plugins/blob/main/catalog.json?raw=1")).toEqual(
+      { repository: "acme/plugins" },
+    );
+    expect(
+      parseSourceLink("https://raw.githubusercontent.com/acme/plugins/HEAD/catalog.json"),
+    ).toEqual({ repository: "acme/plugins" });
+    for (const bad of [
+      "",
+      "/home/me/plugin",
+      "file:///home/me/plugin",
+      "C:\\plugins\\redact",
+      "~/plugin",
+      "http://github.com/acme/plugins",
+      "https://github.com:444/acme/plugins",
+      "https://raw.githubusercontent.com/acme/plugins/HEAD/plugins/redact/hook.sh",
+      "https://github.com/acme/plugins/pulls",
+      "https://github.com/acme/plugins/blob/main/README.md",
+      "https://github.com/acme",
+    ]) {
+      expect([bad, parseSourceLink(bad)]).toEqual([bad, null]);
+    }
+  });
+
+  it("finds a link's plugin only in the repository the link names", () => {
+    const entry = (id: string, url: string, path: string) => ({
+      id,
+      name: id,
+      description: "",
+      author: "",
+      licence: "",
+      reviewedAt: "2026-11-01",
+      version: "1.0.0",
+      source: { url, path, sha: "a".repeat(40) },
+    });
+    const catalog: PluginCatalog = {
+      version: 1,
+      plugins: [
+        entry("redact", "https://github.com/Acme/Plugins", "plugins/redact"),
+        entry("borrowed", "https://github.com/other/repo", "plugins/borrowed"),
+      ],
+    };
+    expect(linkedPlugin(catalog, "acme/plugins", "feature/x/plugins/redact")).toEqual({
+      _tag: "Found",
+      id: "redact",
+    });
+    expect(linkedPlugin(catalog, "acme/plugins", "main/plugins/borrowed")).toEqual({
+      _tag: "Elsewhere",
+      id: "borrowed",
+      repository: "other/repo",
+    });
+    for (const tree of ["main/plugins/redact-two", "main/xplugins/redact", "plugins/redact"]) {
+      expect(linkedPlugin(catalog, "acme/plugins", tree)).toEqual({ _tag: "Missing" });
+    }
   });
 
   it("allows a token only on the GitHub API for its own repository", () => {

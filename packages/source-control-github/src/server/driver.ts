@@ -6,6 +6,8 @@ import {
 } from "@t3tools/source-control-core/server/driver";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Redacted from "effect/Redacted";
 import { HttpClient } from "effect/http";
 
 import { definition } from "../shared/definition.ts";
@@ -98,6 +100,17 @@ export const makeStarRepository = Effect.gen(function* () {
   );
 });
 
+// The app's token where an installation covers the repository, else the user's own; for reads
+// pinned to that repository, such as a private plugin catalogue.
+export const makeRepositoryCredential = Effect.gen(function* () {
+  const appAccess = yield* GitHubAppAccess.GitHubAppAccess;
+  return (host: string, repository: string) =>
+    appAccess.credentialFor(host, repository).pipe(
+      Effect.map((held) => Option.some(held.token)),
+      Effect.orElseSucceed(() => Option.none<Redacted.Redacted<string>>()),
+    );
+});
+
 const makeInstance = Effect.gen(function* () {
   const mediaHttpClient = yield* HttpClient.HttpClient;
   return yield* withOwnServices(
@@ -112,6 +125,7 @@ const makeInstance = Effect.gen(function* () {
       signIn: makeSignIn,
       isRepositoryStarred: makeIsRepositoryStarred,
       starRepository: makeStarRepository,
+      repositoryCredential: makeRepositoryCredential,
     }),
     services,
   );

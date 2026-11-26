@@ -1,10 +1,12 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { AgentdPlugins, EnvironmentId } from "@t3tools/contracts";
+import { AgentdPluginError, type AgentdPlugins, type EnvironmentId } from "@t3tools/contracts";
 import type * as Cause from "effect/Cause";
+import * as Schema from "effect/Schema";
 import { T, useGT } from "gt-react";
 import { useState } from "react";
 
 import { useAgentdPluginCommands } from "../../lib/agentdState";
+import { useAgentdGitHubConnection } from "./AgentdGitHubConnection";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -21,23 +23,37 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 
 type CommandResult =
-  | { readonly _tag: "Success" }
+  | { readonly _tag: "Success"; readonly value: AgentdPlugins }
   | { readonly _tag: "Failure"; readonly cause: Cause.Cause<unknown> };
+
+const isPluginError = Schema.is(AgentdPluginError);
+
+interface ConnectionQuestion {
+  /** What the person pasted, sent again once they confirm. */
+  readonly input: string;
+  readonly repository: string;
+  /** False once the server had no GitHub connection to read it with. */
+  readonly connected: boolean;
+}
 
 /**
  * The catalogues plugins come from: the official one, which always stays, and GitHub repositories
- * a person adds, with a token for a private one. Below them, developer mode and its local folders.
+ * a person adds by pasting a link, read with a token or the server's GitHub connection when private.
+ * Below them, developer mode and its local folders.
  */
 export function AgentdPluginSources({
   data,
   environmentId,
   canChange,
   onChanged,
+  onLinked,
 }: {
   readonly data: AgentdPlugins;
   readonly environmentId: EnvironmentId;
   readonly canChange: boolean;
   readonly onChanged: () => void;
+  /** A pasted plugin folder's link was added: the plugin's key, to open its install. */
+  readonly onLinked: (id: string) => void;
 }) {
   const gt = useGT();
   const commands = useAgentdPluginCommands();
@@ -47,17 +63,49 @@ export function AgentdPluginSources({
   const [token, setToken] = useState("");
   const [folder, setFolder] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
+  const [asking, setAsking] = useState<ConnectionQuestion | null>(null);
+  const { account, signInPanel } = useAgentdGitHubConnection(
+    environmentId,
+    asking !== null || data.sources.some((source) => source.githubConnection === true),
+  );
+  const askConnected =
+    asking !== null && asking.connected && (account !== null || signInPanel === null);
 
-  async function run(action: () => Promise<CommandResult>, after?: () => void) {
+  async function run(
+    action: () => Promise<CommandResult>,
+    after?: (value: AgentdPlugins) => void,
+    refused?: (error: unknown) => boolean,
+  ) {
     setBusy(true);
     setFailure(null);
     const result = await action();
     setBusy(false);
     if (result._tag === "Failure") {
       const error = squashAtomCommandFailure(result);
-      setFailure(error instanceof Error ? error.message : gt("Nothing was changed."));
-    } else after?.();
+      if (refused?.(error) !== true) {
+        setFailure(error instanceof Error ? error.message : gt("Nothing was changed."));
+      }
+    } else after?.(result.value);
     onChanged();
+  }
+
+  function addSource(input: { repository: string; token?: string; useGitHubConnection?: boolean }) {
+    void run(
+      () => commands.addSource({ environmentId, input }),
+      (value) => {
+        setRepository("");
+        setToken("");
+        if (value.linked !== undefined) onLinked(value.linked);
+      },
+      (error) => {
+        const question = isPluginError(error) ? error.githubConnection : undefined;
+        if (question === undefined) return false;
+        setAsking({ input: input.repository, ...question });
+        // With nothing to read it with, the reason stays on the page beside the token field.
+        if (!question.connected) setFailure(error instanceof Error ? error.message : null);
+        return true;
+      },
+    );
   }
 
   return (
@@ -77,6 +125,12 @@ export function AgentdPluginSources({
               ) : source.hasToken ? (
                 <Badge variant="info">
                   <T>Private, token kept</T>
+                </Badge>
+              ) : source.githubConnection === true ? (
+                <Badge variant="info">
+                  {account === null
+                    ? gt("Uses your GitHub connection")
+                    : gt("Uses your GitHub connection ({account})", { account })}
                 </Badge>
               ) : null}
               {source.state === "none" ? (
@@ -106,34 +160,25 @@ export function AgentdPluginSources({
           onSubmit={(event) => {
             event.preventDefault();
             const given = token.trim();
-            void run(
-              () =>
-                commands.addSource({
-                  environmentId,
-                  input: given.length === 0 ? { repository } : { repository, token: given },
-                }),
-              () => {
-                setRepository("");
-                setToken("");
-              },
-            );
+            addSource(given.length === 0 ? { repository } : { repository, token: given });
           }}
         >
           <p className="text-muted-foreground text-xs">
             <T>
-              Add your organisation's catalogue: a GitHub repository with a catalog.json in the same
-              format. A private one needs a read-only token for that repository (fine-grained,
-              Contents: read). The token stays on this computer and is sent only to GitHub for that
-              repository.
+              Add your organisation's catalogue: paste a link to a GitHub repository with a
+              catalog.json in the same format, to its catalog.json, or to one of its plugins to
+              install it. A private one can use your GitHub connection from Source control settings,
+              or a read-only token for that repository (fine-grained, Contents: read). Either is
+              sent only to GitHub for that repository.
             </T>
           </p>
           <div className="flex flex-col gap-1">
             <Label htmlFor="plugin-source-repository">
-              <T>Repository</T>
+              <T>Repository or link</T>
             </Label>
             <Input
               id="plugin-source-repository"
-              placeholder="owner/plugins"
+              placeholder="github.com/owner/plugins"
               value={repository}
               disabled={busy}
               onChange={(event) => setRepository(event.target.value)}
@@ -223,6 +268,64 @@ export function AgentdPluginSources({
           {failure}
         </p>
       )}
+      <AlertDialog
+        open={asking !== null}
+        onOpenChange={(open) => {
+          if (!open) setAsking(null);
+        }}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {!askConnected
+                ? gt("Connect GitHub to read {repository}", {
+                    repository: asking?.repository ?? "",
+                  })
+                : account === null
+                  ? gt("Use your GitHub connection to read {repository}?", {
+                      repository: asking?.repository ?? "",
+                    })
+                  : gt("Use your GitHub connection ({account}) to read {repository}?", {
+                      account,
+                      repository: asking?.repository ?? "",
+                    })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {askConnected ? (
+                <T>
+                  It could not be read without signing in, so it may be private. LibraOS Next reads
+                  it with your GitHub connection from Source control settings each time it fetches
+                  this catalogue or one of its plugins. Plugins keep none of it, and it is sent only
+                  to GitHub for this repository.
+                </T>
+              ) : (
+                <T>
+                  LibraOS Next has no GitHub connection that can read it. Sign in with GitHub, or
+                  run gh auth login on the computer LibraOS Next runs on, then try again. You can
+                  also close this and give a read-only token.
+                </T>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {askConnected || signInPanel === null ? null : <div className="px-6">{signInPanel}</div>}
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline" />}>
+              <T>Cancel</T>
+            </AlertDialogClose>
+            <Button
+              onClick={() => {
+                const question = asking;
+                setAsking(null);
+                if (question !== null) {
+                  addSource({ repository: question.input, useGitHubConnection: true });
+                }
+              }}
+            >
+              {askConnected ? gt("Use my GitHub connection") : gt("Try again")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
       <AlertDialog
         open={removing !== null}
         onOpenChange={(open) => {

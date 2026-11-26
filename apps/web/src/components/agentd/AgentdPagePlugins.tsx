@@ -35,6 +35,8 @@ export function AgentdPagePlugins({ environmentId }: { readonly environmentId: E
   const canChange = useAtomValue(agentdEnvironment.pluginsInstall.permissionAtom(environmentId));
   const settingUp = plugins.data?.plugins.some((plugin) => plugin.setup?.status === "running");
   const refresh = plugins.refresh;
+  // The plugin whose install dialog is open: from its Install button or a pasted link to it.
+  const [installing, setInstalling] = useState<string | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- setup runs on the server; poll its progress only while it runs.
   useEffect(() => {
     if (settingUp !== true) return;
@@ -51,6 +53,7 @@ export function AgentdPagePlugins({ environmentId }: { readonly environmentId: E
         environmentId={environmentId}
         canChange={canChange}
         onChanged={plugins.refresh}
+        onLinked={setInstalling}
       />
       {data.plugins.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -69,6 +72,8 @@ export function AgentdPagePlugins({ environmentId }: { readonly environmentId: E
               environmentId={environmentId}
               canChange={canChange}
               onChanged={plugins.refresh}
+              confirmingInstall={installing === plugin.id}
+              onConfirmingInstall={(open) => setInstalling(open ? plugin.id : null)}
             />
           ))}
         </ul>
@@ -82,18 +87,21 @@ function PluginRow({
   environmentId,
   canChange,
   onChanged,
+  confirmingInstall,
+  onConfirmingInstall,
 }: {
   readonly plugin: AgentdPluginListing;
   readonly environmentId: EnvironmentId;
   readonly canChange: boolean;
   readonly onChanged: () => void;
+  readonly confirmingInstall: boolean;
+  readonly onConfirmingInstall: (open: boolean) => void;
 }) {
   const gt = useGT();
   const commands = useAgentdPluginCommands();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-  const [confirmingInstall, setConfirmingInstall] = useState(false);
   const originLabel = usePluginOriginLabel();
   const local = plugin.origin.kind === "local";
   const setup = plugin.setup;
@@ -175,7 +183,7 @@ function PluginRow({
               size="xs"
               variant="outline"
               disabled={!canChange || busy}
-              onClick={() => setConfirmingInstall(true)}
+              onClick={() => onConfirmingInstall(true)}
             >
               {update ? <T>Update</T> : <T>Install</T>}
             </Button>
@@ -271,7 +279,10 @@ function PluginRow({
           {failure}
         </p>
       )}
-      <AlertDialog open={confirmingInstall} onOpenChange={setConfirmingInstall}>
+      <AlertDialog
+        open={confirmingInstall && canChange && (!installed || update)}
+        onOpenChange={onConfirmingInstall}
+      >
         <AlertDialogPopup>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -306,7 +317,7 @@ function PluginRow({
             </AlertDialogClose>
             <Button
               onClick={() => {
-                setConfirmingInstall(false);
+                onConfirmingInstall(false);
                 void run(() => commands.install({ environmentId, input }));
               }}
             >

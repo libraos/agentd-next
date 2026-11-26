@@ -50,6 +50,7 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Redacted from "effect/Redacted";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
@@ -65,14 +66,18 @@ import {
 import * as ServerConfig from "../config.ts";
 import type { ThreadLaunchInput } from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import { downloadPinned, getUrlBytes, type PinnedFetch } from "./AgentdSkills.ts";
 import {
   GITHUB_API,
   OFFICIAL_REPOSITORY,
   PLUGIN_CATALOG_URL,
   PluginSources,
+  type PluginCatalog,
   type PluginOrigin,
+  linkedPlugin,
   parsePluginKey,
+  parseSourceLink,
   parsePluginManifest,
   pluginKey,
   readPluginSources,
@@ -90,7 +95,6 @@ import {
   PluginSettings,
   PluginSetupRecord,
   PlaceholderFile,
-  type PluginCatalog,
   type HookUnshownAttachment,
   type PluginManifest,
   type PluginMcpLaunch,
@@ -203,6 +207,16 @@ const tokenFetch = (repository: string, token: string): PinnedFetch => ({
 
 // A token is printable ASCII with no space, so it cannot break a header.
 const TOKEN = /^[\x21-\x7e]{1,512}$/;
+
+/** How a GitHub source is read: anonymously, with its kept token, or with the GitHub connection. */
+type SourceAuth =
+  | { readonly kind: "anonymous" }
+  | { readonly kind: "token"; readonly token: string }
+  | { readonly kind: "connection" };
+
+const NO_CONNECTION = "no GitHub connection";
+const NO_CONNECTION_MESSAGE =
+  "LibraOS Next has no GitHub connection that can read this repository. Sign in with GitHub, or run gh auth login, and try again; or give a read-only token for this repository.";
 
 /**
  * The commands whose hooks the intake ran, so the dispatch backstop does not run them again.
@@ -366,6 +380,7 @@ interface Served {
   readonly origin: PluginOrigin;
   readonly repository: string;
   readonly hasToken: boolean;
+  readonly connection: boolean;
   readonly state: AgentdPluginCatalogState;
   readonly catalog: PluginCatalog | undefined;
 }
@@ -415,6 +430,7 @@ const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
   const runner = yield* ProcessRunner.ProcessRunner;
   const secrets = yield* ServerSecretStore.ServerSecretStore;
+  const github = yield* AgentdGitHubConnection.AgentdGitHubConnection;
   const host: HostPaths = {
     platform: yield* HostProcess.Platform,
     home: yield* HostProcess.HomeDirectory,
@@ -517,16 +533,52 @@ const make = Effect.gen(function* () {
   const sourceCacheFile = (repository: string) =>
     path.join(catalogsRoot, `${sourceSegment(repository)}.json`);
 
+  /** A kept token first; else the GitHub connection, only where the person confirmed it. */
+  const sourceAuth = Effect.fn("AgentdPlugins.sourceAuth")(function* (
+    repository: string,
+    sources: PluginSources,
+  ) {
+    const token = yield* sourceToken(repository);
+    if (token !== undefined) return { kind: "token", token } satisfies SourceAuth;
+    return sources.github.some(
+      (known) => known.repository === repository && known.githubConnection === true,
+    )
+      ? ({ kind: "connection" } satisfies SourceAuth)
+      : ({ kind: "anonymous" } satisfies SourceAuth);
+  });
+
+  // Asked of the connection for each fetch, for a source the person confirmed, and never kept,
+  // logged or put in an error here.
+  const connectionToken = Effect.fn("AgentdPlugins.connectionToken")(function* (
+    repository: string,
+  ) {
+    const held = yield* github.credential(repository);
+    const token = Option.isSome(held) ? Redacted.value(held.value) : "";
+    return TOKEN.test(token) ? token : undefined;
+  });
+
+  /** A GitHub URL's body as `auth` reads it; the connection is asked when the request is made. */
+  const readAs = (repository: string, auth: SourceAuth, url: string) =>
+    (auth.kind === "anonymous"
+      ? getUrlBytes(url)
+      : auth.kind === "token"
+        ? getWithToken(url, repository, auth.token)
+        : connectionToken(repository).pipe(
+            Effect.flatMap((token) =>
+              token === undefined
+                ? Effect.fail(NO_CONNECTION)
+                : getWithToken(url, repository, token),
+            ),
+          )
+    ).pipe(Effect.provideService(HttpClient.HttpClient, http));
+
   const githubCatalog = Effect.fn("AgentdPlugins.githubCatalog")(function* (
     repository: string,
-    token: string | undefined,
+    auth: SourceAuth,
     force: boolean,
   ) {
-    const url = sourceCatalogUrl(repository, token !== undefined);
-    const get = (
-      token === undefined ? getUrlBytes(url) : getWithToken(url, repository, token)
-    ).pipe(Effect.provideService(HttpClient.HttpClient, http));
-    return yield* fetchCatalog(sourceCacheFile(repository), get, force);
+    const url = sourceCatalogUrl(repository, auth.kind !== "anonymous");
+    return yield* fetchCatalog(sourceCacheFile(repository), readAs(repository, auth, url), force);
   });
 
   /** Every catalogue: the official one first, then those a person added. */
@@ -542,16 +594,18 @@ const make = Effect.gen(function* () {
         origin: { kind: "official" },
         repository: OFFICIAL_REPOSITORY,
         hasToken: false,
+        connection: false,
         ...official,
       },
     ];
     for (const { repository } of sources.github) {
-      const token = yield* sourceToken(repository);
-      const read = yield* githubCatalog(repository, token, false);
+      const auth = yield* sourceAuth(repository, sources);
+      const read = yield* githubCatalog(repository, auth, false);
       served.push({
         origin: { kind: "github", repository },
         repository,
-        hasToken: token !== undefined,
+        hasToken: auth.kind === "token",
+        connection: auth.kind === "connection",
         state: read.state,
         catalog: read.catalog,
       });
@@ -999,6 +1053,7 @@ const make = Effect.gen(function* () {
       repository: served.repository,
       official: served.origin.kind === "official",
       hasToken: served.hasToken,
+      ...(served.connection ? { githubConnection: true as const } : {}),
       state: served.state,
     }));
     return {
@@ -1096,11 +1151,23 @@ const make = Effect.gen(function* () {
       path: entry.source.path,
       notices: entry.source.notices,
     };
-    const token = origin.kind === "github" ? yield* sourceToken(origin.repository) : undefined;
+    const auth: SourceAuth =
+      origin.kind === "github"
+        ? yield* sourceAuth(origin.repository, all.sources)
+        : { kind: "anonymous" };
+    const token = auth.kind === "token" ? auth.token : undefined;
+    const connected =
+      origin.kind === "github" && auth.kind === "connection"
+        ? yield* connectionToken(origin.repository)
+        : undefined;
+    if (auth.kind === "connection" && connected === undefined) {
+      return yield* fail("download", NO_CONNECTION_MESSAGE);
+    }
+    const credential = token ?? connected;
     const files = yield* downloadPinned(
       pinned,
       PLUGIN_LAYOUT,
-      token === undefined ? undefined : tokenFetch(repository, token),
+      credential === undefined ? undefined : tokenFetch(repository, credential),
     ).pipe(
       Effect.provideService(HttpClient.HttpClient, http),
       Effect.mapError(
@@ -1764,43 +1831,127 @@ const make = Effect.gen(function* () {
       return next;
     });
 
+  /** A plugin link's plugin in the catalogue just read, pinned in the repository it names. */
+  const linkedKey = Effect.fn("AgentdPlugins.linkedKey")(function* (
+    origin: PluginOrigin,
+    repository: string,
+    catalog: PluginCatalog | undefined,
+    tree: string,
+  ) {
+    const found = linkedPlugin(catalog, repository, tree);
+    if (found._tag === "Missing") {
+      return yield* fail(
+        "unknown",
+        `The catalogue of ${repository} has no plugin in the folder that link names (${tree}).`,
+      );
+    }
+    if (found._tag === "Elsewhere") {
+      return yield* fail(
+        "invalid",
+        `${found.id} is pinned in ${found.repository}, not in ${repository}; a link installs only from the repository it names.`,
+      );
+    }
+    return pluginKey(origin, found.id);
+  });
+
   const addSource = Effect.fn("AgentdPlugins.addSource")(function* (
     input: AgentdPluginSourceInput,
   ) {
-    const repository = sourceRepository(input.repository);
-    if (repository === null) {
-      return yield* fail("invalid", `${input.repository} is not a GitHub repository (owner/repo).`);
+    const link = parseSourceLink(input.repository);
+    if (link === null) {
+      return yield* fail(
+        "invalid",
+        `${input.repository} is not a GitHub repository or a link into one (github.com/owner/repo).`,
+      );
     }
+    const repository = link.repository;
     if (repository === OFFICIAL_REPOSITORY) {
-      return yield* fail("invalid", "The official catalogue is always listed.");
+      if (link.tree === undefined) {
+        return yield* fail("invalid", "The official catalogue is always listed.");
+      }
+      const all = yield* catalogs();
+      const key = yield* linkedKey(
+        { kind: "official" },
+        repository,
+        all.served[0]?.catalog,
+        link.tree,
+      );
+      return { ...(yield* listing(all)), linked: key };
     }
     const given = input.token?.trim() ?? "";
     if (given.length > 0 && !TOKEN.test(given)) {
       return yield* fail("invalid", "That token has spaces or characters a token cannot have.");
     }
-    const token = given.length > 0 ? given : yield* sourceToken(repository);
+    const sources = yield* readSources;
+    const known = sources.github.find((candidate) => candidate.repository === repository);
+    const auth: SourceAuth =
+      given.length > 0
+        ? { kind: "token", token: given }
+        : input.useGitHubConnection === true
+          ? { kind: "connection" }
+          : yield* sourceAuth(repository, sources);
+    const forget =
+      known === undefined
+        ? fs.remove(sourceCacheFile(repository), { force: true }).pipe(Effect.ignore)
+        : Effect.void;
     // Read before saving, so a wrong name or token is said now rather than as an empty list.
-    const read = yield* githubCatalog(repository, token, true);
+    const read = yield* githubCatalog(repository, auth, true);
     if (read.state !== "fetched") {
-      const sources = yield* readSources;
-      if (!sources.github.some((known) => known.repository === repository)) {
-        yield* fs.remove(sourceCacheFile(repository), { force: true }).pipe(Effect.ignore);
+      yield* forget;
+      if (read.failure === NO_CONNECTION) {
+        return yield* new AgentdPluginError({
+          reason: "githubConnection",
+          message: NO_CONNECTION_MESSAGE,
+          githubConnection: { repository, connected: false },
+        });
+      }
+      // GitHub answers 404 for a private repository read anonymously: offer the connection.
+      if (auth.kind === "anonymous" && read.failure?.endsWith("HTTP 404") === true) {
+        return yield* new AgentdPluginError({
+          reason: "githubConnection",
+          message: `${repository} could not be read without signing in to GitHub; it may be private.`,
+          githubConnection: { repository, connected: true },
+        });
       }
       return yield* fail(
         "download",
-        `The catalogue of ${repository} could not be read (${read.failure ?? "no catalogue"}). A private repository needs a token with Contents: read.`,
+        auth.kind === "connection"
+          ? `The catalogue of ${repository} could not be read with your GitHub connection (${read.failure ?? "no catalogue"}). Check that your account or the GitHub App can read it, or give a read-only token.`
+          : `The catalogue of ${repository} could not be read (${read.failure ?? "no catalogue"}). A private repository needs a token with Contents: read.`,
       );
     }
-    if (given.length > 0) {
+    // A plugin link that names no plugin of this catalogue adds nothing.
+    const origin: PluginOrigin = { kind: "github", repository };
+    const linked =
+      link.tree === undefined
+        ? undefined
+        : yield* linkedKey(origin, repository, read.catalog, link.tree).pipe(
+            Effect.tapError(() => forget),
+          );
+    if (auth.kind === "token" && given.length > 0) {
       yield* secrets
         .set(sourceTokenName(repository), new TextEncoder().encode(given))
         .pipe(Effect.mapError(filesystem("save the token")));
     }
-    const sources = yield* readSources;
-    if (!sources.github.some((known) => known.repository === repository)) {
-      yield* writeSources({ ...sources, github: [...sources.github, { repository }] });
+    if (auth.kind === "connection" && input.useGitHubConnection === true) {
+      // One way of reading a source: the connection the person chose replaces a kept token.
+      yield* secrets
+        .remove(sourceTokenName(repository))
+        .pipe(Effect.mapError(filesystem(`remove the token of ${repository}`)));
     }
-    return yield* listing(yield* catalogs());
+    const entry =
+      auth.kind === "connection" ? { repository, githubConnection: true } : { repository };
+    if (known === undefined || (known.githubConnection === true) !== (auth.kind === "connection")) {
+      yield* writeSources({
+        ...sources,
+        github:
+          known === undefined
+            ? [...sources.github, entry]
+            : sources.github.map((candidate) => (candidate === known ? entry : candidate)),
+      });
+    }
+    const listed = yield* listing(yield* catalogs());
+    return linked === undefined ? listed : { ...listed, linked };
   }, lock.withPermits(1));
 
   const removeSource = Effect.fn("AgentdPlugins.removeSource")(function* (
@@ -1893,4 +2044,5 @@ export const layer = Layer.effect(AgentdPluginsService, make);
 export const layerLive = layer.pipe(
   Layer.provide(ProcessRunner.layer),
   Layer.provide(ServerSecretStore.layer),
+  Layer.provide(AgentdGitHubConnection.layer),
 );
