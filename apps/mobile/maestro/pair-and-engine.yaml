@@ -27,6 +27,11 @@ name: Pair with a real server and open the LibraOS Engine screen
     index: 0
 - inputText: ${CODE}
 - pressKey: Enter
+# Pairing lands on Settings, which lists environments one level down.
+- extendedWaitUntil:
+    visible: "Environments"
+    timeout: 30000
+- tapOn: "Environments"
 - extendedWaitUntil:
     visible: ${ENVIRONMENT_NAME}
     timeout: 30000

@@ -49,7 +49,7 @@ it.each([
   expect(config.owner).toBeUndefined();
   expect(config.updates?.enabled).toBe(false);
   expect(config.updates?.url).toBeUndefined();
-  expect(config.extra?.eas?.projectId).toBeUndefined();
+  expect(config.extra?.eas?.projectId).toBe("00000000-0000-0000-0000-000000000000");
   expect(config.extra?.observability?.tracesUrl).toBeNull();
   expect(JSON.stringify(config.plugins)).not.toContain("@clerk/expo");
 });

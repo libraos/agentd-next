@@ -484,6 +484,8 @@ const config: ExpoConfig = {
       tracesToken: repoEnv.EXPO_PUBLIC_OTLP_TRACES_TOKEN ?? null,
     },
     eas: {
+      // Observe's Android module throws at startup without a project id; this one is no Expo project.
+      projectId: "00000000-0000-0000-0000-000000000000",
       observe: { endpointUrl: observeEndpointUrl },
     },
   },
