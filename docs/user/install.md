@@ -41,17 +41,23 @@ Check the download against `SHA256SUMS` before opening it, for example with
 `sha256sum` on Linux or `shasum -a 256` on macOS. A matching checksum shows the
 file is the one published; it is not a publisher signature.
 
-Windows installers after 0.3.1 are signed by Nebula Nova, Inc. To check one,
+From 0.4.0, the macOS app is signed with Nebula Nova, Inc.'s Developer ID and
+notarized by Apple. The first time you open it, macOS asks you to confirm an
+app downloaded from the internet; it does not report an unverified developer.
+
+Windows installers from 0.4.0 are signed by Nebula Nova, Inc. To check one,
 right-click the `.exe`, choose **Properties → Digital Signatures**, and make sure
 the signer is Nebula Nova, Inc.; do not run a newer installer without it.
 SmartScreen may still warn for a while after a release: check that it names
 Nebula Nova, Inc. as the publisher, then choose **More info → Run anyway**.
 
-Windows installers up to 0.3.1 are unsigned and macOS builds are not notarized,
-so the operating system may warn the first time you open the app. On macOS, try
-to open the app once, then use **System Settings → Privacy & Security → Open
-Anyway**. On Windows, choose **More info → Run anyway** in the SmartScreen
-dialog. Do not override a malware warning or a block your organization enforces.
+The Linux AppImage and `.deb` are not signed; check them against `SHA256SUMS`.
+
+Releases up to 0.3.1 are unsigned on Windows and not notarized on macOS, so the
+operating system warns the first time you open one. On macOS, try to open the
+app once, then use **System Settings → Privacy & Security → Open Anyway**. On
+Windows, choose **More info → Run anyway** in the SmartScreen dialog. Do not
+override a malware warning or a block your organization enforces.
 
 The installers include LibraOS Engine and its Skills. LibraOS Next is not in app stores
 or package managers such as Homebrew, winget, the AUR or nixpkgs; the packages
