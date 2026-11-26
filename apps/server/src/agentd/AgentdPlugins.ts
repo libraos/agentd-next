@@ -140,8 +140,8 @@ const MAX_REDIRECTS = 5;
 
 /**
  * A GitHub URL's body, read with a catalogue's token only where it may go: api.github.com, for
- * that repository. Redirects are followed here rather than by fetch, so one to anywhere else is
- * followed without the token. Failures name the URL, never the token.
+ * that repository. Redirects are followed here rather than by fetch, and without the token from
+ * the first one on, wherever they lead. Failures name the URL, never the token.
  */
 const getWithToken = Effect.fn("AgentdPlugins.getWithToken")(function* (
   url: string,
@@ -152,6 +152,7 @@ const getWithToken = Effect.fn("AgentdPlugins.getWithToken")(function* (
   let current = url;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     const at = current;
+    const carry = hop === 0 && tokenAllowed(at, repository);
     const request = HttpClientRequest.get(at).pipe(
       HttpClientRequest.setHeader(
         "accept",
@@ -159,7 +160,7 @@ const getWithToken = Effect.fn("AgentdPlugins.getWithToken")(function* (
           ? "application/vnd.github+json"
           : "application/vnd.github.raw+json",
       ),
-      tokenAllowed(at, repository) ? HttpClientRequest.bearerToken(token) : identity,
+      carry ? HttpClientRequest.bearerToken(token) : identity,
     );
     const response = yield* http.execute(request).pipe(
       Effect.provideService(FetchHttpClient.RequestInit, { redirect: "manual" }),

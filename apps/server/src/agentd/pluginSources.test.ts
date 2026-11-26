@@ -153,7 +153,10 @@ function fakeGithub(seen: Array<Seen>, tamper: { blob: boolean }) {
         routes.set(blob, (authorized) =>
           authorized ? { status: 302, location: elsewhere } : { status: 404 },
         );
-        routes.set(elsewhere, ok(bytes));
+        // From there back to the API, which must not get it either.
+        const back = `${blob}?hop=2`;
+        routes.set(elsewhere, () => ({ status: 302, location: back }));
+        routes.set(back, ok(bytes));
       } else {
         routes.set(blob, (authorized) =>
           authorized
@@ -398,8 +401,14 @@ it.effect("the token goes only to the API for its own repository and is kept now
       }
       // The redirect to another host was followed, without the token.
       expect(
-        h.seen.filter((request) => request.url.startsWith("https://objects.example/")),
-      ).toEqual([expect.objectContaining({ authorization: undefined })]);
+        h.seen.filter(
+          (request) =>
+            request.url.startsWith("https://objects.example/") || request.url.endsWith("?hop=2"),
+        ),
+      ).toEqual([
+        expect.objectContaining({ authorization: undefined }),
+        expect.objectContaining({ authorization: undefined }),
+      ]);
       expect(
         h.seen.filter((request) => request.url.includes("other/public")).length,
       ).toBeGreaterThan(0);
