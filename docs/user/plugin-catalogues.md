@@ -1,6 +1,6 @@
 # Plugin catalogues
 
-Settings → Plugins installs plugins from the official LibraOS catalogue and from any GitHub
+**Plugins** in the sidebar (or **Open plugins** in the command palette) installs plugins from the official LibraOS catalogue and from any GitHub
 repository that holds a `catalog.json` in the same format, such as your organisation's own.
 
 ## Add a catalogue or install one of its plugins
