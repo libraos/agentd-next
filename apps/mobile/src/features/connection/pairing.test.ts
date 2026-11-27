@@ -1,7 +1,25 @@
 import { resolveRemotePairingTarget } from "@t3tools/shared/remote";
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildPairingUrl, extractPairingUrlFromQrPayload, parsePairingUrl } from "./pairing";
+import {
+  buildPairingUrl,
+  extractPairingUrlFromQrPayload,
+  isLoopbackPairingUrl,
+  parsePairingUrl,
+} from "./pairing";
+
+describe("isLoopbackPairingUrl", () => {
+  it.each([
+    ["http://127.0.0.1:3773/#token=a", true],
+    ["http://localhost:3773/pair#token=a", true],
+    ["http://[::1]:3773/#token=a", true],
+    ["http://192.168.1.20:3773/#token=a", false],
+    ["https://box.tailnet.ts.net/#token=a", false],
+    ["not a url", false],
+  ])("%s → %s", (url, loopback) => {
+    expect(isLoopbackPairingUrl(url)).toBe(loopback);
+  });
+});
 
 describe("buildPairingUrl", () => {
   it("uses HTTP for a schemeless IP address", () => {

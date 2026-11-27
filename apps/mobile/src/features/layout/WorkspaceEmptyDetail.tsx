@@ -32,8 +32,11 @@ export function WorkspaceEmptyDetail(props: {
         {props.onAddConnection ? (
           <View className="w-full max-w-[430px]">
             <EmptyState
-              title={gt("No environments connected")}
-              detail={gt("Add an environment to load projects and start coding sessions.")}
+              title={gt("Pair with your computer")}
+              detail={gt(
+                "On your computer, run {command} or open Settings → Sharing & access, then scan the code.",
+                { command: "lnext pair" },
+              )}
               variant="plain"
               action={
                 <FloatingActionButton

@@ -1,5 +1,6 @@
 import type { ExpoConfig } from "expo/config";
 
+import desktopPackage from "../desktop/package.json";
 import { BRAND_ASSET_PATHS } from "../../scripts/lib/brand-assets.ts";
 import { HOSTED_RELAY_ENABLED } from "../../packages/shared/src/hostedRelay.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
@@ -70,7 +71,7 @@ const RELEASE_ASSETS = {
   iosIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIconComposerProject),
   splashIcon: fromRepoRoot(BRAND_ASSET_PATHS.productionIosIconPng),
   androidAdaptiveForeground,
-  androidAdaptiveBackgroundColor: "#000000",
+  androidAdaptiveBackgroundColor: "#151f3a",
   androidAdaptiveBackgroundImage: undefined,
   androidSplashIcon: "./assets/android-splash-icon-prod.png",
   androidMonochromeIcon: "./assets/android-icon-mark.png",
@@ -82,25 +83,22 @@ const VARIANT_CONFIG = {
   development: {
     appName: "LibraOS Next Dev",
     scheme: "t3code-dev",
-    iosBundleIdentifier: "com.t3tools.t3code.dev",
-    androidPackage: "com.t3tools.t3code.dev",
-    relyingParty: "clerk.t3.codes",
+    iosBundleIdentifier: "com.libraos.next.dev",
+    androidPackage: "com.libraos.next.dev",
     assets: DEVELOPMENT_ASSETS,
   },
   preview: {
     appName: "LibraOS Next Preview",
     scheme: "t3code-preview",
-    iosBundleIdentifier: "com.t3tools.t3code.preview",
-    androidPackage: "com.t3tools.t3code.preview",
-    relyingParty: "clerk.t3.codes",
+    iosBundleIdentifier: "com.libraos.next.preview",
+    androidPackage: "com.libraos.next.preview",
     assets: PREVIEW_ASSETS,
   },
   production: {
     appName: "LibraOS Next",
     scheme: "t3code",
-    iosBundleIdentifier: "com.t3tools.t3code",
-    androidPackage: "com.t3tools.t3code",
-    relyingParty: "clerk.t3.codes",
+    iosBundleIdentifier: "com.libraos.next",
+    androidPackage: "com.libraos.next",
     assets: RELEASE_ASSETS,
   },
 } as const;
@@ -231,14 +229,21 @@ const sharingPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
   },
 ];
 
-// Match iOS PostScript names on Android so RN and the native composer share fonts before runtime loading.
+const clerkPlugin: NonNullable<ExpoConfig["plugins"]>[number] = [
+  "@clerk/expo",
+  { theme: "./clerk-theme.json", appleSignIn: !isIosPersonalTeamBuild },
+];
+
+// CI numbers each store build with its run; the stores refuse a build number they have seen.
+const buildNumber = repoEnv.T3CODE_MOBILE_BUILD_NUMBER?.trim() || undefined;
 
 const config: ExpoConfig = {
   name: variant.appName,
-  slug: "t3-code", // legacy Expo project slug, not shown; changing it re-links EAS builds
+  slug: "libraos-next",
   platforms: ["ios", "android"],
   scheme: variant.scheme,
-  version: repoEnv.T3CODE_MOBILE_VERSION ?? "2.3.0",
+  // Store builds follow the desktop release unless T3CODE_MOBILE_VERSION pins a version.
+  version: repoEnv.T3CODE_MOBILE_VERSION ?? desktopPackage.version,
   runtimeVersion: {
     // Skip costly fingerprinting on dev launches; preview and production OTAs require matching native projects.
     policy: runtimeVersionPolicy,
@@ -246,26 +251,17 @@ const config: ExpoConfig = {
   orientation: "portrait",
   icon: variant.assets.appIcon,
   userInterfaceStyle: "automatic",
-  updates: {
-    enabled: repoEnv.T3CODE_MOBILE_UPDATES_ENABLED !== "0",
-    url: "https://u.expo.dev/d763fcb8-d37c-41ea-a773-b54a0ab4a454",
-    checkAutomatically: "ON_LOAD",
-    fallbackToCacheTimeout: 0,
-  },
+  // No over-the-air updates: every change ships as a store build.
+  updates: { enabled: false },
   ios: {
     icon: variant.assets.iosIcon,
     supportsTablet: true,
     requireFullScreen: process.env.T3_SHOWCASE_CAPTURE_BUILD === "1",
     bundleIdentifier: iosBundleIdentifier,
+    ...(buildNumber ? { buildNumber } : {}),
     // Avoid Personal Team fallback: it cannot sign App Groups, Apple sign-in or push entitlements.
-    appleTeamId: "ARK85ZXQ4Z",
-    associatedDomains: [
-      // The sign-in domain belongs to the hosted relay; iOS fetches each listed domain on install.
-      ...(HOSTED_RELAY_ENABLED
-        ? [`applinks:${variant.relyingParty}`, `webcredentials:${variant.relyingParty}`]
-        : []),
-      ...(HOSTED_APP_HOST ? [`applinks:${HOSTED_APP_HOST}`] : []),
-    ],
+    appleTeamId: "3NP2A75X35",
+    associatedDomains: HOSTED_APP_HOST ? [`applinks:${HOSTED_APP_HOST}`] : [],
     entitlements: {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
     },
@@ -302,6 +298,7 @@ const config: ExpoConfig = {
   android: {
     icon: variant.assets.appIcon,
     package: variant.androidPackage,
+    ...(buildNumber ? { versionCode: Number(buildNumber) } : {}),
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
@@ -376,7 +373,7 @@ const config: ExpoConfig = {
       },
     ],
     // Gate Clerk here: withoutIosPersonalTeamCapabilities runs too early to strip its entitlement.
-    ["@clerk/expo", { theme: "./clerk-theme.json", appleSignIn: !isIosPersonalTeamBuild }],
+    ...(HOSTED_RELAY_ENABLED ? [clerkPlugin] : []),
     "expo-web-browser",
     [
       "expo-quick-actions",
@@ -470,6 +467,7 @@ const config: ExpoConfig = {
     "./plugins/withAndroidModernPopupMenu.cjs",
     "./plugins/withAndroidModernAlertDialog.cjs",
     "./plugins/withAndroidPredictiveBackCompat.cjs",
+    "./plugins/withAndroidKeepNewIntent.cjs",
     // MainActivity mods run in reverse order; extend the tablet-orientation override.
     "./plugins/withAndroidWindowDisplayMetrics.cjs",
     "./plugins/withAndroidTabletOrientation.cjs",
@@ -481,26 +479,17 @@ const config: ExpoConfig = {
     relay: {
       url: repoEnv.T3CODE_RELAY_URL ?? null,
     },
-    clerk: {
-      publishableKey: repoEnv.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? null,
-      jwtTemplate: repoEnv.EXPO_PUBLIC_CLERK_JWT_TEMPLATE ?? null,
-    },
-    // Clerk reads these exact names at prebuild. Omit unset values: manifest null becomes truthy {}.
-    EXPO_PUBLIC_CLERK_GOOGLE_WEB_CLIENT_ID: repoEnv.EXPO_PUBLIC_CLERK_GOOGLE_WEB_CLIENT_ID,
-    EXPO_PUBLIC_CLERK_GOOGLE_IOS_CLIENT_ID: repoEnv.EXPO_PUBLIC_CLERK_GOOGLE_IOS_CLIENT_ID,
-    EXPO_PUBLIC_CLERK_GOOGLE_ANDROID_CLIENT_ID: repoEnv.EXPO_PUBLIC_CLERK_GOOGLE_ANDROID_CLIENT_ID,
-    EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME: repoEnv.EXPO_PUBLIC_CLERK_GOOGLE_IOS_URL_SCHEME,
     observability: {
-      tracesUrl: repoEnv.EXPO_PUBLIC_OTLP_TRACES_URL ?? "https://api.axiom.co/v1/traces",
+      tracesUrl: repoEnv.EXPO_PUBLIC_OTLP_TRACES_URL ?? null,
       tracesDataset: repoEnv.EXPO_PUBLIC_OTLP_TRACES_DATASET ?? null,
       tracesToken: repoEnv.EXPO_PUBLIC_OTLP_TRACES_TOKEN ?? null,
     },
     eas: {
-      projectId: "d763fcb8-d37c-41ea-a773-b54a0ab4a454",
+      // Observe's Android module throws at startup without a project id; this one is no Expo project.
+      projectId: "00000000-0000-0000-0000-000000000000",
       observe: { endpointUrl: observeEndpointUrl },
     },
   },
-  owner: "pingdotgg",
   experiments: {
     // Metro only runs babel-plugin-react-compiler when this is set; see src/reactCompilerCoverage.test.ts.
     reactCompiler: true,

@@ -1716,6 +1716,11 @@ const CODEX_T3_DIRECT_MCP_SERVER = APP_MCP_DIRECT_SERVER_NAME;
 const CODEX_DIRECT_ONLY_T3_TOOLS = ["thread_wait", "delegate_task"];
 
 /** Names of the stdio MCP servers in a `config/read` config, the ones Codex starts per thread. */
+function codexSkillsConfig(skills: unknown): ReadonlyArray<Schema.Json> {
+  const entries = skills !== null && typeof skills === "object" && Reflect.get(skills, "config");
+  return Array.isArray(entries) ? (entries as ReadonlyArray<Schema.Json>) : [];
+}
+
 function codexStdioMcpServerNames(mcpServers: unknown): ReadonlyArray<string> {
   if (mcpServers === null || typeof mcpServers !== "object") return [];
   return Object.entries(mcpServers)
@@ -1734,8 +1739,10 @@ export function codexThreadRuntimeParams(input: {
   readonly threadId: ThreadId | null;
   readonly mcpSession: McpProviderSession.McpProviderSessionConfig | undefined;
   readonly stdioMcpServers?: ReadonlyArray<string>;
-  /** Plugins' stdio servers for this thread; config overrides, so ~/.codex/config.toml is untouched. */
-  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.McpStdioServer>>;
+  /** Plugins' servers for this thread; config overrides, so ~/.codex/config.toml is untouched. */
+  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.PluginMcpServer>>;
+  /** The thread's `skills.config`: the user's own entries, then the plugin skills it turns off. */
+  readonly skillsConfig?: ReadonlyArray<Schema.Json>;
   readonly modelSelection?: { readonly model: string };
   readonly runtimePolicy?: ProviderAdapter.ProviderAdapterV2RuntimePolicy;
   readonly startEffort?: string | undefined;
@@ -1759,6 +1766,7 @@ export function codexThreadRuntimeParams(input: {
     config: {
       ...CODEX_THREAD_CONFIG,
       ...(input.startEffort === undefined ? {} : { model_reasoning_effort: input.startEffort }),
+      ...(input.skillsConfig === undefined ? {} : { "skills.config": [...input.skillsConfig] }),
       // One app-server serves many threads, so the id goes in per-thread shell config, not its env.
       ...(input.threadId === null
         ? {}
@@ -1778,16 +1786,18 @@ export function codexThreadRuntimeParams(input: {
       ...Object.fromEntries(
         Object.entries(input.pluginMcpServers ?? {}).map(([name, server]) => [
           `mcp_servers.${name}`,
-          {
-            command: server.command,
-            args: [...server.args],
-            env: {
-              ...server.env,
-              ...(input.threadId === null
-                ? {}
-                : { [PortScanner.AGENT_THREAD_ENV]: input.threadId }),
-            },
-          },
+          "command" in server
+            ? {
+                command: server.command,
+                args: [...server.args],
+                env: {
+                  ...server.env,
+                  ...(input.threadId === null
+                    ? {}
+                    : { [PortScanner.AGENT_THREAD_ENV]: input.threadId }),
+                },
+              }
+            : { url: server.url, http_headers: { ...server.headers } },
         ]),
       ),
       ...(t3Server === undefined
@@ -2178,6 +2188,10 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
     readMcpSession(threadId).pipe(
       Effect.flatMap((session) => session?.pluginMcpServers ?? Effect.succeed({})),
     );
+  const readPluginSkills = (threadId: ThreadId | null) =>
+    readMcpSession(threadId).pipe(
+      Effect.flatMap((session) => session?.pluginSkills ?? Effect.undefined),
+    );
   const { clientFactory, digest, fileSystem, idAllocator, serverConfig } = adapterOptions;
   const continuationRequests = adapterOptions.continuationRequests;
 
@@ -2377,6 +2391,35 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
             ),
             withAppServerDeadline("config/read"),
           );
+        // Codex takes extra skill folders for the whole app-server, so each thread turns off
+        // the plugin skills that are off in its project. Its own skills.config entries come first.
+        const skillRoots = yield* Ref.make<ReadonlyArray<string>>([]);
+        const readSkillsConfig = Effect.fn("CodexAdapterV2.readSkillsConfig")(function* (
+          threadId: ThreadId | null,
+          cwd: string | null | undefined,
+        ) {
+          const skills = yield* readPluginSkills(threadId);
+          if (skills === undefined) return undefined;
+          yield* ensureInitialized;
+          if ((yield* Ref.get(skillRoots)).join("\n") !== skills.roots.join("\n")) {
+            yield* client.request("skills/extraRoots/set", { extraRoots: [...skills.roots] }).pipe(
+              withAppServerDeadline("skills/extraRoots/set"),
+              Effect.andThen(Ref.set(skillRoots, skills.roots)),
+              Effect.catch((cause) =>
+                Effect.logWarning("Codex did not take the plugins' skill folders.", { cause }),
+              ),
+            );
+          }
+          if (skills.off.length === 0) return undefined;
+          const own = yield* client
+            .request("config/read", { ...(cwd == null ? {} : { cwd }), includeLayers: false })
+            .pipe(
+              withAppServerDeadline("config/read"),
+              Effect.map((response) => codexSkillsConfig(response.config.skills)),
+              Effect.orElseSucceed((): ReadonlyArray<Schema.Json> => []),
+            );
+          return [...own, ...skills.off.map((path) => ({ path, enabled: false }))];
+        });
         const now = yield* DateTime.now;
         const session = providerSession({
           providerSessionId: input.providerSessionId,
@@ -8371,8 +8414,9 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                 readMcpSession(providerThread.appThreadId),
                 readStdioMcpServers(undefined),
                 readPluginMcpServers(providerThread.appThreadId),
+                readSkillsConfig(providerThread.appThreadId, undefined),
               ]).pipe(
-                Effect.flatMap(([mcpSession, stdioMcpServers, pluginMcpServers]) =>
+                Effect.flatMap(([mcpSession, stdioMcpServers, pluginMcpServers, skillsConfig]) =>
                   resumeNativeThread(threadId, {
                     excludeTurns: true,
                     ...codexThreadRuntimeParams({
@@ -8380,6 +8424,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                       mcpSession,
                       stdioMcpServers,
                       pluginMcpServers,
+                      ...(skillsConfig === undefined ? {} : { skillsConfig }),
                     }),
                   }),
                 ),
@@ -8554,15 +8599,17 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                   mcpSessions.read(threadInput.threadId),
                   readStdioMcpServers(threadInput.runtimePolicy.cwd),
                   readPluginMcpServers(threadInput.threadId),
+                  readSkillsConfig(threadInput.threadId, threadInput.runtimePolicy.cwd),
                 ]),
               ),
-              Effect.flatMap(([mcpSession, stdioMcpServers, pluginMcpServers]) =>
+              Effect.flatMap(([mcpSession, stdioMcpServers, pluginMcpServers, skillsConfig]) =>
                 client.request("thread/start", {
                   ...codexThreadRuntimeParams({
                     threadId: threadInput.threadId,
                     mcpSession,
                     stdioMcpServers,
                     pluginMcpServers,
+                    ...(skillsConfig === undefined ? {} : { skillsConfig }),
                     modelSelection: threadInput.modelSelection,
                     runtimePolicy: threadInput.runtimePolicy,
                     startEffort: codexThreadStartEffort(threadInput.modelSelection, {
@@ -8612,6 +8659,11 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                   mcpSession: yield* readMcpSession(appThreadId),
                   stdioMcpServers: yield* readStdioMcpServers(threadInput.runtimePolicy?.cwd),
                   pluginMcpServers: yield* readPluginMcpServers(appThreadId),
+                  ...(yield* readSkillsConfig(appThreadId, threadInput.runtimePolicy?.cwd).pipe(
+                    Effect.map((skillsConfig) =>
+                      skillsConfig === undefined ? {} : { skillsConfig },
+                    ),
+                  )),
                   ...(threadInput.modelSelection === undefined
                     ? {}
                     : { modelSelection: threadInput.modelSelection }),

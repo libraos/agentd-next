@@ -1,3 +1,4 @@
+import { isLoopbackHost } from "@t3tools/shared/preview";
 import { readHostedPairingRequest } from "@t3tools/shared/remote";
 import * as Schema from "effect/Schema";
 import { msg } from "gt-react-native";
@@ -72,6 +73,19 @@ export function parsePairingUrl(url: string): { host: string; code: string } {
     return { host: parsed.toString().replace(/\/$/, ""), code };
   } catch {
     return { host: trimmed, code: "" };
+  }
+}
+
+/** Why pairing with a loopback address failed: on a phone it names the phone, not the computer. */
+export const LOOPBACK_PAIRING_ERROR = msg(
+  "This address reaches only this device. On your computer, make a pairing link with an address this device can reach, such as its local network or Tailscale address.",
+);
+
+export function isLoopbackPairingUrl(pairingUrl: string): boolean {
+  try {
+    return isLoopbackHost(new URL(parsePairingUrl(pairingUrl).host).hostname);
+  } catch {
+    return false;
   }
 }
 

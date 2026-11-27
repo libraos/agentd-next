@@ -83,6 +83,7 @@ import {
   PinIcon,
   PinOffIcon,
   PlugIcon,
+  PuzzleIcon,
   SquarePenIcon,
   TextSearchIcon,
   TriangleAlertIcon,
@@ -1863,6 +1864,28 @@ function OpenCommandPaletteDialog(props: {
     icon: <ActivityIcon className={ITEM_ICON_CLASS} />,
     run: async () => {
       await navigate({ to: "/agentd" });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:plugins",
+    searchTerms: [
+      "plugins",
+      "plugin",
+      "catalogue",
+      "catalog",
+      "extensions",
+      "install",
+      "customize",
+      "connectors",
+      "mcp",
+      "skills",
+    ],
+    title: gt("Open plugins"),
+    icon: <PuzzleIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/plugins" });
     },
   });
 

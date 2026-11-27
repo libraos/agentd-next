@@ -1,14 +1,20 @@
 # Plugin catalogues
 
-Settings → Plugins installs plugins from the official LibraOS catalogue and from any GitHub
-repository that holds a `catalog.json` in the same format, such as your organisation's own.
+**Customize → Plugins** in the sidebar (or **Open plugins** in the command palette) installs plugins from the official LibraOS catalogue and from any GitHub
+repository that holds a catalogue, such as your organisation's own.
+
+A plugin is a Claude Code plugin folder, and a catalogue is a Claude Code marketplace
+(`.claude-plugin/marketplace.json`) whose entries each pin a commit and a version. Claude runs
+the whole plugin: its skills, commands, agents, hooks and MCP servers. Codex gets its skills and MCP
+servers, and OpenCode its MCP servers. Other agents get nothing from a plugin yet. Catalogues in the earlier `catalog.json` format still
+work.
 
 ## Add a catalogue or install one of its plugins
 
 Paste one of these into **Repository or link** and choose **Add catalogue**:
 
 - the repository, such as `github.com/acme/plugins`;
-- its `catalog.json` link;
+- its `catalog.json` or `marketplace.json` link;
 - a plugin's folder link, such as `github.com/acme/plugins/tree/main/plugins/review`. This adds the
   catalogue if needed and opens that plugin's install dialog.
 

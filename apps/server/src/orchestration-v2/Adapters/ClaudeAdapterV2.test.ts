@@ -462,6 +462,47 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
     assert.isNull(bare.extraArgs?.["plugin-dir"]);
   });
 
+  it("loads the app's Claude plugins without starting the servers the app already starts", () => {
+    const options = ClaudeAdapterV2.makeClaudeQueryOptions({
+      modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+      nativeThreadId: "native-app-plugins",
+      resume: false,
+      cwd: "/workspace",
+      settings: { ...AUTO_COMPACT_CLAUDE_SETTINGS, launchArgs: "--plugin-dir /plugins/legal" },
+      // The user's own --settings, already read: its keys stay.
+      sdkSettings: {
+        pluginConfigs: { "mine@market": { options: { a: "b" } } },
+        deniedMcpServers: [{ serverName: "blocked" }],
+      },
+      claudePlugins: [
+        {
+          path: "/plugins/legal",
+          name: "legal",
+          options: { playbook: "nda", token_file: "/state/secret-files/legal/token_file" },
+          ownServers: ["legal", "search"],
+        },
+        { path: "/plugins/notes", name: "notes", options: {}, ownServers: [] },
+      ],
+    });
+    assert.deepEqual(options.plugins, [
+      { type: "local", path: "/plugins/legal" },
+      { type: "local", path: "/plugins/notes" },
+    ]);
+    const settings = options.settings as Record<string, unknown>;
+    assert.deepEqual(settings.pluginConfigs, {
+      "mine@market": { options: { a: "b" } },
+      "legal@inline": {
+        options: { playbook: "nda", token_file: "/state/secret-files/legal/token_file" },
+      },
+      "notes@inline": { options: {} },
+    });
+    assert.deepEqual(settings.deniedMcpServers, [
+      { serverName: "blocked" },
+      { serverName: "plugin:legal:legal" },
+      { serverName: "plugin:legal:search" },
+    ]);
+  });
+
   it("gives delegated children Claude's subagent prompt cache TTL", () => {
     const lineage = (relationshipToParent: "fork" | "subagent" | null) => ({
       lineage: {

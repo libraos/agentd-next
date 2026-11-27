@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ChartNoAxesColumnIcon,
+  PuzzleIcon,
   SettingsIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -303,6 +304,14 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
             icon={<ChartNoAxesColumnIcon />}
             label={gt("Usage")}
             onClick={handleUsageClick}
+          />
+          <SidebarUtilityItem
+            icon={<PuzzleIcon />}
+            label={gt("Customize")}
+            onClick={() => {
+              closeMobileSidebar();
+              void navigate({ to: "/plugins" });
+            }}
           />
           <SidebarUtilityItem
             icon={<ActivityIcon />}

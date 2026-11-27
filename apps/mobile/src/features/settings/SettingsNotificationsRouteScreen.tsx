@@ -57,7 +57,11 @@ import {
   updateLinkedEnvironmentLiveActivityPreference,
 } from "../cloud/linkEnvironment";
 import { refreshManagedRelayEnvironments } from "../cloud/managedRelayState";
-import { hasCloudPublicConfig, resolveRelayClerkTokenOptions } from "../cloud/publicConfig";
+import {
+  hasCloudPublicConfig,
+  resolveCloudPublicConfig,
+  resolveRelayClerkTokenOptions,
+} from "../cloud/publicConfig";
 import { makePermissionStatusAtom } from "../../lib/permissionStatusAtom";
 import { runtime } from "../../lib/runtime";
 import { mobilePreferencesAtom, saveMobilePreferences } from "../../state/preferences";
@@ -197,7 +201,11 @@ export function SettingsNotificationsRouteScreen() {
           contentContainerClassName="px-5 pt-4"
         >
           <Text className="text-base text-foreground-muted">
-            {gt("Notifications require {product} in this app build.", { product: "Hosted relay" })}
+            {resolveCloudPublicConfig().relay.url === null
+              ? gt("Notifications arrive while {product} is open.", { product: "LibraOS Next" })
+              : gt("Notifications require {product} in this app build.", {
+                  product: "Hosted relay",
+                })}
           </Text>
         </ScrollView>
       </SettingsScreen>

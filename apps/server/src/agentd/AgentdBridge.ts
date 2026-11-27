@@ -57,7 +57,6 @@ import {
   type OrchestrationV2CommandOutputFrame,
 } from "@t3tools/contracts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
-import { resolveCommandPath } from "@t3tools/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -84,6 +83,7 @@ import {
 import * as AgentdJson from "./agentdJson.ts";
 import { AGENTD_BACKUP_FILE, agentdBackupFileName } from "./agentdBackup.ts";
 import { blockingRefusal } from "./blockedStart.ts";
+import { findEngine } from "./enginePath.ts";
 import type { WorkerGatewayChoice } from "./workerGatewaySetting.ts";
 import {
   detectServices,
@@ -92,6 +92,7 @@ import {
   serviceAgentd,
   setupAgentd,
 } from "./agentdServices.ts";
+import { makeConfigFiles } from "./agentConfigs/configFileWrite.ts";
 import { makeClaudeTrust, projectFolder } from "./claudeTrust.ts";
 import { makeCloudKeyFile } from "./cloudKeyFile.ts";
 import { AGENTD_SKILLS, workerSkillsDirectories } from "./skillCatalog.ts";
@@ -193,8 +194,6 @@ export class AgentdBridge extends Context.Service<
   }
 >()("t3/agentd/AgentdBridge") {}
 
-/** LibraOS Engine's command first, then its earlier names, all the same binary. */
-const ENGINE_COMMANDS = ["libraos-engine", "libraos-core", "agentd"] as const;
 // agentd's exit status for a command run before `agentd init`.
 const NOT_SET_UP_EXIT = 78;
 const TASKS_POLL_INTERVAL = Duration.seconds(5);
@@ -293,15 +292,11 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
   // Resolved per call, so an agentd installed after the server started is found.
   const binary = Effect.gen(function* () {
     const configured = env.AGENTD_BIN?.trim() || undefined;
-    let found: string | null = null;
-    for (const name of configured === undefined ? ENGINE_COMMANDS : [configured]) {
-      found = yield* resolveCommandPath(name, { env }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, pathService),
-        Effect.provideService(HostProcess.Platform, platform),
-      );
-      if (found !== null) break;
-    }
+    const found = yield* findEngine(env).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, pathService),
+      Effect.provideService(HostProcess.Platform, platform),
+    );
     if (found === null) {
       return yield* new AgentdNotFoundError({
         message:
@@ -726,6 +721,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     path: pathService,
     env,
     home: yield* HostProcess.HomeDirectory,
+    files: makeConfigFiles({ fs, path: pathService, platform }),
   });
 
   // Claude Code checks the main checkout, also for a worktree, then the folder and its parents.

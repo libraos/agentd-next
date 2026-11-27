@@ -62,7 +62,7 @@ function AppMark(props: { readonly signedIn: boolean }) {
 /** The device code, one cell per character, as GitHub prints it. */
 function DeviceCode(props: { readonly code: string }) {
   return (
-    <div className="flex items-center gap-1 font-mono text-lg font-medium">
+    <div className="flex flex-wrap items-center gap-1 font-mono text-lg font-medium">
       <span className="sr-only">{props.code}</span>
       {Array.from(props.code, (char, index) =>
         char === "-" ? (
@@ -233,7 +233,7 @@ export function SourceControlAppSignInSettings({
       </div>
 
       {waiting !== null ? (
-        <div className="grid gap-4 border-t border-border bg-muted/40 px-3 py-4 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-t border-border bg-muted/40 px-3 py-4">
           <div className="flex items-center gap-2">
             <DeviceCode code={waiting.userCode} />
             <Button

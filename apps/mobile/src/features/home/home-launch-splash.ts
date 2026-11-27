@@ -62,14 +62,15 @@ export function useLaunchSplashHomeRowsPending(): boolean {
 
 /**
  * Whether the native splash can hide: after the cached shells are read and Home's list has
- * laid out their rows. One limit ends both waits.
+ * laid out their rows. One limit ends both waits; a longer one ends the wait for preferences.
  */
 export function splashCanHide(input: {
   readonly preferencesReady: boolean;
+  readonly preferencesWaitEnded: boolean;
   readonly shellCachesRead: boolean;
   readonly homeRowsPending: boolean;
   readonly waitEnded: boolean;
 }): boolean {
-  if (!input.preferencesReady) return false;
+  if (!input.preferencesReady) return input.preferencesWaitEnded;
   return input.waitEnded || (input.shellCachesRead && !input.homeRowsPending);
 }

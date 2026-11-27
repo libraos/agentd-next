@@ -8,11 +8,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
+import { makeConfigFiles } from "./agentConfigs/configFileWrite.ts";
 import {
   claudeConfigFile,
   isTrusted,
   makeClaudeTrust,
   projectFolder,
+  resolveClaudeConfigFile,
   trustKey,
   withTrust,
 } from "./claudeTrust.ts";
@@ -48,9 +50,31 @@ describe("claudeConfigFile", () => {
     [{ CLAUDE_CONFIG_DIR: "  " }, "/home/dev", posix, "/home/dev/.claude.json"],
     [{}, "C:\\Users\\dev", win32, "C:\\Users\\dev\\.claude.json"],
     [{ CLAUDE_CONFIG_DIR: "D:\\claude" }, "C:\\Users\\dev", win32, "D:\\claude\\.claude.json"],
+    [
+      { CLAUDE_CODE_CUSTOM_OAUTH_URL: "https://sso.example.com" },
+      "/home/dev",
+      posix,
+      "/home/dev/.claude-custom-oauth.json",
+    ],
   ] as const)("%j in %s", (env, home, path, file) => {
     expect(claudeConfigFile(env, home, path)).toBe(file);
   });
+
+  it.effect("uses the old .config.json only while the current file is absent", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const legacy = path.join(home, ".claude", ".config.json");
+      yield* fs.makeDirectory(path.dirname(legacy));
+      yield* fs.writeFileString(legacy, "{}");
+      expect(yield* resolveClaudeConfigFile(fs, path, {}, home)).toBe(legacy);
+      yield* fs.writeFileString(path.join(home, ".claude.json"), "{}");
+      expect(yield* resolveClaudeConfigFile(fs, path, {}, home)).toBe(
+        path.join(home, ".claude.json"),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
 });
 
 describe("trust keys and lookup", () => {
@@ -129,7 +153,8 @@ describe("makeClaudeTrust", () => {
       yield* fs.writeFileString(real, FIXTURE);
       yield* fs.chmod(real, 0o640);
       yield* fs.symlink(real, path.join(home, ".claude.json"));
-      const claude = makeClaudeTrust({ fs, path, env: {}, home });
+      const files = makeConfigFiles({ fs, path, platform: yield* HostProcess.Platform });
+      const claude = makeClaudeTrust({ fs, path, env: {}, home, files });
 
       expect(yield* claude.trusted("/home/dev/app")).toBe(false);
       yield* claude.trust("/home/dev/app");
@@ -143,8 +168,14 @@ describe("makeClaudeTrust", () => {
         primaryApiKey: "sk-ant-not-a-real-key",
         projects: { "/home/dev/trusted": { hasTrustDialogAccepted: true } },
       });
-      // Nothing left beside it.
-      expect(yield* fs.readDirectory(path.dirname(real))).toEqual(["claude.json"]);
+      // The text before the edit is the rolling backup, with the same mode; nothing else is left.
+      expect((yield* fs.readDirectory(path.dirname(real))).toSorted()).toEqual([
+        "claude.json",
+        "claude.json.bak",
+      ]);
+      expect(yield* fs.readFileString(`${real}.bak`)).toBe(FIXTURE);
+      if ((yield* HostProcess.Platform) !== "win32")
+        expect(((yield* fs.stat(`${real}.bak`)).mode & 0o777).toString(8)).toBe("640");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -154,7 +185,8 @@ describe("makeClaudeTrust", () => {
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
       const dir = path.join(home, "claude-config");
-      const claude = makeClaudeTrust({ fs, path, env: { CLAUDE_CONFIG_DIR: dir }, home });
+      const files = makeConfigFiles({ fs, path, platform: yield* HostProcess.Platform });
+      const claude = makeClaudeTrust({ fs, path, env: { CLAUDE_CONFIG_DIR: dir }, home, files });
       yield* claude.trust("/home/dev/app");
       const file = path.join(dir, ".claude.json");
       expect(JSON.parse(yield* fs.readFileString(file))).toEqual({

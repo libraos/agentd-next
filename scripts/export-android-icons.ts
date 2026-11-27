@@ -15,12 +15,14 @@ type IconVariant = "dev" | "nightly" | "prod";
 
 const ADAPTIVE_CANVAS = 432;
 const SPLASH_CANVAS = 1152;
-const MARK = { x: 28, y: 14, width: 139, height: 174 };
-const WORDMARK_FRACTION = 0.48;
+// The N of text.svg fills its 100-unit square; at 0.42 its corners stay inside the circular masks.
+const MARK = { x: 0, y: 0, width: 100, height: 100 };
+const WORDMARK_FRACTION = 0.42;
 const COMPOSER_CANVAS_PT = 1024;
 const SVG_DENSITY = 300;
 const OUTPUT_DIRECTORY = "apps/mobile/assets";
-const PRODUCTION_BACKGROUND_COLOR = "#000000";
+// The navy plate of the desktop and iOS icons (agentd/scripts/regenerate-brand-icons.mjs).
+const PRODUCTION_BACKGROUND_COLOR = "#151f3a";
 // The desktop icon's plate: the mark's blue arcs vanish on the blueprint.
 const DEVELOPMENT_BACKGROUND_COLOR = "#132040";
 
@@ -106,7 +108,9 @@ const renderMonochrome = Effect.fn("androidIcons.renderMonochrome")(function* (
   fraction: number,
 ) {
   const mark = yield* readLayerSource(repositoryRoot, "prod", "text.svg");
-  const white = svgBody(mark).replace(/(stroke|fill)="#[0-9a-fA-F]{6}"/g, '$1="#ffffff"');
+  const white = svgBody(mark)
+    .replace(/<defs>[\s\S]*?<\/defs>/, "")
+    .replace(/(stroke|fill)="(#[0-9a-fA-F]{6}|url\(#[\w-]+\))"/g, '$1="#ffffff"');
   return yield* rasterize(
     "monochrome",
     canvasSvg(size, `<g transform="${wordmarkTransform(size, fraction)}">${white}</g>`),
@@ -194,7 +198,10 @@ const exportAndroidIcons = Effect.gen(function* () {
       "android-icon-background-nightly.png",
       yield* renderNightlyBackground(repositoryRoot, ADAPTIVE_CANVAS),
     ],
-    ["android-icon-mark.png", yield* renderMonochrome(repositoryRoot, ADAPTIVE_CANVAS, 0.48)],
+    [
+      "android-icon-mark.png",
+      yield* renderMonochrome(repositoryRoot, ADAPTIVE_CANVAS, WORDMARK_FRACTION),
+    ],
     ["android-notification-icon.png", yield* renderMonochrome(repositoryRoot, 96, 0.8)],
     ["android-splash-icon-dev.png", yield* renderSplashIcon(repositoryRoot, "dev")],
     ["android-splash-icon-nightly.png", yield* renderSplashIcon(repositoryRoot, "nightly")],

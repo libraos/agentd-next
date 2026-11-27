@@ -129,14 +129,18 @@ export const downloadPinned = Effect.fn("AgentdSkills.download")(function* (
     return yield* fail("download", `Commit ${entry.commit} could not be read.`);
   const plan = planFiles(entry, tree.value, layout);
   if (plan._tag === "Refused") return yield* fail(plan.reason, plan.detail);
-  const files: Array<{ readonly target: string; readonly bytes: Uint8Array }> = [];
+  const files: Array<{
+    readonly target: string;
+    readonly bytes: Uint8Array;
+    readonly executable: boolean;
+  }> = [];
   for (const file of plan.files) {
     const url = via.fileUrl(entry, file);
     const bytes = yield* getUrlBytes(url).pipe(Effect.catch((detail) => fail("download", detail)));
     if (gitBlobId(bytes) !== file.sha) {
       return yield* fail("download", `${file.source} does not match commit ${entry.commit}.`);
     }
-    files.push({ target: file.target, bytes });
+    files.push({ target: file.target, bytes, executable: file.executable });
   }
   return files;
 });

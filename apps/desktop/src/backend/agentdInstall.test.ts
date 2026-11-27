@@ -98,6 +98,8 @@ const decodeRecord = Schema.decodeEffect(Schema.fromJsonString(AgentdInstallReco
 const windowsPass = (input: {
   readonly installed: string | null;
   readonly installedVersion?: string;
+  /** A libraos-engine already beside it; it answers `version` with installedVersion too. */
+  readonly engineInstalled?: string;
   readonly platform?: NodeJS.Platform;
   readonly taskAgentd?: (target: string) => string;
 }) =>
@@ -114,6 +116,7 @@ const windowsPass = (input: {
       ? path.join(home, "Local", "Programs", "agentd")
       : path.join(home, ".local", "bin");
     const target = path.join(directory, exe);
+    const engine = path.join(directory, windows ? "libraos-engine.exe" : "libraos-engine");
     const root = path.join(home, ".local", "share", "agentd");
     yield* fs.makeDirectory(path.dirname(bundled), { recursive: true });
     yield* fs.writeFileString(bundled, "agentd v0.1.23 with the signed launcher");
@@ -122,6 +125,10 @@ const windowsPass = (input: {
     if (input.installed !== null) {
       yield* fs.makeDirectory(directory, { recursive: true });
       yield* fs.writeFileString(target, input.installed);
+    }
+    if (input.engineInstalled !== undefined) {
+      yield* fs.makeDirectory(directory, { recursive: true });
+      yield* fs.writeFileString(engine, input.engineInstalled);
     }
     // The tasks agentd init registered for this root, through the launcher an older Engine wrote.
     yield* fs.makeDirectory(path.join(root, "services"), { recursive: true });
@@ -188,8 +195,57 @@ const windowsPass = (input: {
     );
     const record = yield* decodeRecord(yield* fs.readFileString(installRecordPath(environment)));
     const installs = calls.filter((call) => call[1] === "install");
-    return { record, installs, target, calls };
+    const readEngine = fs.readFileString(engine).pipe(Effect.orElseSucceed(() => null));
+    return { record, installs, target, calls, engine: yield* readEngine };
   }).pipe(Effect.scoped);
+
+it.layer(NodeServices.layer)("installAgentdAfterConsent libraos-engine", (it) => {
+  const BUNDLED = "agentd v0.1.23 with the signed launcher";
+  it.effect("on Windows the engine is installed as libraos-engine.exe beside agentd.exe", () =>
+    Effect.gen(function* () {
+      const first = yield* windowsPass({ installed: null });
+      expect(first.record.action).toBe("installed");
+      expect(first.engine).toBe(BUNDLED);
+      const upgrade = yield* windowsPass({
+        installed: "agentd v0.1.20",
+        installedVersion: "v0.1.20",
+        engineInstalled: "agentd v0.1.20",
+      });
+      expect(upgrade.record.action).toBe("replaced");
+      expect(upgrade.engine).toBe(BUNDLED);
+      const again = yield* windowsPass({ installed: BUNDLED, engineInstalled: BUNDLED });
+      expect(again.record.action).toBe("unchanged");
+      expect(again.engine).toBe(BUNDLED);
+      // Added under the old app's agentd.exe that is already the same.
+      const added = yield* windowsPass({ installed: BUNDLED });
+      expect(added.engine).toBe(BUNDLED);
+    }),
+  );
+
+  it.effect("a folder holding the user's own agentd gets no libraos-engine from the app", () =>
+    Effect.gen(function* () {
+      const newer = yield* windowsPass({ installed: "agentd v0.2.0", installedVersion: "v0.2.0" });
+      expect(newer.record.action).toBe("kept-newer");
+      expect(newer.engine).toBeNull();
+      const theirs = yield* windowsPass({
+        installed: BUNDLED,
+        engineInstalled: "libraos-engine v0.3.0",
+        installedVersion: "v0.3.0",
+      });
+      expect(theirs.engine).toBe("libraos-engine v0.3.0");
+    }),
+  );
+
+  it.effect("macOS and Linux install only agentd, as before", () =>
+    Effect.gen(function* () {
+      for (const platform of ["linux", "darwin"] as const) {
+        const pass = yield* windowsPass({ installed: null, platform });
+        expect(pass.record.action).toBe("installed");
+        expect(pass.engine).toBeNull();
+      }
+    }),
+  );
+});
 
 it.layer(NodeServices.layer)("installAgentdAfterConsent services refresh", (it) => {
   it.effect("an Engine upgrade on Windows runs the new agentd's install once", () =>

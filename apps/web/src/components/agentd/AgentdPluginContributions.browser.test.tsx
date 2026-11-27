@@ -65,3 +65,22 @@ it("shows each server's exact command and a settings form with the secret masked
   await page.getByRole("button", { name: "Clear Outreach API key" }).click();
   expect(onSave).toHaveBeenLastCalledWith({ outreach_token: null });
 });
+
+it("shows why a server cannot be started here", async () => {
+  const problem = "legal is a Python script and Python 3 was not found.";
+  await using _screen = await render(
+    <AgentdPluginContributions
+      plugin={{
+        ...plugin,
+        mcpServers: [
+          { name: "legal", command: "./legal_mcp.py", args: [], env: [], missing: [], problem },
+        ],
+        settings: [],
+      }}
+      disabled={false}
+      onSave={() => {}}
+    />,
+  );
+  await expect.element(page.getByText("./legal_mcp.py")).toBeVisible();
+  await expect.element(page.getByText(problem)).toBeVisible();
+});

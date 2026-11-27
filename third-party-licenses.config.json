@@ -253,6 +253,21 @@
           ]
         }
       ]
+    },
+    {
+      "bundles": ["desktop"],
+      "license": "MIT",
+      "name": "Orca agent config file writer",
+      "sourceUrl": "https://github.com/stablyai/orca/blob/bf0997cfed9e0ac10e73ee98c5179c87d4329743/src/main/mcp-servers/agent-configs/agent-config-file-write.ts",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2026 Lovecast Inc."],
+          "preamble": [
+            "Adapted in apps/server/src/agentd/agentConfigs/configFileWrite.ts: the compare-and-swap config write with a rolling backup."
+          ]
+        }
+      ]
     }
   ],
   "packageOverrides": [

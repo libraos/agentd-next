@@ -20,8 +20,29 @@ export interface McpProviderSessionConfig {
   readonly agentDeviceEnvironment?: Readonly<Record<string, string>>;
   /** True while a delegated task this thread started will wake it with its result. */
   readonly hasPendingWake?: Effect.Effect<boolean>;
-  /** Stdio servers that plugins on in the thread's project add, by name; read at each launch. */
-  readonly pluginMcpServers?: Effect.Effect<Readonly<Record<string, McpStdioServer>>>;
+  /** Servers that plugins on in the thread's project add, by name; read at each launch. */
+  readonly pluginMcpServers?: Effect.Effect<Readonly<Record<string, PluginMcpServer>>>;
+  /** Claude plugin folders on in the thread's project, which Claude loads itself; read at each launch. */
+  readonly claudePlugins?: Effect.Effect<ReadonlyArray<ClaudePluginFolder>>;
+  /** Plugin skills, for an agent that loads skill folders itself (Codex); read at each launch. */
+  readonly pluginSkills?: Effect.Effect<PluginSkills>;
+}
+
+export interface PluginSkills {
+  /** The `skills` folder of every installed plugin, the same for every project. */
+  readonly roots: ReadonlyArray<string>;
+  /** The SKILL.md files in `roots` of the plugins not on in the thread's project. */
+  readonly off: ReadonlyArray<string>;
+}
+
+export interface ClaudePluginFolder {
+  readonly path: string;
+  /** The plugin's name in its `plugin.json`. */
+  readonly name: string;
+  /** Its userConfig options' values; a secret one is the path of the file holding it. */
+  readonly options: Readonly<Record<string, string>>;
+  /** Its servers that arrive in `pluginMcpServers`, which Claude must not start a second time. */
+  readonly ownServers: ReadonlyArray<string>;
 }
 
 export interface McpStdioServer {
@@ -29,6 +50,13 @@ export interface McpStdioServer {
   readonly args: ReadonlyArray<string>;
   readonly env: Readonly<Record<string, string>>;
 }
+
+export interface McpHttpServer {
+  readonly url: string;
+  readonly headers: Readonly<Record<string, string>>;
+}
+
+export type PluginMcpServer = McpStdioServer | McpHttpServer;
 
 export function withAgentDeviceEnvironment(
   base: NodeJS.ProcessEnv,

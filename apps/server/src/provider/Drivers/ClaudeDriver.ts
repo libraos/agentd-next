@@ -456,6 +456,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
       orchestrationAdapter,
       textGeneration,
       consumeResetCredit,
+      skillSwitch: { kind: "claudeSettings", configDir, environment: processEnv },
     } satisfies ProviderInstance;
   }),
 };

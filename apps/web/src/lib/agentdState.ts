@@ -2,6 +2,7 @@ import { createAgentdEnvironmentAtoms } from "@t3tools/client-runtime/state/agen
 import {
   AuthOrchestrationReadScope,
   type AgentdHandoffId,
+  type AgentdSkillRef,
   type AgentdTaskOthersInput,
   type AgentdTaskSize,
   type EnvironmentId,
@@ -197,6 +198,41 @@ export function useAgentdPluginCommands() {
     review: useAtomCommand(agentdEnvironment.beforeSendReview, quiet),
     confirm: useAtomCommand(agentdEnvironment.beforeSendConfirm, quiet),
     discard: useAtomCommand(agentdEnvironment.beforeSendDiscard, quiet),
+  };
+}
+
+/** The agents' own connectors on the environment, with the project's when one is given. */
+export function useAgentdConnectors(target: EnvironmentId | null, projectId: ProjectId | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null
+      ? null
+      : agentdEnvironment.connectors({
+          environmentId,
+          input: projectId === null ? {} : { projectId },
+        }),
+    useMessages(),
+  );
+}
+
+/** A listed skill's SKILL.md and how its switch works; null input reads nothing. */
+export function useAgentdSkillDetail(target: EnvironmentId | null, input: AgentdSkillRef | null) {
+  const environmentId = useAgentdEnvironment(target);
+  return useEnvironmentQuery(
+    environmentId === null || input === null
+      ? null
+      : agentdEnvironment.skillRead({ environmentId, input }),
+    useMessages(),
+  );
+}
+
+export function useAgentdCustomizeCommands() {
+  const quiet = { reportFailure: false } as const;
+  return {
+    connectorSetEnabled: useAtomCommand(agentdEnvironment.connectorSetEnabled, quiet),
+    connectorAdd: useAtomCommand(agentdEnvironment.connectorAdd, quiet),
+    connectorRemove: useAtomCommand(agentdEnvironment.connectorRemove, quiet),
+    skillSetEnabled: useAtomCommand(agentdEnvironment.skillSetEnabled, quiet),
   };
 }
 

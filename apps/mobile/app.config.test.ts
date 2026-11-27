@@ -1,11 +1,16 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
 import appleAppSiteAssociation from "../web/public/.well-known/apple-app-site-association.json";
-import assetLinks from "../web/public/.well-known/assetlinks.json";
 
 // Keep config parsing independent of local env files and build credentials.
 vi.mock("../../scripts/lib/public-config.ts", () => ({
-  loadRepoEnv: () => ({ APP_VARIANT: process.env.APP_VARIANT }),
+  loadRepoEnv: () => ({
+    APP_VARIANT: process.env.APP_VARIANT,
+    // app.config.ts copies this into process.env, where undefined would become "undefined".
+    ...(process.env.T3CODE_MOBILE_BUILD_NUMBER
+      ? { T3CODE_MOBILE_BUILD_NUMBER: process.env.T3CODE_MOBILE_BUILD_NUMBER }
+      : {}),
+  }),
 }));
 
 afterEach(() => {
@@ -25,10 +30,10 @@ it.each(["prod", ""])("rejects APP_VARIANT=%j before selecting production IDs", 
 });
 
 it.each([
-  [undefined, "com.t3tools.t3code"],
-  ["development", "com.t3tools.t3code.dev"],
-  ["preview", "com.t3tools.t3code.preview"],
-  ["production", "com.t3tools.t3code"],
+  [undefined, "com.libraos.next"],
+  ["development", "com.libraos.next.dev"],
+  ["preview", "com.libraos.next.preview"],
+  ["production", "com.libraos.next"],
 ])("keeps the iOS and Android identifiers for APP_VARIANT=%j", async (value, identifier) => {
   const config = await loadConfig(value);
   expect(config.ios?.bundleIdentifier).toBe(identifier);
@@ -39,7 +44,14 @@ it.each([
   // Neither the hosted relay's sign-in domain nor a hosted web app is linked by default.
   expect(config.ios?.associatedDomains).toEqual([]);
   expect(config.android?.intentFilters).toEqual([]);
-  expect(assetLinks.map((link) => link.target.package_name)).toContain(identifier);
+  expect(config.ios?.appleTeamId).toBe("3NP2A75X35");
+  // Nothing of upstream's EAS project, update feed, trace endpoint or sign-in reaches a build.
+  expect(config.owner).toBeUndefined();
+  expect(config.updates?.enabled).toBe(false);
+  expect(config.updates?.url).toBeUndefined();
+  expect(config.extra?.eas?.projectId).toBe("00000000-0000-0000-0000-000000000000");
+  expect(config.extra?.observability?.tracesUrl).toBeNull();
+  expect(JSON.stringify(config.plugins)).not.toContain("@clerk/expo");
 });
 
 it("links copied thread URLs of a hosted web app only when HOSTED_APP_HOST names one", async () => {
@@ -49,4 +61,14 @@ it("links copied thread URLs of a hosted web app only when HOSTED_APP_HOST names
   expect(config.android?.intentFilters?.[0]?.data).toEqual([
     { scheme: "https", host: "app.example.test", pathPrefix: "/threads/" },
   ]);
+});
+
+it("numbers a store build from T3CODE_MOBILE_BUILD_NUMBER on both platforms, and only then", async () => {
+  const unnumbered = await loadConfig("production");
+  expect(unnumbered.ios?.buildNumber).toBeUndefined();
+  expect(unnumbered.android?.versionCode).toBeUndefined();
+  vi.stubEnv("T3CODE_MOBILE_BUILD_NUMBER", "42");
+  const numbered = await loadConfig("production");
+  expect(numbered.ios?.buildNumber).toBe("42");
+  expect(numbered.android?.versionCode).toBe(42);
 });

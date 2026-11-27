@@ -1,0 +1,9 @@
+# Repository task file (LibraOS Engine's docs/task-file.md).
+#
+# The check a worker's fix must pass before it is done, including fixes the
+# issue trigger starts: CI's format, lint and typecheck steps, then the unit
+# tests affected by files changed since origin/main. CI runs every test on
+# the pull request. A check runs on a worker only once a person approves it
+# for this repository: agentd command approve.
+check = "export PATH=\"$HOME/.local/node/bin:$PATH\" && corepack pnpm install --frozen-lockfile && corepack pnpm exec vp run fmt:check && corepack pnpm exec vp run lint && corepack pnpm exec vp run typecheck && corepack pnpm exec vp test run --changed origin/main --passWithNoTests"
+check_timeout = "45m"

@@ -1,7 +1,8 @@
 # Remote access
 
 Connect a phone, browser, or another desktop app to LibraOS Next running on a different
-machine. That machine must stay running and reachable while you work.
+machine. That machine must stay running and reachable while you work. On a phone, use the
+LibraOS Next app for iPhone or Android: its first screen asks you to pair with your computer.
 
 Upstream's hosted relay (T3 Connect) and its accounts are not part of LibraOS Next; connect over a LAN, a private network such as Tailscale, SSH, or [a relay](#reach-this-computer-through-a-relay).
 
@@ -42,8 +43,9 @@ If a server is already running, generate a fresh link without restarting it:
 lnext pair
 ```
 
-Scan the QR code on your phone or paste the pairing URL into **Add environment**
-in the receiving app. Connection settings are under **Settings → Environments**
+Scan the QR code with the LibraOS Next phone app, or paste the pairing URL into
+**Add environment** in the receiving app. Away from home, the phone reaches your
+computer over a private network such as Tailscale; the app has no relay of its own. Connection settings are under **Settings → Environments**
 on web and desktop and **Settings → Environments** on mobile. A loopback address
 such as `127.0.0.1` reaches only the device opening the link.
 
