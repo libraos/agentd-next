@@ -24,6 +24,7 @@ import { useProject, useQuietThreadShell } from "~/state/entities";
 import { useEnvironmentQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { vcsEnvironment } from "~/state/vcs";
+import { BuyLibraosCreditsButton } from "./LibraosCredits";
 import { followCloudKeyFiles } from "./PendingCloudKeyFiles";
 import type { useStartTaskCloud } from "./StartTaskCloud";
 import {
@@ -457,6 +458,8 @@ export function useTaskPlan({
     gitIdentity,
     gitIdentityMissing,
     problem,
+    // Cloud Workers spend the same LibraOS balance the Gateway does.
+    needsCredits: problemKind === "balance",
     missing,
     checking,
     summary,
@@ -479,6 +482,7 @@ export function TaskPlanSummary({
     | "estimateLine"
     | "whereLine"
     | "problem"
+    | "needsCredits"
     | "environmentId"
     | "readiness"
     | "readinessBlocks"
@@ -499,6 +503,9 @@ export function TaskPlanSummary({
         <p role="alert" className="text-destructive-foreground text-xs">
           {plan.problem}
         </p>
+      ) : null}
+      {plan.needsCredits && !blocked ? (
+        <BuyLibraosCreditsButton environmentId={plan.environmentId} variant="outline" />
       ) : null}
     </div>
   );

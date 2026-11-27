@@ -87,6 +87,8 @@ import {
 } from "../ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatesAction } from "../ProviderUpdatesAction";
 import { ConnectEndpointScreen } from "../onboarding/ConnectEndpointScreen";
+import { LibraosCreditsSettings } from "../agentd/LibraosCredits";
+import { LibraosPlansSettings } from "../agentd/LibraosPlans";
 import { CustomGatewayList } from "../onboarding/CustomGatewayList";
 import { useGatewayEnvironment } from "../../lib/libraosGatewayState";
 import { Button } from "../ui/button";
@@ -398,6 +400,8 @@ function GatewaysSection({
           <T>Add gateway</T>
         </Button>
       </div>
+      <LibraosCreditsSettings environmentId={gatewayEnvironment} />
+      <LibraosPlansSettings environmentId={gatewayEnvironment} />
       {gatewayEnvironment === null ? null : (
         <CustomGatewayList environmentId={gatewayEnvironment} />
       )}

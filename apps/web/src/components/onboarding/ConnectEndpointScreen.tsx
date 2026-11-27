@@ -23,6 +23,8 @@ import {
   useLibraosGatewayCommands,
 } from "../../lib/libraosGatewayState";
 import { readLocalApi } from "../../localApi";
+import { LibraosCreditsPanel } from "../agentd/LibraosCredits";
+import { LibraosPlansPanel } from "../agentd/LibraosPlans";
 import { AnthropicIcon, OllamaIcon, OpenAI } from "../Icons";
 import { T3Wordmark } from "../T3Wordmark";
 import { Button } from "../ui/button";
@@ -337,6 +339,8 @@ function GatewayConnectPanel({
             </T>
           </p>
         ) : null}
+        {status.refusal ? null : <LibraosCreditsPanel environmentId={environmentId} />}
+        {status.refusal ? null : <LibraosPlansPanel environmentId={environmentId} />}
         {status.account === null ? null : (
           <p className="text-muted-foreground">
             {status.account.workspace ? (

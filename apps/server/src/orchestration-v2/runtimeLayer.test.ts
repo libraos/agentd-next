@@ -13814,7 +13814,7 @@ it.layer(layerSharedApplicationDataPlaneTest)("shared application data plane", (
 });
 
 it.layer(layerTest)("usage-limit recovery", (it) => {
-  it.effect.each(["interrupted", "usage_limit"] as const)(
+  it.effect.each(["interrupted", "usage_limit", "out_of_credits"] as const)(
     "manually resumes an %s run ahead of its queued message only once",
     (reason) =>
       Effect.gen(function* () {
@@ -13890,10 +13890,49 @@ it.layer(layerTest)("usage-limit recovery", (it) => {
                 ...source,
                 status: reason === "interrupted" ? "interrupted" : "failed",
                 completedAt: now,
+                ...(reason === "out_of_credits"
+                  ? { providerInstanceId: ProviderInstanceId.make("libraosClaude") }
+                  : {}),
               },
             },
           ],
         });
+        if (reason === "out_of_credits") {
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make(`manual-resume:error:${reason}`),
+                type: "turn-item.updated",
+                threadId,
+                occurredAt: now,
+                payload: {
+                  id: TurnItemId.make(`manual-resume:error:${reason}`),
+                  type: "error",
+                  threadId,
+                  runId: source.id,
+                  nodeId: source.rootNodeId,
+                  providerThreadId: null,
+                  providerTurnId: null,
+                  nativeItemRef: null,
+                  parentItemId: null,
+                  ordinal: 2,
+                  status: "failed",
+                  title: "Provider error",
+                  startedAt: now,
+                  completedAt: now,
+                  updatedAt: now,
+                  failure: {
+                    class: "provider_error",
+                    message:
+                      "API Error: 402 Your LibraOS credits have run out. Top up on the Credits page of the Console to continue.",
+                    code: "api_error_402",
+                    retryable: null,
+                  },
+                },
+              },
+            ],
+          });
+        }
         let scheduledResume: ReturnType<typeof limitRecoveryCommand> = null;
         if (reason === "usage_limit") {
           const resetAt = DateTime.formatIso(DateTime.add(now, { minutes: 1 }));

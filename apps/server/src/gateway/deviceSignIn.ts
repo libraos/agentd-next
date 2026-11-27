@@ -99,9 +99,13 @@ export function parseGatewayKey(body: unknown): GatewayKey | null {
   return id && key.startsWith("lk_") ? { id, key } : null;
 }
 
-/** Cloud's own one-line message for a refusal (`message` or `error_description`), or the status. */
+/**
+ * Cloud's own one-line message for a refusal (`message`, `error_description`, or the API's
+ * `{"error":{"message"}}`), or the status.
+ */
 export function cloudRefusal(status: number, body: unknown, what: string): string {
-  const said = isRecord(body) ? text(body.message) || text(body.error_description) : "";
+  const nested = isRecord(body) && isRecord(body.error) ? text(body.error.message) : "";
+  const said = isRecord(body) ? text(body.message) || text(body.error_description) || nested : "";
   const line = said.split("\n")[0]?.slice(0, 300) ?? "";
   return line
     ? `LibraOS could not ${what}: ${line}`

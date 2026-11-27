@@ -43,8 +43,10 @@ agent later in **Settings → Providers**.
 ## API keys, gateways and teams
 
 **Use an API key or gateway** lets you choose **LibraOS Gateway** and the agent to
-use it with, then paste a **LibraOS API key** and press **Connect**. The key stays
-on that environment; **Disconnect** removes it. Codex on the Gateway lists every
+use it with, then **Sign in with LibraOS**: your browser opens to sign in or
+create a LibraOS account and approve a code, and LibraOS makes a key for this
+environment. **Use an API key instead** takes a **LibraOS API key** you paste.
+The key stays on that environment; **Disconnect** removes it. Codex on the Gateway lists every
 model the key allows, and Claude Code all but a few named below, other families
 too: a Gemini model under Claude Code shows with `gemini` beside its name. An agent's own models show twice,
 by catalog name and by full Gateway id (`openai/gpt-5.5`), with the same options,
@@ -59,6 +61,38 @@ LibraOS Next ships Pi and uses it when no `pi` is on your `PATH` (your own
 install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
 If no default model is chosen yet and neither Claude Code, Codex nor opencode
 is installed, it becomes the default.
+
+### LibraOS credits
+
+Gateway use is paid from your LibraOS credits; a new LibraOS account starts with
+a one-time US$20 trial. While the Gateway is connected, its panel, **Settings →
+Providers** and the **Usage** page show the balance. To get there from anywhere,
+search Settings for "credits" or run **Buy LibraOS credits** from the command
+palette.
+
+Choosing an amount under **Buy credits** opens Stripe Checkout in your browser.
+You pay there; the app never sees your card. The balance refreshes when you come
+back to the app, and a payment can take a few seconds to show. **Manage billing**
+opens the Credits page of the LibraOS Console, which is also where you buy if
+the app cannot start a checkout.
+
+When the credits run out, a Gateway agent's turn stops with **Your LibraOS
+credits have run out.** Buy credits, then press **Retry** to continue where the
+agent stopped. Pi cannot resume a turn, so with Pi send a message instead. A
+used-up Token Plan shows the same card with **Buy credits**. Starting a cloud
+worker without enough credit offers **Buy credits** too.
+
+### LibraOS plans
+
+Beside the balance, **Plans** lists the plans LibraOS offers, with their price
+and what each includes. **Subscribe** opens Stripe Checkout in your browser, as
+buying credits does; the plans refresh when you come back to the app. Your plan
+shows as **Current plan**, and **Manage plan** opens the LibraOS Console, where
+you change or cancel it. A plan marked **Coming soon** cannot be chosen yet. The
+out-of-credits card offers **See plans** too. To get there from anywhere, search
+Settings for "plans" or run **See LibraOS plans** from the command palette. When
+LibraOS has no plans to show here, **See plans** opens the LibraOS Console
+instead, and the out-of-credits card offers only **Buy credits**.
 
 With **Custom endpoint**, enter a gateway URL with or without a trailing `/v1`.
 Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi.

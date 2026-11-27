@@ -148,6 +148,21 @@ vi.mock("~/lib/agentdState", async () => {
 });
 vi.mock("~/lib/libraosGatewayState", () => ({
   useLibraosGatewayConnected: () => state.gateway,
+  useLibraosCredits: () => ({
+    environmentId: null,
+    connected: false,
+    data: null,
+    error: null,
+    isPending: false,
+    refresh: () => {},
+  }),
+  useBuyLibraosCredits: () => ({
+    canBuy: false,
+    buy: () => Promise.resolve(),
+    buying: null,
+    error: null,
+    opened: null,
+  }),
 }));
 vi.mock("~/state/environments", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/state/environments")>()),
@@ -972,6 +987,11 @@ it.each([
   }
   await expect.element(page.getByText(line)).toBeVisible();
   await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+  if (_name === "no credit") {
+    await expect
+      .element(page.getByRole("link", { name: "Buy credits" }))
+      .toHaveAttribute("href", "https://console.libraos.com/credits");
+  }
 });
 
 it("renders a drafted task as a card that starts it or opens the dialog with its fields", async () => {
@@ -1119,6 +1139,8 @@ it("sets Cloud Workers up from the Start dialog with a pasted key, showing a ref
     .mockResolvedValueOnce(AsyncResult.success({ balanceUsd: 12.5 }));
   await using _screen = await renderDialog();
   await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect.element(page.getByText(/^Cloud Workers aren’t set up\./).first()).toBeVisible();
+  await expect.element(page.getByText("LibraOS balance unavailable.")).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("link", { name: "Create a key in LibraOS Console" }))
     .toHaveAttribute("href", "https://console.libraos.com/agentd");
