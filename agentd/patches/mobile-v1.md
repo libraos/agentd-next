@@ -27,7 +27,9 @@ removing it would fight every upstream sync.
   row on a connected environment this device may read, with an id the UI tests match it by.
 - `apps/mobile/src/components/ui/ListActionRow.tsx`: passes a `testID` to the row.
 - `apps/mobile/src/App.tsx`: keeps a link that arrives while the app starts
-  (`src/lib/startupLinks.ts`) and opens it once navigation is ready, instead of dropping it.
+  (`src/lib/startupLinks.ts`) and opens it once navigation is ready, instead of dropping it. On
+  iOS a link that comes before JS runs, which React Native drops, opens from expo-linking's
+  native copy as the initial URL.
 - `apps/mobile/src/features/home/home-empty-state.ts`, `apps/mobile/src/features/layout/WorkspaceEmptyDetail.tsx`:
   with no environment, the first screen asks to pair with your computer and says how.
 - `apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx`: without a relay,

@@ -152,8 +152,11 @@ const appLinking = {
   config: { initialRouteName: "Home" },
   filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),
   getInitialURL: async () => {
-    const launchUrl = await Linking.getInitialURL();
-    startupLinks.recordLaunchUrl(launchUrl);
+    // Android already makes a link that arrives during startup its intent, which getInitialURL reads.
+    const launchUrl = startupLinks.takeLaunchUrl(
+      await Linking.getInitialURL(),
+      Platform.OS === "ios" ? Linking.getLinkingURL() : null,
+    );
     return launchUrl ?? (await launchWorkspaceURL());
   },
   subscribe: startupLinks.subscribe,
