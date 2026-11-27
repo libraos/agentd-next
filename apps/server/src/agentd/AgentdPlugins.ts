@@ -78,6 +78,7 @@ import {
   parsePluginFiles,
   pluginCommand,
   serverSettings,
+  type ClaudeMcpServer,
   type ExpandContext,
   type PluginDefinition,
   type PluginSetting,
@@ -346,6 +347,14 @@ export interface BeforeSendRequest {
   readonly resend?: BeforeSendResend | undefined;
 }
 
+export interface PluginConnector {
+  readonly plugin: string;
+  readonly name: string;
+  readonly server: ClaudeMcpServer;
+  /** Why only Claude can use it (SSE, or its own OAuth client); other agents do not get it. */
+  readonly claudeOnly: boolean;
+}
+
 export class AgentdPluginsService extends Context.Service<
   AgentdPluginsService,
   {
@@ -375,6 +384,11 @@ export class AgentdPluginsService extends Context.Service<
     readonly mcpServers: (
       projectId: ProjectId,
     ) => Effect.Effect<Readonly<Record<string, PluginMcpLaunch>>>;
+    /**
+     * The servers the plugins on in the project declare, by plugin, as written in the plugin (its
+     * `${...}` variables unexpanded): for listing, so no setting value or secret file is touched.
+     */
+    readonly connectors: (projectId: ProjectId) => Effect.Effect<ReadonlyArray<PluginConnector>>;
     /** Waits until no setup of `id` is running. */
     readonly setupDone: (id: string) => Effect.Effect<void>;
     readonly setEnabled: (
@@ -1197,6 +1211,34 @@ const make = Effect.gen(function* () {
       }
     }
     return servers;
+  });
+
+  const connectors = Effect.fn("AgentdPlugins.connectors")(function* (projectId: ProjectId) {
+    const settings = yield* readSettings;
+    const sources = yield* readSources;
+    const ids = new Set([
+      ...Object.keys(settings.enabled),
+      ...Object.keys(settings.projects[projectId] ?? {}),
+    ]);
+    const listed: Array<PluginConnector> = [];
+    // As at launch, the first plugin by id keeps a name and the app's own servers keep theirs.
+    const taken = new Set([APP_MCP_SERVER_NAME, APP_MCP_DIRECT_SERVER_NAME]);
+    for (const id of sortPluginKeys(ids)) {
+      if (!pluginEnabled(settings, id, projectId) || !runnable(id, sources)) continue;
+      const found = yield* installed(id);
+      // Not attached until its setup has run, as at launch.
+      if (found === null || found.manifest === null || (yield* needsSetup(found))) continue;
+      const manifest = found.manifest;
+      for (const [name, server] of Object.entries(manifest.mcpServers).toSorted(([a], [b]) =>
+        a.localeCompare(b),
+      )) {
+        if (taken.has(name)) continue;
+        taken.add(name);
+        const claudeOnly = !("command" in server) && remoteClaudeOnly(server);
+        listed.push({ plugin: manifest.name, name, server, claudeOnly });
+      }
+    }
+    return listed;
   });
 
   const setSettings = Effect.fn("AgentdPlugins.setSettings")(function* (
@@ -2396,6 +2438,7 @@ const make = Effect.gen(function* () {
     claudePlugins,
     pluginSkills,
     mcpServers,
+    connectors,
     setEnabled,
     hasBeforeSend,
     checkBeforeSend,

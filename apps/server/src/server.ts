@@ -364,7 +364,9 @@ const layerAgentd = Layer.mergeAll(
   // Layers memoize by reference, so this is the same policy the settings layer reads.
   AgentdSkills.layer.pipe(Layer.provide(ManagedPolicy.layer)),
   AgentdPlugins.layerLive,
-  AgentdConnectors.layer,
+  AgentdConnectors.layer.pipe(
+    Layer.provide(Layer.merge(AgentdPlugins.layerLive, ProjectStore.layer)),
+  ),
   AgentdCustomizeSkills.layer,
   LibraosGateway.layer.pipe(
     Layer.provide(layerServerSettings),
