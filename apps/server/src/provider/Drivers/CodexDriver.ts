@@ -60,6 +60,7 @@ import {
   resolveCodexHomeLayout,
 } from "./CodexHomeLayout.ts";
 import { makeManagedCodexProvider } from "./CodexManagedProvider.ts";
+import { codexSkillSwitch } from "../../agentd/codexSkillSwitch.ts";
 import { codexUsageReader } from "./codexUsage.ts";
 import * as CodexInstallation from "../CodexInstallation.ts";
 import * as CodexManagedTokenBroker from "../CodexManagedTokenBroker.ts";
@@ -447,6 +448,17 @@ export const CodexDriver: ProviderDriver<
       consumeResetCredit,
       orchestrationAdapter,
       textGeneration,
+      skillSwitch: codexSkillSwitch({
+        instanceId,
+        configFile: pathService.join(accountKey, "config.toml"),
+        spawner,
+        launch: Effect.succeed({
+          binaryPath: effectiveConfig.binaryPath,
+          homePath: effectiveConfig.homePath,
+          launchArgs: resolveCodexLaunchArgs(effectiveConfig.launchArgs, processEnv),
+          environment: processEnv,
+        }),
+      }),
     } satisfies ProviderInstance;
   }),
 };

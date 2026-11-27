@@ -89,7 +89,27 @@ export interface ProviderInstance {
       readonly providerId: string;
     }) => Effect.Effect<void, AcpRegistryOperationError>;
   };
+  readonly skillSwitch?: ProviderSkillSwitch;
 }
+
+/** Where the agent keeps its own on/off switch for a listed skill. */
+export type ProviderSkillSwitch =
+  | {
+      /** Claude Code: `skillOverrides` in its settings files, the user's under `configDir`. */
+      readonly kind: "claudeSettings";
+      readonly configDir: string;
+      readonly environment: NodeJS.ProcessEnv;
+    }
+  | {
+      /** Codex: its app-server's `skills/config/write`, which edits `configFile`. */
+      readonly kind: "codexAppServer";
+      readonly configFile: string;
+      /** Resolves to the switch Codex reports in effect afterwards. */
+      readonly write: (input: {
+        readonly path: string;
+        readonly enabled: boolean;
+      }) => Effect.Effect<boolean, ProviderDriverError>;
+    };
 
 export interface ProviderContinuationIdentity {
   readonly driverKind: ProviderDriverKind;
