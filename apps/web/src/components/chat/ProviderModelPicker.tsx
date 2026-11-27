@@ -303,13 +303,23 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
       ? gt("Claude Code (built-in)")
       : activeEntry.displayName;
   })();
+  const plainTriggerText = props.triggerLabel ?? multipleLabel;
+  // A long gateway name gives way first, so the model name stays readable.
   const triggerText =
-    props.triggerLabel ??
-    multipleLabel ??
-    (composerSource === null ? triggerTitle : `${composerSource} · ${triggerTitle}`);
+    plainTriggerText ??
+    (composerSource === null ? (
+      triggerTitle
+    ) : (
+      <>
+        <span className="min-w-8 shrink-[999] truncate">{composerSource}</span>
+        <span className="shrink-0 whitespace-pre"> · </span>
+        <span className="min-w-0 truncate">{triggerTitle}</span>
+      </>
+    ));
   const triggerTextProps = {
     className: cn(
-      "min-w-0 flex-1 overflow-hidden truncate",
+      "min-w-0 flex-1 overflow-hidden",
+      plainTriggerText === undefined && composerSource !== null ? "flex" : "truncate",
       // Long names such as "Fusion (Claude Opus 5.5 Medium + SWE-2 High)" would push the composer.
       props.isComposerOwned && "max-w-56",
     ),
