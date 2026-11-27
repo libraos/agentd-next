@@ -320,7 +320,7 @@ describe("relay host", () => {
     const issuedAt = EPOCH;
     const pairing = await addRelayToPairingUrl({
       stateDir,
-      pairingUrl: "http://192.168.1.20:3773/pair#token=one-time",
+      pairingUrl: "http://computer.example:3773/pair#token=one-time",
       credential: "one-time",
       expiresAt: issuedAt + 5 * 60 * 1000,
       label: "My phone",
@@ -350,14 +350,14 @@ describe("relay host", () => {
     await NodeFSP.rm(NodePath.join(stateDir, "relay", "relay.json"));
     const pairing = await addRelayToPairingUrl({
       stateDir,
-      pairingUrl: "http://192.168.1.20:3773/pair#token=one-time",
+      pairingUrl: "http://computer.example:3773/pair#token=one-time",
       credential: "one-time",
       expiresAt: EPOCH + 60_000,
       label: "phone",
       now: EPOCH,
     });
     expect(pairing).toEqual({
-      pairingUrl: "http://192.168.1.20:3773/pair#token=one-time",
+      pairingUrl: "http://computer.example:3773/pair#token=one-time",
       viaRelay: false,
     });
   });
