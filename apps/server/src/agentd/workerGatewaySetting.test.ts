@@ -12,6 +12,7 @@ const gateway = (format: "openai" | "anthropic", hasKey = true): CustomGatewaySu
   modelCount: 1,
   models: ["m-large"],
   hiddenModels: [],
+  mediaModels: [],
   agents: [],
 });
 const keyFile = (id: string) => `/secrets/${id}.bin`;

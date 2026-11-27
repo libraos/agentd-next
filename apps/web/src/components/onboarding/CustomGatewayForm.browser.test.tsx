@@ -33,6 +33,7 @@ it.for([
       modelCount: 1,
       models: ["model"],
       hiddenModels: [],
+      mediaModels: [],
       agents: format === "openai" ? ["codex", "opencode", "pi"] : ["claude", "opencode"],
     };
     list.mockReset();
@@ -91,6 +92,7 @@ it("adds both formats with one URL and key", async () => {
     modelCount: 1,
     models: ["model"],
     hiddenModels: [],
+    mediaModels: [],
     agents: ["claude", "codex", "opencode", "pi"],
   };
   list.mockReset();
@@ -123,6 +125,7 @@ it("clears an extension prompt when the saved gateway is removed", async () => {
     modelCount: 1,
     models: ["model"],
     hiddenModels: [],
+    mediaModels: [],
     agents: ["codex"],
   };
   list.mockReset().mockReturnValue({ data: { gateways: [] }, dataUpdatedAt: 1 });

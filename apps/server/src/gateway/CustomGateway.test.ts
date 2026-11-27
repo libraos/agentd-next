@@ -112,6 +112,36 @@ it.effect("add leaves the models a gateway marks as video or audio out of chat",
   }).pipe(Effect.provide(layer));
 });
 
+it.effect("a gateway's video, image and audio models are listed beside its chat models", () => {
+  let data: ReadonlyArray<{ id: string; type?: string }> = [
+    { id: "m1" },
+    { id: "minimax-h3", type: "video" },
+    { id: "flux-2", type: "image" },
+    { id: "tts-1", type: "audio" },
+    { id: "embed-3", type: "embedding" },
+  ];
+  const { layer } = setup(() => Response.json({ data }));
+  return Effect.gen(function* () {
+    const gateways = yield* CustomGateway.CustomGateway;
+    const added = yield* gateways.add({ url: URL, format: "openai", key: "k1", name: "GW" });
+    if (added.kind !== "added") return assert.fail(added.message);
+    const media = [
+      { id: "minimax-h3", kind: "video" },
+      { id: "flux-2", kind: "image" },
+      { id: "tts-1", kind: "audio" },
+      { id: "embed-3", kind: "other" },
+    ] as const;
+    assert.deepStrictEqual(added.gateway.models, ["m1"]);
+    assert.deepStrictEqual(added.gateway.mediaModels, media);
+    assert.deepStrictEqual((yield* gateways.list).gateways[0]?.mediaModels, media);
+
+    data = [{ id: "m1" }, { id: "veo-4", type: "video" }];
+    const refreshed = yield* gateways.refreshModels(added.gateway.id);
+    assert.deepStrictEqual(refreshed.gateways[0]?.models, ["m1"]);
+    assert.deepStrictEqual(refreshed.gateways[0]?.mediaModels, [{ id: "veo-4", kind: "video" }]);
+  }).pipe(Effect.provide(layer));
+});
+
 it.effect("add makes only the agents asked for", () => {
   const { layer } = setup(served);
   return Effect.gen(function* () {
@@ -141,6 +171,7 @@ it.effect("add makes only the agents asked for", () => {
         modelCount: 1,
         models: ["m1"],
         hiddenModels: [],
+        mediaModels: [],
       },
     ]);
     const none = yield* gateways

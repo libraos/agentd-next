@@ -1,8 +1,13 @@
 import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import type { CustomGatewayAgent, CustomGatewaySummary, EnvironmentId } from "@t3tools/contracts";
-import { T, useGT, useMessages } from "gt-react";
+import type {
+  CustomGatewayAgent,
+  CustomGatewayMediaKind,
+  CustomGatewaySummary,
+  EnvironmentId,
+} from "@t3tools/contracts";
+import { T, msg, useGT, useMessages } from "gt-react";
 import { useId, useState, type FormEvent } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
@@ -17,6 +22,13 @@ const AGENT_LABELS: Record<CustomGatewayAgent, string> = {
   codex: "Codex",
   opencode: "opencode",
   pi: "Pi",
+};
+
+const MEDIA_KIND_LABELS: Record<CustomGatewayMediaKind, string> = {
+  video: msg("Video", { $context: "kind of AI model" }),
+  image: msg("Image", { $context: "kind of AI model" }),
+  audio: msg("Audio", { $context: "kind of AI model" }),
+  other: msg("Embedding or other", { $context: "kind of AI model" }),
 };
 
 export function CustomGatewayList({ environmentId }: { readonly environmentId: EnvironmentId }) {
@@ -176,6 +188,14 @@ function GatewayRow({
             <p className="truncate text-xs text-muted-foreground">
               {gt("Used by {agents}", { agents })}
             </p>
+            {gateway.mediaModels.length > 0 ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {gt(
+                  "{count, plural, one {{count} more model is not for chat. See Models.} other {{count} more models are not for chat. See Models.}}",
+                  { count: gateway.mediaModels.length },
+                )}
+              </p>
+            ) : null}
           </div>
           <Button
             variant="outline"
@@ -216,6 +236,31 @@ function GatewayRow({
             ))}
           </div>
         </fieldset>
+      ) : null}
+      {choosingModels && gateway.mediaModels.length > 0 ? (
+        <section aria-label={gt("Not for chat")} className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {gt(
+              "{count, plural, one {{count} model on this gateway makes video, images, audio or vectors, so no agent can chat with it.} other {{count} models on this gateway make video, images, audio or vectors, so no agent can chat with them.}}",
+              { count: gateway.mediaModels.length },
+            )}{" "}
+            <T>
+              Ask an agent in a thread for a video, speech, sound or a transcript and it uses the
+              video and audio ones. Image and embedding models are not supported yet.
+            </T>
+          </p>
+          <ul className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+            {gateway.mediaModels.map((model) => (
+              <li
+                key={model.id}
+                className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-muted-foreground"
+              >
+                <span>{model.id}</span>
+                <span className="text-xs">{m(MEDIA_KIND_LABELS[model.kind])}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
       {error === null ? null : (
         <p role="alert" className="text-destructive-foreground">
