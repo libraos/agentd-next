@@ -165,6 +165,7 @@ const harness = (
     never,
     ChildProcessSpawner.ChildProcessSpawner
   > = ProcessRunner.layer,
+  env: NodeJS.ProcessEnv = {},
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -194,7 +195,7 @@ const harness = (
           Layer.mergeAll(
             Layer.succeed(HttpClient.HttpClient, client),
             Layer.succeed(HostProcess.HomeDirectory, config.baseDir),
-            Layer.succeed(HostProcess.Environment, {}),
+            Layer.succeed(HostProcess.Environment, env),
             runner,
             Layer.succeed(AgentdGitHubConnection.AgentdGitHubConnection, {
               credential: () => Effect.succeedNone,
@@ -919,6 +920,165 @@ it.effect("python3 falls back to py -3, then python, on Windows only, past a Sto
       expect(yield* find(platform, dirs), `${platform} ${dirs.join(" ")}`).toEqual(expected);
     }
   }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("a .py file runs through Python Next picks on Windows only, and as is elsewhere", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fs.makeTempDirectoryScoped({ prefix: "agentd-launch-" });
+    const file = Effect.fnUntraced(function* (dir: string, name: string) {
+      const target = path.join(dir, name);
+      yield* fs.makeDirectory(dir, { recursive: true });
+      yield* fs.writeFileString(target, "");
+      yield* fs.chmod(target, 0o755);
+      return target;
+    });
+    const py = yield* file(path.join(root, "py"), "py.exe");
+    const python = yield* file(path.join(root, "python"), "python.exe");
+    const stubs = path.join(root, "Microsoft", "WindowsApps");
+    yield* file(stubs, "python.exe");
+    const engineOnPath = yield* file(path.join(root, "engine"), "libraos-engine.exe");
+    const script = path.join(root, "plugin", "legal_mcp.py");
+    const engine = path.join(root, "bundle", "agentd.exe");
+    const launch = (
+      platform: NodeJS.Platform,
+      dirs: ReadonlyArray<string>,
+      resolved: AgentdPlugins.ProgramLaunchInput,
+      known: string | null = null,
+    ) =>
+      AgentdPlugins.launchProgram(
+        platform,
+        // A PYTHON setting or variable never chooses the interpreter: only PATH is read.
+        {
+          PATH: dirs.join(platform === "win32" ? ";" : ":"),
+          PATHEXT: ".EXE",
+          PYTHON: python,
+        },
+        resolved,
+        known,
+      );
+    const scriptFile = { _tag: "File", path: script, args: ["-c", "x"] } as const;
+    const cases: ReadonlyArray<
+      readonly [
+        string,
+        NodeJS.Platform,
+        ReadonlyArray<string>,
+        AgentdPlugins.ProgramLaunchInput,
+        string | null,
+        AgentdPlugins.ProgramLaunch,
+      ]
+    > = [
+      [
+        "py -3 first",
+        "win32",
+        [path.join(root, "python"), path.join(root, "py")],
+        scriptFile,
+        null,
+        { _tag: "Program", command: py, args: ["-3", script, "-c", "x"] },
+      ],
+      [
+        "then python, past a Store stub",
+        "win32",
+        [stubs, path.join(root, "python")],
+        scriptFile,
+        null,
+        { _tag: "Program", command: python, args: [script, "-c", "x"] },
+      ],
+      ["only a Store stub", "win32", [stubs], scriptFile, null, { _tag: "NoPython" }],
+      ["no Python at all", "win32", [], scriptFile, null, { _tag: "NoPython" }],
+      [
+        "Linux runs the file itself",
+        "linux",
+        [path.join(root, "py"), path.join(root, "python")],
+        scriptFile,
+        null,
+        { _tag: "Program", command: script, args: ["-c", "x"] },
+      ],
+      [
+        "macOS runs the file itself",
+        "darwin",
+        [],
+        scriptFile,
+        null,
+        { _tag: "Program", command: script, args: ["-c", "x"] },
+      ],
+      [
+        "a .py name on PATH is not a plugin file and gets no interpreter",
+        "win32",
+        [path.join(root, "py")],
+        { _tag: "Path", name: "tool.py", args: [] },
+        null,
+        { _tag: "NotFound" },
+      ],
+      [
+        "the engine's name on PATH",
+        "win32",
+        [path.join(root, "engine")],
+        { _tag: "Path", name: "libraos-engine", args: ["init"] },
+        engine,
+        { _tag: "Program", command: engineOnPath, args: ["init"] },
+      ],
+      [
+        "the engine's name not on PATH runs the engine Next has",
+        "win32",
+        [],
+        { _tag: "Path", name: "libraos-engine", args: ["init"] },
+        engine,
+        { _tag: "Program", command: engine, args: ["init"] },
+      ],
+      [
+        "only for the engine's names",
+        "win32",
+        [],
+        { _tag: "Path", name: "node", args: [] },
+        engine,
+        { _tag: "NotFound" },
+      ],
+    ];
+    for (const [name, platform, dirs, resolved, known, expected] of cases) {
+      expect(yield* launch(platform, dirs, resolved, known), name).toEqual(expected);
+    }
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("a setup gets the engine's path in LIBRAOS_ENGINE", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const bundle = yield* fs.makeTempDirectoryScoped({ prefix: "agentd-engine-" });
+    const engine = path.join(bundle, "agentd");
+    yield* fs.writeFileString(engine, "#!/bin/sh\n");
+    yield* fs.chmod(engine, 0o755);
+    const runs = (env: NodeJS.ProcessEnv) =>
+      Effect.gen(function* () {
+        const inputs: ProcessRunner.ProcessRunInput[] = [];
+        const h = yield* harness(
+          Layer.succeed(ProcessRunner.ProcessRunner, {
+            run: (input) =>
+              Effect.sync(() => {
+                inputs.push(input);
+                const done: ProcessRunner.ProcessRunOutput = {
+                  ...TIMED_OUT,
+                  code: ChildProcessSpawner.ExitCode(0),
+                  timedOut: false,
+                };
+                return done;
+              }),
+          }),
+          env,
+        );
+        yield* h.service.install({ id: "setup" });
+        yield* h.service.setup({ id: "setup" });
+        yield* h.service.setupDone("setup");
+        return inputs;
+      });
+    const [given] = yield* runs({ AGENTD_BIN: engine, PATH: "" });
+    expect(given?.env).toEqual({ [AgentdPlugins.LIBRAOS_ENGINE_ENV]: engine });
+    const [none] = yield* runs({ PATH: "" });
+    expect(none).toBeDefined();
+    expect(none).not.toHaveProperty("env");
+  }).pipe(Effect.provide(dependencies)),
 );
 
 it.effect("attaches a plugin's MCP servers to Claude and Codex launches only where it is on", () =>

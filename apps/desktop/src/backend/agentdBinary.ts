@@ -22,6 +22,10 @@ const executableFile = (name: string, platform: NodeJS.Platform): string =>
 export const agentdBinaryName = (platform: NodeJS.Platform): string =>
   executableFile("agentd", platform);
 
+/** The engine's own name, which plugins and the docs run; on Windows the app installs it too. */
+export const engineBinaryName = (platform: NodeJS.Platform): string =>
+  executableFile("libraos-engine", platform);
+
 /** LibraOS Engine's executable first, then its earlier names `libraos-core` and `agentd`. */
 const coreBinaryNames = (platform: NodeJS.Platform): readonly string[] =>
   ["libraos-engine", "libraos-core", "agentd"].map((name) => executableFile(name, platform));

@@ -65,6 +65,9 @@ export function AgentdPluginContributions({
                     })}
                   </span>
                 )}
+                {server.problem === undefined ? null : (
+                  <span className="text-destructive text-xs wrap-anywhere">{server.problem}</span>
+                )}
               </li>
             ))}
           </ul>

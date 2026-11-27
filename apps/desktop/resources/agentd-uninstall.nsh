@@ -17,6 +17,8 @@
       SendMessage 0xFFFF 0x1A 0 "STR:Environment" /TIMEOUT=5000
       Delete "$R0\agentd.exe"
       Delete "$R0\agentd.exe.old"
+      Delete "$R0\libraos-engine.exe"
+      Delete "$R0\libraos-engine.exe.old"
       Delete "$R0\agentd-desktop-installed"
       RMDir "$R0"
     ${endIf}

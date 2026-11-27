@@ -637,6 +637,22 @@ export function hookPrograms(
   ];
 }
 
+/**
+ * On Windows a .py file of the plugin cannot be started itself (os error 193): Next starts it
+ * through py -3, else python, from PATH. Null elsewhere and for any other file: started as is.
+ */
+export function scriptPrograms(
+  platform: NodeJS.Platform,
+  script: string,
+  args: ReadonlyArray<string>,
+): ReadonlyArray<HookProgram> | null {
+  if (platform !== "win32" || !/\.py$/i.test(script)) return null;
+  return [
+    { name: "py", args: ["-3", script, ...args], skipWindowsApps: false },
+    { name: "python", args: [script, ...args], skipWindowsApps: true },
+  ];
+}
+
 export function isWindowsAppsPath(file: string): boolean {
   return /[\\/]microsoft[\\/]windowsapps[\\/]/i.test(file);
 }

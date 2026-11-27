@@ -134,29 +134,28 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
       );
 
     yield* fs.makeDirectory(directory, { recursive: true });
-    const existing = yield* exists(target);
-    const unchanged = existing && (yield* sameBytes(bundled.value, target));
-    const [bundledVersion, installedVersion] =
-      existing && !unchanged
-        ? yield* Effect.all(
-            [AgentdBinary.readAgentdVersion(bundled.value), AgentdBinary.readAgentdVersion(target)],
-            { concurrency: 2 },
-          )
-        : [null, null];
-    const action = decideAgentdInstall({
-      existing,
-      sameBytes: unchanged,
-      installedVersion,
-      bundledVersion,
-    });
-    const placed = action === "installed" || action === "replaced";
-    const kept = action === "kept-newer" || action === "kept-unknown";
-
-    if (placed) {
+    /** Places the bundled agentd at `file` unless the one there is not known to be older. */
+    const place = Effect.fn("desktop.agentdInstall.place")(function* (file: string) {
+      const existing = yield* exists(file);
+      const unchanged = existing && (yield* sameBytes(bundled.value, file));
+      const [bundledVersion, installedVersion] =
+        existing && !unchanged
+          ? yield* Effect.all(
+              [AgentdBinary.readAgentdVersion(bundled.value), AgentdBinary.readAgentdVersion(file)],
+              { concurrency: 2 },
+            )
+          : [null, null];
+      const decided = decideAgentdInstall({
+        existing,
+        sameBytes: unchanged,
+        installedVersion,
+        bundledVersion,
+      });
+      if (decided !== "installed" && decided !== "replaced") return decided;
       // Copy beside it, then rename over it. Windows cannot replace a running agentd.exe but can
       // rename it, so the old one moves aside first and comes back if the last rename fails.
-      const fresh = `${target}.new.${process.pid}`;
-      const aside = `${target}.old`;
+      const fresh = `${file}.new.${process.pid}`;
+      const aside = `${file}.old`;
       yield* Effect.gen(function* () {
         yield* fs.copyFile(bundled.value, fresh);
         if (!windows) yield* fs.chmod(fresh, 0o755);
@@ -164,18 +163,33 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
           windows && existing
             ? yield* fs
                 .remove(aside, { force: true })
-                .pipe(Effect.andThen(fs.rename(target, aside)), Effect.as(true))
+                .pipe(Effect.andThen(fs.rename(file, aside)), Effect.as(true))
             : false;
         yield* fs
-          .rename(fresh, target)
+          .rename(fresh, file)
           .pipe(
             Effect.tapError(() =>
-              movedAside ? fs.rename(aside, target).pipe(Effect.ignore) : Effect.void,
+              movedAside ? fs.rename(aside, file).pipe(Effect.ignore) : Effect.void,
             ),
           );
         // Still running from before: it stays as .old until the next pass.
         if (movedAside) yield* fs.remove(aside, { force: true }).pipe(Effect.ignore);
       }).pipe(Effect.ensuring(fs.remove(fresh, { force: true }).pipe(Effect.ignore)));
+      return decided;
+    });
+    const action = yield* place(target);
+    const placed = action === "installed" || action === "replaced";
+    const kept = action === "kept-newer" || action === "kept-unknown";
+    // Windows: plugin setups and the docs run libraos-engine, so the same binary goes under that
+    // name too (libraos/next#317). A folder whose agentd the user put there is left to them.
+    const engineAlias = path.join(directory, AgentdBinary.engineBinaryName(environment.platform));
+    if (windows && !kept) {
+      const aliasAction = yield* place(engineAlias).pipe(
+        Effect.catchCause((cause) =>
+          logWarning("could not install libraos-engine", { cause }).pipe(Effect.as(null)),
+        ),
+      );
+      if (aliasAction !== null) yield* logInfo("libraos-engine install", { action: aliasAction });
     }
     if (windows && placed) {
       yield* fs.writeFileString(marker, `${action}\n`);
@@ -275,7 +289,7 @@ export const installAgentdAfterConsent = Effect.fn("desktop.agentdInstall.afterC
       const definitions = yield* Effect.forEach(["watchdog", "dash"] as const, (service) =>
         rootTaskDefinition(service, root, (args) => run("schtasks", args), listing),
       );
-      const agentd = servicesRefreshAgentd(definitions, [target, bundled.value]);
+      const agentd = servicesRefreshAgentd(definitions, [target, engineAlias, bundled.value]);
       if (agentd !== null) {
         const installed = yield* run(agentd, ["install"]);
         services = { agentd, ok: installed.ok };
