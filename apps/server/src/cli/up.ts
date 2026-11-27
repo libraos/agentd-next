@@ -277,7 +277,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
       cause: "routes",
       userMessage: `No terminal. Choose access with ${
         before.connect === null ? "--lan" : "--connect or --lan"
-      }, or use --yes for the default. See \`libraos-next up --help\`.`,
+      }, or use --yes for the default. See \`lnext up --help\`.`,
     });
   }
   if (routes.connect && !current.connect) yield* requireConnectAllowed;
@@ -435,7 +435,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
         }
         if (outcome === "skipped") {
           yield* Console.log(
-            "The installed service was not restarted. Run `libraos-next service status` to see why.",
+            "The installed service was not restarted. Run `lnext service status` to see why.",
           );
         }
         started = outcome === "restarted";
@@ -482,15 +482,15 @@ export const upCommand = Command.make("up", {
     "Set up remote access and the LibraOS Next background service. Access flags skip the question, and routes not named keep their settings. Without a terminal, a needed restart runs without asking and stops running agent turns.",
   ),
   Command.withExamples([
-    { command: "libraos-next up", description: "Choose remote access." },
+    { command: "lnext up", description: "Choose remote access." },
     {
-      command: "libraos-next up --connect",
+      command: "lnext up --connect",
       description: "Turn on the hosted relay. Keep other settings.",
     },
-    { command: "libraos-next up --lan", description: "Allow LAN access with pairing codes." },
-    { command: "libraos-next up --no-lan", description: "Stop LAN access." },
-    { command: "libraos-next up --yes", description: "Take the defaults with no questions." },
-    { command: "libraos-next status --json", description: "Read the settings from a script." },
+    { command: "lnext up --lan", description: "Allow LAN access with pairing codes." },
+    { command: "lnext up --no-lan", description: "Stop LAN access." },
+    { command: "lnext up --yes", description: "Take the defaults with no questions." },
+    { command: "lnext status --json", description: "Read the settings from a script." },
   ]),
   Command.withHandler((flags) => runCloudCommand(flags, setUp(flags), { quietLogs: true })),
 );
@@ -500,7 +500,7 @@ export const connectCommand = Command.make("connect", {
   headless: headlessFlag,
 }).pipe(
   Command.withDescription(
-    "Set up the hosted relay for this machine. Same as `libraos-next up --connect`.",
+    "Set up the hosted relay for this machine. Same as `lnext up --connect`.",
   ),
   Command.withHandler((flags) =>
     runCloudCommand(
@@ -543,8 +543,8 @@ export const statusCommand = Command.make("status", {
 }).pipe(
   Command.withDescription("Show service setup and remote access settings."),
   Command.withExamples([
-    { command: "libraos-next status", description: "Show the settings." },
-    { command: "libraos-next status --json", description: "Print them for scripts and agents." },
+    { command: "lnext status", description: "Show the settings." },
+    { command: "lnext status --json", description: "Print them for scripts and agents." },
   ]),
   Command.withHandler(
     Effect.fn("cli.status")(function* (flags) {

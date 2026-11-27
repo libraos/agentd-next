@@ -208,7 +208,7 @@ export const buildTriageSeedPrompt = (input: {
   readonly contextFilePath: string;
   readonly entry: TriageEntry;
 }) => `A LibraOS Next user is having a problem with their install and started this \
-session ${input.entry.kind === "cli" ? "with `libraos-next triage`" : "from the LibraOS Next app"}.
+session ${input.entry.kind === "cli" ? "with `lnext triage`" : "from the LibraOS Next app"}.
 
 Machine facts (versions, OS, paths, server liveness) are in the triage context file:
 
@@ -264,7 +264,7 @@ export interface TriageContextInput {
 const entryLines = (entry: TriageEntry) =>
   entry.kind === "cli"
     ? {
-        generatedBy: "`libraos-next triage`",
+        generatedBy: "`lnext triage`",
         before: `- Triage CLI version: ${entry.cliVersion} (the \`t3\` that ran this command; the bug may have happened on another build)`,
         after: `- CLI launched as: ${entry.launchedAs}`,
       }

@@ -381,7 +381,7 @@ export const waitForReachability = Effect.fn("cloud.cli.wait_for_reachability")(
   yield* Console.error(
     formatAlertBox(
       last === null
-        ? "✕ Could not check the hosted relay\n  The LibraOS Next server on this machine did not answer.\n  Fix: run `libraos-next service status`, then `libraos-next connect status`."
+        ? "✕ Could not check the hosted relay\n  The LibraOS Next server on this machine did not answer.\n  Fix: run `lnext service status`, then `lnext connect status`."
         : formatReachabilityFailure(last),
     ),
   );
@@ -474,11 +474,11 @@ const reportCloudDisconnectResults = Effect.fn("cloud.cli.report_disconnect_resu
       yield* Console.warn(
         input.clearAuthorization
           ? "Could not revoke the relay-side environment record before signing out.\nThe stored CLI authorization was still removed locally."
-          : "Could not revoke the relay-side environment record yet.\nRun `libraos-next connect unlink` again when the relay is reachable, or deregister it from the hosted relay page of your hosted relay account.",
+          : "Could not revoke the relay-side environment record yet.\nRun `lnext connect unlink` again when the relay is reachable, or deregister it from the hosted relay page of your hosted relay account.",
       );
     } else if (input.relayResult.value.status === "not-authenticated") {
       yield* Console.warn(
-        "The relay-side environment record was not revoked.\nDeregister it from the hosted relay page of your hosted relay account, or run `libraos-next connect login` and retry.",
+        "The relay-side environment record was not revoked.\nDeregister it from the hosted relay page of your hosted relay account, or run `lnext connect login` and retry.",
       );
     } else if (input.relayResult.value.status === "revoked") {
       yield* Console.log("Revoked the relay-side environment record.");
@@ -507,7 +507,7 @@ export const disconnectCloud = Effect.fn("cloud.cli.disconnect")(function* (opti
 
   if (options.clearAuthorization) {
     yield* Console.log(
-      "Signed out of the hosted relay locally.\nThe background service is managed separately with `libraos-next service`.",
+      "Signed out of the hosted relay locally.\nThe background service is managed separately with `lnext service`.",
     );
   }
   return liveResult;
