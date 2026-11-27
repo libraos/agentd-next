@@ -18,7 +18,7 @@ import { vi } from "vite-plus/test";
 
 import { makeCli } from "../binCli.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
-import { FEEDBACK_OFF_MESSAGE, T3_CLI_COMMANDS } from "../feedback/FeedbackReport.ts";
+import { FEEDBACK_OFF_MESSAGE, CLI_COMMAND_SUBJECTS } from "../feedback/FeedbackReport.ts";
 import * as McpBridge from "../mcp/AcpMcpStdioBridge.ts";
 import {
   makePersistedServerRuntimeState,
@@ -51,9 +51,9 @@ const listedPaths = (command: Command.Command.Any, path: string): ReadonlyArray<
   ),
 ];
 
-it("feedback subjects name every listed t3 command", () => {
-  expect([...T3_CLI_COMMANDS].sort()).toEqual(
-    [...listedPaths(makeCli({ cloudEnabled: true }), "t3")].sort(),
+it("feedback subjects name every listed lnext command", () => {
+  expect([...CLI_COMMAND_SUBJECTS].sort()).toEqual(
+    [...listedPaths(makeCli({ cloudEnabled: true }), "lnext")].sort(),
   );
 });
 

@@ -96,7 +96,7 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
     onNone: () =>
       m(
         msg(
-          "Another LibraOS Next server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `libraos-next update`. If the older launcher cannot update, run `libraos-next service uninstall` and optionally reinstall with `libraos-next service install` from a current CLI. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's data directory to each command. Then reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
+          "Another LibraOS Next server, such as the background service, is using this data directory, or an older background service is set up for it. Stop that server or try `lnext update`. If the older launcher cannot update, run `lnext service uninstall` and optionally reinstall with `lnext service install` from a current CLI. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's data directory to each command. Then reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
         ),
       ),
     onSome: (owner) => {
@@ -109,13 +109,13 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
         return owner.serverVersion
           ? m(
               msg(
-                "The LibraOS Next background service is using this LibraOS Next home (PID {pid}, port {port}, version {version}). Stop it with `libraos-next service uninstall`, passing `--base-dir` with this LibraOS Next home, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
+                "The LibraOS Next background service is using this LibraOS Next home (PID {pid}, port {port}, version {version}). Stop it with `lnext service uninstall`, passing `--base-dir` with this LibraOS Next home, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
               ),
               variables,
             )
           : m(
               msg(
-                "The LibraOS Next background service is using this LibraOS Next home (PID {pid}, port {port}). Stop it with `libraos-next service uninstall`, passing `--base-dir` with this LibraOS Next home, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
+                "The LibraOS Next background service is using this LibraOS Next home (PID {pid}, port {port}). Stop it with `lnext service uninstall`, passing `--base-dir` with this LibraOS Next home, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
               ),
               variables,
             );
@@ -123,13 +123,13 @@ export const homeOwnedMessage = (owner: Option.Option<HomeOwner>): string =>
       return owner.serverVersion
         ? m(
             msg(
-              "Another LibraOS Next server (for example `libraos-next serve`, or one started over SSH) is using this LibraOS Next home (PID {pid}, port {port}, version {version}). If a LibraOS Next app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
+              "Another LibraOS Next server (for example `lnext serve`, or one started over SSH) is using this LibraOS Next home (PID {pid}, port {port}, version {version}). If a LibraOS Next app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
             ),
             variables,
           )
         : m(
             msg(
-              "Another LibraOS Next server (for example `libraos-next serve`, or one started over SSH) is using this LibraOS Next home (PID {pid}, port {port}). If a LibraOS Next app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
+              "Another LibraOS Next server (for example `lnext serve`, or one started over SSH) is using this LibraOS Next home (PID {pid}, port {port}). If a LibraOS Next app on another machine started it over SSH, that app restarts it: remove or disconnect that SSH environment there, or quit that app. Then stop the server, and reopen LibraOS Next. You can also set a separate T3CODE_HOME and pair with the running server.",
             ),
             variables,
           );

@@ -461,13 +461,13 @@
   "663d7b465a461e5b": "The hosted relay could not reach {host}'s tunnel",
   "305ebc835c97d9f8": "LibraOS Next on {host} did not accept this device",
   "0997b810795eda2e": "LibraOS Next on {host} did not answer",
-  "8f077503e6af5b6e": "On {host}, check Settings > Sharing & access or run `libraos-next connect status`.",
+  "466f9cb21771a27a": "On {host}, check Settings > Sharing & access or run `lnext connect status`.",
   "a2242ae6ad65f6da": "Connect this device to the internet. LibraOS Next reconnects on its own.",
   "f764da9d29d6abe8": "Wait a moment. LibraOS Next retries on its own.",
   "8af1b6d0bc9eabdd": "If it keeps waiting, reload or restart LibraOS Next on this device.",
   "570aaeb32dc600a7": "{host} に接続済みのデバイスで [設定] > [共有とアクセス] を開き、{code} と表示されているデバイスを承認してください。",
   "08a2d57d02f30799": "{host} に接続済みのデバイスで [設定] > [共有とアクセス] を開き、このデバイスを承認してください。",
-  "561786212380d67d": "Or run `libraos-next auth connect-device approve {code}` on {host}.",
+  "15d41e6d59d23c45": "Or run `lnext auth connect-device approve {code}` on {host}.",
   "f17928c8ecc808d3": "Update LibraOS Next on {host}.",
   "3c35e0980e06bfa6": "このデバイスと {host} で日付と時刻の自動設定をオンにしてから、再試行してください。",
   "dccd0cf31464a5d8": "Check that this device is signed in to the same hosted relay account as the host.",
@@ -3123,8 +3123,8 @@
   "62450481c00d2ef3": "下書きの環境を利用できないため、文字起こしを整形できません。",
   "0674544195fcdc39": "元の文字起こしを追加しました。",
   "c64cb58d9cecbcd2": "文字起こしの整形に失敗しました",
-  "0c97a06f4ff33d85": "The libraos-next command is unavailable.",
-  "b4fe019cbbeed6ae": "Failed to load the libraos-next command state.",
+  "2fba76ce24b9a739": "The lnext command is unavailable.",
+  "8d8b1e8166ba46ce": "Failed to load the lnext command state.",
   "1bf6910332426e62": "デスクトップのネットワークアクセスを利用できません。",
   "453d2f1825d6e763": "デスクトップサーバーの公開状態を読み込めませんでした。",
   "2f388f3d76869c03": "公開されているデスクトップのエンドポイントを読み込めませんでした。",
@@ -6220,7 +6220,7 @@
   "c246e33dafd359cc": "追加",
   "b0c1beb79a87d97b": "承認リクエスト",
   "0311d7ed2b7eb2f6": "この接続リンクは不完全です",
-  "e7e7c60467265928": "The link is missing its authorization request. Re-run `libraos-next connect` in your terminal and open the freshly printed URL.",
+  "7c93775ac1340632": "The link is missing its authorization request. Re-run `lnext connect` in your terminal and open the freshly printed URL.",
   "55ee748307f0cd6a": "ブラウザーでの承認",
   "1ccae6b48df9cf15": "ターミナルを接続しています",
   "87c993fe8b1958e3": "Redirecting to authorize the hosted relay for your CLI…",
@@ -7461,7 +7461,7 @@
     "を実行してください。"
   ],
   "9d9b9624c7bd95df": "その他のフォルダー",
-  "0723511350242b54": [
+  "649fb06ae9d843ba": [
     "Added to ",
     {
       "i": 1,
@@ -7473,16 +7473,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     "."
   ],
-  "a19264f78bd15564": [
+  "0bfa188861328fb1": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     " from any terminal. Adds one line to ",
     {
@@ -8598,7 +8598,7 @@
   "8a333daf9b7fd03f": "{environment} に接続",
   "7662025844bf543f": "環境を追加",
   "65b1d784a5e84254": "このマシンを別のアドレス (Tailscale の名前など) でもう一度ペアリングします。2 台目のマシンとして追加されるのではなく、既存のルートに加わります。",
-  "fd6c196a293780a4": "{environment} の設定 → 共有とアクセス、または `libraos-next auth pairing create` でペアリングコードを作成し、ここに入力してください。",
+  "9aa85ef508c9b4b9": "{environment} の設定 → 共有とアクセス、または `lnext auth pairing create` でペアリングコードを作成し、ここに入力してください。",
   "1bea4864d46d70d0": "このクライアントに別の環境をペアリングします。",
   "9b24ef052b321e57": "バックエンドのホストとペアリングコードを入力してください。",
   "3e20f17f71edf0ad": "バックエンドにはローカルの SSH 構成、エージェント、トンネルを使用します。",
@@ -9059,17 +9059,17 @@
     },
     ")"
   ],
-  "86c6983e9247421c": "Could not install libraos-next",
-  "648d7ec0387002ee": "Could not remove libraos-next",
-  "7cfbcce96dca6ffe": "Could not add libraos-next to PATH",
-  "0983579b46a2a633": "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
-  "9e380157af2ee859": "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
+  "2740557d7569b38f": "Could not install lnext",
+  "3b288f3f89d903a2": "Could not remove lnext",
+  "51456f291f01b5b8": "Could not add lnext to PATH",
+  "145c044702896900": "Another lnext at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+  "3db7d970661cb24b": "Run LibraOS Next's CLI as `lnext` from any terminal. Also installs `libraos-next`, `agentd-next` and `t3` as aliases.",
   "4f6e93011ef2da6f": "{path} にインストールしました。使うには新しいターミナルを開いてください。",
   "371ca438cf467125": "{path} にインストールし、{file} で PATH に追加しました。使うには新しいターミナルを開いてください。",
   "fd3eece9d1a7ea38": "{path} にインストールしましたが、まだ PATH に含まれていません。",
-  "095337793fe19f6c": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
-  "e71863bfeee3f2ac": "Remove",
-  "ab8c2907b24f28e1": "インストール",
+  "1018fcfb06564432": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `lnext`.",
+  "e4dc3dbe14c831c0": "削除",
+  "9e8a4cf4a5369dc3": "インストール",
   "9a284b5893dc04a2": "OpenRouter のモデル",
   "c8361c16c47d5fb5": "文字起こしモデルを検索",
   "d72eccdd92d4f989": "この変更を保存できませんでした。接続を確認して、もう一度お試しください。",
@@ -10151,7 +10151,7 @@
   "ca4e4015b89ed9a8": "{target} から {source} へ逆方向にリンクできませんでした",
   "64ac3d1579ca9f5b": "{source} を {target} にリンク",
   "5f2e20c62a4fece3": "{via} は {target} にフルアクセスでリンクしているため、ペアリングコードを取得します。コードの貼り付けは不要です。",
-  "77f045c893ab298c": "From Sharing & access there, or libraos-next pair",
+  "b8c0fd33f1d788c1": "From Sharing & access there, or lnext pair",
   "1e3fee7084791773": "{target} から {source} へも逆方向にリンクする",
   "ea34a190b0bd804c": "{target} のエージェントも {source} で作業できるようになります。",
   "974f8c65e8b5f492": "{label} を削除しますか？ここのエージェントはそこで作業できなくなり、{label} が応答すればそこでのセッションも終了します。",
@@ -10931,8 +10931,8 @@
   "fb47a2a9a37656f1": "The hosted relay is on, but other devices cannot reach this environment.",
   "8001b7817caee889": "The hosted relay is on. Reachability has not been checked yet.",
   "621691786b1ce9f2": "The hosted relay is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn the hosted relay on to repair it.",
-  "96403aa33398dcdd": "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
-  "f9ccb2b4359b6de4": "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
+  "88e04cc983ecd3b0": "This environment was removed from the hosted relay. Run `lnext connect link` on the host to link it again.",
+  "77a72a1a461b9a26": "Run `lnext connect link` on the host, then restart LibraOS Next there.",
   "0a3123a6ce981075": "モバイルの通知とライブアクティビティにアクティビティを送信するには、サインインしてください。",
   "80a3aef9dfe51459": "Send activity to mobile notifications and Live Activities without the hosted relay.",
   "5f8ca828eca1ce1a": "エージェントのアクティビティをモバイルクライアントに公開",
@@ -13101,7 +13101,7 @@
   "0c5fc3b5e41e1956": "生成 スレッドタイトル プロンプト カスタム スタイル 命名 名前の変更 再生成 titles",
   "a83570bcb45d8fa1": "情報 更新を確認 アップデート ダウンロード インストール アップグレード リリース update",
   "d65bdf6748801734": "リリース チャンネル stable latest nightly プレリリース channel",
-  "27ae62d2e5badca4": "libraos-next command",
+  "58d0beb1ef86e52e": "lnext command",
   "46dd4dc08c1e552f": "CLI ターミナル シェル パス インストール コマンドライン cli",
   "86479042bae0e2db": "モバイルアプリ",
   "dc2a999ca67ccf31": "スマートフォン タブレット iPhone iPad iOS Android App Store Google Play QR mobile",

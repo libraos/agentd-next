@@ -29,7 +29,7 @@ it.each([1])("blocks legacy launcher protocol %i with exact recovery steps", (la
   expect(reason).toMatch(new RegExp(`\\b${SERVICE_LAUNCHER_PROTOCOL}\\b`));
   expect(reason).toContain("install t3@9.8.7 exactly");
   expect(reason).toContain("~/.local/bin/t3 service install");
-  expect(reason).toContain("libraos-next --version");
+  expect(reason).toContain("lnext --version");
   expect(reason).toContain("which -a t3");
 });
 

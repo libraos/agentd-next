@@ -128,7 +128,7 @@ export const layer = Layer.effect(
                 Ref.set(
                   preflightErrorRef,
                   Option.some(
-                    "Another LibraOS Next server is using this distro's LibraOS Next home, or an older background service is set up for it. Stop that server or pair with it, or try `libraos-next update` in the distro. If the older launcher cannot update, run `libraos-next service uninstall` and optionally reinstall with `libraos-next service install` from a current CLI in the distro. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's data directory to each command.",
+                    "Another LibraOS Next server is using this distro's LibraOS Next home, or an older background service is set up for it. Stop that server or pair with it, or try `lnext update` in the distro. If the older launcher cannot update, run `lnext service uninstall` and optionally reinstall with `lnext service install` from a current CLI in the distro. Use `npx t3@latest` if `t3` is missing or outdated, and pass `--base-dir` with the service's data directory to each command.",
                   ),
                 ),
               ),

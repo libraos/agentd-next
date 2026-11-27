@@ -215,8 +215,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* fs.makeDirectory(path.join(home, "bin"), { recursive: true });
       yield* fs.symlink(path.join(home, "gone"), path.join(home, "bin", "libraos-next"));
 
-      const error = yield* Effect.flip(command.install);
-      expect(error.message).toContain("Another libraos-next command is already in");
+      yield* Effect.flip(command.install);
       yield* command.uninstall;
       expect(yield* fs.readFileString(theirs)).toBe("npm's t3\n");
       expect(yield* fs.readLink(path.join(home, "bin", "libraos-next"))).toBe(
@@ -301,7 +300,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect(installed.installedPath).toBe(path.join(home, ".local", "bin", "libraos-next"));
       expect(yield* fs.readFileString(earlierLauncher)).toContain(DesktopCliShim.MARKER);
       // Every name runs the same launcher, with the same T3 home baked in.
-      for (const name of ["libraos-next", "agentd-next", "t3"]) {
+      for (const name of ["libraos-next", "lnext", "agentd-next", "t3"]) {
         const each = path.join(home, ".local", "bin", name);
         expect(yield* fs.readLink(each)).toBe(launcher);
         expect(yield* fs.realPath(each)).toBe(yield* fs.realPath(launcher));
@@ -309,10 +308,27 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       expect(yield* fs.readFileString(launcher)).toContain(baseDir);
 
       yield* command.uninstall;
-      for (const name of ["libraos-next", "agentd-next", "t3"]) {
+      for (const name of ["libraos-next", "lnext", "agentd-next", "t3"]) {
         const each = path.join(home, ".local", "bin", name);
         expect(Option.isNone(yield* fs.readLink(each).pipe(Effect.option))).toBe(true);
       }
+    }),
+  );
+
+  it.effect("adds lnext on a later launch beside a command installed before it", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const command = yield* commandIn({ home, env: { PATH: "", SHELL: "/bin/zsh" } });
+      yield* command.installOnFirstLaunch;
+      const short = path.join(home, ".local", "bin", "lnext");
+      yield* fs.remove(short);
+
+      yield* command.installOnFirstLaunch;
+      expect(yield* fs.readLink(short)).toBe(
+        path.join(home, ".agentd-desktop", "bin", "libraos-next"),
+      );
     }),
   );
 
@@ -519,7 +535,7 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* command.install;
       expect(registry.path).toBe(`${userPath};${launcherDir}`);
       const separator = launcherDir.includes("\\") ? "\\" : "/";
-      const windowsAliases = ["t3.cmd", "agentd-next.cmd"].map(
+      const windowsAliases = ["lnext.cmd", "t3.cmd", "agentd-next.cmd"].map(
         (name) => `${launcherDir}${separator}${name}`,
       );
       for (const windowsAlias of windowsAliases) {

@@ -43,7 +43,7 @@ const withRelayAndBaseDir = <A, E, R>(
       }),
   );
 
-describe("libraos-next relay", () => {
+describe("lnext relay", () => {
   it.effect("connect checks the token with the relay and stores it for this user only", () =>
     withRelayAndBaseDir(({ relayUrl, baseDir }) =>
       Effect.gen(function* () {

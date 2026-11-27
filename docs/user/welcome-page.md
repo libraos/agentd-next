@@ -79,11 +79,11 @@ holds for Codex and opencode.
 device with its LibraOS Engine server. Joining needs maintenance access to the
 environment.
 
-## The `libraos-next` command
+## The `lnext` command
 
-In the desktop app, when the `libraos-next` command is installed but its folder is
+In the desktop app, when the `lnext` command is installed but its folder is
 not on your `PATH`, the page offers **Add to PATH**, which adds one line to your
-shell's startup file ([Install](./install.md#the-libraos-next-command)).
+shell's startup file ([Install](./install.md#the-lnext-command)).
 
 ## Projects
 

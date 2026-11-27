@@ -85,11 +85,15 @@ To install the `.deb`:
 sudo apt install ./LibraOS-Next-<version>-amd64.deb
 ```
 
-### The `libraos-next` command
+<a id="the-libraos-next-command"></a>
 
-The desktop app includes the `libraos-next` command-line tool
-(`libraos-next.cmd` on Windows). The earlier names `agentd-next` and `t3` are
-installed beside it and still work, so scripts that use them need no change. A
+### The `lnext` command
+
+The desktop app includes the `lnext` command-line tool. `libraos-next` (the
+longer name, `libraos-next.cmd` on Windows) and the earlier names `agentd-next`
+and `t3` are installed beside it and run the same command, so scripts that use
+them need no change. An update adds `lnext` beside a command installed before
+it the next time the app starts. A
 new install sets it up on first launch; after an update, or any time, choose
 **Install** next to the command in **Settings → About**. On macOS and Linux it adds a link in `~/.local/bin` (or
 `~/bin`); on Windows it adds the app's command folder to your `PATH`. Open a new
@@ -97,15 +101,15 @@ terminal afterwards. If the folder is not on your `PATH`, **Add to PATH** on the
 Welcome page or in **Settings → About** adds one line to your shell's startup
 file. **Remove** takes it off, and the app does not add it again.
 
-| Task                                  | Command                                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Start the server and open the web app | `libraos-next`                                                                             |
-| Start the server without a browser    | `libraos-next serve`                                                                       |
-| Allow access from your other devices  | `libraos-next serve --lan` ([details](./remote-access.md))                                 |
-| Keep it running in the background     | `libraos-next service install`, with a release mirror ([details](./background-service.md)) |
-| Reclaim database space                | `libraos-next doctor` ([details](./background-service.md#reclaim-database-space))          |
+| Task                                  | Command                                                                             |
+| ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Start the server and open the web app | `lnext`                                                                             |
+| Start the server without a browser    | `lnext serve`                                                                       |
+| Allow access from your other devices  | `lnext serve --lan` ([details](./remote-access.md))                                 |
+| Keep it running in the background     | `lnext service install`, with a release mirror ([details](./background-service.md)) |
+| Reclaim database space                | `lnext doctor` ([details](./background-service.md#reclaim-database-space))          |
 
-Run `libraos-next --help` for the full reference. If it reports an already running
+Run `lnext --help` for the full reference. If it reports an already running
 server, run the `pair` command it names and open the pairing URL to connect to that
 server. Stop it before starting a replacement, or use a different `--base-dir` for
 an independent server.
@@ -126,18 +130,18 @@ take longer.
 With the desktop app already running on the same machine:
 
 ```bash
-libraos-next app
+lnext app
 ```
 
 This opens a new thread for the current directory, adding the project if needed.
-Pass a path, such as `libraos-next app ../my-project`, to open another directory. It
+Pass a path, such as `lnext app ../my-project`, to open another directory. It
 requires the desktop app, so a standalone server or an SSH session is not enough. If
 the command cannot reach the app, start or update the desktop app and try again.
 
 ### Drop a folder on the sidebar
 
 Drag one or more folders from Finder, Explorer, or your file manager onto the
-sidebar. Each one opens as a project on this computer, the same as `libraos-next app`.
+sidebar. Each one opens as a project on this computer, the same as `lnext app`.
 Files dropped on a thread still attach to that thread. Browsers do not share
 folder paths, so in the web app use **Add project** instead.
 
@@ -214,7 +218,7 @@ allow more time in the LibraOS Next server's environment. For example, give Code
 Claude readiness checks 60 seconds:
 
 ```bash
-T3CODE_CODEX_PROBE_TIMEOUT_MS=60000 T3CODE_CLAUDE_PROBE_TIMEOUT_MS=60000 libraos-next serve
+T3CODE_CODEX_PROBE_TIMEOUT_MS=60000 T3CODE_CLAUDE_PROBE_TIMEOUT_MS=60000 lnext serve
 ```
 
 For a remote environment, set these on the machine running the LibraOS Next server.

@@ -623,7 +623,7 @@ export const pairCommand = Command.make("pair", {
         notes.push("Phones can also connect through this computer's relay, from any network.");
       } else if (loopbackOnly) {
         notes.push(
-          "This URL is only reachable from this machine. To reach it from your other devices, run `libraos-next up`, or re-run with --tailscale.",
+          "This URL is only reachable from this machine. To reach it from your other devices, run `lnext up`, or re-run with --tailscale.",
         );
       }
 

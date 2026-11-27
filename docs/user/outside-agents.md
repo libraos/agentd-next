@@ -57,7 +57,7 @@ The page names the agent and where its access goes:
 
 Only approve a sign-in you just started. On the environment's own page, enter a
 code from **Use LibraOS Next in another app (MCP)**, **Settings → Sharing & access**,
-or `libraos-next auth pairing create` on the host. A browser already signed in to the
+or `lnext auth pairing create` on the host. A browser already signed in to the
 environment with permission to manage access can approve without a code.
 
 A code from **Use LibraOS Next in another app (MCP)** already carries the level you
@@ -149,14 +149,14 @@ plain `http`.
 
 ## Scripts on the host
 
-On the machine that runs the environment, `libraos-next thread` uses the same tools
+On the machine that runs the environment, `lnext thread` uses the same tools
 without a sign-in:
 
 ```sh
-id=$(libraos-next thread start . "Find why the tests are slow")
-libraos-next thread send "$id" "Now fix it" --wait
-libraos-next thread show "$id"
-libraos-next thread list
+id=$(lnext thread start . "Find why the tests are slow")
+lnext thread send "$id" "Now fix it" --wait
+lnext thread show "$id"
+lnext thread list
 ```
 
 `.` means the project that contains the current folder, or a git worktree of

@@ -195,7 +195,7 @@ const statusCommand = Command.make("status", { baseDir: baseDirFlag }).pipe(
       const devices = yield* attempt(() => listRelayDevices(stateDir));
       yield* Console.log(
         config === null
-          ? "Relay: not connected. Connect with `libraos-next relay connect <relay-url> --token <token>`.\n"
+          ? "Relay: not connected. Connect with `lnext relay connect <relay-url> --token <token>`.\n"
           : `Relay: ${config.relayUrl}\nHost id: ${config.hostId ?? "not known yet"}\nPaired relay devices: ${String(devices.length)}\n`,
       );
     }),
@@ -225,7 +225,7 @@ const devicesCommand = Command.make("devices", { baseDir: baseDirFlag }).pipe(
 const revokeCommand = Command.make("revoke", {
   baseDir: baseDirFlag,
   deviceId: Argument.String("device-id").pipe(
-    Argument.withDescription("The device id from `libraos-next relay devices`."),
+    Argument.withDescription("The device id from `lnext relay devices`."),
   ),
 }).pipe(
   Command.withDescription(

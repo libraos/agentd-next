@@ -1848,7 +1848,7 @@ function ImportRowMeta({
   );
 }
 
-/** The desktop app links `libraos-next` on a fresh install; this puts its folder on PATH when it is not. */
+/** The desktop app links `lnext` on a fresh install; this puts its folder on PATH when it is not. */
 function CliPathSetup() {
   const { state, busy, run } = useDesktopCliCommand();
   const setup = state?.pathSetup;
@@ -1862,11 +1862,11 @@ function CliPathSetup() {
         {setup.added ? (
           <T>
             Added to <Var>{setup.file}</Var>. Open a new terminal to use{" "}
-            <code className="font-mono">libraos-next</code>.
+            <code className="font-mono">lnext</code>.
           </T>
         ) : (
           <T>
-            Use <code className="font-mono">libraos-next</code> from any terminal. Adds one line to{" "}
+            Use <code className="font-mono">lnext</code> from any terminal. Adds one line to{" "}
             <Var>{setup.file}</Var>.
           </T>
         )}
