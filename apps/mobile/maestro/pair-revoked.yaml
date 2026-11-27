@@ -4,8 +4,9 @@
 appId: com.libraos.next
 name: A device the computer revoked has to pair again
 ---
-- launchApp:
-    stopApp: true
+# The link starts the stopped app, so it is the launch URL. Opened just after a launchApp, it
+# arrived before JavaScript listened for links and the app stayed on Home.
+- stopApp
 - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
 - extendedWaitUntil:
     visible: ${ENVIRONMENT_NAME}

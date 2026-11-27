@@ -38,8 +38,10 @@ name: Pair with a real server and open the LibraOS Engine screen
     visible: "Environments.*"
     timeout: 30000
 - tapOn: "Environments.*"
+# The row is one button: iOS exposes only its label, "Manage <name>", and not the name inside it
+# (Android lists both), so match that label on both platforms.
 - extendedWaitUntil:
-    visible: ${ENVIRONMENT_NAME}
+    visible: "Manage ${ENVIRONMENT_NAME}"
     timeout: 30000
 
 - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
