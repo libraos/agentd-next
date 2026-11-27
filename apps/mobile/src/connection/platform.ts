@@ -23,7 +23,7 @@ import { authClientMetadata } from "../lib/authClientMetadata";
 import * as Runtime from "../lib/runtime";
 import * as MobileStorage from "../persistence/mobile-storage";
 import { appAtomRegistry } from "../state/atom-registry";
-import { mobileApplicationActiveWakeup } from "./app-state-wakeups";
+import { createAppStateWakeups } from "./app-state-wakeups";
 import * as EnvironmentOwnedDataCleanup from "./environment-owned-data-cleanup";
 import * as ConnectionStorage from "./storage";
 
@@ -119,19 +119,10 @@ const layerWakeups = Wakeups.layer({
         Effect.acquireRelease(
           Effect.gen(function* () {
             const nowMs = yield* Clock.currentTimeMillis;
-            let backgroundedAtMs = AppState.currentState === "background" ? nowMs : null;
+            const wakeupFor = createAppStateWakeups(AppState.currentState, nowMs);
             return AppState.addEventListener("change", (state) => {
-              if (state === "background") {
-                backgroundedAtMs = Date.now();
-                return;
-              }
-              if (state === "active") {
-                Queue.offerUnsafe(
-                  queue,
-                  mobileApplicationActiveWakeup(backgroundedAtMs, Date.now()),
-                );
-                backgroundedAtMs = null;
-              }
+              const wakeup = wakeupFor(state, Date.now());
+              if (wakeup !== null) Queue.offerUnsafe(queue, wakeup);
             });
           }),
           (subscription) => Effect.sync(() => subscription.remove()),

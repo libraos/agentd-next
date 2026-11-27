@@ -61,11 +61,12 @@ name: Pair with a real server and open the LibraOS Engine screen
           optional: true
 # The row sits below Connection and Routes, off a small screen. iOS exposes the row only by its
 # label, "LibraOS Engine", which its section title shares, and not the description inside it,
-# so match the row by its id and check the description where Android lists it.
+# so match the row by its id and check the description where Android lists it. The row shows once
+# the environment is connected; the CI host's server can take seconds per request, hence 60 s.
 - scrollUntilVisible:
     element:
       id: "environment-engine-row"
-    timeout: 30000
+    timeout: 60000
 - runFlow:
     when:
       platform: Android

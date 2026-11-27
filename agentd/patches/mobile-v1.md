@@ -32,6 +32,10 @@ removing it would fight every upstream sync.
   native copy as the initial URL. The splash stops waiting for preferences after 5 s, so a
   storage read that never answers (an iOS keychain stall) cannot keep the app on it.
 - `apps/mobile/src/features/home/home-launch-splash.ts`: `splashCanHide` takes that limit.
+- `apps/mobile/src/connection/app-state-wakeups.ts` and its new test, `apps/mobile/src/connection/platform.ts`:
+  only a return from the background probes the live connection. An iOS app that was only
+  inactive (the "Open in …?" alert for a link) keeps its socket; upstream's 3 s loopback probe
+  replaced a working socket to a busy host.
 - `apps/mobile/src/features/home/home-empty-state.ts`, `apps/mobile/src/features/layout/WorkspaceEmptyDetail.tsx`:
   with no environment, the first screen asks to pair with your computer and says how.
 - `apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx`: without a relay,
