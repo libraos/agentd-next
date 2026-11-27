@@ -1254,6 +1254,30 @@ it("names a missing GitHub App as the problem, with one install button beside it
   await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
 });
 
+it("puts the install button by a drafted cloud task's problem while its inputs are folded", async () => {
+  setup("feature/export", true, { agentdRunTasksOn: "cloud" });
+  state.cloud = cloudReady({ balanceUsd: null, problem: "repository" });
+  await using _screen = await render(
+    <AppAtomRegistryProvider>
+      <ToastProvider>
+        <TaskDraftCard threadRef={threadRef} fields={drafted} />
+      </ToastProvider>
+    </AppAtomRegistryProvider>,
+  );
+  const card = page.getByRole("region", { name: "Drafted task" });
+  await expect
+    .element(
+      card.getByText(
+        "The repository owner must install the Cloud Workers GitHub App on this repository.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(card.getByRole("link", { name: "Install the GitHub App" }))
+    .toHaveAttribute("href", INSTALL_APP);
+  await expect.element(card.getByRole("button", { name: "Start" })).toBeDisabled();
+});
+
 it("offers no Keep the current key once a replacement key is on its way", async () => {
   setup("feature/export", false);
   let answer: (value: unknown) => void = () => {};
