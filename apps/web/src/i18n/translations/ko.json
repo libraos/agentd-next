@@ -461,13 +461,13 @@
   "663d7b465a461e5b": "The hosted relay could not reach {host}'s tunnel",
   "305ebc835c97d9f8": "LibraOS Next on {host} did not accept this device",
   "0997b810795eda2e": "LibraOS Next on {host} did not answer",
-  "8f077503e6af5b6e": "On {host}, check Settings > Sharing & access or run `libraos-next connect status`.",
+  "466f9cb21771a27a": "On {host}, check Settings > Sharing & access or run `lnext connect status`.",
   "a2242ae6ad65f6da": "Connect this device to the internet. LibraOS Next reconnects on its own.",
   "f764da9d29d6abe8": "Wait a moment. LibraOS Next retries on its own.",
   "8af1b6d0bc9eabdd": "If it keeps waiting, reload or restart LibraOS Next on this device.",
   "570aaeb32dc600a7": "{host}에 이미 연결된 기기에서 설정 > 공유 및 액세스를 열고 {code}이(가) 표시된 기기를 승인하세요.",
   "08a2d57d02f30799": "{host}에 이미 연결된 기기에서 설정 > 공유 및 액세스를 열고 이 기기를 승인하세요.",
-  "561786212380d67d": "Or run `libraos-next auth connect-device approve {code}` on {host}.",
+  "15d41e6d59d23c45": "Or run `lnext auth connect-device approve {code}` on {host}.",
   "f17928c8ecc808d3": "Update LibraOS Next on {host}.",
   "3c35e0980e06bfa6": "이 기기와 {host}에서 날짜 및 시간 자동 설정을 켠 다음 다시 시도하세요.",
   "dccd0cf31464a5d8": "Check that this device is signed in to the same hosted relay account as the host.",
@@ -3124,8 +3124,8 @@
   "62450481c00d2ef3": "초안의 환경을 사용할 수 없어 받아쓴 내용을 정리할 수 없습니다.",
   "0674544195fcdc39": "원본 받아쓰기 내용이 추가되었습니다.",
   "c64cb58d9cecbcd2": "받아쓴 내용 정리 실패",
-  "0c97a06f4ff33d85": "The libraos-next command is unavailable.",
-  "b4fe019cbbeed6ae": "Failed to load the libraos-next command state.",
+  "2fba76ce24b9a739": "The lnext command is unavailable.",
+  "8d8b1e8166ba46ce": "Failed to load the lnext command state.",
   "1bf6910332426e62": "데스크톱 네트워크 액세스를 사용할 수 없습니다.",
   "453d2f1825d6e763": "데스크톱 서버 노출 상태를 불러오지 못했습니다.",
   "2f388f3d76869c03": "알려진 데스크톱 엔드포인트를 불러오지 못했습니다.",
@@ -6217,7 +6217,7 @@
   "c246e33dafd359cc": "추가",
   "b0c1beb79a87d97b": "인증 요청",
   "0311d7ed2b7eb2f6": "이 연결 링크가 불완전합니다",
-  "e7e7c60467265928": "The link is missing its authorization request. Re-run `libraos-next connect` in your terminal and open the freshly printed URL.",
+  "7c93775ac1340632": "The link is missing its authorization request. Re-run `lnext connect` in your terminal and open the freshly printed URL.",
   "55ee748307f0cd6a": "브라우저 인증",
   "1ccae6b48df9cf15": "터미널 연결 중",
   "87c993fe8b1958e3": "Redirecting to authorize the hosted relay for your CLI…",
@@ -7458,7 +7458,7 @@
     "을(를) 실행하세요."
   ],
   "9d9b9624c7bd95df": "기타 폴더",
-  "0723511350242b54": [
+  "649fb06ae9d843ba": [
     "Added to ",
     {
       "i": 1,
@@ -7470,16 +7470,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     "."
   ],
-  "a19264f78bd15564": [
+  "0bfa188861328fb1": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     " from any terminal. Adds one line to ",
     {
@@ -8600,7 +8600,7 @@
   "8a333daf9b7fd03f": "{environment}에 연결",
   "7662025844bf543f": "환경 추가",
   "65b1d784a5e84254": "Tailscale 이름 같은 다른 주소로 이 머신을 다시 페어링하세요. 두 번째 머신을 추가하는 대신 기존 경로에 합쳐집니다.",
-  "fd6c196a293780a4": "{environment}의 설정 → 공유 및 액세스에서 또는 `libraos-next auth pairing create`로 페어링 코드를 만든 다음 여기에 입력하세요.",
+  "9aa85ef508c9b4b9": "{environment}의 설정 → 공유 및 액세스에서 또는 `lnext auth pairing create`로 페어링 코드를 만든 다음 여기에 입력하세요.",
   "1bea4864d46d70d0": "이 클라이언트에 다른 환경을 페어링합니다.",
   "9b24ef052b321e57": "백엔드 호스트와 페어링 코드를 입력하세요.",
   "3e20f17f71edf0ad": "백엔드에 로컬 SSH 구성, 에이전트, 터널을 사용합니다.",
@@ -9059,17 +9059,17 @@
     },
     ")"
   ],
-  "86c6983e9247421c": "Could not install libraos-next",
-  "648d7ec0387002ee": "Could not remove libraos-next",
-  "7cfbcce96dca6ffe": "Could not add libraos-next to PATH",
-  "0983579b46a2a633": "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
-  "9e380157af2ee859": "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
+  "2740557d7569b38f": "Could not install lnext",
+  "3b288f3f89d903a2": "Could not remove lnext",
+  "51456f291f01b5b8": "Could not add lnext to PATH",
+  "145c044702896900": "Another lnext at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+  "3db7d970661cb24b": "Run LibraOS Next's CLI as `lnext` from any terminal. Also installs `libraos-next`, `agentd-next` and `t3` as aliases.",
   "4f6e93011ef2da6f": "{path}에 설치되었습니다. 사용하려면 새 터미널을 여세요.",
   "371ca438cf467125": "{path}에 설치되었고 {file}에서 PATH에 추가되었습니다. 사용하려면 새 터미널을 여세요.",
   "fd3eece9d1a7ea38": "{path}에 설치되었지만 아직 PATH에 없습니다.",
-  "095337793fe19f6c": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
-  "e71863bfeee3f2ac": "Remove",
-  "ab8c2907b24f28e1": "설치",
+  "1018fcfb06564432": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `lnext`.",
+  "e4dc3dbe14c831c0": "제거",
+  "9e8a4cf4a5369dc3": "설치",
   "9a284b5893dc04a2": "OpenRouter 모델",
   "c8361c16c47d5fb5": "받아쓰기 모델 검색",
   "d72eccdd92d4f989": "이 변경 사항을 저장할 수 없습니다. 연결을 확인하고 다시 시도하세요.",
@@ -10152,7 +10152,7 @@
   "ca4e4015b89ed9a8": "{target}에서 {source}(으)로 반대 방향 연결을 할 수 없습니다",
   "64ac3d1579ca9f5b": "{source}을(를) {target}에 연결",
   "5f2e20c62a4fece3": "{via}이(가) {target}에 전체 액세스로 연결되어 있어 페어링 코드를 가져옵니다. 붙여 넣을 코드가 없습니다.",
-  "77f045c893ab298c": "From Sharing & access there, or libraos-next pair",
+  "b8c0fd33f1d788c1": "From Sharing & access there, or lnext pair",
   "1e3fee7084791773": "{target}에서 {source}(으)로도 반대 방향 연결",
   "ea34a190b0bd804c": "그러면 {target}의 에이전트도 {source}에서 작업할 수 있습니다.",
   "974f8c65e8b5f492": "{label}을(를) 잊을까요? 여기의 에이전트는 그곳에서 더 이상 작업하지 않으며, {label}이(가) 응답하면 그곳의 세션도 종료됩니다.",
@@ -10931,8 +10931,8 @@
   "fb47a2a9a37656f1": "The hosted relay is on, but other devices cannot reach this environment.",
   "8001b7817caee889": "The hosted relay is on. Reachability has not been checked yet.",
   "621691786b1ce9f2": "The hosted relay is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn the hosted relay on to repair it.",
-  "96403aa33398dcdd": "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
-  "f9ccb2b4359b6de4": "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
+  "88e04cc983ecd3b0": "This environment was removed from the hosted relay. Run `lnext connect link` on the host to link it again.",
+  "77a72a1a461b9a26": "Run `lnext connect link` on the host, then restart LibraOS Next there.",
   "0a3123a6ce981075": "모바일 알림과 실시간 활동으로 활동을 보내려면 로그인하세요.",
   "80a3aef9dfe51459": "Send activity to mobile notifications and Live Activities without the hosted relay.",
   "5f8ca828eca1ce1a": "모바일 클라이언트에 에이전트 활동 게시",
@@ -13095,7 +13095,7 @@
   "0c5fc3b5e41e1956": "생성된 스레드 제목 프롬프트 사용자 지정 스타일 이름 지정 이름 바꾸기 다시 생성",
   "a83570bcb45d8fa1": "정보 업데이트 확인 다운로드 설치 업그레이드 릴리스",
   "d65bdf6748801734": "릴리스 채널 안정 latest nightly 사전 릴리스",
-  "27ae62d2e5badca4": "libraos-next command",
+  "58d0beb1ef86e52e": "lnext command",
   "46dd4dc08c1e552f": "CLI 터미널 셸 경로 설치 명령줄",
   "86479042bae0e2db": "모바일 앱",
   "dc2a999ca67ccf31": "휴대폰 태블릿 iPhone iPad iOS Android App Store Google Play QR",

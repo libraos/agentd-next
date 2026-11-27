@@ -60,7 +60,7 @@ export const runDefaultServerCommand = Effect.fn("server.runDefaultServerCommand
     if (!explicitPath && (!(yield* fs.exists(cwd)) || (yield* fs.stat(cwd)).type !== "Directory")) {
       return yield* new CliError.UserError({
         cause: cwd,
-        userMessage: `Unknown command ${yield* encodeCommand(cwd)}. Use "libraos-next --help" for commands or an explicit path such as "libraos-next ./my-project" for a new directory.`,
+        userMessage: `Unknown command ${yield* encodeCommand(cwd)}. Use "lnext --help" for commands or an explicit path such as "lnext ./my-project" for a new directory.`,
       });
     }
   }
@@ -68,7 +68,7 @@ export const runDefaultServerCommand = Effect.fn("server.runDefaultServerCommand
 });
 
 export const startCommand = Command.make("start", { ...sharedServerCommandFlags }).pipe(
-  Command.withDescription("Same as `libraos-next`."),
+  Command.withDescription("Same as `lnext`."),
   Command.unlisted,
   Command.withHandler((flags) => runServerCommand(flags, { rejectRunningServer: true })),
 );
@@ -79,7 +79,7 @@ const { autoBootstrapProjectFromCwd: _, ...serveCommandFlags } = sharedServerCom
 export const serveCommand = Command.make("serve", serveCommandFlags).pipe(
   Command.withShortDescription("Run LibraOS Next in this terminal, with no browser."),
   Command.withDescription(
-    "Run LibraOS Next in this terminal without opening a browser, and print pairing details. The background service runs this. To set up access from your other devices, run `libraos-next up`.",
+    "Run LibraOS Next in this terminal without opening a browser, and print pairing details. The background service runs this. To set up access from your other devices, run `lnext up`.",
   ),
   Command.withHandler((flags) =>
     runServerCommand(

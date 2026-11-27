@@ -35,7 +35,7 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const bin = yield* fs.makeTempDirectoryScoped();
-    yield* fs.writeFileString(path.join(bin, "libraos-next"), "#!/bin/sh\n", { mode: 0o755 });
+    yield* fs.writeFileString(path.join(bin, "lnext"), "#!/bin/sh\n", { mode: 0o755 });
     return bin;
   });
 
@@ -54,7 +54,7 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
           entry: "/home/theo/.local/lib/node_modules/t3/dist/bin.mjs",
           path: yield* pathWithT3,
         }),
-      ).toBe('sudo env "PATH=$PATH" libraos-next browser setup');
+      ).toBe('sudo env "PATH=$PATH" lnext browser setup');
     }),
   );
 
@@ -68,7 +68,7 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
           path: yield* pathWithT3,
           args,
         }),
-      ).toBe(`sudo env "PATH=$PATH" libraos-next browser setup --base-dir '/srv/t3 home'`);
+      ).toBe(`sudo env "PATH=$PATH" lnext browser setup --base-dir '/srv/t3 home'`);
       expect(
         yield* rootCommand({ node: "/opt/t3/t3", entry: "/opt/t3/t3", executable: true, args }),
       ).toBe("sudo /opt/t3/t3 browser setup --base-dir '/srv/t3 home'");
@@ -98,9 +98,9 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
 
       // The link the app installs onto PATH leads to its own launcher, so plain `t3` is right.
       const linked = yield* fs.makeTempDirectoryScoped();
-      yield* fs.symlink(shim, path.join(linked, "libraos-next"));
+      yield* fs.symlink(shim, path.join(linked, "lnext"));
       expect(yield* rootCommand({ ...desktop, path: linked })).toBe(
-        'sudo env "PATH=$PATH" libraos-next browser setup',
+        'sudo env "PATH=$PATH" lnext browser setup',
       );
 
       expect(
@@ -131,7 +131,7 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
         path.join(prefix, "lib/node_modules/t3/package.json"),
         `{"name":"t3","version":"${packageJson.version}"}`,
       );
-      yield* fs.symlink(npmLauncher, path.join(prefix, "bin/libraos-next"));
+      yield* fs.symlink(npmLauncher, path.join(prefix, "bin/lnext"));
       expect(
         yield* rootCommand({
           node: "/home/theo/.t3/runtime/versions/1.0.0/t3",
@@ -140,11 +140,11 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
           path: path.join(prefix, "bin"),
           env: { T3CODE_NPM_LAUNCHER_PATH: npmLauncher },
         }),
-      ).toBe('sudo env "PATH=$PATH" libraos-next browser setup');
+      ).toBe('sudo env "PATH=$PATH" lnext browser setup');
 
       expect(
         yield* rootCommand({ ...desktop, env: { T3CODE_CLI_PATH: path.join(home, "gone") } }),
-      ).toBe('sudo env "PATH=$PATH" libraos-next browser setup');
+      ).toBe('sudo env "PATH=$PATH" lnext browser setup');
     }),
   );
 });
@@ -175,7 +175,7 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
         `& "${shim}" doctor "--base-dir" "C:\\Users\\Jane Doe\\.t3"`,
       );
       expect((yield* hostCommand("win32", {})).command).toBe(
-        'libraos-next doctor "--base-dir" "C:\\Users\\Jane Doe\\.t3"',
+        'lnext doctor "--base-dir" "C:\\Users\\Jane Doe\\.t3"',
       );
       expect(
         (yield* resolveHostCliCommand("doctor", ["--base-dir", "C:\\T3\\\u201CArchive\u201D"]).pipe(
@@ -185,7 +185,7 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
           Effect.provideService(HostProcess.Arguments, ["C:\\t3.exe", "C:\\bin.mjs"]),
           Effect.provideService(HostProcess.IsExecutable, false),
         )).command,
-      ).toBe('libraos-next doctor "--base-dir" "C:\\T3\\\u201C\u201CArchive\u201D\u201D"');
+      ).toBe('lnext doctor "--base-dir" "C:\\T3\\\u201C\u201CArchive\u201D\u201D"');
       expect((yield* hostCommand("linux", { T3CODE_CLI_PATH: shim })).command).toMatch(
         / doctor --base-dir 'C:\\Users\\Jane Doe\\\.t3'$/,
       );
@@ -199,7 +199,7 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const bin = yield* fs.makeTempDirectoryScoped();
-        yield* fs.writeFileString(path.join(bin, "libraos-next"), "#!/bin/sh\n", { mode: 0o755 });
+        yield* fs.writeFileString(path.join(bin, "lnext"), "#!/bin/sh\n", { mode: 0o755 });
         const hostCommand = (searchPath: string) =>
           resolveHostCliCommand("doctor").pipe(
             Effect.provideService(HostProcess.ExecutablePath, "/usr/bin/node"),
@@ -214,16 +214,16 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
 
         // A relative entry was searched from this process's directory, unlike the user's shell.
         expect(yield* hostCommand(path.relative(process.cwd(), bin))).toEqual({
-          command: `${hostShellWord("linux", path.join(bin, "libraos-next"))} doctor`,
+          command: `${hostShellWord("linux", path.join(bin, "lnext"))} doctor`,
           launcher: false,
         });
         // An empty entry makes the shell search its own directory first, wherever that is.
         expect(yield* hostCommand(`:${bin}`)).toEqual({
-          command: `${hostShellWord("linux", path.join(bin, "libraos-next"))} doctor`,
+          command: `${hostShellWord("linux", path.join(bin, "lnext"))} doctor`,
           launcher: false,
         });
         expect(yield* hostCommand(bin)).toEqual({
-          command: "libraos-next doctor",
+          command: "lnext doctor",
           launcher: false,
         });
       }),

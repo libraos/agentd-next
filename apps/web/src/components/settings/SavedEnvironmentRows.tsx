@@ -768,15 +768,13 @@ function ConfiguredCloudLinkRow({
         <SettingsRow
           title={setting("t3-connect").title}
           description={gt(
-            "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
+            "This environment was removed from the hosted relay. Run `lnext connect link` on the host to link it again.",
           )}
         />
       ) : (
         <SettingsRow
           title={setting("t3-connect").title}
-          description={gt(
-            "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
-          )}
+          description={gt("Run `lnext connect link` on the host, then restart LibraOS Next there.")}
         />
       )}
       {signedOut && showSwitch ? null : (

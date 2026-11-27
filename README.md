@@ -17,7 +17,7 @@ Download the installer for your system from the [releases page](https://github.c
 | Windows (x64)         | `LibraOS-Next-…-x64.exe`                        |
 | Linux (x64)           | `LibraOS-Next-x86_64.AppImage` or `…-amd64.deb` |
 
-From 0.4.0, the macOS app is notarized by Apple and the Windows installer is signed by Nebula Nova, Inc. Windows SmartScreen may still warn for a while after a release: check that it names Nebula Nova, Inc., then choose **More info → Run anyway**. Linux builds are not signed; check them against `SHA256SUMS`. The [install guide](./docs/user/install.md) covers checksums, older releases and the `libraos-next` command.
+From 0.4.0, the macOS app is notarized by Apple and the Windows installer is signed by Nebula Nova, Inc. Windows SmartScreen may still warn for a while after a release: check that it names Nebula Nova, Inc., then choose **More info → Run anyway**. Linux builds are not signed; check them against `SHA256SUMS`. The [install guide](./docs/user/install.md) covers checksums, older releases and the `lnext` command.
 
 ## Connect an agent
 

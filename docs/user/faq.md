@@ -24,7 +24,7 @@ Yes. Add another provider instance in Settings and give it its own keys and endp
 
 ## How do I use LibraOS Next remotely?
 
-Your agents run wherever the LibraOS Next server runs: your desktop, a server, a VPS. Allow LAN or tailnet access on that machine (**Settings → Sharing & access → Network access** in the desktop app, or `libraos-next serve --lan`) and pair your other device with a pairing URL. Upstream's hosted relay and hosted web app are not part of LibraOS Next. [Remote access](./remote-access.md)
+Your agents run wherever the LibraOS Next server runs: your desktop, a server, a VPS. Allow LAN or tailnet access on that machine (**Settings → Sharing & access → Network access** in the desktop app, or `lnext serve --lan`) and pair your other device with a pairing URL. Upstream's hosted relay and hosted web app are not part of LibraOS Next. [Remote access](./remote-access.md)
 
 ## Is there a mobile app?
 
