@@ -153,8 +153,7 @@ const appLinking = {
   filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),
   getInitialURL: async () => {
     // Android already makes a link that arrives during startup its intent, which getInitialURL reads.
-    const launchUrl = startupLinks.takeLaunchUrl(
-      await Linking.getInitialURL(),
+    const launchUrl = await startupLinks.initialUrl(Linking.getInitialURL, () =>
       Platform.OS === "ios" ? Linking.getLinkingURL() : null,
     );
     return launchUrl ?? (await launchWorkspaceURL());
@@ -239,24 +238,36 @@ disposeOnFoundationReplace(typeof module === "undefined" ? undefined : module.ho
 // Cached shells are local reads that end in a fraction of this time; the limit keeps a failed
 // read, or a list that does not lay out, from holding the splash screen.
 const SPLASH_WAIT_MS = 1_500;
+// Preferences come from storage that can stall (an iOS keychain read that never answers); past
+// this the app shows with default appearance rather than staying on the splash.
+const SPLASH_PREFERENCES_LIMIT_MS = 5_000;
 
 function SplashScreenCoordinator() {
   const { isReady } = useAppearancePreferences();
   const shellCachesRead = useAtomValue(shellCachesReadAtom);
   const homeRowsPending = useLaunchSplashHomeRowsPending();
   const [waitEnded, setWaitEnded] = useState(false);
+  const [preferencesWaitEnded, setPreferencesWaitEnded] = useState(false);
   const hidden = useRef(false);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts the limit on how long the native splash screen waits for cached shells and their rows
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- starts the limits on how long the native splash screen waits for preferences, cached shells and their rows
   useEffect(() => {
     const timer = setTimeout(() => setWaitEnded(true), SPLASH_WAIT_MS);
-    return () => clearTimeout(timer);
+    const preferencesTimer = setTimeout(
+      () => setPreferencesWaitEnded(true),
+      SPLASH_PREFERENCES_LIMIT_MS,
+    );
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(preferencesTimer);
+    };
   }, []);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- hides the native splash screen once preferences have loaded and the cached rows are laid out
   useEffect(() => {
     const canHide = splashCanHide({
       preferencesReady: isReady,
+      preferencesWaitEnded,
       shellCachesRead,
       // Home holds the splash in a layout effect of the commit that gives it rows. That can be
       // this commit, after this render read the store.
@@ -267,7 +278,7 @@ function SplashScreenCoordinator() {
     hidden.current = true;
     settleLaunchSplashHomeRows();
     void SplashScreen.hide();
-  }, [isReady, shellCachesRead, homeRowsPending, waitEnded]);
+  }, [isReady, preferencesWaitEnded, shellCachesRead, homeRowsPending, waitEnded]);
 
   return null;
 }
