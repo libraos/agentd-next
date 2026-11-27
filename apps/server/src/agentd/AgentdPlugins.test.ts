@@ -152,6 +152,7 @@ const REPO_FILES: Record<string, Uint8Array> = {
   ),
   "plugins/claude/bin/server.sh": text("#!/bin/sh\nexit 0\n"),
   "plugins/claude/bin/helper.sh": text("#!/bin/sh\nexit 0\n"),
+  "plugins/claude/skills/brief/SKILL.md": text("---\nname: brief\ndescription: d\n---\nBrief.\n"),
 };
 const MARKETPLACE_URL = `${PLUGIN_CATALOG_BASE}/.claude-plugin/marketplace.json`;
 const MARKETPLACE = JSON.stringify({
@@ -1180,7 +1181,15 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
       ],
     });
     expect(yield* h.service.claudePlugins(PROJECT)).toEqual([]);
+    // Codex is given every installed plugin's skills folder and told which skills are off.
+    const skills = h.path.join(folder, "skills");
+    const brief = { roots: [skills], off: [h.path.join(skills, "brief", "SKILL.md")] };
+    expect(yield* h.service.pluginSkills(PROJECT)).toEqual(brief);
     yield* h.service.setEnabled({ id: "claude", enabled: true });
+    expect(yield* h.service.pluginSkills(PROJECT)).toEqual({ roots: [skills], off: [] });
+    yield* h.service.setEnabled({ id: "claude", enabled: false, projectId: PROJECT });
+    expect(yield* h.service.pluginSkills(PROJECT)).toEqual(brief);
+    yield* h.service.setEnabled({ id: "claude", enabled: true, projectId: PROJECT });
     expect(yield* h.service.mcpServers(PROJECT)).toEqual({});
     // Claude loads the folder for its skills before the server's settings are given.
     expect(yield* h.service.claudePlugins(PROJECT)).toEqual([

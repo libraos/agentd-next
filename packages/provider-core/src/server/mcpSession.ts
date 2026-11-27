@@ -24,6 +24,15 @@ export interface McpProviderSessionConfig {
   readonly pluginMcpServers?: Effect.Effect<Readonly<Record<string, PluginMcpServer>>>;
   /** Claude plugin folders on in the thread's project, which Claude loads itself; read at each launch. */
   readonly claudePlugins?: Effect.Effect<ReadonlyArray<ClaudePluginFolder>>;
+  /** Plugin skills, for an agent that loads skill folders itself (Codex); read at each launch. */
+  readonly pluginSkills?: Effect.Effect<PluginSkills>;
+}
+
+export interface PluginSkills {
+  /** The `skills` folder of every installed plugin, the same for every project. */
+  readonly roots: ReadonlyArray<string>;
+  /** The SKILL.md files in `roots` of the plugins not on in the thread's project. */
+  readonly off: ReadonlyArray<string>;
 }
 
 export interface ClaudePluginFolder {

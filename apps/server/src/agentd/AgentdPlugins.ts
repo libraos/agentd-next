@@ -32,7 +32,7 @@ import {
   type ProjectId,
   type ThreadId,
 } from "@t3tools/contracts";
-import type { ClaudePluginFolder } from "@t3tools/provider-core/server/mcpSession";
+import type { ClaudePluginFolder, PluginSkills } from "@t3tools/provider-core/server/mcpSession";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveCommandPath, resolveCommandPaths } from "@t3tools/shared/shell";
 import {
@@ -366,6 +366,8 @@ export class AgentdPluginsService extends Context.Service<
     readonly claudePlugins: (
       projectId: ProjectId,
     ) => Effect.Effect<ReadonlyArray<ClaudePluginFolder>>;
+    /** The Claude plugins' skill folders, and which of their skills are off in a project. */
+    readonly pluginSkills: (projectId: ProjectId) => Effect.Effect<PluginSkills>;
     /**
      * The MCP servers of the plugins on in the project, ready to start, by server name. A server
      * whose command is gone, whose setup has not run or that lacks a setting is left out.
@@ -1108,6 +1110,37 @@ const make = Effect.gen(function* () {
       });
     }
     return folders;
+  });
+
+  const pluginSkills = Effect.fn("AgentdPlugins.pluginSkills")(function* (projectId: ProjectId) {
+    // As for Claude, the first plugin by id keeps a name; claudePlugins would also write secrets.
+    const names = new Set<string>();
+    const on = new Set<string>();
+    for (const { found, manifest } of yield* launchable(projectId)) {
+      if (!manifest.claude || names.has(manifest.id)) continue;
+      names.add(manifest.id);
+      on.add(found.folder);
+    }
+    const sources = yield* readSources;
+    const roots: Array<string> = [];
+    const off: Array<string> = [];
+    for (const key of sortPluginKeys(yield* installedKeys(sources))) {
+      if (!runnable(key, sources)) continue;
+      const found = yield* installed(key);
+      if (found?.manifest?.claude !== true) continue;
+      const root = path.join(found.folder, "skills");
+      const files: Array<string> = [];
+      for (const name of (yield* fs
+        .readDirectory(root)
+        .pipe(Effect.orElseSucceed(() => []))).toSorted()) {
+        const file = path.join(root, name, "SKILL.md");
+        if (yield* fs.exists(file).pipe(Effect.orElseSucceed(() => false))) files.push(file);
+      }
+      if (files.length === 0) continue;
+      roots.push(root);
+      if (!on.has(found.folder)) off.push(...files);
+    }
+    return { roots, off } satisfies PluginSkills;
   });
 
   const mcpServers = Effect.fn("AgentdPlugins.mcpServers")(function* (projectId: ProjectId) {
@@ -2361,6 +2394,7 @@ const make = Effect.gen(function* () {
     setupDone,
     setSettings,
     claudePlugins,
+    pluginSkills,
     mcpServers,
     setEnabled,
     hasBeforeSend,

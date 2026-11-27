@@ -5,8 +5,8 @@ repository that holds a catalogue, such as your organisation's own.
 
 A plugin is a Claude Code plugin folder, and a catalogue is a Claude Code marketplace
 (`.claude-plugin/marketplace.json`) whose entries each pin a commit and a version. Claude runs
-the whole plugin: its skills, commands, agents, hooks and MCP servers. Codex gets its MCP servers.
-Other agents get nothing from a plugin yet. Catalogues in the earlier `catalog.json` format still
+the whole plugin: its skills, commands, agents, hooks and MCP servers. Codex gets its skills and MCP
+servers, and OpenCode its MCP servers. Other agents get nothing from a plugin yet. Catalogues in the earlier `catalog.json` format still
 work.
 
 ## Add a catalogue or install one of its plugins
