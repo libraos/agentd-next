@@ -22,9 +22,9 @@ name: Pair with a real server and open the LibraOS Engine screen
 - takeScreenshot: pairing-dark
 - tapOn: "Address"
 - inputText: ${HOST}
-- tapOn:
-    text: "Code"
-    index: 0
+# Tap the field by its placeholder: on Android a tap on the "Code" label leaves focus in Address.
+- hideKeyboard
+- tapOn: "Pairing code"
 - inputText: ${CODE}
 - pressKey: Enter
 # Pairing lands on Settings, which lists environments one level down.
