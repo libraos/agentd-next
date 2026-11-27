@@ -1201,6 +1201,59 @@ it("asks for no account key while agentd won't say where it would send one", asy
     .toBeVisible();
 });
 
+const INSTALL_APP = "https://github.com/apps/libraos/installations/new";
+
+it("says a LibraOS cloud task needs the GitHub App on its repository and links its install page", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady();
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect
+    .element(page.getByText("Cloud tasks need the LibraOS GitHub App on acme/app."))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("link", { name: "Install the GitHub App" }))
+    .toHaveAttribute("href", INSTALL_APP);
+  await expect
+    .element(page.getByText(/An organization owner or repository admin installs it/))
+    .toBeVisible();
+});
+
+it("links no LibraOS GitHub App for a separately hosted Job API", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady({ setupUrl: "https://jobs.example.com" });
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect.element(page.getByText(/A cloud task delivers a branch/)).toBeVisible();
+  await expect
+    .element(page.getByRole("link", { name: "Install the GitHub App" }))
+    .not.toBeInTheDocument();
+  await expect.element(page.getByText(/LibraOS GitHub App/)).not.toBeInTheDocument();
+});
+
+it("names a missing GitHub App as the problem, with one install button beside it", async () => {
+  setup("feature/export");
+  state.cloud = cloudReady({ balanceUsd: null, problem: "repository" });
+  await using _screen = await renderDialog();
+  await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect
+    .element(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "Cloud tasks need the LibraOS GitHub App on acme/app." }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "The repository owner must install the Cloud Workers GitHub App on this repository.",
+      ),
+    )
+    .toBeVisible();
+  expect(page.getByRole("link", { name: "Install the GitHub App" }).elements()).toHaveLength(1);
+  await expect.element(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
+});
+
 it("offers no Keep the current key once a replacement key is on its way", async () => {
   setup("feature/export", false);
   let answer: (value: unknown) => void = () => {};

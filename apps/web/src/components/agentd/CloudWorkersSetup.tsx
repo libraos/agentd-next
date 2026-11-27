@@ -2,21 +2,17 @@ import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { T, useGT, useLocale, Var } from "gt-react";
-import { ExternalLinkIcon } from "lucide-react";
-import { type FormEvent, type MouseEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 
-import { isElectron } from "../../env";
 import { agentdEnvironment } from "../../lib/agentdState";
-import { ensureLocalApi } from "../../localApi";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { CommandBlock } from "../CommandBlock";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { ExternalLinkButton, isLibraosJobApi } from "./GitHubAppInstall";
 
 const CONSOLE_URL = "https://console.libraos.com/agentd";
-// agentd's own default Job API; any other is a separately hosted one with its own keys.
-const LIBRAOS_JOB_API = "https://cloud-api.libraos.com";
 
 function CloudWorkersSetupLink() {
   return (
@@ -27,23 +23,10 @@ function CloudWorkersSetupLink() {
 }
 
 function ConsoleButton() {
-  // The desktop opens Console in the system browser; the web build follows the link.
-  const open = isElectron
-    ? (event: MouseEvent) => {
-        event.preventDefault();
-        void ensureLocalApi().shell.openExternal(CONSOLE_URL);
-      }
-    : undefined;
   return (
-    <Button
-      size="xs"
-      variant="outline"
-      render={<a href={CONSOLE_URL} target="_blank" rel="noopener noreferrer" />}
-      onClick={open}
-    >
+    <ExternalLinkButton href={CONSOLE_URL}>
       <T>Create a key in LibraOS Console</T>
-      <ExternalLinkIcon aria-hidden />
-    </Button>
+    </ExternalLinkButton>
   );
 }
 
@@ -111,7 +94,7 @@ export function CloudWorkersSetup({
     );
   }
   const destination = setupUrl;
-  const libraos = destination.replace(/\/+$/, "") === LIBRAOS_JOB_API;
+  const libraos = isLibraosJobApi(destination);
   if (!allowed) {
     return (
       <div className="space-y-1 text-xs">

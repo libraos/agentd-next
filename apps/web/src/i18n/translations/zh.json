@@ -3866,6 +3866,18 @@
   "9b79c2501002ccd0": "读取和切换技能需要对此环境的维护访问权限。",
   "960309000b481419": "请选择一个项目来切换此技能;此智能体按项目切换技能。",
   "dd3b73fd8f895c78": "文件较长;仅显示开头部分。",
+  "7ea256b85f52c1a7": "安装 GitHub App",
+  "fac11c10590e901e": "云任务需要在此仓库上安装 LibraOS GitHub App。",
+  "945b2ab5a4355592": [
+    "云任务需要在 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " 上安装 LibraOS GitHub App。"
+  ],
+  "c861393b06e2d5ed": "由组织所有者或仓库管理员安装。其他人可以在同一页面上申请。",
   "b05cd1b6f694caf1": "Git 无法保存。",
   "72fcd24abd213e79": "你的名字",
   "03872ce8bd1d4d7d": "你的邮箱",
@@ -4214,6 +4226,7 @@
   "32b1f76f321a351e": "Git 仓库",
   "a9f14d01cdb4969e": "Git 姓名和邮箱",
   "22db8b503d3c3c3b": "仍需：{items}",
+  "cb6d9d23cb1d9316": "仓库所有者需要在这个仓库上安装 Cloud Workers GitHub App。",
   "ae8470f8ec58cfa1": "无法为 Cloud Workers 读取此检出的 origin。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
   "576d127b20ad5743": "无法连接 LibraOS Engine 以检查 Cloud Workers。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
   "a4aff358558707df": "此会话没有项目工作目录。",
@@ -4224,7 +4237,6 @@
   "7bc584e54f1ba8d0": "请选择 Worker。默认值在 LibraOS Engine 中设置。",
   "12cafaa8907f87d8": "这台电脑上的 Git 没有设置姓名或邮箱，因此 worker 无法提交工作。",
   "e0fb1011751b53eb": "Cloud Workers 尚未设置。请检查云端配置和账号 key 文件。",
-  "cb6d9d23cb1d9316": "仓库所有者需要在这个仓库上安装 Cloud Workers GitHub App。",
   "3f8423de9feb2172": "预算最多 {cap}",
   "37a4fb7fe9eb5f3b": "时间上限 {minutes} 分钟",
   "a7e5d8daf7e5e3fb": "LibraOS 模型",

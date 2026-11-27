@@ -19,6 +19,7 @@ import type {
 
 import { cloudJobNote } from "./agentdCloud.ts";
 import { cloudPullRequest } from "./agentdCloudReview.ts";
+import { CLOUD_REASONS } from "./cloudFailure.ts";
 
 const AGENT_TOOLS: ReadonlyArray<AgentdWorkerTool> = ["claude", "codex", "opencode"];
 const WORKER_TOOLS = new Set<string>(AGENT_TOOLS);
@@ -198,6 +199,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
   const total = show.cost?.total ?? null;
   const cloudState = nonEmpty(show.cloud?.state) ?? nonEmpty(show.cloud_state);
   const modelAccess = nonEmpty(show.body?.model_access);
+  const cloudNote = cloudJobNote(cloudState, [show.cloud?.result, show.cloud?.note]);
   const pickup = queuePickup(show, viewer);
   const queueReason = nonEmpty(show.queue_reason);
   const parked = nonEmpty(show.parked);
@@ -249,10 +251,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
     budget: nonEmpty(show.budget),
     budgetState: nonEmpty(show.budget_state),
     branch: nonEmpty(show.worker_branch) ?? nonEmpty(show.lease_branch),
-    note:
-      cloudJobNote(cloudState, [show.cloud?.result, show.cloud?.note]) ??
-      nonEmpty(show.worker_note) ??
-      nonEmpty(show.close_reason),
+    note: cloudNote ?? nonEmpty(show.worker_note) ?? nonEmpty(show.close_reason),
     ...optionalReport(show.report_note),
     ...optionalWait(show),
     project: nonEmpty(show.project),
@@ -289,6 +288,7 @@ export function agentdTask(show: AgentdHandoffShowJson, viewer: string | null): 
             workerUsd: show.cloud?.worker_usd ?? null,
             inferenceUsd: show.cloud?.inference_usd ?? null,
             totalUsd: show.cloud?.total_usd ?? null,
+            ...(cloudNote === CLOUD_REASONS.repository ? { problem: "repository" as const } : {}),
             pullRequest: cloudPullRequest(show),
           },
         }),

@@ -56,7 +56,7 @@ const STATE_REASONS: Readonly<Record<string, string>> = {
 
 export function cloudSetupProblem(message: string): CloudProblem | null {
   if (
-    /GitHub App is not installed|github[ _-]app.*(?:not installed|not configured)|repo(?:sitory)?[ _]not[ _]allowed/i.test(
+    /GitHub App is not installed|github[ _-]app.*(?:not installed|not configured)|repo(?:sitory)?[ _]not[ _]allowed|\bno repository access\b/i.test(
       message,
     )
   )

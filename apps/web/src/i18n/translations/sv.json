@@ -3866,6 +3866,18 @@
   "9b79c2501002ccd0": "Att läsa och byta färdigheter kräver underhållsåtkomst till den här miljön.",
   "960309000b481419": "Välj ett projekt för att byta den här färdigheten; den här agenten byter färdigheter per projekt.",
   "dd3b73fd8f895c78": "Filen är längre; bara början visas.",
+  "7ea256b85f52c1a7": "Installera GitHub-appen",
+  "fac11c10590e901e": "Molnuppgifter behöver LibraOS GitHub App i det här repositoryt.",
+  "945b2ab5a4355592": [
+    "Molnuppgifter behöver LibraOS GitHub App i ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "c861393b06e2d5ed": "En organisationsägare eller repository-administratör installerar den. Andra kan begära den på samma sida.",
   "b05cd1b6f694caf1": "Git kunde inte spara dem.",
   "72fcd24abd213e79": "Ditt namn",
   "03872ce8bd1d4d7d": "Din e-post",
@@ -4214,6 +4226,7 @@
   "32b1f76f321a351e": "Git-repo",
   "a9f14d01cdb4969e": "Git-namn och e-post",
   "22db8b503d3c3c3b": "Behövs fortfarande: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Det gick inte att läsa den här utcheckningens origin för Cloud Workers. Försök igen, eller välj ”Redigera” och stäng av ”Run in the cloud” för att köra uppgiften här.",
   "576d127b20ad5743": "Det gick inte att nå LibraOS Engine för att kontrollera Cloud Workers. Försök igen, eller välj ”Redigera” och stäng av ”Run in the cloud” för att köra uppgiften här.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4224,7 +4237,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "Git har inget namn eller ingen e-post på den här datorn, så en worker kan inte committa sitt arbete.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",

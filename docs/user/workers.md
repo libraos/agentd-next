@@ -20,6 +20,11 @@ For a worker on your machine, the working directory must be a Git repository on 
 From `main` or `master`, the worker runs on a new branch in its own worktree and leaves your
 checkout alone.
 
+A cloud task on LibraOS Cloud Workers needs the LibraOS GitHub App installed on its GitHub
+repository, or it fails before it starts. With **Run in the cloud** ticked, **Install the GitHub
+App** opens the install page. An organization owner or repository admin installs it; anyone else
+can request it there.
+
 When a turn ends with work the agent says it could not finish, the reply offers **Run locally**,
 **Run in cloud** (once Cloud Workers are set up) and **Keep in chat**. The first two open **Hand to
 a worker** with that work as the goal; nothing starts until you choose **Start**.

@@ -456,6 +456,8 @@ export const AgentdTask = Schema.Struct({
       workerUsd: Schema.NullOr(Schema.Number),
       inferenceUsd: Schema.NullOr(Schema.Number),
       totalUsd: Schema.NullOr(Schema.Number),
+      /** The job failed because the Job API's GitHub App can't reach the repository. */
+      problem: Schema.optionalKey(Schema.Literals(["repository"])),
       /** The task's own PR, else GitHub's compare page for its pushed branch; null without either. */
       pullRequest: Schema.optionalKey(
         Schema.NullOr(Schema.Struct({ url: Schema.String, number: Schema.NullOr(Schema.Number) })),

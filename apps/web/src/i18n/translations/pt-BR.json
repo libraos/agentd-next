@@ -3866,6 +3866,18 @@
   "9b79c2501002ccd0": "Ler e alternar skills exige acesso de manutenção a este ambiente.",
   "960309000b481419": "Escolha um projeto para alternar esta skill; este agente alterna skills por projeto.",
   "dd3b73fd8f895c78": "O arquivo é maior; apenas o início é exibido.",
+  "7ea256b85f52c1a7": "Instalar o GitHub App",
+  "fac11c10590e901e": "Tarefas na nuvem precisam do GitHub App da LibraOS neste repositório.",
+  "945b2ab5a4355592": [
+    "Tarefas na nuvem precisam do GitHub App da LibraOS em ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "c861393b06e2d5ed": "Um proprietário da organização ou administrador do repositório o instala. Qualquer outra pessoa pode solicitá-lo na mesma página.",
   "b05cd1b6f694caf1": "O Git não conseguiu salvá-los.",
   "72fcd24abd213e79": "Seu nome",
   "03872ce8bd1d4d7d": "Seu e-mail",
@@ -4214,6 +4226,7 @@
   "32b1f76f321a351e": "repositório Git",
   "a9f14d01cdb4969e": "nome e e-mail do Git",
   "22db8b503d3c3c3b": "Ainda falta: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Não foi possível ler o origin deste checkout para o Cloud Workers. Tente novamente ou escolha “Editar” e desative “Run in the cloud” para executar esta tarefa aqui.",
   "576d127b20ad5743": "Não foi possível acessar o LibraOS Engine para verificar o Cloud Workers. Tente novamente ou escolha “Editar” e desative “Run in the cloud” para executar esta tarefa aqui.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4224,7 +4237,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "O Git não tem nome nem e-mail neste computador, então um worker não consegue fazer commit do trabalho.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",

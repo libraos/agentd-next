@@ -3865,6 +3865,18 @@
   "9b79c2501002ccd0": "스킬을 읽고 전환하려면 이 환경에 대한 유지 관리 권한이 필요합니다.",
   "960309000b481419": "이 스킬을 전환하려면 프로젝트를 선택하세요. 이 에이전트는 프로젝트별로 스킬을 전환합니다.",
   "dd3b73fd8f895c78": "파일이 더 깁니다. 처음 부분만 표시됩니다.",
+  "7ea256b85f52c1a7": "GitHub App 설치",
+  "fac11c10590e901e": "클라우드 작업에는 이 저장소에 LibraOS GitHub App이 필요합니다.",
+  "945b2ab5a4355592": [
+    "클라우드 작업에는 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "에 LibraOS GitHub App이 필요합니다."
+  ],
+  "c861393b06e2d5ed": "조직 소유자나 저장소 관리자가 설치합니다. 그 밖의 사람은 같은 페이지에서 요청할 수 있습니다.",
   "b05cd1b6f694caf1": "Git이 저장하지 못했습니다.",
   "72fcd24abd213e79": "이름",
   "03872ce8bd1d4d7d": "이메일",
@@ -4213,6 +4225,7 @@
   "32b1f76f321a351e": "Git 저장소",
   "a9f14d01cdb4969e": "Git 이름과 이메일",
   "22db8b503d3c3c3b": "아직 필요: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Cloud Workers용 이 체크아웃의 origin을 읽을 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "576d127b20ad5743": "Cloud Workers를 확인하기 위해 LibraOS Engine에 연결할 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4223,7 +4236,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "이 컴퓨터의 Git에 이름 또는 이메일이 없어 워커가 작업을 커밋할 수 없습니다.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",

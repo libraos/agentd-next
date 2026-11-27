@@ -621,6 +621,7 @@ describe("AgentdBridge", () => {
           workerUsd: 0.75,
           inferenceUsd: 0,
           totalUsd: 0.75,
+          problem: "repository",
         },
         note: "The repository owner must install the Cloud Workers GitHub App on this repository.",
       });
@@ -628,6 +629,7 @@ describe("AgentdBridge", () => {
       const subscribed = yield* bridge.task({ id: "hof-abc789" });
       expect(subscribed.started).toBe("2026-11-20T09:00:00Z");
       expect(subscribed.cloud).toMatchObject({ modelAccess: "subscription", plan: "codex" });
+      expect(subscribed.cloud).not.toHaveProperty("problem");
       expect(JSON.stringify(subscribed)).not.toContain("/private/auth.json");
       expect(
         yield* bridge.stopTask({ id: "hof-abc456", reason: "Stopped from LibraOS Next" }),

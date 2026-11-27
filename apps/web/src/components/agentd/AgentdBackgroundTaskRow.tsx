@@ -29,6 +29,7 @@ import { AgentdTaskOutput } from "./AgentdTaskOutput";
 import { TaskWaiting } from "./WorkerPermissionMode";
 import { BackgroundTaskCard } from "./BackgroundTaskCard";
 import { CloudTaskReviewActions } from "./CloudTaskReview";
+import { GitHubAppNeeded, InstallGitHubAppButton, useLibraosJobApi } from "./GitHubAppInstall";
 import {
   agentdTaskApprovals,
   agentdTaskBudgetUse,
@@ -567,6 +568,26 @@ export function AgentdCloudTaskSummary({
   );
 }
 
+/**
+ * A cloud job the LibraOS GitHub App couldn't reach the repository for: the install button where
+ * `repository` is undefined (the row's actions), else why it is needed. Another Job API's App is
+ * its own, so the task's note alone says what to do.
+ */
+function GitHubAppMissing({
+  environmentId,
+  repository,
+}: {
+  readonly environmentId: EnvironmentId;
+  readonly repository?: string | null;
+}) {
+  if (!useLibraosJobApi(environmentId)) return null;
+  return repository === undefined ? (
+    <InstallGitHubAppButton />
+  ) : (
+    <GitHubAppNeeded repository={repository} install={false} />
+  );
+}
+
 export function AgentdBackgroundTaskRow(props: {
   readonly row: AgentdTaskRow;
   readonly environmentId: EnvironmentId;
@@ -698,7 +719,12 @@ export function AgentdBackgroundTaskRow(props: {
             <StopTaskButton id={row.id} title={title} environmentId={environmentId} />
           </div>
         ) : cloud ? (
-          <CloudTaskReviewActions row={row} task={task} environmentId={environmentId} />
+          <div className="flex flex-wrap justify-end gap-1">
+            {task?.cloud?.problem === "repository" ? (
+              <GitHubAppMissing environmentId={environmentId} />
+            ) : null}
+            <CloudTaskReviewActions row={row} task={task} environmentId={environmentId} />
+          </div>
         ) : null
       }
     >
@@ -717,6 +743,12 @@ export function AgentdBackgroundTaskRow(props: {
         <TaskBudgetDetails task={task} elapsedMs={elapsedMs} showReport={!finished && !stuck} />
       ) : null}
       {stuck ? <StuckTaskDetails task={task} /> : null}
+      {finished && task?.cloud?.problem === "repository" ? (
+        <GitHubAppMissing
+          environmentId={environmentId}
+          repository={task.project ?? row.project ?? null}
+        />
+      ) : null}
       {finished ? (
         task ? (
           <FinishedTaskDetails task={task} />
