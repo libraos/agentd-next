@@ -10,7 +10,8 @@ export function isAppModalPage(pathname: string) {
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
     pathname === "/usage" ||
-    pathname === "/agentd"
+    pathname === "/agentd" ||
+    pathname === "/plugins"
   );
 }
 

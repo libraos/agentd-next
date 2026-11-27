@@ -2541,6 +2541,7 @@ export function makeClaudeQueryOptions(input: {
   readonly sdkSettings?: string | ClaudeSdkSettings;
   readonly environment?: NodeJS.ProcessEnv;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
+  readonly claudePlugins?: ReadonlyArray<McpProviderSession.ClaudePluginFolder>;
   readonly agentFeedback?: AgentFeedbackMode;
   /** The thread's T3 MCP session holds the `device` capability. */
   readonly deviceToolsAvailable?: boolean;
@@ -2589,8 +2590,40 @@ export function makeClaudeQueryOptions(input: {
   if (requestThinkingSummaries && extraArgs["thinking-display"] === undefined) {
     extraArgs["thinking-display"] = "summarized";
   }
-  const pluginDirectories =
-    input.settings === undefined ? [] : claudeLaunchArgPluginDirectories(input.settings.launchArgs);
+  const claudePlugins = input.claudePlugins ?? [];
+  const pluginDirectories = [
+    ...new Set([
+      ...(input.settings === undefined
+        ? []
+        : claudeLaunchArgPluginDirectories(input.settings.launchArgs)),
+      ...claudePlugins.map((plugin) => plugin.path),
+    ]),
+  ];
+  // A settings file path cannot take extra keys; the adapter reads the file and passes its object.
+  const sdkSettings =
+    claudePlugins.length === 0 || typeof input.sdkSettings === "string"
+      ? input.sdkSettings
+      : ({
+          ...input.sdkSettings,
+          pluginConfigs: {
+            ...input.sdkSettings?.pluginConfigs,
+            ...Object.fromEntries(
+              claudePlugins.map((plugin) => [
+                `${plugin.name}@inline`,
+                { options: { ...plugin.options } },
+              ]),
+            ),
+          },
+          // These arrive as this query's mcpServers; Claude would start each a second time.
+          deniedMcpServers: [
+            ...(input.sdkSettings?.deniedMcpServers ?? []),
+            ...claudePlugins.flatMap((plugin) =>
+              plugin.ownServers.map((server) => ({
+                serverName: `plugin:${plugin.name}:${server}`,
+              })),
+            ),
+          ],
+        } as ClaudeSdkSettings);
   // A bare --plugin-dir still reaches Claude, which reports the missing path.
   if (launchArgPluginDir === null) extraArgs["plugin-dir"] = null;
   const threadIdentity: ClaudeAgentSdkThreadIdentity = input.resume
@@ -2603,9 +2636,9 @@ export function makeClaudeQueryOptions(input: {
       : (compiledSelection.settings as ClaudeSdkSettings);
   const querySettings =
     selectionSettings === undefined
-      ? input.sdkSettings
-      : typeof input.sdkSettings === "object" && input.sdkSettings !== null
-        ? ({ ...input.sdkSettings, ...selectionSettings } as ClaudeSdkSettings)
+      ? sdkSettings
+      : typeof sdkSettings === "object" && sdkSettings !== null
+        ? ({ ...sdkSettings, ...selectionSettings } as ClaudeSdkSettings)
         : selectionSettings;
   const autoCompactWindow =
     input.settings?.autoCompactWindow === undefined || input.settings.autoCompactWindow.length === 0
@@ -2860,11 +2893,16 @@ export function claudeMcpQueryOverrides(input: {
   readonly mcpSession: McpProviderSession.McpProviderSessionConfig | undefined;
   readonly readOnlySandbox: boolean;
   readonly allowedTools?: ReadonlyArray<string>;
-  /** Plugins' stdio servers; set on this query only, never in ~/.claude.json or settings. */
-  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.McpStdioServer>>;
+  /**
+   * Plugins' stdio servers; set on this query only, never in ~/.claude.json or settings. Claude
+   * loads a plugin's remote servers itself, so those are left out here.
+   */
+  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.PluginMcpServer>>;
+  readonly claudePlugins?: ReadonlyArray<McpProviderSession.ClaudePluginFolder>;
 }): {
   readonly allowedTools?: ReadonlyArray<string>;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
+  readonly claudePlugins?: ReadonlyArray<McpProviderSession.ClaudePluginFolder>;
 } {
   const session = input.mcpSession;
   if (session === undefined) {
@@ -2884,15 +2922,21 @@ export function claudeMcpQueryOverrides(input: {
     ),
     mcpServers: {
       ...Object.fromEntries(
-        Object.entries(input.pluginMcpServers ?? {}).map(([name, server]) => [
-          name,
-          {
-            type: "stdio" as const,
-            command: server.command,
-            args: [...server.args],
-            env: { ...server.env },
-          },
-        ]),
+        Object.entries(input.pluginMcpServers ?? {}).flatMap(([name, server]) =>
+          "command" in server
+            ? [
+                [
+                  name,
+                  {
+                    type: "stdio" as const,
+                    command: server.command,
+                    args: [...server.args],
+                    env: { ...server.env },
+                  },
+                ],
+              ]
+            : [],
+        ),
       ),
       [APP_MCP_SERVER_NAME]: {
         type: "http",
@@ -2903,6 +2947,9 @@ export function claudeMcpQueryOverrides(input: {
         timeout: CLAUDE_T3_MCP_TOOL_TIMEOUT_MS,
       },
     },
+    ...(input.claudePlugins === undefined || input.claudePlugins.length === 0
+      ? {}
+      : { claudePlugins: input.claudePlugins }),
   };
 }
 
@@ -3958,6 +4005,7 @@ export function claudeEffectiveQueryPolicyKey(
   mcpOverrides: {
     readonly allowedTools?: ReadonlyArray<string>;
     readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
+    readonly claudePlugins?: ReadonlyArray<McpProviderSession.ClaudePluginFolder>;
   },
   // Folders are fixed when a query starts, so a changed list needs a new one.
   workspace?: ProviderAdapter.ProviderAdapterV2RuntimePolicy["workspace"],
@@ -3971,6 +4019,7 @@ export function claudeEffectiveQueryPolicyKey(
         : { allowedTools: mcpOverrides.allowedTools }),
     }),
     mcpServers: mcpOverrides.mcpServers,
+    claudePlugins: mcpOverrides.claudePlugins,
   });
 }
 
@@ -13574,6 +13623,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           const mcpOverrides = claudeMcpQueryOverrides({
             mcpSession,
             pluginMcpServers,
+            ...(mcpSession?.claudePlugins === undefined
+              ? {}
+              : { claudePlugins: yield* mcpSession.claudePlugins }),
             readOnlySandbox:
               sandboxPolicyKindForClaudeRuntimePolicy(turnInput.runtimePolicy) === "readOnly",
             ...(queryPolicy.allowedTools === undefined
@@ -13789,6 +13841,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(mcpOverrides.mcpServers === undefined
               ? {}
               : { mcpServers: mcpOverrides.mcpServers }),
+            ...(mcpOverrides.claudePlugins === undefined
+              ? {}
+              : { claudePlugins: mcpOverrides.claudePlugins }),
             deviceToolsAvailable: mcpSession?.capabilities?.has("device") === true,
             orchestrationToolsAvailable: mcpSession?.capabilities?.has("orchestration") ?? true,
             permissionMode: queryPolicy.permissionMode,

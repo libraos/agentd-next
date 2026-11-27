@@ -21,7 +21,9 @@ import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import * as AgentdPlugins from "./AgentdPlugins.ts";
-import { PLUGIN_CATALOG_URL } from "./pluginCatalog.ts";
+import { PLUGIN_CATALOG_BASE } from "./pluginCatalog.ts";
+
+const PLUGIN_CATALOG_URL = `${PLUGIN_CATALOG_BASE}/catalog.json`;
 import { gitBlobId } from "./skillCatalog.ts";
 
 // A private catalogue (acme/private, read with a token) beside the official one, both served by a
@@ -636,8 +638,10 @@ it.effect(
       yield* h.send;
       expect(h.ran.map((run) => run.cwd)).toEqual([folder]);
       const servers = yield* h.service.mcpServers(PROJECT);
-      expect(servers.legacy?.env.LEGACY_URL).toBe("https://legacy.example");
-      expect(yield* fs.readFileString(servers.legacy!.env.LEGACY_KEY_FILE!)).toBe("legacy-secret");
+      const legacy = servers.legacy;
+      if (legacy === undefined || !("env" in legacy)) throw new Error("legacy is not a program");
+      expect(legacy.env.LEGACY_URL).toBe("https://legacy.example");
+      expect(yield* fs.readFileString(legacy.env.LEGACY_KEY_FILE!)).toBe("legacy-secret");
     }).pipe(Effect.provide(dependencies)),
 );
 
@@ -726,7 +730,7 @@ it.effect(
       const ghost = yield* h.service.install({ id: "gh~acme~private~ghost" }).pipe(Effect.flip);
       expect(ghost.reason).toBe("download");
       expect(ghost.message).toContain(
-        `plugins/ghost/agentd-plugin.json is not in commit ${PRIVATE_COMMIT}`,
+        `plugins/ghost/.claude-plugin/plugin.json or agentd-plugin.json is not in commit ${PRIVATE_COMMIT}`,
       );
       expect(yield* h.fs.exists(cache)).toBe(false);
     }).pipe(Effect.provide(dependencies)),

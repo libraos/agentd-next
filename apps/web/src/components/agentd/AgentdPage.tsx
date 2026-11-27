@@ -32,7 +32,6 @@ import { Button } from "../ui/button";
 import { AgentdNeedsYou, AgentdRead, AgentdSection, AgentdStatusDetails } from "./AgentdPageReads";
 import { TaskWaiting } from "./WorkerPermissionMode";
 import { AgentdPageCloud } from "./AgentdPageCloud";
-import { AgentdPagePlugins } from "./AgentdPagePlugins";
 import { AgentdPageWorkers } from "./AgentdPageWorkers";
 import { openAgentdSetupDialog, useCanSetUpAgentd } from "./AgentdSetupDialog";
 import { AgentdTeamNodeSwitch } from "./AgentdTeamNodeSwitch";
@@ -215,11 +214,6 @@ export function AgentdPage() {
                   </AgentdRead>
                 )}
               </AgentdSection>
-              {environmentId !== null && canRead ? (
-                <AgentdSection id="agentd-plugins" title={<T>Plugins</T>}>
-                  <AgentdPagePlugins environmentId={environmentId} />
-                </AgentdSection>
-              ) : null}
               {activeEnvironmentId !== null ? (
                 <>
                   <AgentdSection id="agentd-needs-you" title={<T>Needs you</T>}>

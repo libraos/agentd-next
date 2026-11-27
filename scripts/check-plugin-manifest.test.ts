@@ -30,6 +30,25 @@ it("exits 0 for a valid folder and 1 with the reasons for an invalid one", () =>
     const invalid = check(folder);
     expect(invalid.status).toBe(1);
     expect(invalid.stderr).toContain('["contributes"]["mcpServers"]["x"]["command"]: Missing key');
+    // A Claude plugin folder is checked as the app reads it: a sensitive option cannot reach a server.
+    NodeFS.mkdirSync(NodePath.join(folder, ".claude-plugin"));
+    NodeFS.writeFileSync(
+      NodePath.join(folder, ".claude-plugin/plugin.json"),
+      JSON.stringify({ name: "x", version: "1.0.0", userConfig: { key: { sensitive: true } } }),
+    );
+    NodeFS.writeFileSync(NodePath.join(folder, "agentd-plugin.json"), '{"schemaVersion":2}');
+    NodeFS.writeFileSync(
+      NodePath.join(folder, ".mcp.json"),
+      JSON.stringify({ x: { command: "x", env: { KEY: "${user_config.key}" } } }),
+    );
+    const sensitive = check(folder);
+    expect(sensitive.status).toBe(1);
+    expect(sensitive.stderr).toContain("key is sensitive");
+    NodeFS.writeFileSync(
+      NodePath.join(folder, ".mcp.json"),
+      JSON.stringify({ x: { command: "x" } }),
+    );
+    expect(check(folder).status).toBe(0);
   } finally {
     NodeFS.rmSync(folder, { recursive: true, force: true });
   }

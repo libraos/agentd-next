@@ -21,8 +21,8 @@ import {
 // before-send hook's protocol. A hook is a command run with one JSON object on stdin that prints
 // one JSON object on stdout; anything else stops the send.
 
-export const PLUGIN_CATALOG_URL =
-  "https://raw.githubusercontent.com/libraos/plugins/main/catalog.json";
+/** Where the official catalogue's files are read from. */
+export const PLUGIN_CATALOG_BASE = "https://raw.githubusercontent.com/libraos/plugins/main";
 /** The catalogue's source name in `plugins/cache/<source>/<plugin>/<version>/`. */
 export const PLUGIN_SOURCE = "libraos";
 export const PLUGIN_MANIFEST_FILE = "agentd-plugin.json";
@@ -31,7 +31,7 @@ export const PLUGIN_INSTALL_RECORD = ".agentd-plugin-install.json";
 
 const PLUGIN_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/;
-const validPluginId = (id: string) => PLUGIN_ID.test(id);
+export const validPluginId = (id: string) => PLUGIN_ID.test(id);
 export const validPluginVersion = (version: string) =>
   VERSION.test(version) && safeRelativePath(version) !== null;
 
@@ -123,11 +123,12 @@ export interface SourceLink {
 }
 
 const GITHUB_HOSTS = new Set(["github.com", "www.github.com"]);
+const CATALOG_FILES = new Set(["catalog.json", "marketplace.json"]);
 
 /**
  * A source as typed or pasted: `owner/repo`, the repository's link, a link to a folder in it
- * (`github.com/OWNER/REPO/tree/BRANCH/PATH`) or to its catalog.json (on github.com or the raw
- * host). Anything else is null, and nothing here ever names a folder on this computer.
+ * (`github.com/OWNER/REPO/tree/BRANCH/PATH`) or to its catalog.json or marketplace.json (on
+ * github.com or the raw host). Anything else is null, and nothing here ever names a folder on this computer.
  */
 export function parseSourceLink(input: string): SourceLink | null {
   const trimmed = input.trim();
@@ -155,14 +156,14 @@ export function parseSourceLink(input: string): SourceLink | null {
   const repository = sourceRepository(`${owner}/${name}`);
   if (repository === null) return null;
   if (url.host === "raw.githubusercontent.com") {
-    return rest.length >= 2 && rest.at(-1) === "catalog.json" ? { repository } : null;
+    return rest.length >= 2 && CATALOG_FILES.has(rest.at(-1) ?? "") ? { repository } : null;
   }
   if (!GITHUB_HOSTS.has(url.host)) return null;
   if (rest.length === 0) return { repository };
   if (rest[0] === "tree" && rest.length >= 2) {
     return rest.length === 2 ? { repository } : { repository, tree: rest.slice(1).join("/") };
   }
-  if (rest[0] === "blob" && rest.length >= 3 && rest.at(-1) === "catalog.json") {
+  if (rest[0] === "blob" && rest.length >= 3 && CATALOG_FILES.has(rest.at(-1) ?? "")) {
     return { repository };
   }
   return null;
@@ -219,10 +220,10 @@ export const GITHUB_API = "https://api.github.com";
  * Where a source's catalog.json is read on its default branch. With a token it is the GitHub API,
  * the only host a token is sent to; without one, the raw host the official catalogue uses.
  */
-export const sourceCatalogUrl = (repository: string, withToken: boolean) =>
+export const sourceCatalogUrl = (repository: string, withToken: boolean, file = "catalog.json") =>
   withToken
-    ? `${GITHUB_API}/repos/${repository}/contents/catalog.json`
-    : `https://raw.githubusercontent.com/${repository}/HEAD/catalog.json`;
+    ? `${GITHUB_API}/repos/${repository}/contents/${file}`
+    : `https://raw.githubusercontent.com/${repository}/HEAD/${file}`;
 
 /** Whether a request to `url` may carry the token of `repository`: the API, for that repository. */
 export function tokenAllowed(url: string, repository: string): boolean {
@@ -249,6 +250,8 @@ export const PluginCatalogEntry = Schema.Struct({
   reviewedAt: Schema.String,
   version: Schema.String.check(Schema.isPattern(VERSION)),
   source: CatalogSource,
+  /** The id this plugin had before; installing it takes over that plugin's settings and data. */
+  renamedFrom: Schema.optionalKey(Schema.String.check(Schema.isPattern(PLUGIN_ID))),
 });
 export type PluginCatalogEntry = typeof PluginCatalogEntry.Type;
 
@@ -278,7 +281,7 @@ export const decodePluginCatalogCache = Schema.decodeUnknownOption(
   Schema.fromJsonString(PluginCatalogCache),
 );
 
-const HookCommand = Schema.Struct({
+export const HookCommand = Schema.Struct({
   /** argv; a first element with a slash is a file in the plugin's folder, else found on PATH. */
   command: Schema.Array(Schema.String.check(Schema.isMinLength(1))).check(Schema.isMinLength(1)),
   timeoutSeconds: Schema.optionalKey(
@@ -290,7 +293,7 @@ const HookCommand = Schema.Struct({
 export type HookCommand = typeof HookCommand.Type;
 
 /** Run once from Settings before the plugin can be turned on; it never sees a message. */
-const SetupCommand = Schema.Struct({
+export const SetupCommand = Schema.Struct({
   /** argv, resolved as a hook's is. */
   command: Schema.Array(Schema.String.check(Schema.isMinLength(1))).check(Schema.isMinLength(1)),
   /** One sentence: what it downloads and how much disk it needs. */
@@ -536,6 +539,25 @@ export function withoutPlugin(settings: PluginSettings, id: string): PluginSetti
   return { enabled, projects, ...(Object.keys(values).length === 0 ? {} : { values }) };
 }
 
+/** `from`'s switches and values under `to`, which keeps any it already has; `from` has none after. */
+export function renamePlugin(settings: PluginSettings, from: string, to: string): PluginSettings {
+  const moved = withoutPlugin(settings, from);
+  const enabled = { ...moved.enabled };
+  if (Object.hasOwn(settings.enabled, from) && !Object.hasOwn(enabled, to)) {
+    enabled[to] = settings.enabled[from] === true;
+  }
+  const projects: Record<string, Record<string, boolean>> = { ...moved.projects };
+  for (const [projectId, overrides] of Object.entries(settings.projects)) {
+    const value = overrides[from];
+    if (value === undefined || Object.hasOwn(projects[projectId] ?? {}, to)) continue;
+    projects[projectId] = { ...projects[projectId], [to]: value };
+  }
+  const values = { ...moved.values };
+  const given = settings.values?.[from];
+  if (given !== undefined) values[to] = { ...given, ...values[to] };
+  return { enabled, projects, ...(Object.keys(values).length === 0 ? {} : { values }) };
+}
+
 /** The plugin's non-secret values with `changes` applied; null clears one. */
 export function withPluginValues(
   settings: PluginSettings,
@@ -556,12 +578,14 @@ export function withPluginValues(
 /** The secret store's name for a plugin's secret setting; ids and setting names hold no dot. */
 export const pluginSecretName = (id: string, setting: string) => `agentd-plugin.${id}.${setting}`;
 
-/** A server as a launch gets it: a program, its args and the env it adds. */
-export interface PluginMcpLaunch {
-  readonly command: string;
-  readonly args: ReadonlyArray<string>;
-  readonly env: Readonly<Record<string, string>>;
-}
+/** A server as a launch gets it: a program with its args and added env, or a streamable HTTP URL. */
+export type PluginMcpLaunch =
+  | {
+      readonly command: string;
+      readonly args: ReadonlyArray<string>;
+      readonly env: Readonly<Record<string, string>>;
+    }
+  | { readonly url: string; readonly headers: Readonly<Record<string, string>> };
 
 export type McpServerEnv =
   | { readonly _tag: "Ready"; readonly env: Readonly<Record<string, string>> }
