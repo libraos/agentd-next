@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as TestClock from "effect/testing/TestClock";
 import { vi } from "vite-plus/test";
 
 vi.mock("react-native", () => ({
@@ -92,6 +94,44 @@ describe("mobile connection catalog storage", () => {
       yield* catalog.update((document) => document);
       expect(memory.values.has(CONNECTION_CATALOG_KEY)).toBe(true);
       expect(memory.values.has(LEGACY_CONNECTIONS_KEY)).toBe(false);
+    }),
+  );
+
+  it.effect("waits out a slow keychain read instead of reading no environments", () =>
+    Effect.gen(function* () {
+      // An iOS keychain read can take many seconds on a busy device; the catalog must not give up
+      // and treat the saved environment and its credential as absent.
+      const memory = makeStorage({
+        [LEGACY_CONNECTIONS_KEY]: JSON.stringify({
+          connections: [
+            {
+              environmentId: "slow-environment",
+              environmentLabel: "Slow",
+              pairingUrl: "https://slow.example.test/pair",
+              displayUrl: "https://slow.example.test",
+              httpBaseUrl: "https://slow.example.test",
+              wsBaseUrl: "wss://slow.example.test",
+              bearerToken: "slow-token",
+              authenticationMethod: "bearer",
+            },
+          ],
+        }),
+      });
+      const slowStorage = MobileSecureStorage.MobileSecureStorage.of({
+        ...memory.storage,
+        getItem: (key) =>
+          Effect.sleep("30 seconds").pipe(Effect.andThen(memory.storage.getItem(key))),
+      });
+      const reading = yield* make().pipe(
+        Effect.flatMap((catalog) => catalog.read),
+        Effect.provideService(MobileSecureStorage.MobileSecureStorage, slowStorage),
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("2 minutes");
+      const document = yield* Fiber.join(reading);
+
+      expect(document.targets).toHaveLength(1);
+      expect(memory.deleted).toEqual([LEGACY_CONNECTIONS_KEY]);
     }),
   );
 });

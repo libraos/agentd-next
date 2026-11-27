@@ -1,0 +1,12 @@
+{
+  "_expo/static/js/*/*.hbc": [
+    [
+      "https://github.com/pingdotgg/react-native-screens/tree/t3/main",
+      "The open source licenses list names where the react-native-screens fork's source lives; the app requests nothing from it."
+    ],
+    [
+      "https://t3.codes/schema/t3.json",
+      "The t3.json project file's JSON Schema id in the shared contracts: a schema annotation the app never fetches or shows. Existing t3.json files name it."
+    ]
+  ]
+}

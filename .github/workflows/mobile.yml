@@ -1,0 +1,342 @@
+name: Mobile
+
+# Every run checks the release build for upstream endpoints and runs the UI tests on both
+# platforms. A mobile-v* tag or a manual run then signs the build and uploads it to TestFlight and
+# Play's internal track. Nothing here publishes to either store's production track.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "mobile-v*"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+      - "scripts/mobile-*"
+      - ".github/workflows/mobile.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  APP_VARIANT: production
+  EXPO_NO_GIT_STATUS: "1"
+  EXPO_NO_TELEMETRY: "1"
+  MAESTRO_VERSION: "2.12.1"
+  MAESTRO_SHA256: "54dbb0716425626604973cbb374c585ca30272375d9ce15177a1152765ddd9d7"
+  MAESTRO_CLI_NO_ANALYTICS: "1"
+  T3CODE_MOBILE_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  check:
+    name: Release build reaches no upstream service
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - name: Check the build environment
+        run: node scripts/mobile-release-check.ts env
+      - name: Export the iOS and Android bundles
+        working-directory: apps/mobile
+        run: |
+          ./node_modules/.bin/expo export --platform ios --output-dir "$RUNNER_TEMP/dist-ios"
+          ./node_modules/.bin/expo export --platform android --output-dir "$RUNNER_TEMP/dist-android"
+      - name: Check the bundles
+        run: |
+          node scripts/mobile-release-check.ts bundle "$RUNNER_TEMP/dist-ios"
+          node scripts/mobile-release-check.ts bundle "$RUNNER_TEMP/dist-android"
+
+  ui-android:
+    name: UI tests (Android)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build the release APK
+        working-directory: apps/mobile
+        # Expo's release build type signs with the debug key, which an emulator accepts.
+        run: |
+          ./node_modules/.bin/expo prebuild --clean --platform android
+          cd android && ./gradlew assembleRelease --no-daemon
+      - name: Install Maestro
+        run: bash .github/scripts/install-maestro.sh
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run the flows on an emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          # Each line runs in its own shell.
+          script: |
+            adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+            adb shell cmd uimode night yes
+            adb wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != 1 ]; do sleep 1; done'
+            bash apps/mobile/maestro/run-flows.sh 10.0.2.2 "$RUNNER_TEMP/ui-android" || { adb wait-for-device; bash apps/mobile/maestro/run-flows.sh 10.0.2.2 "$RUNNER_TEMP/ui-android-retry"; }
+      - name: Upload screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-ui-android
+          path: |
+            ${{ runner.temp }}/ui-android/screenshots
+            ${{ runner.temp }}/ui-android/maestro
+            ${{ runner.temp }}/ui-android/host/server.log
+            ${{ runner.temp }}/ui-android-retry/screenshots
+            ${{ runner.temp }}/ui-android-retry/maestro
+            ${{ runner.temp }}/ui-android-retry/host/server.log
+          if-no-files-found: warn
+
+  ui-ios:
+    name: UI tests (iOS)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build the release app for the simulator
+        working-directory: apps/mobile
+        run: |
+          ./node_modules/.bin/expo prebuild --clean --platform ios
+          workspace=$(ls -d ios/*.xcworkspace | head -n 1)
+          xcodebuild build \
+            -workspace "$workspace" \
+            -scheme "$(basename "$workspace" .xcworkspace)" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$RUNNER_TEMP/ios-build" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY=- \
+            DEVELOPMENT_TEAM= \
+            PROVISIONING_PROFILE_SPECIFIER=
+      - name: Install Maestro
+        run: bash .github/scripts/install-maestro.sh
+      - name: Run the flows on a simulator
+        run: |
+          udid=$(xcrun simctl list devices available --json \
+            | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")).devices;
+                for (const [runtime, list] of Object.entries(d).reverse()) {
+                  const phone = runtime.includes("iOS") && list.find((x) => x.name.startsWith("iPhone"));
+                  if (phone) { console.log(phone.udid); break; }
+                }')
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          xcrun simctl ui "$udid" appearance dark
+          app=$(ls -d "$RUNNER_TEMP"/ios-build/Build/Products/Release-iphonesimulator/*.app | head -n 1)
+          xcrun simctl install "$udid" "$app"
+          bash apps/mobile/maestro/run-flows.sh 127.0.0.1 "$RUNNER_TEMP/ui-ios"
+      - name: Upload screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mobile-ui-ios
+          path: |
+            ${{ runner.temp }}/ui-ios/screenshots
+            ${{ runner.temp }}/ui-ios/maestro
+            ${{ runner.temp }}/ui-ios/host/server.log
+          if-no-files-found: warn
+
+  ios-release:
+    name: iOS to TestFlight
+    needs: check
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/mobile-v')
+    runs-on: macos-26
+    timeout-minutes: 90
+    environment: mobile-signing
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - name: Generate the iOS project
+        working-directory: apps/mobile
+        run: ./node_modules/.bin/expo prebuild --clean --platform ios
+      - name: Archive, sign and upload
+        working-directory: apps/mobile
+        env:
+          IOS_DIST_P12: ${{ secrets.IOS_DIST_P12 }}
+          IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          IOS_PROFILE_APP: ${{ secrets.IOS_PROFILE_APP }}
+          IOS_PROFILE_WIDGETS: ${{ secrets.IOS_PROFILE_WIDGETS }}
+          IOS_PROFILE_SHARING: ${{ secrets.IOS_PROFILE_SHARING }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          work=$(mktemp -d "$RUNNER_TEMP/ios-release.XXXXXX")
+          keychain="$work/signing.keychain-db"
+          keychain_password=$(openssl rand -hex 24)
+          trap 'security delete-keychain "$keychain" 2>/dev/null || true; rm -rf "$work"' EXIT
+
+          # The distribution certificate goes into a temporary keychain that only this job uses.
+          (umask 077 && printf '%s' "$IOS_DIST_P12" | base64 --decode > "$work/dist.p12")
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$work/dist.p12" -k "$keychain" -P "$IOS_DIST_P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm -f "$work/dist.p12"
+
+          # Each target signs with its own App Store profile, made by hand for its bundle id.
+          profiles_dir="$HOME/Library/MobileDevice/Provisioning Profiles"
+          xcode_profiles_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles_dir" "$xcode_profiles_dir"
+          profile_map="$work/profiles.txt"
+          : > "$profile_map"
+          for encoded in "$IOS_PROFILE_APP" "$IOS_PROFILE_WIDGETS" "$IOS_PROFILE_SHARING"; do
+            printf '%s' "$encoded" | base64 --decode > "$work/profile.mobileprovision"
+            security cms -D -i "$work/profile.mobileprovision" > "$work/profile.plist"
+            uuid=$(plutil -extract UUID raw "$work/profile.plist")
+            name=$(plutil -extract Name raw "$work/profile.plist")
+            app_id=$(plutil -extract Entitlements.application-identifier raw "$work/profile.plist")
+            cp "$work/profile.mobileprovision" "$profiles_dir/$uuid.mobileprovision"
+            cp "$work/profile.mobileprovision" "$xcode_profiles_dir/$uuid.mobileprovision"
+            printf '%s\t%s\n' "${app_id#*.}" "$name" >> "$profile_map"
+          done
+          unset IOS_PROFILE_APP IOS_PROFILE_WIDGETS IOS_PROFILE_SHARING
+
+          workspace=$(ls -d ios/*.xcworkspace | head -n 1)
+          project="ios/$(basename "$workspace" .xcworkspace).xcodeproj"
+          # Prebuild writes automatic signing; switch every signed target to its profile by bundle id.
+          ruby -rxcodeproj -e '
+            map = File.readlines(ARGV[1], chomp: true).to_h { |line| line.split("\t", 2) }
+            project = Xcodeproj::Project.open(ARGV[0])
+            project.targets.each do |target|
+              target.build_configurations.each do |config|
+                next unless config.name == "Release"
+                id = config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"]
+                next if id.nil?
+                name = map[id] or abort("No App Store profile for #{id}")
+                config.build_settings["CODE_SIGN_STYLE"] = "Manual"
+                config.build_settings["DEVELOPMENT_TEAM"] = "3NP2A75X35"
+                config.build_settings["CODE_SIGN_IDENTITY"] = "Apple Distribution"
+                config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = name
+              end
+            end
+            project.save
+          ' "$project" "$profile_map"
+
+          xcodebuild archive \
+            -workspace "$workspace" \
+            -scheme "$(basename "$workspace" .xcworkspace)" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$work/app.xcarchive" \
+            CURRENT_PROJECT_VERSION="$T3CODE_MOBILE_BUILD_NUMBER"
+
+          {
+            echo '<?xml version="1.0" encoding="UTF-8"?>'
+            echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+            echo '<plist version="1.0"><dict>'
+            echo '<key>method</key><string>app-store-connect</string>'
+            echo '<key>teamID</key><string>3NP2A75X35</string>'
+            echo '<key>signingStyle</key><string>manual</string>'
+            echo '<key>signingCertificate</key><string>Apple Distribution</string>'
+            echo '<key>destination</key><string>export</string>'
+            echo '<key>provisioningProfiles</key><dict>'
+            while IFS=$'\t' read -r id name; do
+              echo "<key>$id</key><string>$name</string>"
+            done < "$profile_map"
+            echo '</dict></dict></plist>'
+          } > "$work/export.plist"
+          xcodebuild -exportArchive \
+            -archivePath "$work/app.xcarchive" \
+            -exportOptionsPlist "$work/export.plist" \
+            -exportPath "$work/export"
+
+          # altool takes the App Store Connect key as a file.
+          mkdir -p "$work/keys"
+          (umask 077 && printf '%s' "$APPLE_API_KEY_P8" > "$work/keys/AuthKey_$APPLE_API_KEY_ID.p8")
+          unset APPLE_API_KEY_P8
+
+          # Uploads to App Store Connect, where the build reaches TestFlight; releasing it is manual.
+          API_PRIVATE_KEYS_DIR="$work/keys" xcrun altool --upload-app --type ios \
+            --file "$(ls "$work"/export/*.ipa | head -n 1)" \
+            --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER"
+
+  android-release:
+    name: Android to Play internal testing
+    needs: check
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/mobile-v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: mobile-signing
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build and sign the bundle
+        working-directory: apps/mobile
+        env:
+          ANDROID_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          ./node_modules/.bin/expo prebuild --clean --platform android
+          keystore="$RUNNER_TEMP/upload.keystore"
+          trap 'rm -f "$keystore"' EXIT
+          (umask 077 && printf '%s' "$ANDROID_UPLOAD_KEYSTORE" | base64 --decode > "$keystore")
+          # The injected signing properties replace the debug key Expo's template signs release with.
+          cd android && ./gradlew bundleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="$keystore" \
+            -Pandroid.injected.signing.store.password="$ANDROID_UPLOAD_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_UPLOAD_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_UPLOAD_KEY_PASSWORD"
+      - name: Upload to the internal track
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.libraos.next
+          releaseFiles: apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

@@ -24,6 +24,7 @@ import { createRemoteEnvironmentProjectionAtoms } from "./remote-environment-pro
 import { serverEnvironment } from "./server";
 import { relayEnvironmentDiscovery } from "./relay";
 import { connectPairingUrl as connectPairingUrlCommand } from "../connection/onboarding";
+import { isLoopbackPairingUrl, LOOPBACK_PAIRING_ERROR } from "../features/connection/pairing";
 
 const RELAY_REMOVAL_ACCOUNT_NOTE: Record<Discovery.RelayEnvironmentRegistration, string> = {
   registered: msg(
@@ -73,7 +74,10 @@ export async function pairEnvironment(
     return { ok: true, error: null };
   }
   const error = Cause.squash(result.cause);
-  const message = errorDisplayMessage(error, m) ?? m(msg("Failed to pair with the environment."));
+  // The simulator's loopback is the computer, so a loopback link is tried and explained on failure.
+  const message = isLoopbackPairingUrl(pairingUrl)
+    ? m(LOOPBACK_PAIRING_ERROR)
+    : (errorDisplayMessage(error, m) ?? m(msg("Failed to pair with the environment.")));
   if (
     error !== null &&
     typeof error === "object" &&

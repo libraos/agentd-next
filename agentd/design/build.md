@@ -22,6 +22,20 @@ macOS is signed with a Developer ID Application certificate of team `3NP2A75X35`
 
 Linux is unsigned and gets no signing variables.
 
+## Mobile
+
+`.github/workflows/mobile.yml` builds the LibraOS Next phone apps (`com.libraos.next`, team `3NP2A75X35`). Its jobs:
+
+- `check` (`ubuntu-24.04`, tags and manual runs): `node scripts/mobile-release-check.ts env`, then the iOS and Android `expo export`, then `node scripts/mobile-release-check.ts bundle` on each. It fails on any upstream endpoint, Clerk or trace setting in the build environment or the bundle, except the entries in `scripts/mobile-release-check.allow.json`.
+- `ui-android` (`ubuntu-24.04` with KVM, an API 35 x86_64 emulator) and `ui-ios` (`macos-26`, a simulator): a Release build (Android signed with the debug key), then `apps/mobile/maestro/run-flows.sh`. It starts `scripts/mobile-ui-host.ts`, a scratch server with no LibraOS Engine, and runs the Maestro flows: pair and open LibraOS Engine, revoke on the host and check the phone loses it, and a loopback address that is explained. Dark screenshots and the server log are uploaded. Pull requests that touch `apps/mobile`, `packages` or `scripts/mobile-*` run only these two jobs.
+- `ios-release` (`macos-26`) and `android-release` (`ubuntu-24.04`): tags and manual runs only, after `check`, in the GitHub environment `mobile-signing`. iOS imports the distribution certificate into a temporary keychain, archives, exports for App Store Connect and uploads with `xcrun altool`; the build reaches TestFlight. Android builds an `.aab` signed with the upload key and uploads it to Play's internal testing track. Neither job publishes to production: promoting a build is done by hand in App Store Connect and the Play Console.
+
+Every build number is the run number (`T3CODE_MOBILE_BUILD_NUMBER`), and the version follows `apps/desktop/package.json` unless `T3CODE_MOBILE_VERSION` is set.
+
+The secrets of `mobile-signing`: `IOS_DIST_P12` (the base64 `.p12` of the Apple Distribution certificate) and `IOS_DIST_P12_PASSWORD`; `IOS_PROFILE_APP`, `IOS_PROFILE_WIDGETS` and `IOS_PROFILE_SHARING`, the base64 App Store provisioning profiles of `com.libraos.next` and its widget and sharing extensions, made by hand with that certificate (the job sets each target's signing to its profile by bundle id, so the key needs no right to create profiles, and the profiles are renewed yearly); `APPLE_API_KEY` (the `.p8` text, written to a temporary file), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`, the same App Store Connect key as `macos-signing`; `ANDROID_UPLOAD_KEYSTORE` (the base64 keystore), `ANDROID_UPLOAD_KEYSTORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS` and `ANDROID_UPLOAD_KEY_PASSWORD`; and `PLAY_SERVICE_ACCOUNT_JSON`, a Play service account allowed to release to testing tracks.
+
+To cut a mobile release, tag the commit `mobile-v<version>` (for example `mobile-v0.3.0`, matching the version the build will carry) and push the tag, or run Mobile by hand. Then walk [the release checklist](mobile-release-checklist.md) on the TestFlight and internal-track builds before promoting them.
+
 ## Internal test build: Linux AppImage and Windows installer
 
 The internal test build of AgentD Desktop, with agentd inside. Built 2026-11-18 on the Linux build host (x86_64, Ubuntu 22.04, no Rust, Wine, sudo or Windows; Docker available). Nothing was published: no release, tag or upload.

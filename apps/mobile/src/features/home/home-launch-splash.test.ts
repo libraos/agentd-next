@@ -4,6 +4,7 @@ import { createLaunchSplashHomeRows, splashCanHide } from "./home-launch-splash"
 
 const launched = {
   preferencesReady: true,
+  preferencesWaitEnded: false,
   shellCachesRead: true,
   homeRowsPending: false,
   waitEnded: false,
@@ -39,6 +40,12 @@ it.each([
     name: "waits for preferences even after the limit",
     input: { ...launched, preferencesReady: false, waitEnded: true },
     hides: false,
+  },
+  {
+    // An iOS keychain read that never answers left a cold launch on the splash.
+    name: "stops waiting for preferences that never load at their own limit",
+    input: { ...launched, preferencesReady: false, waitEnded: true, preferencesWaitEnded: true },
+    hides: true,
   },
 ])("the launch splash $name", ({ input, hides }) => {
   expect(splashCanHide(input)).toBe(hides);

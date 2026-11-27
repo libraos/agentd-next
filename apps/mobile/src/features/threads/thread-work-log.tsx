@@ -68,7 +68,7 @@ import {
 } from "@t3tools/client-runtime/work-log/command-label";
 
 import { AppText as Text } from "../../components/ui/AppText";
-import { AgentdMark } from "../../components/AgentdMark";
+import { NextMark } from "../../components/NextMark";
 import { BrowserAppIcon } from "./BrowserAppIcon";
 import { useAppActive, useReduceMotionEnabled } from "../../lib/appState";
 import { cn } from "../../lib/cn";
@@ -139,7 +139,7 @@ function WorkLogIcon(props: {
   const colorClassName = props.highlighted ? "accent-foreground" : props.colorClassName;
   if (props.icon === "agentd-desktop") {
     return (
-      <AgentdMark height={13} {...(colorClassName ? { colorClassName } : { color: props.color })} />
+      <NextMark height={13} {...(colorClassName ? { colorClassName } : { color: props.color })} />
     );
   }
   if (props.icon === "computer") {

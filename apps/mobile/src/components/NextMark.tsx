@@ -4,29 +4,25 @@ import { withUniwind } from "uniwind";
 
 const ThemedPath = withUniwind(Path);
 
-/** The AgentD mark in one colour: three arcs of a ring and the stem of the d. */
-export function AgentdMark(props: {
+/** The LibraOS Next N in one colour: two split stems and the diagonal (assets/prod/app-icon.icon). */
+export function NextMark(props: {
   readonly height: number;
   readonly color?: ColorValue;
   readonly colorClassName?: string;
 }) {
-  const aspectRatio = 139 / 174;
   const color = { color: props.color, colorClassName: props.colorClassName };
   return (
     <Svg
       accessibilityLabel="LibraOS Next"
       height={props.height}
-      width={props.height * aspectRatio}
-      viewBox="28 14 139 174"
+      width={props.height}
+      viewBox="0 0 100 100"
     >
       <ThemedPath
-        d="M148.13 94.57A58 58 0 0 1 100.05 177.86M91.95 177.86A58 58 0 0 1 43.87 94.57M47.92 87.57A58 58 0 0 1 144.08 87.57"
+        d="M0 0H17V46H0ZM0 54H17V100H0ZM83 0H100V46H83ZM83 54H100V100H83ZM0 0H17L100 100H83Z"
         {...color}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={17}
+        fill="currentColor"
       />
-      <ThemedPath d="M147.5 16H164.5V182.5H147.5Z" {...color} fill="currentColor" />
     </Svg>
   );
 }

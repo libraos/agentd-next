@@ -147,8 +147,13 @@ folder paths, so in the web app use **Add project** instead.
 
 ## Mobile app
 
-LibraOS Next does not publish a mobile app. The iOS and Android apps in the app
-stores are upstream's and not part of LibraOS Next.
+LibraOS Next for iPhone and Android is a remote control for LibraOS Next on your own
+computer: agents keep running there. It is coming to the App Store and Google Play;
+the links will be here at launch. Upstream's apps in the stores are
+not part of LibraOS Next.
+
+To connect the phone, pair it with your computer as described in
+[Remote access](./remote-access.md#pair-over-a-lan-or-private-network).
 
 ## Providers
 

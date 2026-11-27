@@ -1,0 +1,43 @@
+# Runs after pair-and-engine.yaml and `scripts/mobile-ui-host.ts revoke-all`: the relaunched app
+# keeps the environment but no longer reaches it, so the LibraOS Engine row is gone. The row is
+# matched by id: iOS exposes it only by a label its section title shares.
+#   maestro test -e ENVIRONMENT_ID=... -e ENVIRONMENT_NAME=... pair-revoked.yaml
+appId: com.libraos.next
+name: A device the computer revoked has to pair again
+---
+# The link starts the stopped app, so it is the launch URL.
+- stopApp
+- openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+# iOS asks "Open in “LibraOS Next”?" before following the link.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Open"
+          optional: true
+- extendedWaitUntil:
+    visible: ${ENVIRONMENT_NAME}
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: "environment-engine-row"
+    timeout: 30000
+- takeScreenshot: revoked-dark
+
+# A link tapped while the app is still starting reaches it before its screens listen; the app
+# keeps it and opens it once they are up. Android only for now: iOS still drops that link.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - launchApp:
+          stopApp: true
+      - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+      - extendedWaitUntil:
+          visible: ${ENVIRONMENT_NAME}
+          timeout: 30000
+      - extendedWaitUntil:
+          notVisible:
+            id: "environment-engine-row"
+          timeout: 30000

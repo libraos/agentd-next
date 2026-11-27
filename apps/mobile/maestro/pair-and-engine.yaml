@@ -1,0 +1,80 @@
+# Pairs a release build with the server `scripts/mobile-ui-host.ts start` runs and opens the
+# LibraOS Engine screen. Release builds take no pairing link, so the flow types the Address and
+# Code that the host printed:
+#   maestro test -e HOST=... -e CODE=... -e ENVIRONMENT_ID=... -e ENVIRONMENT_NAME=... pair-and-engine.yaml
+# The device is in dark appearance before the flow starts; the screenshots are dark-theme.
+appId: com.libraos.next
+name: Pair with a real server and open the LibraOS Engine screen
+---
+# Saved environments live in the iOS keychain, which clearState keeps.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - clearKeychain
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- extendedWaitUntil:
+    visible: "Pair with your computer"
+    timeout: 30000
+- takeScreenshot: home-dark
+
+- tapOn: "Add environment"
+- extendedWaitUntil:
+    visible: "Address"
+    timeout: 10000
+- takeScreenshot: pairing-dark
+- tapOn: "Address"
+- inputText: ${HOST}
+# Tap the field by its placeholder: on Android a tap on the "Code" label leaves focus in Address.
+# iOS has no keyboard dismiss here, so only Android hides it first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn: "Pairing code"
+- inputText: ${CODE}
+- pressKey: Enter
+# Pairing lands on Settings, which lists environments one level down.
+# iOS reads the row as "Environments, 1", so match the start of the label.
+- extendedWaitUntil:
+    visible: "Environments.*"
+    timeout: 30000
+- tapOn: "Environments.*"
+# The row is one button: iOS exposes only its label, "Manage <name>", and not the name inside it
+# (Android lists both), so match that label on both platforms.
+- extendedWaitUntil:
+    visible: "Manage ${ENVIRONMENT_NAME}"
+    timeout: 30000
+
+- openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+# iOS asks "Open in “LibraOS Next”?" before following the link.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Open"
+          optional: true
+# The row sits below Connection and Routes, off a small screen. iOS exposes the row only by its
+# label, "LibraOS Engine", which its section title shares, and not the description inside it,
+# so match the row by its id and check the description where Android lists it. The row shows once
+# the environment is connected; the CI host's server can take seconds per request, hence 60 s.
+- scrollUntilVisible:
+    element:
+      id: "environment-engine-row"
+    timeout: 60000
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Background tasks and the approvals waiting on you"
+- tapOn:
+    id: "environment-engine-row"
+- extendedWaitUntil:
+    visible: "Set up LibraOS Engine on your computer"
+    timeout: 30000
+- takeScreenshot: engine-dark
