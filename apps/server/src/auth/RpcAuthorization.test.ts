@@ -189,23 +189,31 @@ describe("RPC scope middleware", () => {
 });
 
 it.effect(
-  "lets readers see the Gateway balance but takes host maintenance to start a checkout",
+  "lets readers see the Gateway balance and plans but takes host maintenance to start a checkout",
   () =>
     Effect.gen(function* () {
-      const tested = [WS_METHODS.libraosGatewayCredits, WS_METHODS.libraosGatewayCheckout] as const;
-      expect(requiredScopeForRpcMethod(WS_METHODS.libraosGatewayCredits)).toBe(
-        AuthOrchestrationReadScope,
-      );
-      expect(requiredScopeForRpcMethod(WS_METHODS.libraosGatewayCheckout)).toBe(
-        AuthEnvironmentMaintainScope,
-      );
+      const tested = [
+        WS_METHODS.libraosGatewayCredits,
+        WS_METHODS.libraosGatewayCheckout,
+        WS_METHODS.libraosGatewayPlans,
+        WS_METHODS.libraosGatewayPlanCheckout,
+      ] as const;
+      for (const read of [WS_METHODS.libraosGatewayCredits, WS_METHODS.libraosGatewayPlans]) {
+        expect(requiredScopeForRpcMethod(read)).toBe(AuthOrchestrationReadScope);
+      }
+      for (const write of [
+        WS_METHODS.libraosGatewayCheckout,
+        WS_METHODS.libraosGatewayPlanCheckout,
+      ]) {
+        expect(requiredScopeForRpcMethod(write)).toBe(AuthEnvironmentMaintainScope);
+      }
       const group = WsRpcGroup.omit(
         ...[...WsRpcGroup.requests.keys()].filter(
           (tag): tag is Exclude<keyof typeof RPC_REQUIRED_SCOPES, (typeof tested)[number]> =>
             !(tested as ReadonlyArray<string>).includes(tag),
         ),
       );
-      const checkouts: number[] = [];
+      const checkouts: Array<number | string> = [];
       const handlers = Layer.mergeAll(
         group.toLayerHandler(WS_METHODS.libraosGatewayCredits, () => Effect.succeed(null)),
         group.toLayerHandler(WS_METHODS.libraosGatewayCheckout, ({ usd }) =>
@@ -214,17 +222,28 @@ it.effect(
             return { url: "https://checkout.stripe.com/c/pay/cs_test" };
           }),
         ),
+        group.toLayerHandler(WS_METHODS.libraosGatewayPlans, () => Effect.succeed(null)),
+        group.toLayerHandler(WS_METHODS.libraosGatewayPlanCheckout, ({ plan }) =>
+          Effect.sync(() => {
+            checkouts.push(plan);
+            return { url: "https://checkout.stripe.com/c/pay/cs_test" };
+          }),
+        ),
       );
       const reader = yield* RpcTest.makeClient(group).pipe(
         Effect.provide(Layer.merge(handlers, RpcAuthorization.layer([AuthOrchestrationReadScope]))),
       );
       expect(yield* reader[WS_METHODS.libraosGatewayCredits]({})).toBeNull();
-      expect(
-        yield* reader[WS_METHODS.libraosGatewayCheckout]({ usd: 20 }).pipe(Effect.flip),
-      ).toMatchObject({
-        _tag: "EnvironmentAuthorizationError",
-        requiredPermission: AuthEnvironmentMaintainScope,
-      });
+      expect(yield* reader[WS_METHODS.libraosGatewayPlans]({})).toBeNull();
+      for (const refused of [
+        reader[WS_METHODS.libraosGatewayCheckout]({ usd: 20 }),
+        reader[WS_METHODS.libraosGatewayPlanCheckout]({ plan: "pro" }),
+      ]) {
+        expect(yield* refused.pipe(Effect.flip)).toMatchObject({
+          _tag: "EnvironmentAuthorizationError",
+          requiredPermission: AuthEnvironmentMaintainScope,
+        });
+      }
       expect(checkouts).toEqual([]);
 
       const maintainer = yield* RpcTest.makeClient(group).pipe(
@@ -238,7 +257,10 @@ it.effect(
       expect(yield* maintainer[WS_METHODS.libraosGatewayCheckout]({ usd: 20 })).toEqual({
         url: "https://checkout.stripe.com/c/pay/cs_test",
       });
-      expect(checkouts).toEqual([20]);
+      expect(yield* maintainer[WS_METHODS.libraosGatewayPlanCheckout]({ plan: "pro" })).toEqual({
+        url: "https://checkout.stripe.com/c/pay/cs_test",
+      });
+      expect(checkouts).toEqual([20, "pro"]);
     }),
 );
 

@@ -1,5 +1,7 @@
 import * as Schema from "effect/Schema";
 
+import { TrimmedNonEmptyString } from "./baseSchemas.ts";
+
 // The LibraOS Gateway: a Console API key (lk_…) that agentd's workers and the app's chats use for
 // model access, pay as you go. The server keeps the key; clients only see whether it is connected.
 
@@ -138,6 +140,44 @@ export const LibraosGatewayCheckout = Schema.Struct({
   url: Schema.String,
 });
 export type LibraosGatewayCheckout = typeof LibraosGatewayCheckout.Type;
+
+/**
+ * available: can be subscribed to; current: the account's plan; coming_soon: shown, not sold yet;
+ * unavailable: shown, nothing to click.
+ */
+export const LibraosGatewayPlanState = Schema.Literals([
+  "available",
+  "current",
+  "coming_soon",
+  "unavailable",
+]);
+export type LibraosGatewayPlanState = typeof LibraosGatewayPlanState.Type;
+
+/** One of Console's plans; the app never names or prices a plan itself. */
+export const LibraosGatewayPlan = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  priceUsd: Schema.Finite,
+  interval: Schema.Literals(["month", "year"]),
+  /** Console's English summary, shown as is. */
+  summary: Schema.String,
+  state: LibraosGatewayPlanState,
+});
+export type LibraosGatewayPlan = typeof LibraosGatewayPlan.Type;
+
+export const LibraosGatewayPlans = Schema.Struct({
+  plans: Schema.Array(LibraosGatewayPlan),
+  /** The id of the account's plan, if it has one. */
+  current: Schema.NullOr(Schema.String),
+  /** Console's page for changing or cancelling a plan; the app never does either. */
+  manageUrl: Schema.String,
+});
+export type LibraosGatewayPlans = typeof LibraosGatewayPlans.Type;
+
+export const LibraosGatewayPlanCheckoutInput = Schema.Struct({
+  plan: TrimmedNonEmptyString.check(Schema.isMaxLength(200)),
+});
+export type LibraosGatewayPlanCheckoutInput = typeof LibraosGatewayPlanCheckoutInput.Type;
 
 export class LibraosGatewayError extends Schema.TaggedError<LibraosGatewayError>()(
   "LibraosGatewayError",

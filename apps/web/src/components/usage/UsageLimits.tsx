@@ -42,6 +42,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { useLibraosLimitAccount } from "../agentd/useLibraosLimitAccount";
 import { LibraosCreditsUsageRow } from "../agentd/LibraosCredits";
+import { LibraosPlansUsageSection } from "../agentd/LibraosPlans";
 import { formatResetsIn, resetCreditChoices } from "@t3tools/shared/usageLimitsCopy";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
@@ -440,6 +441,7 @@ export function UsageLimitsSection({
         now={now}
       />
       <LibraosCreditsUsageRow />
+      <LibraosPlansUsageSection />
     </>
   );
 }

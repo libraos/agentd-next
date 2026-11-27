@@ -1879,6 +1879,17 @@ function OpenCommandPaletteDialog(props: {
 
   actionItems.push({
     kind: "action",
+    value: "action:see-libraos-plans",
+    searchTerms: ["plans", "plan", "subscribe", "subscription", "billing", "libraos", "gateway"],
+    title: gt("See LibraOS plans"),
+    icon: <CreditCardIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/settings/providers", hash: "libraos-plans" });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
     value: "action:agentd",
     searchTerms: ["agentd", "status", "workers", "team", "nodes", "approvals", "inbox"],
     title: gt("Open LibraOS Engine"),

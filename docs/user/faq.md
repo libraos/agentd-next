@@ -16,7 +16,7 @@ Yes. An agent that is installed and signed in on the machine is used as it is. T
 
 ## How much does LibraOS Next cost?
 
-The app is free and open source (MIT). It includes no model access and sells none: you pay your provider as you already do. If you use a LibraOS API key through LibraOS Gateway, that use is billed to your LibraOS account, pay as you go from LibraOS credits that you buy from LibraOS in your browser. [LibraOS credits](./welcome-page.md#libraos-credits)
+The app is free and open source (MIT). It includes no model access and sells none: you pay your provider as you already do. If you use a LibraOS API key through LibraOS Gateway, that use is billed to your LibraOS account, pay as you go from LibraOS credits that you buy from LibraOS in your browser, or through a LibraOS plan you subscribe to there. [LibraOS credits](./welcome-page.md#libraos-credits), [LibraOS plans](./welcome-page.md#libraos-plans)
 
 ## Can I use an API key or OpenRouter instead of a subscription?
 

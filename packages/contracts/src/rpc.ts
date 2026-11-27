@@ -497,6 +497,8 @@ import {
   LibraosGatewayConnectInput,
   LibraosGatewayCredits,
   LibraosGatewayError,
+  LibraosGatewayPlanCheckoutInput,
+  LibraosGatewayPlans,
   LibraosGatewaySignIn,
   LibraosGatewaySignInStartInput,
   LibraosGatewayStatus,
@@ -920,6 +922,8 @@ export const WS_METHODS = {
   libraosGatewaySignInCancel: "libraosGateway.signInCancel",
   libraosGatewayCredits: "libraosGateway.credits",
   libraosGatewayCheckout: "libraosGateway.checkout",
+  libraosGatewayPlans: "libraosGateway.plans",
+  libraosGatewayPlanCheckout: "libraosGateway.planCheckout",
 } as const;
 
 const WsServerUpsertKeybindingRpc = Rpc.make(WS_METHODS.serverUpsertKeybinding, {
@@ -3110,6 +3114,19 @@ const WsLibraosGatewayCheckoutRpc = Rpc.make(WS_METHODS.libraosGatewayCheckout, 
   error: LibraosGatewayRpcError,
 });
 
+// Null while no key is connected or Console sells no plans (an older Console answers 404).
+const WsLibraosGatewayPlansRpc = Rpc.make(WS_METHODS.libraosGatewayPlans, {
+  payload: Schema.Struct({}),
+  success: Schema.NullOr(LibraosGatewayPlans),
+  error: LibraosGatewayRpcError,
+});
+
+const WsLibraosGatewayPlanCheckoutRpc = Rpc.make(WS_METHODS.libraosGatewayPlanCheckout, {
+  payload: LibraosGatewayPlanCheckoutInput,
+  success: LibraosGatewayCheckout,
+  error: LibraosGatewayRpcError,
+});
+
 export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthorization>()(
   "t3/contracts/RpcScopeAuthorization",
   { error: EnvironmentAuthorizationError },
@@ -3424,6 +3441,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsLibraosGatewaySignInCancelRpc,
   WsLibraosGatewayCreditsRpc,
   WsLibraosGatewayCheckoutRpc,
+  WsLibraosGatewayPlansRpc,
+  WsLibraosGatewayPlanCheckoutRpc,
   WsOrchestrationV2DispatchCommandRpc,
   WsOrchestrationV2GetWorkflowScriptRpc,
   WsOrchestrationV2GetNativeChildWorkRpc,

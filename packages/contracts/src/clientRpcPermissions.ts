@@ -151,6 +151,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.libraosGatewaySignInCancel]: AuthEnvironmentMaintainScope,
   // A checkout charges the account of the key this host keeps, as the key's other uses do.
   [WS_METHODS.libraosGatewayCheckout]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.libraosGatewayPlanCheckout]: AuthEnvironmentMaintainScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   // An answer, a resume and a cancel each decide what a run's agents do next.
   [WS_METHODS.workflowsAnswer]: AuthOrchestrationOperateScope,

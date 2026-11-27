@@ -101,6 +101,13 @@ describe("searchSettings", () => {
     }
   });
 
+  it("finds the LibraOS Gateway's plans and credits", () => {
+    for (const query of ["plans", "subscribe", "LibraOS plans"]) {
+      expect(searchSettings(query)[0]?.id, query).toBe("libraos-plans");
+    }
+    expect(searchSettings("credits")[0]?.id).toBe("libraos-credits");
+  });
+
   it("keeps disabled product areas out of navigation and search", () => {
     const paths = settingsNavGroups(true).flatMap((group) => group.paths);
     expect(paths).not.toContain("/settings/scheduled-tasks");

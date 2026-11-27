@@ -6,11 +6,13 @@ import { useLibraosCredits } from "../../lib/libraosGatewayState";
 import { Alert, AlertAction, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { BuyLibraosCreditsButton } from "./LibraosCredits";
+import { SeeLibraosPlansButton } from "./LibraosPlans";
 import { formatCreditsUsd } from "./libraosCredits.logic";
 
 /**
  * Takes the generic error banner's place when a Gateway turn is refused for credit: Buy credits,
- * and Retry when the failed run can be resumed (agents without native resume cannot).
+ * See plans when Console sells any, and Retry when the failed run can be resumed (agents without
+ * native resume cannot).
  */
 export function LibraosCreditsThreadError({
   environmentId,
@@ -61,6 +63,7 @@ export function LibraosCreditsThreadError({
         </AlertDescription>
         <AlertAction>
           <BuyLibraosCreditsButton environmentId={environmentId} />
+          <SeeLibraosPlansButton environmentId={environmentId} />
           {onRetry === null ? null : (
             <Button variant="outline" size="sm" disabled={retrying} onClick={onRetry}>
               <T>Retry</T>

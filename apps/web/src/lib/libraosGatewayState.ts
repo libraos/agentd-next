@@ -1,12 +1,18 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import {
+  type AtomCommandResult,
   createAtomCommandScheduler,
   createEnvironmentRpcCommand,
   createEnvironmentRpcQueryAtomFamily,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { AuthOrchestrationReadScope, WS_METHODS, type EnvironmentId } from "@t3tools/contracts";
+import {
+  AuthOrchestrationReadScope,
+  WS_METHODS,
+  type EnvironmentId,
+  type LibraosGatewayCheckout,
+} from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Atom from "effect/reactivity/Atom";
 import { useGT, useMessages } from "gt-react";
@@ -56,13 +62,20 @@ const credits = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
   staleTimeMs: 60_000,
 });
 
-// One listener per environment however many views show the balance, and one read per few seconds
+// Console's plans, read again on focus like the balance: someone may come back from subscribing.
+const plans = createEnvironmentRpcQueryAtomFamily(connectionAtomRuntime, {
+  label: "environment-data:libraos-gateway:plans",
+  tag: WS_METHODS.libraosGatewayPlans,
+  staleTimeMs: 60_000,
+});
+
+// One listener per read and environment however many views show it, and one read per few seconds
 // at most: moving between windows fires focus often.
 const FOCUS_REFRESH_FLOOR_MS = 5_000;
-const focusWatchers = new Map<EnvironmentId, { count: number; readonly stop: () => void }>();
+const focusWatchers = new Map<string, { count: number; readonly stop: () => void }>();
 
-function watchFocus(environmentId: EnvironmentId, refresh: () => void): () => void {
-  let watcher = focusWatchers.get(environmentId);
+function watchFocus(key: string, refresh: () => void): () => void {
+  let watcher = focusWatchers.get(key);
   if (watcher === undefined) {
     let readAt = 0;
     const onFocus = () => {
@@ -73,7 +86,7 @@ function watchFocus(environmentId: EnvironmentId, refresh: () => void): () => vo
     };
     window.addEventListener("focus", onFocus);
     watcher = { count: 0, stop: () => window.removeEventListener("focus", onFocus) };
-    focusWatchers.set(environmentId, watcher);
+    focusWatchers.set(key, watcher);
   }
   watcher.count += 1;
   const current = watcher;
@@ -81,7 +94,7 @@ function watchFocus(environmentId: EnvironmentId, refresh: () => void): () => vo
     current.count -= 1;
     if (current.count > 0) return;
     current.stop();
-    focusWatchers.delete(environmentId);
+    focusWatchers.delete(key);
   };
 }
 
@@ -92,6 +105,7 @@ const refreshStatus = (
   Effect.sync(() => {
     registry.refresh(status({ environmentId: target.environmentId, input: {} }));
     registry.refresh(credits({ environmentId: target.environmentId, input: {} }));
+    registry.refresh(plans({ environmentId: target.environmentId, input: {} }));
   });
 
 const libraosGatewayEnvironment = {
@@ -128,6 +142,10 @@ const libraosGatewayEnvironment = {
   checkout: createEnvironmentRpcCommand(connectionAtomRuntime, {
     label: "environment-data:libraos-gateway:checkout",
     tag: WS_METHODS.libraosGatewayCheckout,
+  }),
+  planCheckout: createEnvironmentRpcCommand(connectionAtomRuntime, {
+    label: "environment-data:libraos-gateway:plan-checkout",
+    tag: WS_METHODS.libraosGatewayPlanCheckout,
   }),
 };
 
@@ -192,9 +210,60 @@ export function useLibraosCredits(target?: EnvironmentId | null) {
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reads the balance again when the window regains focus, as when someone comes back from paying in the browser
   useEffect(() => {
     if (!connected || environmentId === null) return;
-    return watchFocus(environmentId, () => registry.refresh(credits({ environmentId, input: {} })));
+    return watchFocus(`credits:${environmentId}`, () =>
+      registry.refresh(credits({ environmentId, input: {} })),
+    );
   }, [connected, environmentId, registry]);
   return { environmentId, connected, ...query };
+}
+
+/**
+ * Console's plans for the connected key's account (null data while none is connected, or Console
+ * sells none), read again when the window regains focus; never on a timer.
+ */
+export function useLibraosPlans(target?: EnvironmentId | null) {
+  const gateway = useLibraosGateway(target);
+  const environmentId = gateway.environmentId;
+  const connected = gateway.data?.connected === true;
+  const registry = useContext(RegistryContext);
+  const query = useEnvironmentQuery(
+    connected && environmentId !== null ? plans({ environmentId, input: {} }) : null,
+    useMessages(),
+  );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reads the plans again when the window regains focus, as when someone comes back from subscribing in the browser
+  useEffect(() => {
+    if (!connected || environmentId === null) return;
+    return watchFocus(`plans:${environmentId}`, () =>
+      registry.refresh(plans({ environmentId, input: {} })),
+    );
+  }, [connected, environmentId, registry]);
+  return { environmentId, connected, ...query };
+}
+
+/**
+ * Opens the Stripe Checkout `start` answers with in the browser: the page once open, or what went
+ * wrong. A browser blocks a tab opened after an await, so the web build opens it during the click
+ * and sends it to the checkout once Console answers. The desktop opens the system browser itself.
+ */
+async function openCheckout(
+  start: () => Promise<AtomCommandResult<LibraosGatewayCheckout, unknown>>,
+  failed: (cause: unknown) => string,
+): Promise<{ readonly opened: string } | { readonly error: string }> {
+  const desktop = typeof window !== "undefined" && window.desktopBridge !== undefined;
+  const tab = desktop ? null : window.open("", "_blank");
+  if (tab !== null) tab.opener = null;
+  const result = await start();
+  if (result._tag === "Failure") {
+    tab?.close();
+    return { error: failed(squashAtomCommandFailure(result)) };
+  }
+  const url = result.value.url;
+  if (tab !== null) tab.location.href = url;
+  else if (desktop)
+    await readLocalApi()
+      ?.shell.openExternal(url)
+      .catch(() => undefined);
+  return { opened: url };
 }
 
 /**
@@ -213,35 +282,50 @@ export function useBuyLibraosCredits(environmentId: EnvironmentId | null) {
     readonly error: string | null;
     readonly opened: string | null;
   }>({ buying: null, error: null, opened: null });
+  const failed = (cause: unknown) =>
+    thrownErrorMessage(cause, m) || gt("Could not reach this environment.");
 
   const buy = async (usd: number) => {
     if (environmentId === null || state.buying !== null) return;
-    // A browser blocks a tab opened after an await, so the web build opens it during the click and
-    // sends it to the checkout once Console answers. The desktop opens the system browser itself.
-    const desktop = typeof window !== "undefined" && window.desktopBridge !== undefined;
-    const tab = desktop ? null : window.open("", "_blank");
-    if (tab !== null) tab.opener = null;
+    const start = () => checkout({ environmentId, input: { usd } });
+    const pending = openCheckout(start, failed);
     setState({ buying: usd, error: null, opened: null });
-    const result = await checkout({ environmentId, input: { usd } });
-    if (result._tag === "Failure") {
-      tab?.close();
-      setState({
-        buying: null,
-        opened: null,
-        error:
-          thrownErrorMessage(squashAtomCommandFailure(result), m) ||
-          gt("Could not reach this environment."),
-      });
-      return;
-    }
-    const url = result.value.url;
-    if (tab !== null) tab.location.href = url;
-    else if (desktop)
-      await readLocalApi()
-        ?.shell.openExternal(url)
-        .catch(() => undefined);
-    setState({ buying: null, error: null, opened: url });
+    const outcome = await pending;
+    setState({ buying: null, error: null, opened: null, ...outcome });
   };
 
   return { canBuy, buy, ...state };
+}
+
+/**
+ * Starts a Stripe Checkout for one of Console's plans and opens it in the browser. `opened` is the
+ * page once it is open; the person subscribes there, never in the app.
+ */
+export function useSubscribeLibraosPlan(environmentId: EnvironmentId | null) {
+  const gt = useGT();
+  const m = useMessages();
+  const canSubscribe = useAtomValue(
+    libraosGatewayEnvironment.planCheckout.permissionAtom(environmentId ?? null),
+  );
+  const planCheckout = useAtomCommand(libraosGatewayEnvironment.planCheckout, {
+    reportFailure: false,
+  });
+  const [state, setState] = useState<{
+    readonly subscribing: string | null;
+    readonly error: string | null;
+    readonly opened: string | null;
+  }>({ subscribing: null, error: null, opened: null });
+  const failed = (cause: unknown) =>
+    thrownErrorMessage(cause, m) || gt("Could not reach this environment.");
+
+  const subscribe = async (plan: string) => {
+    if (environmentId === null || state.subscribing !== null) return;
+    const start = () => planCheckout({ environmentId, input: { plan } });
+    const pending = openCheckout(start, failed);
+    setState({ subscribing: plan, error: null, opened: null });
+    const outcome = await pending;
+    setState({ subscribing: null, error: null, opened: null, ...outcome });
+  };
+
+  return { canSubscribe, subscribe, ...state };
 }
