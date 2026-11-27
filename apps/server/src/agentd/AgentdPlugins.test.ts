@@ -1039,6 +1039,9 @@ it.effect("a .py file runs through Python Next picks on Windows only, and as is 
     for (const [name, platform, dirs, resolved, known, expected] of cases) {
       expect(yield* launch(platform, dirs, resolved, known), name).toEqual(expected);
     }
+    expect(AgentdPlugins.noPython("legal")).toBe(
+      "legal is a Python script and Python 3 was not found. Install Python 3 from python.org (it adds the py launcher), then start a new thread.",
+    );
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 

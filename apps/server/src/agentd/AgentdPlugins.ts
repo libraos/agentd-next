@@ -284,7 +284,8 @@ export type ProgramLaunchInput = Exclude<ResolvedCommand, { readonly _tag: "Unsa
 const NOT_FOUND: ProgramLaunch = { _tag: "NotFound" };
 const NO_PYTHON: ProgramLaunch = { _tag: "NoPython" };
 const PYTHON_INSTALL = "Install Python 3 from python.org (it adds the py launcher)";
-const noPython = (server: string) =>
+/** What a person reads when a Windows .py server has no Python to start it. */
+export const noPython = (server: string) =>
   `${server} is a Python script and Python 3 was not found. ${PYTHON_INSTALL}, then start a new thread.`;
 /** A setup gets the engine's path in this variable. */
 export const LIBRAOS_ENGINE_ENV = "LIBRAOS_ENGINE";
