@@ -23,7 +23,12 @@ name: Pair with a real server and open the LibraOS Engine screen
 - tapOn: "Address"
 - inputText: ${HOST}
 # Tap the field by its placeholder: on Android a tap on the "Code" label leaves focus in Address.
-- hideKeyboard
+# iOS has no keyboard dismiss here, so only Android hides it first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
 - tapOn: "Pairing code"
 - inputText: ${CODE}
 - pressKey: Enter
