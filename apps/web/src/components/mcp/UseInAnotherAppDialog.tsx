@@ -517,7 +517,7 @@ function GateScreen({
             <p className="text-sm text-muted-foreground">{turnOnHere.reason}</p>
           ) : (
             <div className="space-y-2 text-sm">
-              <CommandBlock command="libraos-next connect link" />
+              <CommandBlock command="lnext connect link" />
               <p>
                 <T>
                   Restart LibraOS Next on <Var>{name}</Var>.

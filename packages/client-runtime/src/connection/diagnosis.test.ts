@@ -156,9 +156,7 @@ describe("presentConnectionDiagnosis", () => {
       ),
     );
     expect(diagnosis?.headline).toBe("Mac mini is waiting for someone to approve this device");
-    expect(diagnosis?.steps.join(" ")).toContain(
-      "libraos-next auth connect-device approve K7QM-2XFD",
-    );
+    expect(diagnosis?.steps.join(" ")).toContain("lnext auth connect-device approve K7QM-2XFD");
   });
 
   it("tells a host that refused this device's login to sign in again, not to start LibraOS Next", () => {

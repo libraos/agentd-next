@@ -582,7 +582,7 @@ export function LinkEnvironmentDialog({
                   onChange={(event) => setPairingCode(event.target.value)}
                   placeholder={
                     machine === null
-                      ? gt("From Sharing & access there, or libraos-next pair")
+                      ? gt("From Sharing & access there, or lnext pair")
                       : gt("Paste the code")
                   }
                   disabled={busy}
