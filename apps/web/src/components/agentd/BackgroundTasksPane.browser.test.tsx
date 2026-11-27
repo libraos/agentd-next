@@ -44,6 +44,9 @@ const bridge = vi.hoisted(() => ({
   canRecheck: vi.fn<() => boolean>(),
   projects: vi.fn<() => ReadonlyArray<Record<string, unknown>>>(() => []),
   review: vi.fn<() => { data: null; error: string | null }>(() => ({ data: null, error: null })),
+  useAgentdCloudAccount: vi.fn<(environmentId: EnvironmentId | null) => { data: unknown }>(() => ({
+    data: { setupUrl: "https://cloud-api.libraos.com" },
+  })),
 }));
 
 vi.mock("../../lib/agentdState", async () => {
@@ -729,4 +732,49 @@ it("offers Review changes from a git checkout of the task's repository and opens
   await expect
     .element(dialog.getByRole("alert"))
     .toHaveTextContent("The task’s branch is no longer on GitHub.");
+});
+
+it("explains a cloud task the GitHub App couldn't reach its repository for, with the install page", async () => {
+  setup();
+  const failed = { ...finished, cloudState: "failed_verification" };
+  bridge.useAgentdTasks.mockReturnValue(answer([failed]));
+  bridge.useAgentdTask.mockReturnValue(
+    answer(
+      taskDetails(failed, {
+        project: "acme/app",
+        note: "The repository owner must install the Cloud Workers GitHub App on this repository.",
+        cloud: {
+          state: "failed_verification",
+          modelAccess: "libraos",
+          workerUsd: 0,
+          inferenceUsd: 0,
+          totalUsd: 0,
+          problem: "repository",
+        },
+      }),
+    ),
+  );
+  {
+    await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+    await expect
+      .element(screen.getByText(/must install the Cloud Workers GitHub App/))
+      .toBeVisible();
+    await expect
+      .element(screen.getByRole("link", { name: "Install the GitHub App" }))
+      .toHaveAttribute("href", "https://github.com/apps/libraos/installations/new");
+    await userEvent.click(screen.getByRole("button", { name: /Check the widget/ }));
+    await expect
+      .element(screen.getByText("Cloud tasks need the LibraOS GitHub App on acme/app."))
+      .toBeVisible();
+    await expect
+      .element(screen.getByText(/An organization owner or repository admin installs it/))
+      .toBeVisible();
+    expect(screen.getByRole("link", { name: "Install the GitHub App" }).elements()).toHaveLength(1);
+  }
+
+  // Another Job API's App is its own: the note stays, with no LibraOS link.
+  bridge.useAgentdCloudAccount.mockReturnValue({ data: { setupUrl: "https://jobs.example.com" } });
+  await using screen = await render(<BackgroundTasksPane threadRef={threadRef} />);
+  await expect.element(screen.getByText(/must install the Cloud Workers GitHub App/)).toBeVisible();
+  expect(screen.getByRole("link", { name: "Install the GitHub App" }).query()).toBeNull();
 });

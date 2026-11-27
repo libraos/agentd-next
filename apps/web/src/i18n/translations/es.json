@@ -3867,6 +3867,18 @@
   "9b79c2501002ccd0": "Leer y cambiar skills requiere acceso de mantenimiento a este entorno.",
   "960309000b481419": "Elige un proyecto para cambiar esta skill; este agente cambia las skills por proyecto.",
   "dd3b73fd8f895c78": "El archivo es más largo; solo se muestra el principio.",
+  "7ea256b85f52c1a7": "Instalar la GitHub App",
+  "fac11c10590e901e": "Las tareas en la nube necesitan la GitHub App de LibraOS en este repositorio.",
+  "945b2ab5a4355592": [
+    "Las tareas en la nube necesitan la GitHub App de LibraOS en ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "c861393b06e2d5ed": "La instala un propietario de la organización o un administrador del repositorio. Cualquier otra persona puede solicitarla en la misma página.",
   "b05cd1b6f694caf1": "Git no pudo guardarlos.",
   "72fcd24abd213e79": "Tu nombre",
   "03872ce8bd1d4d7d": "Tu correo",
@@ -4229,6 +4241,7 @@
   "32b1f76f321a351e": "repositorio Git",
   "a9f14d01cdb4969e": "nombre y correo de Git",
   "22db8b503d3c3c3b": "Aún falta: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "No se pudo leer el origin de este checkout para Cloud Workers. Reinténtalo o elige «Editar» y desactiva «Run in the cloud» para ejecutar esta tarea aquí.",
   "576d127b20ad5743": "No se pudo contactar con LibraOS Engine para comprobar Cloud Workers. Reinténtalo o elige «Editar» y desactiva «Run in the cloud» para ejecutar esta tarea aquí.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4239,7 +4252,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "Git no tiene nombre ni correo en este equipo, así que un worker no puede hacer commit de su trabajo.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",

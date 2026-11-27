@@ -24,6 +24,7 @@ import { useProject, useQuietThreadShell } from "~/state/entities";
 import { useEnvironmentQuery } from "~/state/query";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { vcsEnvironment } from "~/state/vcs";
+import { InstallGitHubAppButton, isLibraosJobApi } from "./GitHubAppInstall";
 import { BuyLibraosCreditsButton } from "./LibraosCredits";
 import { followCloudKeyFiles } from "./PendingCloudKeyFiles";
 import type { useStartTaskCloud } from "./StartTaskCloud";
@@ -221,6 +222,9 @@ export function useTaskPlan({
             missingKeys.map((key) => missingLabels[key]),
           ),
         });
+  const repositoryReason = gt(
+    "The repository owner must install the Cloud Workers GitHub App on this repository.",
+  );
   const problem = (() => {
     // Cloud was asked for: local checks such as the branch gate say nothing about it.
     if (cloud.waiting && cloud.unreachable)
@@ -256,10 +260,7 @@ export function useTaskPlan({
     if (!cloud.enabled && validation.budget === "no-prices") return noPricesReason;
     if (cloud.enabled && cloud.setup?.problem === "setup")
       return gt("Cloud Workers aren’t set up. Check the cloud configuration and account key file.");
-    if (cloud.enabled && cloud.setup?.problem === "repository")
-      return gt(
-        "The repository owner must install the Cloud Workers GitHub App on this repository.",
-      );
+    if (cloud.enabled && cloud.setup?.problem === "repository") return repositoryReason;
     if (!cloud.enabled && cwd !== null && git.error) return git.error;
     return null;
   })();
@@ -460,6 +461,7 @@ export function useTaskPlan({
     problem,
     // Cloud Workers spend the same LibraOS balance the Gateway does.
     needsCredits: problemKind === "balance",
+    needsGitHubApp: problem === repositoryReason && isLibraosJobApi(cloud.setup?.setupUrl),
     missing,
     checking,
     summary,
@@ -483,6 +485,7 @@ export function TaskPlanSummary({
     | "whereLine"
     | "problem"
     | "needsCredits"
+    | "needsGitHubApp"
     | "environmentId"
     | "readiness"
     | "readinessBlocks"
@@ -504,6 +507,7 @@ export function TaskPlanSummary({
           {plan.problem}
         </p>
       ) : null}
+      {plan.needsGitHubApp && !blocked ? <InstallGitHubAppButton /> : null}
       {plan.needsCredits && !blocked ? (
         <BuyLibraosCreditsButton environmentId={plan.environmentId} variant="outline" />
       ) : null}

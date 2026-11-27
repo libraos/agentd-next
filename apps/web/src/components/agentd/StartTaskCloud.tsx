@@ -33,6 +33,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
+import { GitHubAppNeeded, isLibraosJobApi } from "./GitHubAppInstall";
 import { rememberCloudKeyFiles } from "./rememberKeyFiles";
 import {
   autoBudget,
@@ -307,6 +308,7 @@ export function StartTaskCloud({
     subscription: gt("Your subscription"),
   };
   const subscriptionChoice = modelAccessChoices(cloud.subscription)[2];
+  const libraosApp = isLibraosJobApi(setup.setupUrl);
 
   return (
     <div className="space-y-3">
@@ -343,6 +345,9 @@ export function StartTaskCloud({
               It cannot open or comment on issues or pull requests, or reach other repositories.
             </T>
           </p>
+          {libraosApp && setup.problem !== "repository" ? (
+            <GitHubAppNeeded repository={setup.project} />
+          ) : null}
           {goalAsksBeyondCloudReach(goal) ? (
             <Alert variant="warning">
               <AlertDescription>
@@ -390,11 +395,15 @@ export function StartTaskCloud({
               />
             </div>
           ) : setup.problem === "repository" ? (
-            <p role="alert" className="text-xs">
-              <T>
-                The repository owner must install the Cloud Workers GitHub App on this repository.
-              </T>
-            </p>
+            libraosApp ? (
+              <GitHubAppNeeded repository={setup.project} alert />
+            ) : (
+              <p role="alert" className="text-xs">
+                <T>
+                  The repository owner must install the Cloud Workers GitHub App on this repository.
+                </T>
+              </p>
+            )
           ) : setup.problem === "credit" ? (
             <p role="alert" className="text-xs">
               <T>There is not enough LibraOS credit.</T>

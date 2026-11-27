@@ -42,6 +42,7 @@ import { ClaudeTrustDialog } from "./ClaudeTrustDialog";
 import { GitIdentitySetup } from "./GitIdentitySetup";
 import { BlockedTaskStart } from "./BlockedTaskStart";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
+import { InstallGitHubAppButton, isLibraosJobApi } from "./GitHubAppInstall";
 import { StartTaskCloud, useStartTaskCloud } from "./StartTaskCloud";
 import { PendingCloudKeyFiles } from "./PendingCloudKeyFiles";
 import { StartTaskOthers } from "./StartTaskOthers";
@@ -480,7 +481,8 @@ function StartTaskDialog({
             </p>
           ) : null}
           {filled.goal.trim() !== "" ? <p className="text-sm">{filled.goal.trim()}</p> : null}
-          <TaskPlanSummary plan={plan} />
+          {/* With the inputs open, the cloud section beside them has the install button. */}
+          <TaskPlanSummary plan={{ ...plan, needsGitHubApp: plan.needsGitHubApp && !showInputs }} />
           {plan.gitIdentityMissing && plan.gitIdentity.data !== null ? (
             <GitIdentitySetup
               environmentId={environmentId}
@@ -701,6 +703,11 @@ function StartTaskDialog({
                   >
                     <T>Fix permissions</T>
                   </Button>
+                ) : null}
+                {cloud.enabled &&
+                isLibraosJobApi(cloud.setup?.setupUrl) &&
+                /install the Cloud Workers GitHub App/.test(startError) ? (
+                  <InstallGitHubAppButton />
                 ) : null}
                 {cloud.enabled &&
                 cloud.setup?.problem !== "setup" &&
