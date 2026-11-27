@@ -7,6 +7,7 @@ import {
   CLOUD_REASONS,
   cloudFailureReason,
   cloudReason,
+  cloudSetupProblem,
   openKeyFile,
   refusedBeforeTask,
   startErrorFor,
@@ -42,6 +43,38 @@ describe("cloudJobNote", () => {
     ["completed", "the GitHub App is not installed on acme/app", CLOUD_REASONS.repository],
   ] as const)("%s: %s", (state, message, note) => {
     expect(cloudJobNote(state, [message])).toBe(note);
+  });
+});
+
+describe("cloudSetupProblem", () => {
+  it.each(["agentd", "libraos-core", "libraos-engine"])(
+    "reads the current not-set-up wording naming %s as setup",
+    (command) => {
+      const message = `Cloud Workers are not set up: [cloud] url is missing. Run ${command} cloud setup`;
+      expect(cloudSetupProblem(message)).toBe("setup");
+      expect(cloudSetupProblem(message.toLowerCase())).toBe("setup");
+      expect(cloudReason(message)).toBe(CLOUD_REASONS.setup);
+      expect(refusedBeforeTask(message)).toBe(true);
+    },
+  );
+
+  it.each([
+    "a cloud handoff needs [cloud] url for the Job API. Run agentd cloud setup",
+    "set [cloud] url in config.toml",
+    "cloud_not_configured: run libraos-engine cloud setup",
+    "agentd access revoked",
+    "cloud.key_file /home/me/.config/agentd/cloud.key: no such file or directory",
+    "[cloud] key_file /home/me/cloud.key cannot be read",
+  ])("keeps reading an older Engine's wording as setup: %s", (message) => {
+    expect(cloudSetupProblem(message)).toBe("setup");
+  });
+
+  it.each([
+    ["wrote /home/me/cloud-workers-not-set-up/out.log", null],
+    ["402: insufficient credit", "credit"],
+    ["the GitHub App is not installed on acme/app", "repository"],
+  ] as const)("%s is %s", (message, problem) => {
+    expect(cloudSetupProblem(message)).toBe(problem);
   });
 });
 

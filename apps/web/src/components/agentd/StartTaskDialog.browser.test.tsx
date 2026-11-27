@@ -1139,6 +1139,8 @@ it("sets Cloud Workers up from the Start dialog with a pasted key, showing a ref
     .mockResolvedValueOnce(AsyncResult.success({ balanceUsd: 12.5 }));
   await using _screen = await renderDialog();
   await page.getByRole("checkbox", { name: "Run in the cloud" }).click();
+  await expect.element(page.getByText(/^Cloud Workers aren’t set up\./).first()).toBeVisible();
+  await expect.element(page.getByText("LibraOS balance unavailable.")).not.toBeInTheDocument();
   await expect
     .element(page.getByRole("link", { name: "Create a key in LibraOS Console" }))
     .toHaveAttribute("href", "https://console.libraos.com/agentd");
