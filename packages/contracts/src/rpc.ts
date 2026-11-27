@@ -492,7 +492,10 @@ import {
   AgentdSkillSetEnabledInput,
 } from "./agentdCustomize.ts";
 import {
+  LibraosGatewayCheckout,
+  LibraosGatewayCheckoutInput,
   LibraosGatewayConnectInput,
+  LibraosGatewayCredits,
   LibraosGatewayError,
   LibraosGatewaySignIn,
   LibraosGatewaySignInStartInput,
@@ -915,6 +918,8 @@ export const WS_METHODS = {
   libraosGatewaySignInStart: "libraosGateway.signInStart",
   libraosGatewaySignInWait: "libraosGateway.signInWait",
   libraosGatewaySignInCancel: "libraosGateway.signInCancel",
+  libraosGatewayCredits: "libraosGateway.credits",
+  libraosGatewayCheckout: "libraosGateway.checkout",
 } as const;
 
 const WsServerUpsertKeybindingRpc = Rpc.make(WS_METHODS.serverUpsertKeybinding, {
@@ -3092,6 +3097,19 @@ const WsLibraosGatewaySignInCancelRpc = Rpc.make(WS_METHODS.libraosGatewaySignIn
   error: LibraosGatewayRpcError,
 });
 
+// Null while no key is connected or Console has no balance to give (an older Console answers 404).
+const WsLibraosGatewayCreditsRpc = Rpc.make(WS_METHODS.libraosGatewayCredits, {
+  payload: Schema.Struct({}),
+  success: Schema.NullOr(LibraosGatewayCredits),
+  error: LibraosGatewayRpcError,
+});
+
+const WsLibraosGatewayCheckoutRpc = Rpc.make(WS_METHODS.libraosGatewayCheckout, {
+  payload: LibraosGatewayCheckoutInput,
+  success: LibraosGatewayCheckout,
+  error: LibraosGatewayRpcError,
+});
+
 export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthorization>()(
   "t3/contracts/RpcScopeAuthorization",
   { error: EnvironmentAuthorizationError },
@@ -3404,6 +3422,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsLibraosGatewaySignInStartRpc,
   WsLibraosGatewaySignInWaitRpc,
   WsLibraosGatewaySignInCancelRpc,
+  WsLibraosGatewayCreditsRpc,
+  WsLibraosGatewayCheckoutRpc,
   WsOrchestrationV2DispatchCommandRpc,
   WsOrchestrationV2GetWorkflowScriptRpc,
   WsOrchestrationV2GetNativeChildWorkRpc,

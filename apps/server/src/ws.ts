@@ -4011,6 +4011,8 @@ export const layerWsRpc = (
           libraosGateway.signInStart(input.purpose),
         [WS_METHODS.libraosGatewaySignInWait]: (_input) => libraosGateway.signInWait,
         [WS_METHODS.libraosGatewaySignInCancel]: (_input) => libraosGateway.signInCancel,
+        [WS_METHODS.libraosGatewayCredits]: (_input) => libraosGateway.credits,
+        [WS_METHODS.libraosGatewayCheckout]: (input) => libraosGateway.checkout(input.usd),
       });
       const splitHandlers: Pick<typeof handlers, SplitWsRpc["_tag"]> = handlers;
       const otherHandlers: Pick<typeof handlers, Exclude<ServerWsRpc, SplitWsRpc>["_tag"]> =
