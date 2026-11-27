@@ -10,6 +10,7 @@ import {
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
   latestProviderTurnForAttempt,
+  libraosCreditsRefusal,
   PROVIDER_DISPLAY_NAMES,
   type ModelSelection,
   type ProviderDriverKind,
@@ -430,11 +431,13 @@ export function deriveResumableRunId(
   runtime: Pick<ThreadStructureRuntime, "lastErrorClass"> | null,
 ): RunId | null {
   const run = latestExecutedRun(projection.runs);
+  if (run === null) return null;
+  const failure = latestRootProviderFailure(run, projection.turnItems);
   const resumable =
-    run?.status === "interrupted" ||
-    (run?.status === "failed" &&
-      runtime?.lastErrorClass === "usage_limit" &&
-      latestRootProviderFailure(run, projection.turnItems)?.class === "usage_limit");
+    run.status === "interrupted" ||
+    (runtime?.lastErrorClass === "usage_limit" && failure?.class === "usage_limit") ||
+    // agentd: a LibraOS Gateway turn that ran out of credits retries once credits are bought.
+    libraosCreditsRefusal(run.providerInstanceId, failure?.message) === "out-of-credits";
   if (!resumable) return null;
   // Without native resume the server can only resend a message the provider never received.
   if (

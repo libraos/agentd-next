@@ -7,7 +7,8 @@ import {
 import { cloudRefusal } from "./deviceSignIn.ts";
 
 // Console's balance and checkout answers for the connected key. Read here so the service only moves
-// bytes; a Console without these endpoints answers 404, which is "no balance", not a failure.
+// bytes. A Console without these endpoints answers 404, and a deployment without credits 501: both
+// are "no balance", not a failure.
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -47,7 +48,7 @@ export type CreditsAnswer =
 
 export function readCreditsAnswer(status: number, body: unknown): CreditsAnswer {
   if (status >= 200 && status < 300) return { credits: parseCredits(body) };
-  if (status === 404) return { credits: null };
+  if (status === 404 || status === 501) return { credits: null };
   return { refusal: cloudRefusal(status, body, "read the balance") };
 }
 

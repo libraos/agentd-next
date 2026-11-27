@@ -743,14 +743,21 @@ it.effect("credits reads Console's balance with the connected key", () => {
   }).pipe(Effect.provide(layer));
 });
 
-it.effect("a Console without the balance endpoint answers no balance, not an error", () => {
-  const { layer } = setup();
-  return Effect.gen(function* () {
-    const gateway = yield* LibraosGateway.LibraosGateway;
-    yield* gateway.connect(GOOD_KEY);
-    assert.isNull(yield* gateway.credits);
-  }).pipe(Effect.provide(layer));
-});
+it.effect("a Console without the balance endpoint or without credits answers no balance", () =>
+  Effect.gen(function* () {
+    for (const credits of [
+      undefined,
+      { status: 501, body: { error: { type: "credits_unavailable", message: "No credits." } } },
+    ]) {
+      const { layer } = setup(credits === undefined ? {} : { credits });
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        yield* gateway.connect(GOOD_KEY);
+        assert.isNull(yield* gateway.credits);
+      }).pipe(Effect.provide(layer));
+    }
+  }),
+);
 
 it.effect("a key Console refuses fails credits with Console's message", () => {
   const { layer } = setup({
@@ -820,6 +827,23 @@ it.effect("checkout refuses an amount Console refuses, and falls back while bill
         });
       }).pipe(Effect.provide(layer));
     }
+
+    // Stripe failing is Console's message; the app links the Credits page beside it.
+    const stripeDown = setup({
+      checkout: {
+        status: 502,
+        body: { error: { type: "billing_error", message: "Stripe did not answer." } },
+      },
+    });
+    yield* Effect.gen(function* () {
+      const gateway = yield* LibraosGateway.LibraosGateway;
+      yield* gateway.connect(GOOD_KEY);
+      const error = yield* Effect.flip(gateway.checkout(20));
+      assert.strictEqual(
+        error.message,
+        "LibraOS could not start a checkout: Stripe did not answer.",
+      );
+    }).pipe(Effect.provide(stripeDown.layer));
 
     // A checkout page that is not https is never handed to the browser.
     const odd = setup({ checkout: { status: 200, body: { url: "javascript:alert(1)" } } });

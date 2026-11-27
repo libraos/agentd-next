@@ -5,7 +5,9 @@ import type {
   ServerProvider,
   ThreadId,
 } from "@t3tools/contracts";
+import { libraosCreditsRefusal } from "@t3tools/contracts";
 import type { Dispatch, SetStateAction } from "react";
+import { LibraosCreditsThreadError } from "../agentd/LibraosCreditsThreadError";
 import {
   dismissProviderStatusBannerForSession,
   ProviderStatusBanner,
@@ -26,7 +28,10 @@ export function ChatBannerLane(props: {
   threadErrorProvider: string | null;
   threadErrorClass: OrchestrationV2ProviderFailureClass | null;
   threadErrorCode: string | null;
+  threadErrorInstanceId: string | null;
   threadErrorBannerKey: string | null;
+  onRetryThreadError: (() => void) | null;
+  threadErrorRetrying: boolean;
   setThreadError: (threadId: ThreadId | null, error: string | null) => void;
   setThreadErrorBannerDismissTick: Dispatch<SetStateAction<number>>;
 }) {
@@ -42,6 +47,12 @@ export function ChatBannerLane(props: {
     setThreadError,
     setThreadErrorBannerDismissTick,
   } = props;
+  const dismissThreadError = () => {
+    setThreadError(threadId, null);
+    dismissThreadErrorBannerForSession(threadErrorBannerKey);
+    setThreadErrorBannerDismissTick((tick) => tick + 1);
+  };
+  const creditsRefusal = libraosCreditsRefusal(props.threadErrorInstanceId, threadError);
   return (
     <div className="chat-banner-lane pointer-events-none absolute top-0 z-30 flex flex-col">
       <ProviderStatusBanner
@@ -50,17 +61,24 @@ export function ChatBannerLane(props: {
         onDismiss={() => dismissProviderStatusBannerForSession(providerStatusDismissalKey)}
         onOpenProviderSetup={onOpenProviderSetup}
       />
-      <ThreadErrorBanner
-        error={threadError}
-        provider={props.threadErrorProvider}
-        errorClass={threadErrorClass}
-        errorCode={threadErrorCode}
-        onDismiss={() => {
-          setThreadError(threadId, null);
-          dismissThreadErrorBannerForSession(threadErrorBannerKey);
-          setThreadErrorBannerDismissTick((tick) => tick + 1);
-        }}
-      />
+      {creditsRefusal === null ? (
+        <ThreadErrorBanner
+          error={threadError}
+          provider={props.threadErrorProvider}
+          errorClass={threadErrorClass}
+          errorCode={threadErrorCode}
+          onDismiss={dismissThreadError}
+        />
+      ) : (
+        <LibraosCreditsThreadError
+          environmentId={props.environmentId}
+          refusal={creditsRefusal}
+          provider={props.threadErrorProvider}
+          onRetry={props.onRetryThreadError}
+          retrying={props.threadErrorRetrying}
+          onDismiss={dismissThreadError}
+        />
+      )}
     </div>
   );
 }

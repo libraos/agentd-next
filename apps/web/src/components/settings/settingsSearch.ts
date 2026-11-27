@@ -1124,6 +1124,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "libraos-credits",
+    title: msg("LibraOS credits"),
+    to: "/settings/providers",
+    searchTerms: [
+      msg("credits balance buy top up billing payment checkout stripe gateway libraos account"),
+    ],
+  },
+  {
     id: "usage-providers",
     title: msg("Usage providers"),
     to: "/settings/providers",

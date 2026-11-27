@@ -33,6 +33,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { CloudWorkersSetup } from "./CloudWorkersSetup";
+import { BuyLibraosCreditsButton } from "./LibraosCredits";
 import { rememberCloudKeyFiles } from "./rememberKeyFiles";
 import {
   autoBudget,
@@ -396,9 +397,12 @@ export function StartTaskCloud({
               </T>
             </p>
           ) : setup.problem === "credit" ? (
-            <p role="alert" className="text-xs">
-              <T>There is not enough LibraOS credit.</T>
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p role="alert" className="text-xs">
+                <T>There is not enough LibraOS credit.</T>
+              </p>
+              <BuyLibraosCreditsButton environmentId={cloud.environmentId} variant="outline" />
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground">
               <T>LibraOS balance unavailable.</T>

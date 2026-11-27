@@ -44,6 +44,25 @@ export const LIBRAOS_GATEWAY_INSTANCE_IDS = {
 export const isLibraosGatewayInstanceId = (instanceId: string): boolean =>
   Object.values(LIBRAOS_GATEWAY_INSTANCE_IDS).some((id) => id === instanceId);
 
+// The Gateway's refusals: 402 `insufficient_credits` and a used-up Token Plan's 429
+// `plan_limit_reached`. Each agent words the failed turn its own way; some keep the error type,
+// some keep only the Gateway's message, so both are matched.
+const OUT_OF_CREDITS = /\binsufficient_credits\b|LibraOS credits have run out/i;
+const PLAN_LIMIT = /\bplan_limit_reached\b/i;
+
+export type LibraosCreditsRefusal = "out-of-credits" | "plan-limit";
+
+/** Which credit refusal a failed turn on a LibraOS Gateway agent is, or null for any other error. */
+export function libraosCreditsRefusal(
+  instanceId: string | null | undefined,
+  error: string | null | undefined,
+): LibraosCreditsRefusal | null {
+  if (error == null || instanceId == null || !isLibraosGatewayInstanceId(instanceId)) return null;
+  if (OUT_OF_CREDITS.test(error)) return "out-of-credits";
+  if (PLAN_LIMIT.test(error)) return "plan-limit";
+  return null;
+}
+
 /** The model is one of a sub-provider whose list the key it sends to its endpoint decides. */
 export const isEndpointDecidedModel = (
   auth: { readonly endpointProviders?: ReadonlyArray<string> | undefined },
