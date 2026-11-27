@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, one {{count} Update erhalten} other {{count} Updates erhalten}}",
   "0435b01700ac8046": "{first} und {second}",
   "fbf1dd24dd681515": "{items} und {last}",
+  "e16b0b9b490c8bc7": "{label}: {value}",
   "219a211a44b89d07": "Gedanke",
   "de377e9ebfd7e1f2": "Gedanke (×{count})",
   "eb3de8871016043c": "{count, plural, =1 {Integration {names} verwendet} other {Integrationen {names} verwendet}}",
@@ -5436,7 +5437,6 @@
   "d28c53157c8c0f5f": "{label}: {left} % übrig über {accounts} Konten",
   "ba03873d5356238b": "+{percent} % in {duration} · {time}",
   "78c1d280f021a28f": "Von {sources}",
-  "e16b0b9b490c8bc7": "{label}: {value}",
   "8ca5d2f328f4181e": "Not reported by this agent",
   "ba67d0a9ff5dabf0": "Die Zwischenablage-API ist beim Kopieren der Admin-Anfrage nicht verfügbar.",
   "aef4bec20e799aab": "Die Admin-Anfrage konnte nicht in die Zwischenablage kopiert werden.",
@@ -7332,9 +7332,25 @@
   "46f863624808dbfc": "Wähle, woher deine Agenten ihre Modelle beziehen.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
-  "3f6b4559d7d4dee2": "Melde dich in deinem Browser an oder erstelle ein LibraOS-Konto und bestätige dann diesen Code:",
-  "2fc60a0937f5a274": "Um den Schlüssel in LibraOS zu widerrufen, melde dich in deinem Browser an und bestätige diesen Code:",
-  "64da476e68e83a8a": "LibraOS-Anmeldeseite öffnen",
+  "54796a9745736d9f": "Um den Schlüssel in LibraOS zu widerrufen, melde dich im Browser an und klicke auf Genehmigen.",
+  "07bb1ddfe1f91c94": "LibraOS ist in deinem Browser geöffnet. Melde dich dort an und klicke auf Genehmigen.",
+  "f8b3e60ec1ab4ecf": "Im Browser fortfahren: Melde dich bei LibraOS an und klicke auf Genehmigen.",
+  "3d306f61a1b668b6": "LibraOS erneut öffnen",
+  "90d23b3eb970f6cd": "Im Browser fortfahren",
+  "53e39b2d10669998": [
+    "Prüfe, ob die Seite",
+    " ",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    "anzeigt. Noch kein Konto? Du kannst dort eines erstellen."
+  ],
   "1d489e6296d9c42a": "Warte auf Bestätigung…",
   "8ce883f5f230a34d": "Nur hier entfernen",
   "76b6067a87335bac": "LibraOS Gateway connected.",
