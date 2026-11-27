@@ -261,7 +261,8 @@ const config: ExpoConfig = {
     ...(buildNumber ? { buildNumber } : {}),
     // Avoid Personal Team fallback: it cannot sign App Groups, Apple sign-in or push entitlements.
     appleTeamId: "3NP2A75X35",
-    associatedDomains: HOSTED_APP_HOST ? [`applinks:${HOSTED_APP_HOST}`] : [],
+    // Expo writes the entitlement for any array, even an empty one, and signing then needs the capability.
+    associatedDomains: HOSTED_APP_HOST ? [`applinks:${HOSTED_APP_HOST}`] : undefined,
     entitlements: {
       "keychain-access-groups": [`$(AppIdentifierPrefix)${variant.iosBundleIdentifier}`],
     },
