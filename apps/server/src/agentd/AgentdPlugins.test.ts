@@ -1215,6 +1215,18 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
         ownServers: ["outreach"],
       },
     ]);
+    // A second Claude plugin of the same name cannot be on with it: Claude would mix their parts.
+    const twin = h.path.join(h.config.baseDir, "twin");
+    yield* h.fs.makeDirectory(h.path.join(twin, ".claude-plugin"), { recursive: true });
+    yield* h.fs.writeFileString(
+      h.path.join(twin, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "claude", version: "0.0.1" }),
+    );
+    yield* h.service.setDeveloperMode({ enabled: true });
+    yield* h.service.addLocal({ path: twin });
+    expect(
+      yield* h.service.setEnabled({ id: "local~claude", enabled: true }).pipe(Effect.flip),
+    ).toMatchObject({ reason: "invalid" });
     // The server's file and a file git marks as run are executable; nothing else is.
     const mode = (file: string) =>
       h.fs.stat(h.path.join(folder, file)).pipe(Effect.map((stat) => stat.mode & 0o111));

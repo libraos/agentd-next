@@ -67,6 +67,7 @@ import * as OpenCode2Server from "./OpenCode2Server.ts";
 import * as OpenCodeRuntime from "../OpenCodeRuntime.ts";
 import { readableProviderErrorMessage } from "../providerErrorMessage.ts";
 import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import type { PluginMcpServer } from "@t3tools/provider-core/server/mcpSession";
 import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
 import { t3OrchestrationSystemPrompt } from "@t3tools/provider-core/server/orchestrationInstructions";
 import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
@@ -336,6 +337,22 @@ interface OpenBlock {
   text: string;
 }
 
+/** A plugin's server as OpenCode's runtime config; a remote one signs in with its headers only. */
+function openCodePluginMcpConfig(server: PluginMcpServer): Mcp.ServerConfig {
+  return "command" in server
+    ? new Mcp.LocalConfig({
+        type: "local",
+        command: [server.command, ...server.args],
+        environment: { ...server.env },
+      })
+    : new Mcp.RemoteConfig({
+        type: "remote",
+        url: server.url,
+        headers: { ...server.headers },
+        oauth: false,
+      });
+}
+
 interface ThreadState {
   readonly sessionId: string;
   providerThread: OrchestrationV2ProviderThread;
@@ -397,6 +414,8 @@ interface ThreadState {
   mcp:
     | { readonly name: string; readonly directory: string; readonly credential: string }
     | undefined;
+  /** Plugins' servers this thread added, to remove once a plugin is off or the folder changes. */
+  pluginMcp: ReadonlyArray<{ readonly name: string; readonly directory: string }>;
   instructions: string | undefined;
 }
 
@@ -966,6 +985,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
       strandedSteers: new Set(),
       externalPrompts: new Map(),
       mcp: undefined,
+      pluginMcp: [],
       instructions: undefined,
     });
 
@@ -3956,6 +3976,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
       // The gap may have started a pending prompt unseen, so none may set a later wake's boundary.
       for (const state of threads.values()) {
         state.mcp = undefined;
+        state.pluginMcp = [];
         state.goalFresh = false;
         state.goalRefreshing = false;
         state.goalRevision += 1;
@@ -4435,7 +4456,10 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
 
     yield* Effect.addFinalizer(() =>
       Effect.forEach(
-        [...threads.values()].flatMap((state) => (state.mcp === undefined ? [] : [state.mcp])),
+        [...threads.values()].flatMap((state) => [
+          ...(state.mcp === undefined ? [] : [state.mcp]),
+          ...state.pluginMcp,
+        ]),
         removeMcp,
         { concurrency: 8, discard: true },
       ),
@@ -4494,6 +4518,32 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           yield* Effect.sleep(MCP_TOOL_RELOAD_SETTLE);
         }
       }
+      // OpenCode keeps servers per folder, so a plugin's server is shared by the folder's threads.
+      const pluginServers =
+        wanted === undefined || mcpSession?.pluginMcpServers === undefined
+          ? {}
+          : yield* mcpSession.pluginMcpServers;
+      const stale = state.pluginMcp.filter(
+        (added) => added.directory !== directory || !Object.hasOwn(pluginServers, added.name),
+      );
+      yield* Effect.forEach(stale, removeMcp, { discard: true });
+      const addedPlugins: Array<{ readonly name: string; readonly directory: string }> = [];
+      for (const [server, config] of Object.entries(pluginServers)) {
+        const added = yield* client.mcp
+          .add({ server, location: { directory }, config: openCodePluginMcpConfig(config) })
+          .pipe(
+            Effect.timeout(INVENTORY_TIMEOUT),
+            Effect.as(true),
+            Effect.catchCause((cause) =>
+              Effect.logWarning("Could not add a plugin's MCP server to OpenCode.", cause).pipe(
+                Effect.annotateLogs({ server }),
+                Effect.as(false),
+              ),
+            ),
+          );
+        if (added) addedPlugins.push({ name: server, directory });
+      }
+      state.pluginMcp = addedPlugins;
       const instructions = [
         buildRuntimeInstructions({
           agentFeedback: mcpAvailable ? (turnInput.agentFeedback ?? "off") : "off",
@@ -5411,6 +5461,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           threads.delete(child);
         }
         if (state.mcp !== undefined) yield* removeMcp(state.mcp);
+        yield* Effect.forEach(state.pluginMcp, removeMcp, { discard: true });
       }),
       respondToRuntimeRequest: Effect.fn("OpenCode2Adapter.respondToRuntimeRequest")(
         function* (requestInput) {

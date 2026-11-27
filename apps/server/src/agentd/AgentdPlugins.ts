@@ -1599,6 +1599,27 @@ const make = Effect.gen(function* () {
       return yield* fail("invalid", "Only a project's setting can be cleared.");
     }
     const settings = yield* readSettings;
+    if (input.enabled === true && found?.manifest?.claude === true) {
+      // Claude names a plugin's skills and servers by the plugin's name, so two cannot share one.
+      const name = found.manifest.id;
+      for (const other of new Set([
+        ...Object.keys(settings.enabled),
+        ...Object.values(settings.projects).flatMap((overrides) => Object.keys(overrides)),
+      ])) {
+        if (other === input.id || parsePluginKey(other)?.id !== name) continue;
+        const on =
+          input.projectId === undefined
+            ? settings.enabled[other] === true ||
+              Object.values(settings.projects).some((overrides) => overrides[other] === true)
+            : pluginEnabled(settings, other, input.projectId);
+        if (on && (yield* installed(other))?.manifest?.claude === true) {
+          return yield* fail(
+            "invalid",
+            `Another plugin named ${name} is on. Turn it off before turning this one on.`,
+          );
+        }
+      }
+    }
     yield* writeAtomic(
       settingsFile,
       encodeSettings(withPluginEnabled(settings, input.id, input.enabled, input.projectId)),
