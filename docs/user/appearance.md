@@ -67,7 +67,7 @@ to another site. For a full-size image, use a [background image](#background-ima
 Class names in the app change between releases. For rules that keep working, target `data-slot`
 and other `data-` attributes, such as `[data-chat-header]` or `[data-slot="button"]`.
 
-If a rule hides something you need, run `libraos-next theme set t3-chat` on the server to switch to a
+If a rule hides something you need, run `lnext theme set t3-chat` on the server to switch to a
 built-in theme, or press **Cmd+Option+A** on macOS or **Ctrl+Alt+A** on Windows/Linux to pick
 another theme.
 
@@ -94,21 +94,21 @@ standard theme.
 Run this on the server to set a default and switch connected clients to it:
 
 ```bash
-libraos-next theme set nightfall
+lnext theme set nightfall
 ```
 
 Clients that are offline apply it when they reconnect. Each client applies the setting once;
-choosing another theme afterward sticks until the next `libraos-next theme set`. Run the command again to
+choosing another theme afterward sticks until the next `lnext theme set`. Run the command again to
 reapply it, even if the name is unchanged.
 
-`libraos-next theme clear` removes the default without changing anyone's current theme. `libraos-next theme show` lists
+`lnext theme clear` removes the default without changing anyone's current theme. `lnext theme show` lists
 the default and published themes.
 
 ### Publish a theme
 
 Save a theme exported from LibraOS Next into `~/.t3/userdata/themes/` on the server, or the `themes`
 directory under your custom state directory. The filename supplies the theme ID: `nightfall.json`
-can be selected with `libraos-next theme set nightfall`. Keep the filename stable when updating its colors.
+can be selected with `lnext theme set nightfall`. Keep the filename stable when updating its colors.
 Do not use `system`, `light`, `dark`, or a built-in theme's ID.
 
 For an integration that generates a palette, this shorter format also works:

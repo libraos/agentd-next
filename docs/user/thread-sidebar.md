@@ -276,7 +276,7 @@ you paste it and pastes into a composer as a thread chip (see
 [sharing a thread](./prompt-links.md#share-a-thread)). To copy the thread even
 when it has a PR, choose **Copy → Thread** from its context menu, or **Copy
 thread** from its long-press menu on mobile.
-**Thread ID** copies the bare ID for scripts and the `libraos-next` command. See
+**Thread ID** copies the bare ID for scripts and the `lnext` command. See
 [keybindings](./keybindings.md) for custom configuration.
 
 ## Inspect agent work

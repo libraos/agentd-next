@@ -202,7 +202,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
     const launcherProtocol = launcher.protocol;
     if (capability === null || launcherProtocol === undefined) {
       return yield* failWith(
-        "Remote updates require the LibraOS Next background service. Run `libraos-next service install` on the server machine.",
+        "Remote updates require the LibraOS Next background service. Run `lnext service install` on the server machine.",
       );
     }
 

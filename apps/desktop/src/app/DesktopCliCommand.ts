@@ -296,8 +296,8 @@ export const make = Effect.gen(function* () {
   const aliasPath = (directory: string, name: string) =>
     windows ? path.join(binDirectory, `${name}.cmd`) : path.join(directory, name);
   /**
-   * An alias is the same launcher under an earlier name; an `agentd-next` or `t3` the app did not
-   * write stays. Our link to an earlier launcher is pointed at this one.
+   * An alias is the same launcher under another name; an `lnext`, `agentd-next` or `t3` the app
+   * did not write stays. Our link to an earlier launcher is pointed at this one.
    */
   const installAlias = Effect.fn("DesktopCliCommand.installAlias")(
     function* (directory: string, name: string) {
@@ -353,16 +353,14 @@ export const make = Effect.gen(function* () {
     Effect.provideService(FileSystem.FileSystem, fs),
     Effect.flatMap(
       Option.match({
-        onNone: () =>
-          Effect.fail(fail(`Could not set up the libraos-next launcher at ${launcher}.`)),
+        onNone: () => Effect.fail(fail(`Could not set up the lnext launcher at ${launcher}.`)),
         onSome: () => Effect.void,
       }),
     ),
   );
 
   const install: DesktopCliCommand["Service"]["install"] = Effect.gen(function* () {
-    if (!environment.isPackaged)
-      return yield* fail("The libraos-next command needs an installed app.");
+    if (!environment.isPackaged) return yield* fail("The lnext command needs an installed app.");
     yield* ensureLauncher;
     if (windows) {
       // PATH would split the folder at the `;`, leaving two wrong entries behind.
@@ -376,9 +374,7 @@ export const make = Effect.gen(function* () {
         yield* writeUserPath([...entries, binDirectory].join(";"));
         yield* fs
           .writeFileString(ownedPathMarker, `${binDirectory}\n`)
-          .pipe(
-            Effect.mapError(() => fail("Added libraos-next to your PATH but could not record it.")),
-          );
+          .pipe(Effect.mapError(() => fail("Added lnext to your PATH but could not record it.")));
       }
       yield* installAliases(binDirectory);
       return yield* state;
@@ -396,7 +392,7 @@ export const make = Effect.gen(function* () {
     // Our own link into another T3 home runs first too; it is the one this install updates.
     if (Option.isSome(shadowedBy) && shadowedBy.value !== replaced) {
       return yield* fail(
-        `Another libraos-next at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
+        `Another lnext at ${shadowedBy.value} runs first in a new terminal. Remove it, or run the launcher directly at ${launcher}.`,
       );
     }
     // An old link of ours is updated where it is, so a t3 that works now keeps working. It is
@@ -441,7 +437,7 @@ export const make = Effect.gen(function* () {
       return yield* state;
     }
     return yield* fail(
-      `Another libraos-next command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
+      `Another lnext command is already in ~/.local/bin and ~/bin, or neither is writable. Run the launcher directly at ${launcher}.`,
     );
   }).pipe(Effect.withSpan("desktop.cliCommand.install"));
 
@@ -476,15 +472,15 @@ export const make = Effect.gen(function* () {
   const addToPath: DesktopCliCommand["Service"]["addToPath"] = Effect.gen(function* () {
     const installed = yield* installedAt;
     if (Option.isNone(installed) || !(yield* leadsHere(installed.value))) {
-      return yield* fail("Install the libraos-next command first.");
+      return yield* fail("Install the lnext command first.");
     }
     const setup = startupLine(installed.value);
     if (setup === undefined)
-      return yield* fail("LibraOS Next cannot add libraos-next to this shell's PATH.");
+      return yield* fail("LibraOS Next cannot add lnext to this shell's PATH.");
     const shadowedBy = yield* foreignFirstOnPath;
     if (Option.isSome(shadowedBy)) {
       return yield* fail(
-        `Another libraos-next at ${shadowedBy.value} runs first; LibraOS Next leaves it in place.`,
+        `Another lnext at ${shadowedBy.value} runs first; LibraOS Next leaves it in place.`,
       );
     }
     if (!(yield* folderOnPath(installed.value)) && !(yield* hasLine(setup))) {
@@ -494,15 +490,29 @@ export const make = Effect.gen(function* () {
             flag: "a",
           }),
         ),
-        Effect.mapError(() => fail(`Could not add libraos-next to ${setup.file}.`)),
+        Effect.mapError(() => fail(`Could not add lnext to ${setup.file}.`)),
       );
     }
     return yield* state;
   }).pipe(addToPathPermit.withPermits(1), Effect.withSpan("desktop.cliCommand.addToPath"));
 
+  // An update adds aliases it introduced (such as `lnext`) beside a command installed before it.
+  const refreshAliases = Effect.gen(function* () {
+    if (windows) {
+      if (yield* exists(launcher)) yield* installAliases(binDirectory);
+      return;
+    }
+    const installed = Option.getOrUndefined(yield* installedAt);
+    if (installed !== undefined && (yield* leadsHere(installed))) {
+      yield* installAliases(path.dirname(installed));
+    }
+  }).pipe(Effect.ignore);
+
   const installOnFirstLaunch: DesktopCliCommand["Service"]["installOnFirstLaunch"] = Effect.gen(
     function* () {
-      if (!environment.isPackaged || (yield* exists(firstLaunchMarker))) return;
+      if (!environment.isPackaged) return;
+      yield* refreshAliases;
+      if (yield* exists(firstLaunchMarker)) return;
       // Mark first so a failed or removed install is never retried behind the user's back.
       yield* fs.writeFileString(firstLaunchMarker, "");
       if (!freshInstall) {

@@ -37,7 +37,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-          sparse-checkout: apps/desktop/package.json
+          sparse-checkout: |
+            apps/desktop/package.json
+            agentd/scripts/release-notes.sh
+            docs/release-notes
           sparse-checkout-cone-mode: false
       - name: Resolve version
         id: version
@@ -50,6 +53,12 @@ jobs:
             echo "::error::tag $TAG does not match v$version (apps/desktop/package.json)"; exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+      # Before any build: the release's notes start with docs/release-notes/<version>.md.
+      - name: Check the release notes
+        if: github.event_name == 'push'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: bash agentd/scripts/release-notes.sh "$VERSION"
       # Resolved once so every installer carries the same agentd.
       - name: Resolve agentd release
         id: agentd
@@ -339,6 +348,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            agentd/scripts/release-notes.sh
+            docs/release-notes
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-files
@@ -351,36 +367,9 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           AGENTD_RELEASE: ${{ needs.prepare.outputs.agentd_release }}
         run: |
+          bash agentd/scripts/release-notes.sh "$VERSION" "$AGENTD_RELEASE" > notes.md
           cd dist
           sha256sum -c SHA256SUMS
-          # The app's update prompt lists the notes' last lines first, each cut at 220 characters
-          # (apps/desktop/src/updates/releaseNotes.ts), so AgentD Next installs read the last line.
-          cat > notes.md <<EOF
-          LibraOS Next $VERSION, with LibraOS Engine (agentd) $AGENTD_RELEASE and its Skills inside.
-
-          **Which file to download**
-
-          - macOS, Apple silicon (M1 or later): \`LibraOS-Next-$VERSION-arm64.dmg\`
-          - macOS, Intel: \`LibraOS-Next-$VERSION-x64.dmg\`
-          - Windows: \`LibraOS-Next-$VERSION-x64.exe\`
-          - Linux: \`LibraOS-Next-x86_64.AppImage\`, or \`LibraOS-Next-$VERSION-amd64.deb\` on Debian and Ubuntu
-
-          Not sure which Mac you have? Apple menu → About This Mac: "Chip: Apple M…" is Apple silicon, "Processor: Intel" is Intel.
-          The \`.zip\`, \`.blockmap\` and \`latest*.yml\` files are for automatic updates; you don't need them.
-
-          **Signing**
-
-          - **Windows:** the installer is signed by Nebula Nova, Inc. SmartScreen may still warn for a while after a release.
-          - **macOS:** the app is signed by Nebula Nova, Inc. and notarized by Apple.
-
-          The app checks for updates at launch and every four hours and asks before installing. On macOS, versions that were not notarized open this page instead; install this version by hand once. 0.1.10-agentd.8 and earlier do not check: install this version by hand once.
-
-          Coming from AgentD Next (the earlier name)? Its update installs LibraOS Next in its place: on Windows AgentD Next is uninstalled, the AppImage is replaced in the same file, and the .deb removes the \`agentd-desktop\` package (start LibraOS Next from the applications menu afterwards). On macOS, install LibraOS Next from this page and delete AgentD Next from Applications. The first start copies AgentD Next's window settings and sign-in; threads, settings and the background service carry over, and AgentD Next's own data is left in place.
-
-          Check a download against \`SHA256SUMS\`.
-
-          AgentD Next is now LibraOS Next. On Windows and Linux this update installs LibraOS Next in its place; on macOS, download it from this page. Your threads and settings carry over.
-          EOF
           gh release create "$TAG" -R "$REPO" --draft --verify-tag \
-            --title "LibraOS Next $VERSION" --notes-file notes.md \
+            --title "LibraOS Next $VERSION" --notes-file ../notes.md \
             LibraOS-Next-* latest*.yml SHA256SUMS

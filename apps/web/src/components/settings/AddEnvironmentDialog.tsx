@@ -702,7 +702,7 @@ export function AddEnvironmentDialog({
                 )
               : prefill
                 ? gt(
-                    "Create a pairing code on {environment}, in its Settings → Sharing & access or with `libraos-next auth pairing create`, and enter it here.",
+                    "Create a pairing code on {environment}, in its Settings → Sharing & access or with `lnext auth pairing create`, and enter it here.",
                     { environment: prefill.label },
                   )
                 : gt("Pair another environment to this client.")}

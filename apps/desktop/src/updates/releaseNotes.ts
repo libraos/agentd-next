@@ -132,12 +132,41 @@ function extractReleaseNoteSummary(summary: string): ExtractedReleaseNoteItems {
   };
 }
 
+const WHATS_NEW_HEADING = /^(?:#{1,6}\s+)?(?:\*\*)?what['’]s new in v?\S+?(?:\*\*)?:?$/i;
+
+/** LibraOS Next's notes list the release under "What's new in VERSION", then repeat download help. */
+function extractWhatsNew(note: string): ExtractedReleaseNoteItems | undefined {
+  const lines = stripMarkup(note, true)
+    .split("\n")
+    .map((line) => line.trim().replace(/\s+/g, " "));
+  const start = lines.findIndex((line) => WHATS_NEW_HEADING.test(line));
+  if (start < 0) return undefined;
+  const items: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line === "") continue;
+    if (/^#{1,6}\s+/.test(line) || /^\*\*[^*]+\*\*:?$/.test(line)) break;
+    items.push(
+      line
+        .replace(/^[-*]\s+/, "")
+        .replace(/^\d+[.)]\s+/, "")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^\*\*([^*]+)\*\*$/, "$1"),
+    );
+  }
+  return {
+    items: items.slice(0, MAX_RELEASE_NOTE_ITEMS_PER_GROUP).map(truncateReleaseNoteItem),
+    totalItems: items.length,
+  };
+}
+
 function extractReleaseNoteItems(note: string | null | undefined): ExtractedReleaseNoteItems {
   if (!note) return { items: [], totalItems: 0 };
 
   // Generated summaries fold GitHub's full list under this exact <details> block.
   const summaryEnd = note.search(/<details>\s*<summary>\s*Full changelog\s*<\/summary>/i);
   if (summaryEnd >= 0) return extractReleaseNoteSummary(note.slice(0, summaryEnd));
+  const whatsNew = extractWhatsNew(note);
+  if (whatsNew) return whatsNew;
   const items: string[] = [];
   let totalItems = 0;
   for (const rawLine of stripMarkup(note).split("\n")) {

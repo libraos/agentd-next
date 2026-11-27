@@ -461,13 +461,13 @@
   "663d7b465a461e5b": "The hosted relay could not reach {host}'s tunnel",
   "305ebc835c97d9f8": "LibraOS Next on {host} did not accept this device",
   "0997b810795eda2e": "LibraOS Next on {host} did not answer",
-  "8f077503e6af5b6e": "On {host}, check Settings > Sharing & access or run `libraos-next connect status`.",
+  "466f9cb21771a27a": "On {host}, check Settings > Sharing & access or run `lnext connect status`.",
   "a2242ae6ad65f6da": "Connect this device to the internet. LibraOS Next reconnects on its own.",
   "f764da9d29d6abe8": "Wait a moment. LibraOS Next retries on its own.",
   "8af1b6d0bc9eabdd": "If it keeps waiting, reload or restart LibraOS Next on this device.",
   "570aaeb32dc600a7": "On a device already connected to {host}, open Settings > Sharing & access and approve the device showing {code}.",
   "08a2d57d02f30799": "On a device already connected to {host}, open Settings > Sharing & access and approve this device.",
-  "561786212380d67d": "Or run `libraos-next auth connect-device approve {code}` on {host}.",
+  "15d41e6d59d23c45": "Or run `lnext auth connect-device approve {code}` on {host}.",
   "f17928c8ecc808d3": "Update LibraOS Next on {host}.",
   "3c35e0980e06bfa6": "Turn on automatic date and time on this device and on {host}, then retry.",
   "dccd0cf31464a5d8": "Check that this device is signed in to the same hosted relay account as the host.",
@@ -3125,8 +3125,8 @@
   "62450481c00d2ef3": "The draft's environment is unavailable for transcript cleanup.",
   "0674544195fcdc39": "The original transcript was added.",
   "c64cb58d9cecbcd2": "Transcript cleanup failed",
-  "0c97a06f4ff33d85": "The libraos-next command is unavailable.",
-  "b4fe019cbbeed6ae": "Failed to load the libraos-next command state.",
+  "2fba76ce24b9a739": "The lnext command is unavailable.",
+  "8d8b1e8166ba46ce": "Failed to load the lnext command state.",
   "1bf6910332426e62": "Desktop network access is unavailable.",
   "453d2f1825d6e763": "Failed to load desktop server exposure state.",
   "2f388f3d76869c03": "Failed to load advertised desktop endpoints.",
@@ -6234,7 +6234,7 @@
   "c246e33dafd359cc": "Add",
   "b0c1beb79a87d97b": "Authorization request",
   "0311d7ed2b7eb2f6": "This connect link is incomplete",
-  "e7e7c60467265928": "The link is missing its authorization request. Re-run `libraos-next connect` in your terminal and open the freshly printed URL.",
+  "7c93775ac1340632": "The link is missing its authorization request. Re-run `lnext connect` in your terminal and open the freshly printed URL.",
   "55ee748307f0cd6a": "Browser authorization",
   "1ccae6b48df9cf15": "Connecting your terminal",
   "87c993fe8b1958e3": "Redirecting to authorize the hosted relay for your CLI…",
@@ -7483,7 +7483,7 @@
     "in this terminal."
   ],
   "9d9b9624c7bd95df": "Other folders",
-  "0723511350242b54": [
+  "649fb06ae9d843ba": [
     "Added to ",
     {
       "i": 1,
@@ -7495,16 +7495,16 @@
     {
       "t": "code",
       "i": 2,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     "."
   ],
-  "a19264f78bd15564": [
+  "0bfa188861328fb1": [
     "Use ",
     {
       "t": "code",
       "i": 1,
-      "c": "libraos-next"
+      "c": "lnext"
     },
     " from any terminal. Adds one line to",
     " ",
@@ -8632,7 +8632,7 @@
   "8a333daf9b7fd03f": "Connect to {environment}",
   "7662025844bf543f": "Add Environment",
   "65b1d784a5e84254": "Pair this machine again over another address, such as its Tailscale name. It joins the existing routes instead of adding a second machine.",
-  "fd6c196a293780a4": "Create a pairing code on {environment}, in its Settings → Sharing & access or with `libraos-next auth pairing create`, and enter it here.",
+  "9aa85ef508c9b4b9": "Create a pairing code on {environment}, in its Settings → Sharing & access or with `lnext auth pairing create`, and enter it here.",
   "1bea4864d46d70d0": "Pair another environment to this client.",
   "9b24ef052b321e57": "Enter a backend host and pairing code.",
   "3e20f17f71edf0ad": "Use local SSH config, agent, and tunnels for the backend.",
@@ -9095,17 +9095,17 @@
       "v": "v"
     }
   ],
-  "86c6983e9247421c": "Could not install libraos-next",
-  "648d7ec0387002ee": "Could not remove libraos-next",
-  "7cfbcce96dca6ffe": "Could not add libraos-next to PATH",
-  "0983579b46a2a633": "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
-  "9e380157af2ee859": "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
+  "2740557d7569b38f": "Could not install lnext",
+  "3b288f3f89d903a2": "Could not remove lnext",
+  "51456f291f01b5b8": "Could not add lnext to PATH",
+  "145c044702896900": "Another lnext at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+  "3db7d970661cb24b": "Run LibraOS Next's CLI as `lnext` from any terminal. Also installs `libraos-next`, `agentd-next` and `t3` as aliases.",
   "4f6e93011ef2da6f": "Installed at {path}. Open a new terminal to use it.",
   "371ca438cf467125": "Installed at {path} and added to PATH in {file}. Open a new terminal to use it.",
   "fd3eece9d1a7ea38": "Installed at {path}, which is not on your PATH yet.",
-  "095337793fe19f6c": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
-  "e71863bfeee3f2ac": "Remove",
-  "ab8c2907b24f28e1": "Install",
+  "1018fcfb06564432": "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `lnext`.",
+  "e4dc3dbe14c831c0": "Remove",
+  "9e8a4cf4a5369dc3": "Install",
   "9a284b5893dc04a2": "OpenRouter model",
   "c8361c16c47d5fb5": "Search transcription models",
   "d72eccdd92d4f989": "Couldn’t save this change. Check your connection and try again.",
@@ -10195,7 +10195,7 @@
   "ca4e4015b89ed9a8": "Could not link {target} back to {source}",
   "64ac3d1579ca9f5b": "Link {source} to {target}",
   "5f2e20c62a4fece3": "{via} links to {target} at full access, so it gets the pairing code. No code to paste.",
-  "77f045c893ab298c": "From Sharing & access there, or libraos-next pair",
+  "b8c0fd33f1d788c1": "From Sharing & access there, or lnext pair",
   "1e3fee7084791773": "Also link {target} back to {source}",
   "ea34a190b0bd804c": "Agents on {target} can then work on {source} too.",
   "974f8c65e8b5f492": "Forget {label}? Agents here stop working there, and their session on {label} ends too if it answers.",
@@ -10977,8 +10977,8 @@
   "fb47a2a9a37656f1": "The hosted relay is on, but other devices cannot reach this environment.",
   "8001b7817caee889": "The hosted relay is on. Reachability has not been checked yet.",
   "621691786b1ce9f2": "The hosted relay is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn the hosted relay on to repair it.",
-  "96403aa33398dcdd": "This environment was removed from the hosted relay. Run `libraos-next connect link` on the host to link it again.",
-  "f9ccb2b4359b6de4": "Run `libraos-next connect link` on the host, then restart LibraOS Next there.",
+  "88e04cc983ecd3b0": "This environment was removed from the hosted relay. Run `lnext connect link` on the host to link it again.",
+  "77a72a1a461b9a26": "Run `lnext connect link` on the host, then restart LibraOS Next there.",
   "0a3123a6ce981075": "Sign in to send activity to mobile notifications and Live Activities.",
   "80a3aef9dfe51459": "Send activity to mobile notifications and Live Activities without the hosted relay.",
   "5f8ca828eca1ce1a": "Publish agent activity to mobile clients",
@@ -13152,7 +13152,7 @@
   "0c5fc3b5e41e1956": "generated thread titles prompt custom style naming rename regenerate",
   "a83570bcb45d8fa1": "about check for updates download install upgrade release",
   "d65bdf6748801734": "release channel stable latest nightly prerelease",
-  "27ae62d2e5badca4": "libraos-next command",
+  "58d0beb1ef86e52e": "lnext command",
   "46dd4dc08c1e552f": "cli terminal shell path install command line",
   "86479042bae0e2db": "Mobile app",
   "dc2a999ca67ccf31": "phone tablet iPhone iPad iOS Android App Store Google Play QR",

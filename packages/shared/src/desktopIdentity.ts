@@ -23,8 +23,8 @@ export const appLinkSchemes = (development: boolean): readonly [string, string] 
 export const CLI_COMMAND_NAME = "libraos-next";
 /** The legacy command name, from agentd.4 to agentd.6; an installed one is kept working and removed with the new one. */
 export const LEGACY_CLI_COMMAND_NAME = "agentd-desktop";
-/** Installed beside the command under the earlier names, so `agentd-next` and upstream's `t3` keep working. */
-export const CLI_COMMAND_ALIASES = ["agentd-next", "t3"] as const;
+/** Installed beside the command: the short `lnext`, and the earlier `agentd-next` and upstream's `t3`, which keep working. */
+export const CLI_COMMAND_ALIASES = ["lnext", "agentd-next", "t3"] as const;
 /** Background service, Windows task, systemd slices and per-user folders; the upstream app's are `t3code`. */
 export const OS_NAME = "agentd-desktop";
 /** AgentD Next's bundle id plus `.service`; kept so existing installs keep their background service. */

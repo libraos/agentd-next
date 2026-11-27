@@ -15,12 +15,12 @@ import { SettingsRow } from "./settingsLayout";
 import { useSearchableSetting } from "./settingsSearch";
 
 const FAILURE_TITLES = {
-  install: msg("Could not install libraos-next"),
-  uninstall: msg("Could not remove libraos-next"),
-  addToPath: msg("Could not add libraos-next to PATH"),
+  install: msg("Could not install lnext"),
+  uninstall: msg("Could not remove lnext"),
+  addToPath: msg("Could not add lnext to PATH"),
 } as const;
 
-/** The desktop `libraos-next` command's state, and its actions with a toast on failure. */
+/** The desktop `lnext` command's state, and its actions with a toast on failure. */
 export function useDesktopCliCommand() {
   const bridge = getDesktopCliCommandBridge();
   const query = useEnvironmentQuery(bridge ? desktopCliCommandStateAtom : null);
@@ -63,7 +63,7 @@ export function CliCommandSettingsRow() {
   const description = state.shadowedBy
     ? resolve(
         msg(
-          "Another libraos-next at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
+          "Another lnext at {path} runs first in a new terminal. Remove it to use LibraOS Next's.",
           {
             path: state.shadowedBy,
           },
@@ -72,7 +72,7 @@ export function CliCommandSettingsRow() {
     : !installed
       ? resolve(
           msg(
-            "Run LibraOS Next's CLI as `libraos-next` from any terminal. Also installs `agentd-next` and `t3` as aliases.",
+            "Run LibraOS Next's CLI as `lnext` from any terminal. Also installs `libraos-next`, `agentd-next` and `t3` as aliases.",
           ),
         )
       : state.onPath
@@ -96,7 +96,7 @@ export function CliCommandSettingsRow() {
               )
             : resolve(
                 msg(
-                  "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `libraos-next`.",
+                  "Installed at {path}, which is not on your PATH yet. Add its folder to your PATH to run `lnext`.",
                   { path: state.installedPath },
                 ),
               );
@@ -119,8 +119,8 @@ export function CliCommandSettingsRow() {
             onClick={() => run(installed ? "uninstall" : "install")}
           >
             {installed
-              ? resolve(msg("Remove", { $context: "verb, uninstalls the libraos-next command" }))
-              : resolve(msg("Install", { $context: "verb, installs the libraos-next command" }))}
+              ? resolve(msg("Remove", { $context: "verb, uninstalls the lnext command" }))
+              : resolve(msg("Install", { $context: "verb, installs the lnext command" }))}
           </Button>
         </div>
       }

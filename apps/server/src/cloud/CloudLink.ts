@@ -186,7 +186,7 @@ export class CloudLinkAuthorizationMissingError extends Schema.TaggedError<Cloud
   {},
 ) {
   override get message(): string {
-    return "Run `libraos-next connect link` to authorize this environment.";
+    return "Run `lnext connect link` to authorize this environment.";
   }
 }
 

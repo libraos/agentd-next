@@ -38,7 +38,7 @@ export class DesktopAppSshUnsupportedError extends Schema.TaggedError<DesktopApp
   {},
 ) {
   override get message(): string {
-    return "`libraos-next app` only controls a desktop app on the same machine. It cannot run over SSH.";
+    return "`lnext app` only controls a desktop app on the same machine. It cannot run over SSH.";
   }
 }
 
@@ -47,7 +47,7 @@ export class DesktopAppPlatformUnsupportedError extends Schema.TaggedError<Deskt
   { platform: Schema.String },
 ) {
   override get message(): string {
-    return `\`libraos-next app\` is not supported on ${this.platform}.`;
+    return `\`lnext app\` is not supported on ${this.platform}.`;
   }
 }
 
@@ -61,7 +61,7 @@ export class DesktopAppUnreachableError extends Schema.TaggedError<DesktopAppUnr
   },
 ) {
   override get message(): string {
-    return "Could not reach the LibraOS Next app. Start or update the desktop app on this machine, then run `libraos-next app` again. A running LibraOS Next server is not enough.";
+    return "Could not reach the LibraOS Next app. Start or update the desktop app on this machine, then run `lnext app` again. A running LibraOS Next server is not enough.";
   }
 }
 
