@@ -13,14 +13,15 @@ export const RELAY_PROLOGUE_PREFIX = "libraos-relay/1";
 export const relayPrologue = (hostId: string): Uint8Array =>
   encodeText(`${RELAY_PROLOGUE_PREFIX}${hostId}`);
 
+// WebSocket close() accepts only 1000 and 3000-4999; the relay's own codes are 44xx.
 export const SessionCloseCode = {
   NORMAL: 1000,
   /** A message failed to decrypt or broke the protocol. */
-  PROTOCOL_ERROR: 1002,
+  PROTOCOL_ERROR: 4500,
   /** The host does not know the device and it brought no valid pairing code. */
-  NOT_AUTHORIZED: 1008,
+  NOT_AUTHORIZED: 4501,
   /** The nonce limit is near; the device reconnects for a fresh handshake. */
-  REKEY: 4000,
+  REKEY: 4502,
 } as const;
 
 /** One WebSocket, or anything else that carries whole binary messages in order. */

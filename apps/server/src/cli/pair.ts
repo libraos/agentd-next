@@ -19,6 +19,7 @@ import {
   readTailscaleServeRootHolder,
   readTailscaleStatus,
 } from "@t3tools/tailscale";
+import * as Clock from "effect/Clock";
 import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -46,6 +47,7 @@ import {
   renderTerminalQrCode,
   resolveHeadlessConnectionString,
 } from "../startupAccess.ts";
+import { addRelayToPairingUrl } from "../agentd/relay/relayPairing.ts";
 import { authScopesFlag } from "./authScopes.ts";
 import { baseDirFlag, DurationFromString } from "./config.ts";
 import { hostShellWord, resolveHostCliCommand } from "./invocation.ts";
@@ -564,6 +566,7 @@ export const pairCommand = Command.make("pair", {
       }
 
       const notes: Array<string> = [];
+      let loopbackOnly = false;
       let pairingBaseUrl: string;
       if (flags.tailscale) {
         // Serve stays on after this command exits, so refuse before turning it on.
@@ -583,9 +586,7 @@ export const pairCommand = Command.make("pair", {
       } else {
         pairingBaseUrl = resolveDirectPairingBaseUrl(target.state, yield* HostProcess.Platform);
         if (isLoopbackHost(new URL(pairingBaseUrl).hostname)) {
-          notes.push(
-            "This URL is only reachable from this machine. To reach it from your other devices, run `libraos-next up`, or re-run with --tailscale.",
-          );
+          loopbackOnly = true;
         } else if (target.state.privateNetworkOnly) {
           notes.push(
             "This URL works only from this machine's local network. From elsewhere, re-run with --tailscale or use the hosted relay.",
@@ -605,7 +606,26 @@ export const pairCommand = Command.make("pair", {
         ttl: flags.ttl,
         label: flags.label,
       });
-      const pairingUrl = buildPairingUrl(pairingBaseUrl, issued.credential);
+      const now = yield* Clock.currentTimeMillis;
+      const relayPairing = yield* Effect.promise(() =>
+        addRelayToPairingUrl({
+          stateDir: config.stateDir,
+          pairingUrl: buildPairingUrl(pairingBaseUrl, issued.credential),
+          credential: issued.credential,
+          expiresAt: DateTime.toEpochMillis(issued.expiresAt),
+          label: Option.getOrElse(flags.label, () => "libraos-next pair"),
+          now,
+        }),
+      );
+      const pairingUrl = relayPairing.pairingUrl;
+      if (relayPairing.note !== undefined) notes.push(relayPairing.note);
+      if (relayPairing.viaRelay) {
+        notes.push("Phones can also connect through this computer's relay, from any network.");
+      } else if (loopbackOnly) {
+        notes.push(
+          "This URL is only reachable from this machine. To reach it from your other devices, run `libraos-next up`, or re-run with --tailscale.",
+        );
+      }
 
       yield* Console.log(
         formatPairOutput({
