@@ -42,7 +42,7 @@ function deriveEmptyState(
         msg(
           "On your computer, run {command} or open Settings → Sharing & access, then scan the code.",
         ),
-        { command: "libraos-next pair" },
+        { command: "lnext pair" },
       ),
       loading: false,
     };

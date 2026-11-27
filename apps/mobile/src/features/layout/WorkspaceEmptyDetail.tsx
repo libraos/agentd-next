@@ -35,7 +35,7 @@ export function WorkspaceEmptyDetail(props: {
               title={gt("Pair with your computer")}
               detail={gt(
                 "On your computer, run {command} or open Settings → Sharing & access, then scan the code.",
-                { command: "libraos-next pair" },
+                { command: "lnext pair" },
               )}
               variant="plain"
               action={
