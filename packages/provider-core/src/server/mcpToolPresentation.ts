@@ -1,6 +1,14 @@
 import type { ToolActivityIcon, ToolActivitySource } from "@t3tools/contracts";
 import { resolveT3McpToolDefinition } from "@t3tools/shared/t3McpToolPresentation";
 
+// LibraOS Engine registers its MCP server as `agentd`; the server and tool names stay (libraos/core#1220).
+const KNOWN_MCP_SERVER_NAMES = new Map([
+  ["agentd", "LibraOS Engine"],
+  ["libraos-engine", "LibraOS Engine"],
+  ["libraos_engine", "LibraOS Engine"],
+  ["libraos-core", "LibraOS Engine"],
+]);
+
 export function normalizeMcpText(value: unknown, maxLength = 160): string | undefined {
   if (typeof value !== "string") return undefined;
   const text = value.trim().replace(/\s+/gu, " ");
@@ -44,6 +52,7 @@ export function mcpToolPresentation(input: {
     (server && tool ? normalizeMcpText(tool.replace(/[_-]+/gu, " ")) : undefined);
   if (!server) return title ? { title } : {};
   const name =
+    KNOWN_MCP_SERVER_NAMES.get(server.toLowerCase()) ??
     normalizeMcpText(input.serverDisplayName) ??
     normalizeMcpText(source && Reflect.get(source, "name")) ??
     normalizeMcpText(server.replace(/[_-]+/gu, " ")) ??

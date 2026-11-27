@@ -28,6 +28,7 @@ import {
   liveActivityToolStatus,
   toolGroupAction,
   resolveWorkEntryToolPresentation,
+  singleToolCallLabelWithSource,
   summarizeToolGroup,
   toolGroupSummaryKind,
   workEntriesViewedImagePaths,
@@ -972,7 +973,11 @@ function singleToolCallLabel(
   const presentation = resolveWorkEntryToolPresentation(activity.workEntry, "completed", resolve);
   if (presentation) return presentation.displayName;
   const command = activity.workEntry.command?.trim();
-  return command ? truncate(command, WORK_LOG_LABEL_MAX_LENGTH) : activity.summary;
+  return singleToolCallLabelWithSource(
+    activity.workEntry,
+    command ? truncate(command, WORK_LOG_LABEL_MAX_LENGTH) : activity.summary,
+    resolve,
+  );
 }
 
 function isEmptyMessage(entry: RawThreadFeedEntry): boolean {
