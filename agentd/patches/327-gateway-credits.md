@@ -16,7 +16,7 @@ Ours (no upstream counterpart):
 - `apps/web/src/lib/libraosGatewayState.ts` — Credits query, focus refresh, checkout command; opens the checkout tab during the click so browsers do not block it.
 - `apps/web/src/components/agentd/LibraosCredits.tsx` (+ browser test), `libraosCredits.logic.ts` (+ test) — Balance panel, Buy credits button, Usage row, Settings card.
 - `apps/web/src/components/agentd/LibraosCreditsThreadError.tsx` (+ browser test) — The out-of-credits card.
-- `apps/web/src/components/agentd/StartTaskCloud.tsx`, `taskPlan.tsx` — Cloud Workers' "not enough LibraOS credit" offers Buy credits.
+- `apps/web/src/components/agentd/taskPlan.tsx` — Cloud Workers' "not enough LibraOS credit" offers Buy credits, in the Start Task dialog and the draft card.
 - `apps/web/src/components/onboarding/ConnectEndpointScreen.tsx` — The connected Gateway panel shows the balance.
 
 Upstream files changed:
