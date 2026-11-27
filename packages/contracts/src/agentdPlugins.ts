@@ -54,6 +54,8 @@ export const AgentdPluginMcpServer = Schema.Struct({
   env: Schema.Array(Schema.String),
   /** Settings it needs that have no value yet; until given, it is not attached. */
   missing: Schema.Array(Schema.String),
+  /** Why it cannot be started here (no Python for a script on Windows); until fixed, not attached. */
+  problem: Schema.optionalKey(Schema.String),
 });
 export type AgentdPluginMcpServer = typeof AgentdPluginMcpServer.Type;
 

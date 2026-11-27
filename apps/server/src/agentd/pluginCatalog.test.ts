@@ -12,6 +12,7 @@ import {
   replacementName,
   hookPrograms,
   resolveHookCommand,
+  scriptPrograms,
   withoutPlugin,
   withPluginEnabled,
   parsePluginKey,
@@ -165,6 +166,31 @@ describe("resolveHookCommand", () => {
     [["-rf"], { _tag: "Unsafe" }],
   ])("%j", (argv, expected) => {
     expect(resolveHookCommand("linux", "/p", argv)).toEqual(expected);
+  });
+});
+
+describe("resolveHookCommand on Windows", () => {
+  const folder = "C:\\Users\\me\\plugins\\legal\\1.0.0";
+  it.each([
+    [["./legal_mcp.py"], { _tag: "File", path: `${folder}\\legal_mcp.py`, args: [] }],
+    [["..\\outside.py"], { _tag: "Unsafe" }],
+    [["../outside.py"], { _tag: "Unsafe" }],
+    [["C:\\Windows\\evil.py"], { _tag: "Unsafe" }],
+    [["\\\\host\\share\\evil.py"], { _tag: "Unsafe" }],
+  ])("%j", (argv, expected) => {
+    expect(resolveHookCommand("win32", folder, argv)).toEqual(expected);
+  });
+});
+
+describe("scriptPrograms", () => {
+  it("starts a .py file through py -3, then python, on Windows only", () => {
+    expect(scriptPrograms("win32", "C:\\p\\server.PY", ["-c", "x"])).toEqual([
+      { name: "py", args: ["-3", "C:\\p\\server.PY", "-c", "x"], skipWindowsApps: false },
+      { name: "python", args: ["C:\\p\\server.PY", "-c", "x"], skipWindowsApps: true },
+    ]);
+    expect(scriptPrograms("win32", "C:\\p\\server.exe", [])).toBeNull();
+    expect(scriptPrograms("linux", "/p/server.py", [])).toBeNull();
+    expect(scriptPrograms("darwin", "/p/server.py", [])).toBeNull();
   });
 });
 

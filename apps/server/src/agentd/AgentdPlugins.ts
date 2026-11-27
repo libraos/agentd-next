@@ -68,6 +68,7 @@ import type { ThreadLaunchInput } from "../orchestration-v2/ThreadLaunchService.
 import * as ProcessRunner from "../processRunner.ts";
 import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import { downloadPinned, getUrlBytes, type PinnedFetch } from "./AgentdSkills.ts";
+import { findEngine, isEngineCommand } from "./enginePath.ts";
 import {
   GITHUB_API,
   OFFICIAL_REPOSITORY,
@@ -95,8 +96,10 @@ import {
   PluginSettings,
   PluginSetupRecord,
   PlaceholderFile,
+  type HookProgram,
   type HookUnshownAttachment,
   type PluginManifest,
+  type ResolvedCommand,
   type PluginMcpLaunch,
   mcpServerEnv,
   pluginSecretName,
@@ -119,6 +122,7 @@ import {
   readPluginSettings,
   resolveHookCommand,
   sameContent,
+  scriptPrograms,
   setupReady,
   validPluginVersion,
   withPluginEnabled,
@@ -227,17 +231,16 @@ export const BeforeSendChecked = Context.Reference<ReadonlySet<CommandId>>(
   { defaultValue: () => new Set() },
 );
 
-/** A hook's program found on PATH, trying python3's Windows stand-ins, or null when none is. */
-export const findHookProgram = Effect.fn("AgentdPlugins.findHookProgram")(
+/** The first of `programs` found on PATH, or null when none is. */
+const findProgram = Effect.fn("AgentdPlugins.findProgram")(
   function* (
     platform: NodeJS.Platform,
     env: NodeJS.ProcessEnv,
-    name: string,
-    args: ReadonlyArray<string>,
+    programs: ReadonlyArray<HookProgram>,
   ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    for (const program of hookPrograms(platform, name, args)) {
+    for (const program of programs) {
       const matches = program.skipWindowsApps
         ? yield* resolveCommandPaths(program.name, {
             env,
@@ -260,6 +263,60 @@ export const findHookProgram = Effect.fn("AgentdPlugins.findHookProgram")(
   },
   (effect, platform) => Effect.provideService(effect, HostProcess.Platform, platform),
 );
+
+/** A hook's program found on PATH, trying python3's Windows stand-ins, or null when none is. */
+export const findHookProgram = (
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+  name: string,
+  args: ReadonlyArray<string>,
+) => findProgram(platform, env, hookPrograms(platform, name, args));
+
+/** How a hook, setup or MCP server is started, or why it cannot be. */
+export type ProgramLaunch =
+  | { readonly _tag: "Program"; readonly command: string; readonly args: ReadonlyArray<string> }
+  | { readonly _tag: "NotFound" }
+  | { readonly _tag: "NoPython" };
+
+/** A command inside the plugin's folder, or a program name to look up on PATH. */
+export type ProgramLaunchInput = Exclude<ResolvedCommand, { readonly _tag: "Unsafe" }>;
+
+const NOT_FOUND: ProgramLaunch = { _tag: "NotFound" };
+const NO_PYTHON: ProgramLaunch = { _tag: "NoPython" };
+const PYTHON_INSTALL = "Install Python 3 from python.org (it adds the py launcher)";
+/** What a person reads when a Windows .py server has no Python to start it. */
+export const noPython = (server: string) =>
+  `${server} is a Python script and Python 3 was not found. ${PYTHON_INSTALL}, then start a new thread.`;
+/** A setup gets the engine's path in this variable. */
+export const LIBRAOS_ENGINE_ENV = "LIBRAOS_ENGINE";
+
+/**
+ * How to start a plugin's resolved command. Only Next picks an interpreter: a .py file of the
+ * plugin on Windows goes through Python from PATH. An engine name not on PATH runs `engine`.
+ */
+export const launchProgram = Effect.fn("AgentdPlugins.launchProgram")(function* (
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+  resolved: ProgramLaunchInput,
+  engine: string | null,
+) {
+  if (resolved._tag === "File") {
+    const programs = scriptPrograms(platform, resolved.path, resolved.args);
+    if (programs === null) return program({ command: resolved.path, args: resolved.args });
+    const found = yield* findProgram(platform, env, programs);
+    return found === null ? NO_PYTHON : program(found);
+  }
+  const found = yield* findHookProgram(platform, env, resolved.name, resolved.args);
+  if (found !== null) return program(found);
+  return engine !== null && isEngineCommand(platform, resolved.name)
+    ? program({ command: engine, args: resolved.args })
+    : NOT_FOUND;
+});
+
+const program = (found: {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+}): ProgramLaunch => ({ _tag: "Program", command: found.command, args: found.args });
 
 /** How to send a held message again once the person confirms it. */
 export type BeforeSendResend =
@@ -752,24 +809,35 @@ const make = Effect.gen(function* () {
     const declared = hook.manifest?.hooks?.["before-send"];
     if (declared === undefined) return null;
     const found = yield* resolveCommand(hook.folder, declared.command);
-    return found === null ? null : { ...found, declared };
+    return found._tag === "Program" ? { command: found.command, args: found.args, declared } : null;
   });
 
-  /** A hook's or setup's argv as a program to start, or null when it is not there. */
+  const withPaths = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+    effect.pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+  const engine = findEngine(host.env).pipe(
+    Effect.provideService(HostProcess.Platform, host.platform),
+    withPaths,
+  );
+
+  /** A hook's, setup's or MCP server's argv as a program to start, or why it cannot be. */
   const resolveCommand = Effect.fn("AgentdPlugins.resolveCommand")(function* (
     folder: string,
     argv: ReadonlyArray<string>,
   ) {
     const resolved = resolveHookCommand(host.platform, folder, argv);
-    if (resolved._tag === "Unsafe") return null;
+    if (resolved._tag === "Unsafe") return NOT_FOUND;
     if (resolved._tag === "File") {
       const exists = yield* fs.exists(resolved.path).pipe(Effect.orElseSucceed(() => false));
-      return exists ? { command: resolved.path, args: resolved.args } : null;
+      if (!exists) return NOT_FOUND;
     }
-    return yield* findHookProgram(host.platform, host.env, resolved.name, resolved.args).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
+    const known =
+      resolved._tag === "Path" && isEngineCommand(host.platform, resolved.name)
+        ? yield* engine
+        : null;
+    return yield* launchProgram(host.platform, host.env, resolved, known).pipe(withPaths);
   });
 
   /** The project's enabled before-send hooks, installed or not, in id order. */
@@ -852,26 +920,34 @@ const make = Effect.gen(function* () {
           : { value: values.get(setting.name) ?? setting.default ?? "" }),
       set: setting.secret ? secretSet.has(setting.name) : values.has(setting.name),
     }));
-    const listedServers = servers.map(([name, server]): AgentdPluginMcpServer => {
-      const env = mcpServerEnv(
-        server,
-        declared,
-        (setting) =>
-          setting.secret
-            ? secretSet.has(setting.name)
-              ? "set"
-              : undefined
-            : values.get(setting.name),
-        (setting) => secretFile(found.key, setting),
-      );
-      return {
-        name,
-        command: server.command,
-        args: server.args,
-        env: [...Object.keys(server.env ?? {}), ...Object.keys(server.settings ?? {})],
-        missing: env._tag === "Missing" ? env.settings : [],
-      };
-    });
+    const listedServers = yield* Effect.forEach(servers, ([name, server]) =>
+      Effect.gen(function* () {
+        const env = mcpServerEnv(
+          server,
+          declared,
+          (setting) =>
+            setting.secret
+              ? secretSet.has(setting.name)
+                ? "set"
+                : undefined
+              : values.get(setting.name),
+          (setting) => secretFile(found.key, setting),
+        );
+        // Only a Windows .py server is looked up: elsewhere the listing reads no PATH.
+        const noInterpreter =
+          scriptPrograms(host.platform, server.command, []) !== null &&
+          (yield* resolveCommand(found.folder, [server.command, ...server.args]))._tag ===
+            "NoPython";
+        return {
+          name,
+          command: server.command,
+          args: server.args,
+          env: [...Object.keys(server.env ?? {}), ...Object.keys(server.settings ?? {})],
+          missing: env._tag === "Missing" ? env.settings : [],
+          ...(noInterpreter ? { problem: noPython(name) } : {}),
+        } satisfies AgentdPluginMcpServer;
+      }),
+    );
     return {
       ...(listedServers.length === 0 ? {} : { mcpServers: listedServers }),
       ...(listedSettings.length === 0 ? {} : { settings: listedSettings }),
@@ -924,7 +1000,8 @@ const make = Effect.gen(function* () {
         );
         if (env._tag === "Missing") continue;
         const command = yield* resolveCommand(found.folder, [server.command, ...server.args]);
-        if (command === null) continue;
+        if (command._tag === "NoPython") yield* Effect.logWarning(noPython(name), { plugin: id });
+        if (command._tag !== "Program") continue;
         let written = true;
         for (const reference of Object.values(server.settings ?? {})) {
           if (typeof reference === "string" || filesWritten.has(reference.setting)) continue;
@@ -1482,9 +1559,16 @@ const make = Effect.gen(function* () {
     const declared = found.manifest!.setup!;
     const name = found.manifest?.name ?? id;
     const command = yield* resolveCommand(found.folder, declared.command);
-    if (command === null) {
+    if (command._tag === "NoPython") {
+      return yield* finishSetup(
+        found,
+        `${name}'s setup is a Python script and Python 3 was not found. ${PYTHON_INSTALL}, then set it up again.`,
+      );
+    }
+    if (command._tag === "NotFound") {
       return yield* finishSetup(found, `${name}'s setup command cannot be found.`);
     }
+    const enginePath = yield* engine;
     let pending = "";
     const decoder = new TextDecoder();
     const progress = (chunk: Uint8Array) => {
@@ -1499,6 +1583,8 @@ const make = Effect.gen(function* () {
         command: command.command,
         args: command.args,
         cwd: found.folder,
+        // So a setup finds the engine whatever its name on PATH, or when it is not on PATH.
+        ...(enginePath === null ? {} : { env: { [LIBRAOS_ENGINE_ENV]: enginePath } }),
         // Empty and closed at once, so a setup that reads stdin ends instead of waiting.
         stdin: "",
         timeout: Duration.minutes(SETUP_TIMEOUT_MINUTES),
