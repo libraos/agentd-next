@@ -220,9 +220,14 @@ describe("planFiles", () => {
     expect(plan).toEqual({
       _tag: "Files",
       files: [
-        { source: "skills/demo/SKILL.md", target: "SKILL.md", sha: SHA },
-        { source: "skills/demo/scripts/a.py", target: "scripts/a.py", sha: SHA },
-        { source: "NOTICE.md", target: "NOTICE.md", sha: SHA },
+        { source: "skills/demo/SKILL.md", target: "SKILL.md", sha: SHA, executable: false },
+        {
+          source: "skills/demo/scripts/a.py",
+          target: "scripts/a.py",
+          sha: SHA,
+          executable: true,
+        },
+        { source: "NOTICE.md", target: "NOTICE.md", sha: SHA, executable: false },
       ],
     });
   });

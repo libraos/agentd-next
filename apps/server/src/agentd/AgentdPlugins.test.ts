@@ -32,7 +32,9 @@ import * as ClaudeAdapterV2 from "../orchestration-v2/Adapters/ClaudeAdapterV2.t
 import * as CodexAdapterV2 from "../orchestration-v2/Adapters/CodexAdapterV2.ts";
 import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import * as AgentdPlugins from "./AgentdPlugins.ts";
-import { PLUGIN_CATALOG_URL } from "./pluginCatalog.ts";
+import { PLUGIN_CATALOG_BASE } from "./pluginCatalog.ts";
+
+const PLUGIN_CATALOG_URL = `${PLUGIN_CATALOG_BASE}/catalog.json`;
 import { gitBlobId } from "./skillCatalog.ts";
 
 const COMMIT = "c".repeat(40);
@@ -112,7 +114,60 @@ const REPO_FILES: Record<string, Uint8Array> = {
     }),
   ),
   "plugins/mcp/server.sh": text("#!/bin/sh\nexit 0\n"),
+  // The same plugin as a Claude plugin folder with its sidecar.
+  "plugins/claude/.claude-plugin/plugin.json": text(
+    JSON.stringify({
+      name: "claude",
+      displayName: "Plugin claude",
+      version: "1.0.0",
+      userConfig: {
+        outreach_url: { type: "string", title: "Outreach URL" },
+        outreach_token_file: { type: "string", title: "API key" },
+      },
+    }),
+  ),
+  "plugins/claude/.mcp.json": text(
+    JSON.stringify({
+      mcpServers: {
+        outreach: {
+          command: "${CLAUDE_PLUGIN_ROOT}/bin/server.sh",
+          args: ["mcp", "--data", "${CLAUDE_PLUGIN_DATA}"],
+          env: {
+            OUTREACH_URL: "${user_config.outreach_url}",
+            OUTREACH_API_KEY_FILE: "${user_config.outreach_token_file}",
+          },
+        },
+      },
+    }),
+  ),
+  "plugins/claude/agentd-plugin.json": text(
+    JSON.stringify({ schemaVersion: 2, secretFiles: ["outreach_token_file"] }),
+  ),
+  "plugins/claude/bin/server.sh": text("#!/bin/sh\nexit 0\n"),
+  "plugins/claude/bin/helper.sh": text("#!/bin/sh\nexit 0\n"),
 };
+const MARKETPLACE_URL = `${PLUGIN_CATALOG_BASE}/.claude-plugin/marketplace.json`;
+const MARKETPLACE = JSON.stringify({
+  name: "libraos",
+  owner: { name: "Owner" },
+  plugins: [
+    {
+      name: "claude",
+      displayName: "Plugin claude",
+      description: "A test plugin",
+      version: "1.0.0",
+      author: { name: "Owner" },
+      license: "MIT",
+      source: {
+        source: "git-subdir",
+        url: "https://github.com/owner/repo",
+        path: "plugins/claude",
+        sha: COMMIT,
+      },
+      libraos: { reviewedAt: "2026-11-27" },
+    },
+  ],
+});
 const entry = (id: string) => ({
   id,
   name: `Plugin ${id}`,
@@ -134,7 +189,7 @@ const TREE = JSON.stringify({
   truncated: false,
   tree: Object.entries(REPO_FILES).map(([path, bytes]) => ({
     path,
-    mode: "100644",
+    mode: path.endsWith("helper.sh") ? "100755" : "100644",
     type: "blob",
     sha: gitBlobId(bytes),
     size: bytes.byteLength,
@@ -166,12 +221,14 @@ const harness = (
     ChildProcessSpawner.ChildProcessSpawner
   > = ProcessRunner.layer,
   env: NodeJS.ProcessEnv = {},
+  extraRoutes: Readonly<Record<string, string>> = {},
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const config = yield* ServerConfig.ServerConfig;
     const routes = new Map<string, string | Uint8Array>([
+      ...Object.entries(extraRoutes),
       [PLUGIN_CATALOG_URL, CATALOG],
       [TREE_URL, TREE],
       ...Object.entries(REPO_FILES).map(([file, body]): [string, Uint8Array] => [
@@ -1081,6 +1138,59 @@ it.effect("a setup gets the engine's path in LIBRAOS_ENGINE", () =>
     const [none] = yield* runs({ PATH: "" });
     expect(none).toBeDefined();
     expect(none).not.toHaveProperty("env");
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("installs a Claude plugin from a marketplace and launches its server", () =>
+  Effect.gen(function* () {
+    const h = yield* harness(undefined, {}, { [MARKETPLACE_URL]: MARKETPLACE });
+    // The marketplace is the catalogue when the repository has one.
+    expect((yield* h.service.list({})).plugins.map((plugin) => plugin.id)).toEqual(["claude"]);
+    yield* h.service.install({ id: "claude" });
+    const folder = h.path.join(h.cache, "claude", "1.0.0");
+    const listed = (yield* h.service.list({})).plugins.find((plugin) => plugin.id === "claude");
+    expect(listed).toMatchObject({
+      name: "Plugin claude",
+      mcpServers: [
+        {
+          name: "outreach",
+          command: "./bin/server.sh",
+          env: ["OUTREACH_URL", "OUTREACH_API_KEY_FILE"],
+          missing: ["outreach_url", "outreach_token_file"],
+        },
+      ],
+      settings: [
+        { name: "outreach_url", secret: false, set: false },
+        { name: "outreach_token_file", secret: true, set: false },
+      ],
+    });
+    yield* h.service.setEnabled({ id: "claude", enabled: true });
+    expect(yield* h.service.mcpServers(PROJECT)).toEqual({});
+    yield* h.service.setSettings({
+      id: "claude",
+      values: { outreach_url: "https://outreach.example", outreach_token_file: "key-1" },
+    });
+    const keyFile = h.path.join(
+      h.config.stateDir,
+      "plugins",
+      "secret-files",
+      "claude",
+      "outreach_token_file",
+    );
+    expect(yield* h.service.mcpServers(PROJECT)).toEqual({
+      outreach: {
+        command: h.path.join(folder, "bin", "server.sh"),
+        args: ["mcp", "--data", h.path.join(h.config.stateDir, "plugins", "data", "claude")],
+        env: { OUTREACH_URL: "https://outreach.example", OUTREACH_API_KEY_FILE: keyFile },
+      },
+    });
+    expect(yield* h.fs.readFileString(keyFile)).toBe("key-1");
+    // The server's file and a file git marks as run are executable; nothing else is.
+    const mode = (file: string) =>
+      h.fs.stat(h.path.join(folder, file)).pipe(Effect.map((stat) => stat.mode & 0o111));
+    expect(yield* mode("bin/server.sh")).not.toBe(0);
+    expect(yield* mode("bin/helper.sh")).not.toBe(0);
+    expect(yield* mode(".mcp.json")).toBe(0);
   }).pipe(Effect.provide(dependencies)),
 );
 

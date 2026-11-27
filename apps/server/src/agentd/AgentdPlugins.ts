@@ -68,18 +68,30 @@ import type { ThreadLaunchInput } from "../orchestration-v2/ThreadLaunchService.
 import * as ProcessRunner from "../processRunner.ts";
 import * as AgentdGitHubConnection from "./agentdGitHubConnection.ts";
 import { downloadPinned, getUrlBytes, type PinnedFetch } from "./AgentdSkills.ts";
+import {
+  CLAUDE_MARKETPLACE_FILE,
+  CLAUDE_MCP_FILE,
+  CLAUDE_PLUGIN_FILE,
+  expandMcpServer,
+  parseMarketplace,
+  parsePluginFiles,
+  pluginCommand,
+  serverSettings,
+  type ExpandContext,
+  type PluginDefinition,
+  type PluginSetting,
+} from "./claudePluginFormat.ts";
 import { findEngine, isEngineCommand } from "./enginePath.ts";
 import {
   GITHUB_API,
   OFFICIAL_REPOSITORY,
-  PLUGIN_CATALOG_URL,
+  PLUGIN_CATALOG_BASE,
   PluginSources,
   type PluginCatalog,
   type PluginOrigin,
   linkedPlugin,
   parsePluginKey,
   parseSourceLink,
-  parsePluginManifest,
   pluginKey,
   readPluginSources,
   sortPluginKeys,
@@ -98,17 +110,14 @@ import {
   PlaceholderFile,
   type HookProgram,
   type HookUnshownAttachment,
-  type PluginManifest,
   type ResolvedCommand,
   type PluginMcpLaunch,
-  mcpServerEnv,
   pluginSecretName,
   withPluginValues,
   attachmentText,
   decodePlaceholderFile,
   decodePluginCatalogCache,
   decodePluginInstallRecord,
-  decodePluginManifest,
   decodePluginSetupRecord,
   hookInput,
   hookPrograms,
@@ -407,7 +416,12 @@ const HOOK_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 // keeps what it already downloaded.
 const SETUP_TIMEOUT_MINUTES = 60;
 const SETUP_MAX_OUTPUT_BYTES = 1024 * 1024;
-const PLUGIN_LAYOUT = { required: PLUGIN_MANIFEST_FILE, manifest: PLUGIN_INSTALL_RECORD };
+const PLUGIN_LAYOUT = {
+  required: [CLAUDE_PLUGIN_FILE, PLUGIN_MANIFEST_FILE],
+  manifest: PLUGIN_INSTALL_RECORD,
+};
+
+const REMOTE_SERVER = "A remote server is not given to agents yet; only a program is.";
 
 const fail = (reason: AgentdPluginErrorReason, message: string) =>
   Effect.fail(new AgentdPluginError({ reason, message }));
@@ -427,7 +441,7 @@ interface Installed {
   readonly origin: PluginOrigin;
   readonly folder: string;
   readonly record: PluginInstallRecord;
-  readonly manifest: PluginManifest | null;
+  readonly manifest: PluginDefinition | null;
   /** A local plugin whose manifest is refused now. */
   readonly problems?: ReadonlyArray<string>;
 }
@@ -460,7 +474,7 @@ interface Hook {
   readonly id: string;
   readonly name: string;
   readonly folder: string;
-  readonly manifest: PluginManifest | null;
+  readonly manifest: PluginDefinition | null;
   /** Its manifest declares setup and the last one did not succeed for this install. */
   readonly needsSetup: boolean;
 }
@@ -544,7 +558,7 @@ const make = Effect.gen(function* () {
   /** A catalogue from its cache, fetched again when a day has passed or `force`. */
   const fetchCatalog = Effect.fn("AgentdPlugins.fetchCatalog")(function* (
     file: string,
-    get: Effect.Effect<Uint8Array, string>,
+    get: Effect.Effect<PluginCatalog | null, string>,
     force: boolean,
   ) {
     const now = yield* Clock.currentTimeMillis;
@@ -556,10 +570,7 @@ const make = Effect.gen(function* () {
     };
     if (!force && !fetchDue(cache, now)) return cached;
     const attemptedAt = iso(now);
-    const result = yield* get.pipe(
-      Effect.map((bytes) => parsePluginCatalog(new TextDecoder().decode(bytes))),
-      Effect.result,
-    );
+    const result = yield* get.pipe(Effect.result);
     const fetched = result._tag === "Success" ? result.success : null;
     const next: PluginCatalogCache =
       fetched === null
@@ -629,13 +640,37 @@ const make = Effect.gen(function* () {
           )
     ).pipe(Effect.provideService(HttpClient.HttpClient, http));
 
+  /** A repository's marketplace when it reads as one, else its version 1 `catalog.json`. */
+  const readCatalog = Effect.fn("AgentdPlugins.readCatalog")(function* (
+    get: (file: string) => Effect.Effect<Uint8Array, string>,
+  ) {
+    const marketplace = yield* get(CLAUDE_MARKETPLACE_FILE).pipe(
+      Effect.map((bytes) => parseMarketplace(new TextDecoder().decode(bytes))),
+      Effect.orElseSucceed(() => null),
+    );
+    if (marketplace !== null) return marketplace;
+    return parsePluginCatalog(new TextDecoder().decode(yield* get("catalog.json")));
+  });
+
   const githubCatalog = Effect.fn("AgentdPlugins.githubCatalog")(function* (
     repository: string,
     auth: SourceAuth,
     force: boolean,
   ) {
-    const url = sourceCatalogUrl(repository, auth.kind !== "anonymous");
-    return yield* fetchCatalog(sourceCacheFile(repository), readAs(repository, auth, url), force);
+    // One read asks the connection once, though it may fetch two files.
+    const token = yield* Effect.cached(connectionToken(repository));
+    const get = (file: string) => {
+      const url = sourceCatalogUrl(repository, auth.kind !== "anonymous", file);
+      return auth.kind !== "connection"
+        ? readAs(repository, auth, url)
+        : token.pipe(
+            Effect.flatMap((held) =>
+              held === undefined ? Effect.fail(NO_CONNECTION) : getWithToken(url, repository, held),
+            ),
+            Effect.provideService(HttpClient.HttpClient, http),
+          );
+    };
+    return yield* fetchCatalog(sourceCacheFile(repository), readCatalog(get), force);
   });
 
   /** Every catalogue: the official one first, then those a person added. */
@@ -643,7 +678,11 @@ const make = Effect.gen(function* () {
     const sources = yield* readSources;
     const official = yield* fetchCatalog(
       catalogFile,
-      getUrlBytes(PLUGIN_CATALOG_URL).pipe(Effect.provideService(HttpClient.HttpClient, http)),
+      readCatalog((file) =>
+        getUrlBytes(`${PLUGIN_CATALOG_BASE}/${file}`).pipe(
+          Effect.provideService(HttpClient.HttpClient, http),
+        ),
+      ),
       false,
     );
     const served: Served[] = [
@@ -674,6 +713,18 @@ const make = Effect.gen(function* () {
   const sourceFolder = (origin: PluginOrigin) =>
     origin.kind === "github" ? sourceSegment(origin.repository) : PLUGIN_SOURCE;
 
+  const readDefinition = Effect.fn("AgentdPlugins.readDefinition")(function* (folder: string) {
+    const read = (file: string) =>
+      fs
+        .readFileString(path.join(folder, file))
+        .pipe(Effect.option, Effect.map(Option.getOrUndefined));
+    return parsePluginFiles({
+      plugin: yield* read(CLAUDE_PLUGIN_FILE),
+      mcp: yield* read(CLAUDE_MCP_FILE),
+      sidecar: yield* read(PLUGIN_MANIFEST_FILE),
+    });
+  });
+
   /** A local plugin in developer mode, its manifest read again now. */
   const installedLocal = Effect.fn("AgentdPlugins.installedLocal")(function* (id: string) {
     const sources = yield* readSources;
@@ -681,18 +732,13 @@ const make = Effect.gen(function* () {
       ? sources.local.find((candidate) => candidate.id === id)
       : undefined;
     if (local === undefined) return null;
-    const text = yield* fs
-      .readFileString(path.join(local.path, PLUGIN_MANIFEST_FILE))
-      .pipe(Effect.option);
-    const parsed = Option.isNone(text)
-      ? { _tag: "Invalid" as const, reasons: [`${PLUGIN_MANIFEST_FILE} cannot be read.`] }
-      : parsePluginManifest(text.value);
-    const manifest = parsed._tag === "Valid" && parsed.manifest.id === id ? parsed.manifest : null;
+    const parsed = yield* readDefinition(local.path);
+    const manifest = parsed._tag === "Valid" && parsed.plugin.id === id ? parsed.plugin : null;
     const problems =
       parsed._tag === "Invalid"
         ? parsed.reasons
         : manifest === null
-          ? [`id: the folder now says ${parsed.manifest.id}, but it was added as ${id}.`]
+          ? [`id: the folder now says ${parsed.plugin.id}, but it was added as ${id}.`]
           : undefined;
     const origin: PluginOrigin = { kind: "local" };
     return {
@@ -732,10 +778,8 @@ const make = Effect.gen(function* () {
         Effect.orElseSucceed(() => null),
       );
       if (record === null || record.id !== id || record.version !== version) continue;
-      const manifest = yield* fs.readFileString(path.join(folder, PLUGIN_MANIFEST_FILE)).pipe(
-        Effect.map((text) => Option.getOrNull(decodePluginManifest(text))),
-        Effect.orElseSucceed(() => null),
-      );
+      const read = yield* readDefinition(folder);
+      const manifest = read._tag === "Valid" ? read.plugin : null;
       return { key, origin: parsed.origin, folder, record, manifest };
     }
     return null;
@@ -898,6 +942,20 @@ const make = Effect.gen(function* () {
 
   const secretFile = (id: string, setting: string) => path.join(secretFilesRoot, id, setting);
 
+  /** What a server's variables stand for; `value` gives each declared setting's. */
+  const expandContext = (
+    found: Installed,
+    value: (setting: PluginSetting) => string | undefined,
+  ): ExpandContext => ({
+    root: found.folder,
+    data: path.join(dataRoot, found.key),
+    setting: (name) => {
+      const setting = found.manifest?.settings.find((known) => known.name === name);
+      return setting === undefined ? undefined : value(setting);
+    },
+    env: (name) => host.env[name],
+  });
+
   /** What the page shows of a plugin's servers and settings; no secret value is in it. */
   const contributions = Effect.fn("AgentdPlugins.contributions")(function* (
     found: Installed,
@@ -905,7 +963,7 @@ const make = Effect.gen(function* () {
   ) {
     const manifest = found.manifest;
     const declared = manifest?.settings ?? [];
-    const servers = Object.entries(manifest?.contributes?.mcpServers ?? {});
+    const servers = Object.entries(manifest?.mcpServers ?? {});
     if (declared.length === 0 && servers.length === 0) return undefined;
     const { values, secretSet } = yield* settingValues(found, settings, false);
     const listedSettings = declared.map((setting): AgentdPluginSettingListing => ({
@@ -922,28 +980,39 @@ const make = Effect.gen(function* () {
     }));
     const listedServers = yield* Effect.forEach(servers, ([name, server]) =>
       Effect.gen(function* () {
-        const env = mcpServerEnv(
+        const expanded = expandMcpServer(
           server,
-          declared,
-          (setting) =>
+          expandContext(found, (setting) =>
             setting.secret
               ? secretSet.has(setting.name)
                 ? "set"
                 : undefined
-              : values.get(setting.name),
-          (setting) => secretFile(found.key, setting),
+              : (values.get(setting.name) ?? setting.default),
+          ),
         );
+        const missing = expanded._tag === "Missing" ? expanded.settings : [];
+        if (!("command" in server)) {
+          return {
+            name,
+            command: server.url,
+            args: [],
+            env: Object.keys(server.headers ?? {}),
+            missing,
+            problem: REMOTE_SERVER,
+          } satisfies AgentdPluginMcpServer;
+        }
+        const command = pluginCommand(server.command);
+        const args = server.args ?? [];
         // Only a Windows .py server is looked up: elsewhere the listing reads no PATH.
         const noInterpreter =
-          scriptPrograms(host.platform, server.command, []) !== null &&
-          (yield* resolveCommand(found.folder, [server.command, ...server.args]))._tag ===
-            "NoPython";
+          scriptPrograms(host.platform, command, []) !== null &&
+          (yield* resolveCommand(found.folder, [command, ...args]))._tag === "NoPython";
         return {
           name,
-          command: server.command,
-          args: server.args,
-          env: [...Object.keys(server.env ?? {}), ...Object.keys(server.settings ?? {})],
-          missing: env._tag === "Missing" ? env.settings : [],
+          command,
+          args,
+          env: Object.keys(server.env ?? {}),
+          missing,
           ...(noInterpreter ? { problem: noPython(name) } : {}),
         } satisfies AgentdPluginMcpServer;
       }),
@@ -982,7 +1051,7 @@ const make = Effect.gen(function* () {
     for (const id of sortPluginKeys(ids)) {
       if (!pluginEnabled(settings, id, projectId) || !runnable(id, sources)) continue;
       const found = yield* installed(id);
-      const declared = found?.manifest?.contributes?.mcpServers;
+      const declared = found?.manifest?.mcpServers;
       if (found === null || declared === undefined) continue;
       if (yield* needsSetup(found)) continue;
       const { values } = yield* settingValues(found, settings, true);
@@ -992,33 +1061,41 @@ const make = Effect.gen(function* () {
       )) {
         // The first plugin by id keeps a name; the app's own servers keep theirs.
         if (taken.has(name)) continue;
-        const env = mcpServerEnv(
+        // A remote server is listed with its reason; only a program is launched for now.
+        if (!("command" in server)) continue;
+        const expanded = expandMcpServer(
           server,
-          found.manifest?.settings ?? [],
-          (setting) => values.get(setting.name),
-          (setting) => secretFile(id, setting),
+          expandContext(found, (setting) =>
+            setting.secret
+              ? values.has(setting.name)
+                ? secretFile(id, setting.name)
+                : undefined
+              : (values.get(setting.name) ?? setting.default),
+          ),
         );
-        if (env._tag === "Missing") continue;
-        const command = yield* resolveCommand(found.folder, [server.command, ...server.args]);
+        if (expanded._tag !== "Stdio") continue;
+        const command = yield* resolveCommand(found.folder, [
+          pluginCommand(server.command),
+          ...expanded.args,
+        ]);
         if (command._tag === "NoPython") yield* Effect.logWarning(noPython(name), { plugin: id });
         if (command._tag !== "Program") continue;
         let written = true;
-        for (const reference of Object.values(server.settings ?? {})) {
-          if (typeof reference === "string" || filesWritten.has(reference.setting)) continue;
-          const value =
-            values.get(reference.setting) ??
-            found.manifest?.settings?.find((setting) => setting.name === reference.setting)
-              ?.default;
-          const ok = yield* writeSecretFile(secretFile(id, reference.setting), value ?? "").pipe(
+        for (const option of serverSettings(server)) {
+          const secret = found.manifest?.settings.some(
+            (setting) => setting.name === option && setting.secret,
+          );
+          if (secret !== true || filesWritten.has(option)) continue;
+          const ok = yield* writeSecretFile(secretFile(id, option), values.get(option) ?? "").pipe(
             Effect.as(true),
             Effect.orElseSucceed(() => false),
           );
           if (!ok) written = false;
-          else filesWritten.add(reference.setting);
+          else filesWritten.add(option);
         }
         if (!written) continue;
         taken.add(name);
-        servers[name] = { command: command.command, args: command.args, env: env.env };
+        servers[name] = { command: command.command, args: command.args, env: expanded.env };
       }
     }
     return servers;
@@ -1255,15 +1332,23 @@ const make = Effect.gen(function* () {
           }),
       ),
     );
-    const manifestFile = files.find((file) => file.target === PLUGIN_MANIFEST_FILE);
-    const manifest =
-      manifestFile === undefined
-        ? null
-        : Option.getOrNull(decodePluginManifest(new TextDecoder().decode(manifestFile.bytes)));
+    const fileText = (target: string) => {
+      const file = files.find((candidate) => candidate.target === target);
+      return file === undefined ? undefined : new TextDecoder().decode(file.bytes);
+    };
+    const read = parsePluginFiles({
+      plugin: fileText(CLAUDE_PLUGIN_FILE),
+      mcp: fileText(CLAUDE_MCP_FILE),
+      sidecar: fileText(PLUGIN_MANIFEST_FILE),
+    });
+    const manifest = read._tag === "Valid" ? read.plugin : null;
     if (manifest === null || manifest.id !== entry.id || manifest.version !== entry.version) {
       return yield* fail(
         "invalid",
-        `${PLUGIN_MANIFEST_FILE} at commit ${entry.source.sha} does not describe ${entry.id} ${entry.version}.`,
+        [
+          `The plugin at commit ${entry.source.sha} does not describe ${entry.id} ${entry.version}.`,
+          ...(read._tag === "Invalid" ? read.reasons : []),
+        ].join("\n"),
       );
     }
     const before = yield* installed(input.id);
@@ -1287,13 +1372,14 @@ const make = Effect.gen(function* () {
         if (target === null) return yield* fail("unsafe", `${file.target} has an unsafe path.`);
         yield* fs.makeDirectory(path.dirname(target), { recursive: true });
         yield* fs.writeFile(target, file.bytes);
-        // A hook or setup that is a file of the plugin has to be executable; git's mode is not kept.
+        // Git's mode is kept, and a hook, setup or server that is a file of the plugin is run.
         if (
+          file.executable ||
           [
             manifest.hooks?.["before-send"]?.command[0],
             manifest.setup?.command[0],
-            ...Object.values(manifest.contributes?.mcpServers ?? {}).map(
-              (server) => server.command,
+            ...Object.values(manifest.mcpServers).map((server) =>
+              "command" in server ? pluginCommand(server.command) : undefined,
             ),
           ].some((first) => first?.replace(/^\.\//, "") === file.target)
         ) {
@@ -2083,17 +2169,14 @@ const make = Effect.gen(function* () {
     const folder = yield* fs
       .realPath(given)
       .pipe(Effect.mapError(refused(`${given} cannot be read.`)));
-    const text = yield* fs
-      .readFileString(path.join(folder, PLUGIN_MANIFEST_FILE))
-      .pipe(Effect.mapError(refused(`${folder} has no ${PLUGIN_MANIFEST_FILE}.`)));
-    const parsed = parsePluginManifest(text);
+    const parsed = yield* readDefinition(folder);
     if (parsed._tag === "Invalid") {
       return yield* fail(
         "invalid",
-        [`${PLUGIN_MANIFEST_FILE} in ${folder} is refused:`, ...parsed.reasons].join("\n"),
+        [`The plugin in ${folder} is refused:`, ...parsed.reasons].join("\n"),
       );
     }
-    const id = parsed.manifest.id;
+    const id = parsed.plugin.id;
     yield* writeSources({
       ...sources,
       local: [...sources.local.filter((local) => local.id !== id), { id, path: folder }],

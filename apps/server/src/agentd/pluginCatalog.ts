@@ -21,8 +21,8 @@ import {
 // before-send hook's protocol. A hook is a command run with one JSON object on stdin that prints
 // one JSON object on stdout; anything else stops the send.
 
-export const PLUGIN_CATALOG_URL =
-  "https://raw.githubusercontent.com/libraos/plugins/main/catalog.json";
+/** Where the official catalogue's files are read from. */
+export const PLUGIN_CATALOG_BASE = "https://raw.githubusercontent.com/libraos/plugins/main";
 /** The catalogue's source name in `plugins/cache/<source>/<plugin>/<version>/`. */
 export const PLUGIN_SOURCE = "libraos";
 export const PLUGIN_MANIFEST_FILE = "agentd-plugin.json";
@@ -31,7 +31,7 @@ export const PLUGIN_INSTALL_RECORD = ".agentd-plugin-install.json";
 
 const PLUGIN_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/;
-const validPluginId = (id: string) => PLUGIN_ID.test(id);
+export const validPluginId = (id: string) => PLUGIN_ID.test(id);
 export const validPluginVersion = (version: string) =>
   VERSION.test(version) && safeRelativePath(version) !== null;
 
@@ -219,10 +219,10 @@ export const GITHUB_API = "https://api.github.com";
  * Where a source's catalog.json is read on its default branch. With a token it is the GitHub API,
  * the only host a token is sent to; without one, the raw host the official catalogue uses.
  */
-export const sourceCatalogUrl = (repository: string, withToken: boolean) =>
+export const sourceCatalogUrl = (repository: string, withToken: boolean, file = "catalog.json") =>
   withToken
-    ? `${GITHUB_API}/repos/${repository}/contents/catalog.json`
-    : `https://raw.githubusercontent.com/${repository}/HEAD/catalog.json`;
+    ? `${GITHUB_API}/repos/${repository}/contents/${file}`
+    : `https://raw.githubusercontent.com/${repository}/HEAD/${file}`;
 
 /** Whether a request to `url` may carry the token of `repository`: the API, for that repository. */
 export function tokenAllowed(url: string, repository: string): boolean {
@@ -278,7 +278,7 @@ export const decodePluginCatalogCache = Schema.decodeUnknownOption(
   Schema.fromJsonString(PluginCatalogCache),
 );
 
-const HookCommand = Schema.Struct({
+export const HookCommand = Schema.Struct({
   /** argv; a first element with a slash is a file in the plugin's folder, else found on PATH. */
   command: Schema.Array(Schema.String.check(Schema.isMinLength(1))).check(Schema.isMinLength(1)),
   timeoutSeconds: Schema.optionalKey(
@@ -290,7 +290,7 @@ const HookCommand = Schema.Struct({
 export type HookCommand = typeof HookCommand.Type;
 
 /** Run once from Settings before the plugin can be turned on; it never sees a message. */
-const SetupCommand = Schema.Struct({
+export const SetupCommand = Schema.Struct({
   /** argv, resolved as a hook's is. */
   command: Schema.Array(Schema.String.check(Schema.isMinLength(1))).check(Schema.isMinLength(1)),
   /** One sentence: what it downloads and how much disk it needs. */

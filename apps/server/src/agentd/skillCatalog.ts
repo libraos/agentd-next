@@ -232,6 +232,8 @@ export interface PlannedFile {
   readonly source: string;
   readonly target: string;
   readonly sha: string;
+  /** Git's mode says the file is run. */
+  readonly executable: boolean;
 }
 
 export type Plan =
@@ -261,7 +263,7 @@ export interface PinnedSource {
 export function planFiles(
   entry: PinnedSource,
   tree: typeof GitTree.Type,
-  layout: { readonly required: string; readonly manifest: string } = {
+  layout: { readonly required: string | ReadonlyArray<string>; readonly manifest: string } = {
     required: "SKILL.md",
     manifest: MANIFEST_FILE,
   },
@@ -283,7 +285,7 @@ export function planFiles(
     if (size > SKILL_LIMITS.fileBytes || bytes > SKILL_LIMITS.totalBytes) {
       return refused("unsafe", "the Skill is larger than the catalogue allows");
     }
-    files.push({ source: item.path, target, sha: item.sha });
+    files.push({ source: item.path, target, sha: item.sha, executable: item.mode === "100755" });
     return undefined;
   };
   for (const item of tree.tree) {
@@ -292,8 +294,12 @@ export function planFiles(
     const failed = add(item, item.path.slice(prefix.length));
     if (failed !== undefined) return failed;
   }
-  if (!files.some((file) => file.target === layout.required)) {
-    return refused("download", `${entry.path}/${layout.required} is not in commit ${entry.commit}`);
+  const required = typeof layout.required === "string" ? [layout.required] : layout.required;
+  if (!files.some((file) => required.includes(file.target))) {
+    return refused(
+      "download",
+      `${entry.path}/${required.join(" or ")} is not in commit ${entry.commit}`,
+    );
   }
   for (const notice of entry.notices ?? []) {
     const item = tree.tree.find((candidate) => candidate.path === notice);
