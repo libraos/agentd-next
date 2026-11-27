@@ -322,6 +322,43 @@ describe("deriveMessagesTimelineRows", () => {
     });
   });
 
+  it.each([
+    [undefined, "LibraOS Engine: Handoff dispatch"],
+    [
+      { _tag: "themed-logo" as const, logoUrl: "https://example.com/engine.svg" },
+      "Handoff dispatch",
+    ],
+  ])("names an integration on a lone completed call without an icon (%j)", (icon, label) => {
+    const fixture = makeStreamingTimelineFixture();
+    const source = fixture.visibleTurnItems.find((row) => row.item.type === "dynamic_tool")!;
+    if (source.item.type !== "dynamic_tool") throw new Error("Expected tool fixture");
+    const item = {
+      ...source.item,
+      title: "handoff dispatch",
+      toolName: "mcp__agentd__handoff_dispatch",
+      input: { id: "hof-1" },
+      output: "Dispatched",
+      toolSource: {
+        key: "mcp:agentd",
+        name: "LibraOS Engine",
+        kind: "integration" as const,
+        ...(icon ? { icon } : {}),
+      },
+    };
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: deriveTimelineEntriesFromVisibleTurnItems({
+        visibleTurnItems: [{ ...source, item }],
+        optimisticMessages: [],
+      }),
+      isWorking: false,
+      activeTurnStartedAt: null,
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+      expandedRunIds: new Set([fixture.runId]),
+    });
+    expect(rows.find((row) => row.kind === "work")).toMatchObject({ displayLabel: label });
+  });
+
   it.each(["waiting", "completed"] as const)(
     "groups approval and user-input requests with commands without expanding them when %s",
     (status) => {
