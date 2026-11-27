@@ -29,7 +29,8 @@ removing it would fight every upstream sync.
 - `apps/mobile/src/App.tsx`: keeps a link that arrives while the app starts
   (`src/lib/startupLinks.ts`) and opens it once navigation is ready, instead of dropping it. On
   iOS a link that comes before JS runs, which React Native drops, opens from expo-linking's
-  native copy as the initial URL. The splash stops waiting for preferences after 5 s, so a
+  native copy as the initial URL; JS clears that copy once it has the link, so a reload after
+  an update does not open it again. The splash stops waiting for preferences after 5 s, so a
   storage read that never answers (an iOS keychain stall) cannot keep the app on it.
 - `apps/mobile/src/features/home/home-launch-splash.ts`: `splashCanHide` takes that limit.
 - `apps/mobile/src/connection/app-state-wakeups.ts` and its new test, `apps/mobile/src/connection/platform.ts`:

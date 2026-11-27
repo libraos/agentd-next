@@ -121,7 +121,13 @@ if (process.env.EXPO_PUBLIC_SHOWCASE === "1") {
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 void hydrateWorkspaceSelections();
 
-const startupLinks = createStartupLinks(whenRootNavigationReady);
+// Android already makes a link that arrives during startup its intent, which getInitialURL reads.
+const startupLinks = createStartupLinks(
+  whenRootNavigationReady,
+  Platform.OS === "ios"
+    ? { read: Linking.getLinkingURL, clear: Linking.clearInitialURL }
+    : undefined,
+);
 
 const linkingConfig = {
   initialRouteName: "Home",
@@ -152,10 +158,7 @@ const appLinking = {
   config: { initialRouteName: "Home" },
   filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),
   getInitialURL: async () => {
-    // Android already makes a link that arrives during startup its intent, which getInitialURL reads.
-    const launchUrl = await startupLinks.initialUrl(Linking.getInitialURL, () =>
-      Platform.OS === "ios" ? Linking.getLinkingURL() : null,
-    );
+    const launchUrl = await startupLinks.initialUrl(Linking.getInitialURL);
     return launchUrl ?? (await launchWorkspaceURL());
   },
   subscribe: startupLinks.subscribe,
