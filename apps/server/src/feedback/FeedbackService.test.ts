@@ -459,7 +459,7 @@ it.effect("scrubs the caller's private values and sends only the event contract"
           "agent.feedback",
           {
             kind: "bug",
-            subject: "t3 thread show",
+            subject: "lnext thread show",
             userRequested: false,
             trace: null,
             source: "mcp",
@@ -495,7 +495,7 @@ it.effect("scrubs the caller's private values and sends only the event contract"
         { subject: "thread_read", userRequested: false, sent: true, threadId: null },
         { subject: "thread_read", userRequested: false, sent: true, threadId },
         { subject: "general", userRequested: false, sent: true, threadId: null },
-        { subject: "t3 thread show", userRequested: false, sent: true, threadId },
+        { subject: "lnext thread show", userRequested: false, sent: true, threadId },
         { subject: "thread_read", userRequested: true, sent: false, threadId },
       ]);
     }).pipe(Effect.provide(layer));
@@ -514,9 +514,7 @@ it.effect(
         );
         for (const subject of ["", "acme payments roadmap", "mcp__other__t3_thread_read"]) {
           const error = yield* Effect.flip(feedback.submit({ ...input, subject }, fromThread));
-          expect(error.message).toBe(
-            "Set subject to the exact AgentD tool name, the t3 command, or `general`.",
-          );
+          expect(error._tag).toBe("FeedbackSubjectError");
         }
         const refused = (report: Partial<typeof input>, caller: Feedback.FeedbackCaller) =>
           Effect.flip(feedback.submit({ ...input, ...report }, caller)).pipe(

@@ -125,7 +125,7 @@ export const feedbackCommand = Command.make("feedback", {
   ),
   subject: Flag.String("subject").pipe(
     Flag.withDescription(
-      "The AgentD tool name, t3 command such as `t3 thread send`, or `general`.",
+      "The LibraOS Next tool name, `lnext` command such as `lnext thread send`, or `general`.",
     ),
   ),
   expected: Flag.String("expected").pipe(Flag.withDescription("What you expected.")),
