@@ -178,7 +178,7 @@ const connectCommand = Command.make("connect", {
           `Connected to the relay at ${relayUrl} as host ${hostId}.`,
           `Host key: ${toBase64Url(hostKey.publicKey)}`,
           "A running LibraOS Next server picks this up within a few seconds; one started later connects on its own.",
-          "Pair a phone with `libraos-next pair`: its link now carries the relay.",
+          "Pair a phone with `lnext pair`: its link now carries the relay.",
           "",
         ].join("\n"),
       );
