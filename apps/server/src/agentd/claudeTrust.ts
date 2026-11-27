@@ -87,7 +87,7 @@ export function isTrusted(config: unknown, folder: string, path: TrustPath): boo
 }
 
 /** The parsed config; {} for an absent or empty file, null when it isn't JSON. */
-function parseConfig(text: string | null): unknown {
+export function parseClaudeConfig(text: string | null): unknown {
   if (text === null || text.trim() === "") return {};
   try {
     return JSON.parse(text.replace(/^\uFEFF/, ""));
@@ -98,7 +98,7 @@ function parseConfig(text: string | null): unknown {
 
 /** The config text with folder trusted and every other key as it was; null when it isn't a config. */
 export function withTrust(text: string | null, folder: string, path: TrustPath): string | null {
-  const config = parseConfig(text);
+  const config = parseClaudeConfig(text);
   if (!isObject(config)) return null;
   const projects = config.projects ?? {};
   if (!isObject(projects)) return null;
@@ -135,7 +135,7 @@ export const makeClaudeTrust = (deps: {
   const trusted = Effect.fn("ClaudeTrust.trusted")(
     function* (folder: string) {
       const text = yield* files.read(yield* configFile);
-      return text !== null && isTrusted(parseConfig(text), folder, path);
+      return text !== null && isTrusted(parseClaudeConfig(text), folder, path);
     },
     // An unreadable config is untrusted: the write that follows says why it can't go on.
     Effect.orElseSucceed(() => false),
