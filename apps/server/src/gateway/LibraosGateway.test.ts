@@ -72,6 +72,9 @@ function setup(
     readonly holdStartup?: boolean;
     readonly tokenScript?: TokenScript;
     readonly createdKey?: string;
+    /** What Console answers GET /v1/credits and POST /v1/credits/checkout; 404 when absent. */
+    readonly credits?: { readonly status: number; readonly body: unknown };
+    readonly checkout?: { readonly status: number; readonly body: unknown };
   } = {},
 ) {
   // What Console says of the key now: served, revoked, or the Gateway is down.
@@ -132,6 +135,13 @@ function setup(
     if (url.pathname === "/v1/gateway-keys/key_1" && method === "DELETE") {
       return new Response(null, { status: 204 });
     }
+    const billing =
+      url.pathname === "/v1/credits" && method === "GET"
+        ? options.credits
+        : url.pathname === "/v1/credits/checkout" && method === "POST"
+          ? options.checkout
+          : undefined;
+    if (billing !== undefined) return Response.json(billing.body, { status: billing.status });
     return Response.json({ error: "not_found" }, { status: 404 });
   };
   const http = HttpClient.make((request) =>
@@ -699,3 +709,149 @@ it.effect("a key the Gateway refuses after sign-in is revoked again in LibraOS",
     assert.strictEqual(secrets.size, 0);
   }).pipe(Effect.provide(layer));
 });
+
+const creditsBody = {
+  available_usd: 12.34,
+  held_usd: 0.5,
+  enforced: true,
+  amounts_usd: [50, 10, 20],
+  credits_url: "https://console.libraos.com/credits?ws=acme",
+  plan: { name: "Token Plan Pro", overage: false },
+};
+
+it.effect("credits reads Console's balance with the connected key", () => {
+  const { cloud, layer } = setup({ credits: { status: 200, body: creditsBody } });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    assert.isNull(yield* gateway.credits);
+    assert.lengthOf(cloud, 0);
+    yield* gateway.connect(GOOD_KEY);
+    assert.deepStrictEqual(yield* gateway.credits, {
+      availableUsd: 12.34,
+      heldUsd: 0.5,
+      enforced: true,
+      amountsUsd: [10, 20, 50],
+      creditsUrl: "https://console.libraos.com/credits?ws=acme",
+      plan: { name: "Token Plan Pro", overage: false },
+    });
+    assert.deepStrictEqual(cloud.at(-1), {
+      method: "GET",
+      url: "/v1/credits",
+      authorization: `Bearer ${GOOD_KEY}`,
+      body: "",
+    });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("a Console without the balance endpoint or without credits answers no balance", () =>
+  Effect.gen(function* () {
+    for (const credits of [
+      undefined,
+      { status: 501, body: { error: { type: "credits_unavailable", message: "No credits." } } },
+    ]) {
+      const { layer } = setup(credits === undefined ? {} : { credits });
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        yield* gateway.connect(GOOD_KEY);
+        assert.isNull(yield* gateway.credits);
+      }).pipe(Effect.provide(layer));
+    }
+  }),
+);
+
+it.effect("a key Console refuses fails credits with Console's message", () => {
+  const { layer } = setup({
+    credits: {
+      status: 401,
+      body: { error: { type: "invalid_api_key", message: "This API key was revoked." } },
+    },
+  });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    yield* gateway.connect(GOOD_KEY);
+    const error = yield* Effect.flip(gateway.credits);
+    assert.strictEqual(error._tag, "LibraosGatewayError");
+    assert.strictEqual(
+      error.message,
+      "LibraOS could not read the balance: This API key was revoked.",
+    );
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("checkout returns Stripe's page for the amount chosen", () => {
+  const url = "https://checkout.stripe.com/c/pay/cs_test_123";
+  const { cloud, layer } = setup({ checkout: { status: 200, body: { url } } });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    const before = yield* Effect.flip(gateway.checkout(20));
+    assert.strictEqual(before.message, "Connect the LibraOS Gateway to buy credits.");
+    yield* gateway.connect(GOOD_KEY);
+    assert.deepStrictEqual(yield* gateway.checkout(20), { url });
+    assert.deepStrictEqual(cloud.at(-1), {
+      method: "POST",
+      url: "/v1/credits/checkout",
+      authorization: `Bearer ${GOOD_KEY}`,
+      body: JSON.stringify({ usd: 20 }),
+    });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("checkout refuses an amount Console refuses, and falls back while billing is down", () =>
+  Effect.gen(function* () {
+    const refused = setup({
+      checkout: {
+        status: 400,
+        body: { error: { type: "invalid_amount", message: "Choose one of the listed amounts." } },
+      },
+    });
+    yield* Effect.gen(function* () {
+      const gateway = yield* LibraosGateway.LibraosGateway;
+      yield* gateway.connect(GOOD_KEY);
+      const error = yield* Effect.flip(gateway.checkout(7));
+      assert.strictEqual(
+        error.message,
+        "LibraOS could not start a checkout: Choose one of the listed amounts.",
+      );
+    }).pipe(Effect.provide(refused.layer));
+
+    for (const answer of [
+      { status: 503, body: { error: { type: "billing_unavailable", message: "Try later." } } },
+      { status: 404, body: { error: "not_found" } },
+    ]) {
+      const { layer } = setup({ checkout: answer });
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        yield* gateway.connect(GOOD_KEY);
+        assert.deepStrictEqual(yield* gateway.checkout(20), {
+          url: "https://console.libraos.com/credits",
+        });
+      }).pipe(Effect.provide(layer));
+    }
+
+    // Stripe failing is Console's message; the app links the Credits page beside it.
+    const stripeDown = setup({
+      checkout: {
+        status: 502,
+        body: { error: { type: "billing_error", message: "Stripe did not answer." } },
+      },
+    });
+    yield* Effect.gen(function* () {
+      const gateway = yield* LibraosGateway.LibraosGateway;
+      yield* gateway.connect(GOOD_KEY);
+      const error = yield* Effect.flip(gateway.checkout(20));
+      assert.strictEqual(
+        error.message,
+        "LibraOS could not start a checkout: Stripe did not answer.",
+      );
+    }).pipe(Effect.provide(stripeDown.layer));
+
+    // A checkout page that is not https is never handed to the browser.
+    const odd = setup({ checkout: { status: 200, body: { url: "javascript:alert(1)" } } });
+    yield* Effect.gen(function* () {
+      const gateway = yield* LibraosGateway.LibraosGateway;
+      yield* gateway.connect(GOOD_KEY);
+      const error = yield* Effect.flip(gateway.checkout(20));
+      assert.strictEqual(error.message, "LibraOS answered with an unreadable checkout.");
+    }).pipe(Effect.provide(odd.layer));
+  }),
+);

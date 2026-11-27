@@ -66,6 +66,7 @@ import {
   BugIcon,
   ActivityIcon,
   ChartNoAxesColumnIcon,
+  CreditCardIcon,
   CheckIcon,
   ChevronRightIcon,
   CornerLeftUpIcon,
@@ -1853,6 +1854,26 @@ function OpenCommandPaletteDialog(props: {
     shortcutCommand: "usage.open",
     run: async () => {
       await navigate({ to: "/usage" });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
+    value: "action:buy-libraos-credits",
+    searchTerms: [
+      "credits",
+      "balance",
+      "buy",
+      "top up",
+      "billing",
+      "payment",
+      "libraos",
+      "gateway",
+    ],
+    title: gt("Buy LibraOS credits"),
+    icon: <CreditCardIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/settings/providers", hash: "libraos-credits" });
     },
   });
 

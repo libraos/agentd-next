@@ -3684,7 +3684,14 @@ export default function ChatView(props: ChatViewProps) {
               threadErrorCode={
                 threadErrorIsServerRuntimeError ? (serverRuntime?.lastErrorCode ?? null) : null
               }
+              threadErrorInstanceId={
+                threadErrorIsServerRuntimeError ? (errorInstanceId ?? null) : null
+              }
               threadErrorBannerKey={threadErrorBannerKey}
+              onRetryThreadError={
+                canResume && resumableRunId !== null ? onComposerResumeStable : null
+              }
+              threadErrorRetrying={isResuming}
               setThreadError={setThreadError}
               setThreadErrorBannerDismissTick={setThreadErrorBannerDismissTick}
             />

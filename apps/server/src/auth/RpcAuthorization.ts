@@ -279,6 +279,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentdBeforeSendReview]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdPlaceholders]: AuthOrchestrationReadScope,
   [WS_METHODS.libraosGatewayStatus]: AuthOrchestrationReadScope,
+  [WS_METHODS.libraosGatewayCredits]: AuthOrchestrationReadScope,
   [WS_METHODS.customGatewayList]: AuthOrchestrationReadScope,
 } as const satisfies Readonly<Record<WsRpcMethod, AuthEnvironmentScope>>;
 

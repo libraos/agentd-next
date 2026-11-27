@@ -272,6 +272,46 @@ describe("thread execution presentation", () => {
     expect(deriveResumableRunId(projection, null)).toBe(resumes ? stopped.id : null);
   });
 
+  it("offers to resume a LibraOS Gateway turn that ran out of credits, and no other provider error", () => {
+    const failedOn = (instanceId: string, message: string) => {
+      const failed = {
+        ...run("out-of-credits", 1, "failed"),
+        providerInstanceId: ProviderInstanceId.make(instanceId),
+        rootNodeId: NodeId.make("root"),
+      };
+      const item = {
+        id: TurnItemId.make("credits-error"),
+        threadId: v2Projection.thread.id,
+        runId: failed.id,
+        nodeId: failed.rootNodeId,
+        providerThreadId: null,
+        providerTurnId: null,
+        nativeItemRef: null,
+        parentItemId: null,
+        ordinal: 1,
+        type: "error" as const,
+        status: "failed" as const,
+        title: "Provider error",
+        startedAt: now,
+        completedAt: now,
+        updatedAt: now,
+        failure: {
+          class: "provider_error" as const,
+          message,
+          code: "api_error_402",
+          retryable: null,
+        },
+      };
+      const projection = { ...v2Projection, runs: [failed], turnItems: [item] };
+      return deriveResumableRunId(projection, deriveThreadRuntime(projection));
+    };
+    const outOfCredits =
+      "API Error: 402 Your LibraOS credits have run out. Top up on the Credits page of the Console to continue.";
+    expect(failedOn("libraosClaude", outOfCredits)).toBe(RunId.make("out-of-credits"));
+    expect(failedOn("libraosClaude", "API Error: 500 Internal server error")).toBeNull();
+    expect(failedOn("claudeAgent", outOfCredits)).toBeNull();
+  });
+
   // regression: #15029 working timers no longer reset on every background wake
   it("counts a wake run's activity from the start of the work it continues", () => {
     const workStartedAt = DateTime.makeUnsafe("2026-07-28T09:20:00.000Z");

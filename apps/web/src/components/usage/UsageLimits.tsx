@@ -41,6 +41,7 @@ import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { useLibraosLimitAccount } from "../agentd/useLibraosLimitAccount";
+import { LibraosCreditsUsageRow } from "../agentd/LibraosCredits";
 import { formatResetsIn, resetCreditChoices } from "@t3tools/shared/usageLimitsCopy";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
@@ -432,10 +433,13 @@ export function UsageLimitsSection({
   );
   const libraos = useLibraosLimitAccount((id) => selected.get(id)?.entry.target.label ?? null);
   return (
-    <UsageLimitsPooled
-      presentations={selected}
-      extraAccounts={libraos ? [libraos] : []}
-      now={now}
-    />
+    <>
+      <UsageLimitsPooled
+        presentations={selected}
+        extraAccounts={libraos ? [libraos] : []}
+        now={now}
+      />
+      <LibraosCreditsUsageRow />
+    </>
   );
 }

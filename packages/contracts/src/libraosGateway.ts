@@ -8,6 +8,8 @@ export const LIBRAOS_CONSOLE_API_KEYS_URL = "https://console.libraos.com/api-key
 /** LibraOS Cloud (Console): device sign-in (RFC 8628) and the Gateway keys a sign-in may make. */
 export const LIBRAOS_CLOUD_ORIGIN = "https://console.libraos.com";
 export const LIBRAOS_DEVICE_CLIENT_ID = "agentd-desktop";
+/** Console's Credits page: where credits are bought when the app cannot start a checkout itself. */
+export const LIBRAOS_CREDITS_URL = `${LIBRAOS_CLOUD_ORIGIN}/credits`;
 
 export const LibraosGatewaySignInPurpose = Schema.Literals(["connect", "revoke"]);
 export type LibraosGatewaySignInPurpose = typeof LibraosGatewaySignInPurpose.Type;
@@ -41,6 +43,25 @@ export const LIBRAOS_GATEWAY_INSTANCE_IDS = {
 
 export const isLibraosGatewayInstanceId = (instanceId: string): boolean =>
   Object.values(LIBRAOS_GATEWAY_INSTANCE_IDS).some((id) => id === instanceId);
+
+// The Gateway's refusals: 402 `insufficient_credits` and a used-up Token Plan's 429
+// `plan_limit_reached`. Each agent words the failed turn its own way; some keep the error type,
+// some keep only the Gateway's message, so both are matched.
+const OUT_OF_CREDITS = /\binsufficient_credits\b|LibraOS credits have run out/i;
+const PLAN_LIMIT = /\bplan_limit_reached\b/i;
+
+export type LibraosCreditsRefusal = "out-of-credits" | "plan-limit";
+
+/** Which credit refusal a failed turn on a LibraOS Gateway agent is, or null for any other error. */
+export function libraosCreditsRefusal(
+  instanceId: string | null | undefined,
+  error: string | null | undefined,
+): LibraosCreditsRefusal | null {
+  if (error == null || instanceId == null || !isLibraosGatewayInstanceId(instanceId)) return null;
+  if (OUT_OF_CREDITS.test(error)) return "out-of-credits";
+  if (PLAN_LIMIT.test(error)) return "plan-limit";
+  return null;
+}
 
 /** The model is one of a sub-provider whose list the key it sends to its endpoint decides. */
 export const isEndpointDecidedModel = (
@@ -92,6 +113,31 @@ export const LibraosGatewaySignInStartInput = Schema.Struct({
   purpose: LibraosGatewaySignInPurpose,
 });
 export type LibraosGatewaySignInStartInput = typeof LibraosGatewaySignInStartInput.Type;
+
+/** The connected key's account balance, as Console reports it. */
+export const LibraosGatewayCredits = Schema.Struct({
+  availableUsd: Schema.Finite,
+  /** Reserved by running work, not yet spent. */
+  heldUsd: Schema.Finite,
+  /** Whether model calls are refused once the balance runs out. */
+  enforced: Schema.Boolean,
+  /** The amounts a checkout may buy; the only ones the app offers. */
+  amountsUsd: Schema.Array(Schema.Finite),
+  creditsUrl: Schema.String,
+  plan: Schema.NullOr(Schema.Struct({ name: Schema.String, overage: Schema.Boolean })),
+});
+export type LibraosGatewayCredits = typeof LibraosGatewayCredits.Type;
+
+export const LibraosGatewayCheckoutInput = Schema.Struct({
+  usd: Schema.Finite.check(Schema.isBetween({ minimum: 1, maximum: 100_000 })),
+});
+export type LibraosGatewayCheckoutInput = typeof LibraosGatewayCheckoutInput.Type;
+
+export const LibraosGatewayCheckout = Schema.Struct({
+  /** Stripe Checkout, or Console's Credits page when Console cannot start a checkout. */
+  url: Schema.String,
+});
+export type LibraosGatewayCheckout = typeof LibraosGatewayCheckout.Type;
 
 export class LibraosGatewayError extends Schema.TaggedError<LibraosGatewayError>()(
   "LibraosGatewayError",
