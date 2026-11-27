@@ -42,7 +42,7 @@ it.each([
     `${config.ios?.appleTeamId}.${identifier}`,
   );
   // Neither the hosted relay's sign-in domain nor a hosted web app is linked by default.
-  expect(config.ios?.associatedDomains).toEqual([]);
+  expect(config.ios?.associatedDomains).toBeUndefined();
   expect(config.android?.intentFilters).toEqual([]);
   expect(config.ios?.appleTeamId).toBe("3NP2A75X35");
   // Nothing of upstream's EAS project, update feed, trace endpoint or sign-in reaches a build.
