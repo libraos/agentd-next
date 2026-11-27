@@ -136,6 +136,7 @@ import {
   setupReady,
   validPluginVersion,
   withPluginEnabled,
+  renamePlugin,
   withoutPlugin,
 } from "./pluginCatalog.ts";
 import {
@@ -1203,16 +1204,32 @@ const make = Effect.gen(function* () {
   const listing = Effect.fn("AgentdPlugins.listing")(function* (all: Catalogs, projectId?: string) {
     const settings = yield* readSettings;
     const entries = new Map<string, PluginCatalog["plugins"][number]>();
+    // An installed plugin the catalogue renamed is listed under its old id with the new version.
+    const renamed = new Map<
+      string,
+      { readonly to: string; readonly entry: PluginCatalog["plugins"][number] }
+    >();
     for (const served of all.served) {
       for (const entry of served.catalog?.plugins ?? []) {
-        entries.set(pluginKey(served.origin, entry.id), entry);
+        const key = pluginKey(served.origin, entry.id);
+        entries.set(key, entry);
+        if (entry.renamedFrom !== undefined) {
+          renamed.set(pluginKey(served.origin, entry.renamedFrom), { to: key, entry });
+        }
       }
     }
-    const ids = new Set([...entries.keys(), ...(yield* installedKeys(all.sources))]);
+    const installedNow = new Set(yield* installedKeys(all.sources));
+    const superseded = new Set(
+      [...renamed]
+        .filter(([from, { to }]) => installedNow.has(from) && !installedNow.has(to))
+        .map(([, { to }]) => to),
+    );
+    const ids = new Set([...entries.keys(), ...installedNow]);
     const plugins = [];
     let beforeSend = false;
     for (const id of sortPluginKeys(ids)) {
-      const entry = entries.get(id);
+      if (superseded.has(id)) continue;
+      const entry = entries.get(id) ?? renamed.get(id)?.entry;
       const found = yield* installed(id);
       const parsedKey = parsePluginKey(id);
       if ((entry === undefined && found === null) || parsedKey === null) continue;
@@ -1331,7 +1348,9 @@ const make = Effect.gen(function* () {
     }
   });
 
-  const install = Effect.fn("AgentdPlugins.install")(function* (input: AgentdPluginInput) {
+  const installPinned = Effect.fn("AgentdPlugins.installPinned")(function* (
+    input: AgentdPluginInput,
+  ) {
     yield* notRunning(input.id);
     const key = parsePluginKey(input.id);
     if (key === null) return yield* fail("unknown", `${input.id} is not in a catalogue.`);
@@ -1466,6 +1485,67 @@ const make = Effect.gen(function* () {
       yield* removeInstall(before).pipe(Effect.ignore);
     return yield* listing(all);
   }, lock.withPermits(1));
+
+  /** Gives `to` what the plugin had as `from` (switches, values, secrets, data) and removes `from`. */
+  const adopt = Effect.fn("AgentdPlugins.adopt")(function* (from: string, to: string) {
+    const old = yield* installed(from);
+    const next = yield* installed(to);
+    if (old === null || next === null) return;
+    for (const setting of old.manifest?.settings ?? []) {
+      if (!setting.secret) continue;
+      const kept = next.manifest?.settings.some(
+        (other) => other.secret && other.name === setting.name,
+      );
+      const value = yield* secrets
+        .get(pluginSecretName(from, setting.name))
+        .pipe(Effect.orElseSucceed(() => Option.none<Uint8Array>()));
+      if (kept === true && Option.isSome(value)) {
+        yield* secrets.set(pluginSecretName(to, setting.name), value.value).pipe(Effect.ignore);
+      }
+      yield* secrets.remove(pluginSecretName(from, setting.name)).pipe(Effect.ignore);
+    }
+    const data = path.join(dataRoot, from);
+    const target = path.join(dataRoot, to);
+    if (
+      (yield* fs.exists(data).pipe(Effect.orElseSucceed(() => false))) &&
+      !(yield* fs.exists(target).pipe(Effect.orElseSucceed(() => true)))
+    ) {
+      yield* fs.rename(data, target).pipe(Effect.ignore);
+    }
+    yield* writeAtomic(
+      settingsFile,
+      encodeSettings(renamePlugin(yield* readSettings, from, to)),
+    ).pipe(Effect.mapError(filesystem("save the plugin settings")));
+    yield* removeInstall(old).pipe(Effect.ignore);
+    yield* fs.remove(setupFile(from), { force: true }).pipe(Effect.ignore);
+    yield* fs
+      .remove(path.join(secretFilesRoot, from), { recursive: true, force: true })
+      .pipe(Effect.ignore);
+  }, lock.withPermits(1));
+
+  const install = Effect.fn("AgentdPlugins.install")(function* (input: AgentdPluginInput) {
+    const key = parsePluginKey(input.id);
+    if (key === null || key.origin.kind === "local") return yield* installPinned(input);
+    const origin = key.origin;
+    const catalog = (yield* catalogs()).served.find((served) =>
+      sameOrigin(served.origin, origin),
+    )?.catalog;
+    const own = catalog?.plugins.find((plugin) => plugin.id === key.id);
+    const successor = catalog?.plugins.find((plugin) => plugin.renamedFrom === key.id);
+    // Updating a plugin the catalogue renamed installs it under its new id.
+    const rename =
+      own?.renamedFrom !== undefined
+        ? { from: pluginKey(origin, own.renamedFrom), to: input.id }
+        : own === undefined && successor !== undefined
+          ? { from: input.id, to: pluginKey(origin, successor.id) }
+          : null;
+    if (rename === null) return yield* installPinned(input);
+    yield* notRunning(rename.from);
+    const listed = yield* installPinned({ ...input, id: rename.to });
+    if ((yield* installed(rename.from)) === null) return listed;
+    yield* adopt(rename.from, rename.to);
+    return yield* listing(yield* catalogs());
+  });
 
   const remove = Effect.fn("AgentdPlugins.remove")(function* (input: AgentdPluginRemoveInput) {
     const found = yield* installed(input.id);

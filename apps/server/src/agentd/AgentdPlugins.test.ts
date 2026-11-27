@@ -3,6 +3,7 @@ import * as NodeFS from "node:fs";
 
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as TestClock from "effect/testing/TestClock";
 import { expect, it } from "@effect/vitest";
 import {
   type ChatAttachment,
@@ -1220,6 +1221,39 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
     expect(yield* mode("bin/server.sh")).not.toBe(0);
     expect(yield* mode("bin/helper.sh")).not.toBe(0);
     expect(yield* mode(".mcp.json")).toBe(0);
+  }).pipe(Effect.provide(dependencies)),
+);
+
+it.effect("updating a plugin the catalogue renamed keeps its switches and values", () =>
+  Effect.gen(function* () {
+    const old = yield* harness();
+    yield* old.service.install({ id: "mcp" });
+    yield* old.service.setSettings({
+      id: "mcp",
+      values: { outreach_url: "https://outreach.example", outreach_token: "key-1" },
+    });
+    yield* old.service.setEnabled({ id: "mcp", enabled: true });
+    yield* old.service.setEnabled({ id: "mcp", enabled: false, projectId: PROJECT });
+    yield* TestClock.adjust("25 hours");
+    const renamed = JSON.parse(MARKETPLACE) as { plugins: Array<Record<string, unknown>> };
+    renamed.plugins[0]!.libraos = { reviewedAt: "2026-11-27", renamedFrom: "mcp" };
+    const h = yield* harness(undefined, {}, { [MARKETPLACE_URL]: JSON.stringify(renamed) });
+    // One row, under the id the person installed, until they update it.
+    expect((yield* h.service.list({})).plugins.map((plugin) => plugin.id)).toEqual(["mcp"]);
+    const after = (yield* h.service.install({ id: "mcp" })).plugins;
+    expect(after.map((plugin) => plugin.id)).toEqual(["claude"]);
+    expect(after[0]).toMatchObject({
+      installedVersion: "1.0.0",
+      enabled: true,
+      settings: [
+        { name: "outreach_url", secret: false, set: true },
+        { name: "outreach_token_file", secret: true, set: false },
+      ],
+    });
+    expect((yield* h.service.list({ projectId: PROJECT })).plugins[0]).toMatchObject({
+      projectEnabled: false,
+    });
+    expect(yield* h.fs.exists(h.path.join(h.cache, "mcp"))).toBe(false);
   }).pipe(Effect.provide(dependencies)),
 );
 

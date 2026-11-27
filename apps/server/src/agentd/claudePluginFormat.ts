@@ -388,6 +388,7 @@ const MarketplaceEntry = Schema.Struct({
     Schema.Struct({
       reviewedAt: Schema.optionalKey(Schema.String),
       notices: Schema.optionalKey(Schema.Array(Schema.String)),
+      renamedFrom: Schema.optionalKey(Schema.String),
     }),
   ),
 });
@@ -433,6 +434,9 @@ export function parseMarketplace(text: string): PluginCatalog | null {
         sha: source.value.sha,
         ...(entry.libraos?.notices === undefined ? {} : { notices: entry.libraos.notices }),
       },
+      ...(entry.libraos?.renamedFrom === undefined
+        ? {}
+        : { renamedFrom: entry.libraos.renamedFrom }),
     });
     if (listed._tag === "Some" && validPluginVersion(entry.version)) plugins.push(listed.value);
   }

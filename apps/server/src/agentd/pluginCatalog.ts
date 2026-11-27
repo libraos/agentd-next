@@ -250,6 +250,8 @@ export const PluginCatalogEntry = Schema.Struct({
   reviewedAt: Schema.String,
   version: Schema.String.check(Schema.isPattern(VERSION)),
   source: CatalogSource,
+  /** The id this plugin had before; installing it takes over that plugin's settings and data. */
+  renamedFrom: Schema.optionalKey(Schema.String.check(Schema.isPattern(PLUGIN_ID))),
 });
 export type PluginCatalogEntry = typeof PluginCatalogEntry.Type;
 
@@ -534,6 +536,25 @@ export function withoutPlugin(settings: PluginSettings, id: string): PluginSetti
     if (Object.keys(rest).length > 0) projects[projectId] = rest;
   }
   const { [id]: _values, ...values } = settings.values ?? {};
+  return { enabled, projects, ...(Object.keys(values).length === 0 ? {} : { values }) };
+}
+
+/** `from`'s switches and values under `to`, which keeps any it already has; `from` has none after. */
+export function renamePlugin(settings: PluginSettings, from: string, to: string): PluginSettings {
+  const moved = withoutPlugin(settings, from);
+  const enabled = { ...moved.enabled };
+  if (Object.hasOwn(settings.enabled, from) && !Object.hasOwn(enabled, to)) {
+    enabled[to] = settings.enabled[from] === true;
+  }
+  const projects: Record<string, Record<string, boolean>> = { ...moved.projects };
+  for (const [projectId, overrides] of Object.entries(settings.projects)) {
+    const value = overrides[from];
+    if (value === undefined || Object.hasOwn(projects[projectId] ?? {}, to)) continue;
+    projects[projectId] = { ...projects[projectId], [to]: value };
+  }
+  const values = { ...moved.values };
+  const given = settings.values?.[from];
+  if (given !== undefined) values[to] = { ...given, ...values[to] };
   return { enabled, projects, ...(Object.keys(values).length === 0 ? {} : { values }) };
 }
 

@@ -9,6 +9,8 @@ Who gets what:
 - Codex gets stdio servers and streamable HTTP servers (`url`, `http_headers`) as thread config overrides. An SSE server, or one that signs in with its own OAuth client, reaches Claude only, and the listing says so. Codex gets no plugin skills, commands, agents or hooks.
 - A `sensitive` userConfig option named in `.mcp.json` is refused: the app cannot fill Claude's keychain. A secret is a `secretFiles` option instead, whose value is the path of a 0600 file.
 
+A marketplace entry may carry `libraos.renamedFrom`, the id the plugin had before. An installed plugin with that id stays listed under it with the new version; updating it installs the new id, moves its switches, values, secrets with the same name and data folder, and removes the old install. Setup runs again, as after any update.
+
 Upstream files changed:
 
 - `packages/provider-core/src/server/mcpSession.ts` — `claudePlugins` on the MCP provider session; a plugin server may be an HTTP one.
