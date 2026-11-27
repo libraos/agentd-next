@@ -7,12 +7,16 @@ import * as NodePath from "node:path";
 import { Multiplexer, type MuxStream, type StreamEvent } from "@t3tools/relay-session/mux";
 import { generateKeyPair, type KeyPair } from "@t3tools/relay-session/noise";
 import { SecureSession, SessionCloseCode } from "@t3tools/relay-session/session";
+import * as DateTime from "effect/DateTime";
+import * as Effect from "effect/Effect";
+import * as TestClock from "effect/testing/TestClock";
 import { WebSocket } from "undici";
+import { it as effectIt } from "@effect/vitest";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { WebSocketServer } from "ws";
 
 import { startRelayHost, type RelayHost } from "./relayHost.ts";
-import { addRelayToPairingUrl } from "./relayPairing.ts";
+import { addRelayToPairingUrl, withRelayRoute } from "./relayPairing.ts";
 import { listen, startTestRelay, TEST_HOST_ID, TEST_HOST_TOKEN } from "./testRelay.ts";
 import {
   listRelayDevices,
@@ -345,6 +349,46 @@ describe("relay host", () => {
     await device.mux.ping();
     expect((await listRelayDevices(stateDir)).map((entry) => entry.label)).toEqual(["My phone"]);
   });
+
+  effectIt.effect(
+    "gives a device pairing credential the relay route, and an agent approval code none",
+    () =>
+      Effect.gen(function* () {
+        yield* TestClock.setTime(EPOCH);
+        yield* Effect.promise(() =>
+          writeRelayConfig(stateDir, { relayUrl: relay.url, token: HOST_TOKEN, hostId: HOST_ID }),
+        );
+        const issued = {
+          id: "link-1",
+          credential: "settings-code",
+          expiresAt: DateTime.makeUnsafe(EPOCH + 5 * 60 * 1000),
+        };
+        const routed = yield* withRelayRoute(stateDir)(issued);
+        expect(routed.relay).toMatchObject({
+          relayUrl: relay.url,
+          hostId: HOST_ID,
+          hostKey: Buffer.from(hostKey.publicKey).toString("base64url"),
+        });
+        const approval = yield* withRelayRoute(stateDir)({
+          ...issued,
+          credential: "approval",
+          access: "read-only",
+        });
+        expect(approval.relay).toBeUndefined();
+
+        yield* Effect.promise(async () => {
+          await startHost();
+          const device = await connectDevice({
+            relayUrl: relay.url,
+            deviceToken: routed.relay!.deviceToken,
+            deviceKeys: generateKeyPair(),
+            hostKey: hostKey.publicKey,
+            pairingCode: "settings-code",
+          });
+          await device.mux.ping();
+        });
+      }),
+  );
 
   it("leaves the pairing link direct when no relay is connected", async () => {
     await NodeFSP.rm(NodePath.join(stateDir, "relay", "relay.json"));

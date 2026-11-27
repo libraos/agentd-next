@@ -20,6 +20,7 @@ export const startTestRelay = async () => {
   const server = NodeHttp.createServer();
   const wss = new WebSocketServer({ noServer: true });
   const devices = new Map<string, string>();
+  const revoked: Array<string> = [];
   const pending = new Map<string, { device: WsSocket; queued: Array<Buffer> }>();
   const controlWaiters: Array<(socket: WsSocket) => void> = [];
   let control: WsSocket | undefined;
@@ -37,6 +38,14 @@ export const startTestRelay = async () => {
       devices.set(deviceToken, deviceId);
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ deviceId, deviceToken }));
+      return;
+    }
+    const revoke = /^\/relay\/v1\/devices\/([^/]+)$/.exec(request.url ?? "");
+    if (request.method === "DELETE" && revoke !== null) {
+      const deviceId = decodeURIComponent(revoke[1]!);
+      for (const [token, owner] of devices) if (owner === deviceId) devices.delete(token);
+      revoked.push(deviceId);
+      response.writeHead(204).end();
       return;
     }
     response.writeHead(404).end();
@@ -85,6 +94,8 @@ export const startTestRelay = async () => {
   const port = await listen(server);
   return {
     url: `http://127.0.0.1:${String(port)}`,
+    /** Device ids revoked with DELETE /relay/v1/devices/{id}. */
+    revoked,
     mintDevice: () => {
       const deviceId = id();
       const deviceToken = `device-token-${deviceId}`;

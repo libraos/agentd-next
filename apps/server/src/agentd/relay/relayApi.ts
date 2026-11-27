@@ -5,6 +5,8 @@ import type { RelayConfig } from "./relayStore.ts";
 
 export const RELAY_SUBPROTOCOL = "libraos-relay.1";
 const API_TIMEOUT_MS = 15_000;
+// A pairing link waits on this, so an unreachable relay must not hold it up for long.
+const MINT_TIMEOUT_MS = 5_000;
 
 class RelayApiError extends Error {
   override readonly name: string = "RelayApiError";
@@ -48,7 +50,13 @@ export const relayAuthHeaders = (config: Pick<RelayConfig, "token">) => ({
   authorization: `Bearer ${config.token}`,
 });
 
-const call = async (config: RelayConfig, method: string, path: string, body?: unknown) => {
+const call = async (
+  config: RelayConfig,
+  method: string,
+  path: string,
+  body?: unknown,
+  timeoutMs = API_TIMEOUT_MS,
+) => {
   let response: Response;
   try {
     response = await fetch(relayEndpoint(config.relayUrl, path), {
@@ -58,7 +66,7 @@ const call = async (config: RelayConfig, method: string, path: string, body?: un
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (cause) {
     throw new RelayApiError(
@@ -73,7 +81,7 @@ export const mintRelayDeviceToken = async (
   config: RelayConfig,
   label: string,
 ): Promise<{ readonly deviceId: string; readonly deviceToken: string }> => {
-  const response = await call(config, "POST", "/relay/v1/devices", { label });
+  const response = await call(config, "POST", "/relay/v1/devices", { label }, MINT_TIMEOUT_MS);
   if (!response.ok) {
     throw new RelayApiError(
       `The relay refused a device token (HTTP ${String(response.status)}).`,

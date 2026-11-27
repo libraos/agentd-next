@@ -2,6 +2,7 @@ import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { m as resolveMessage } from "~/i18n/messages";
 import { managedCapabilityDenial } from "@t3tools/client-runtime/contract-labels";
 import { AUTH_SCOPE_OPTIONS as PAIRING_SCOPE_OPTIONS } from "@t3tools/shared/authScopeOptions";
+import { setRelayRouteOnUrl } from "@t3tools/relay-session/route";
 import { PlugIcon, PlusIcon, QrCodeIcon } from "lucide-react";
 import { type ReactNode, memo, useId, useRef, useState } from "react";
 import { T, useGT, useMessages } from "gt-react";
@@ -17,6 +18,7 @@ import {
   type AuthEnvironmentScope,
   type AuthGrantScope,
   type AuthPairingCredentialResult,
+  type AuthPairingRelayRoute,
   type AdvertisedEndpoint,
   type EnvironmentId,
 } from "@t3tools/contracts";
@@ -136,6 +138,8 @@ function endpointRowClassName(isAvailable: boolean) {
 type PairingLinkListRowProps = {
   pairingLink: ServerPairingLinkRecord;
   credential: string | undefined;
+  /** Set when the server's relay can carry this link's device. */
+  relay: AuthPairingRelayRoute | undefined;
   defaultShareOpen: boolean;
   /** Whether this page is served by the environment the link pairs with. */
   servedByEnvironment: boolean;
@@ -150,6 +154,7 @@ type PairingLinkListRowProps = {
 const PairingLinkListRow = memo(function PairingLinkListRow({
   pairingLink,
   credential,
+  relay,
   defaultShareOpen,
   servedByEnvironment,
   endpointUrl,
@@ -168,15 +173,19 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
   const [qrEndpointId, setQrEndpointId] = useState<string | null>(null);
   const qrPanelId = useId();
 
-  const currentOriginPairingUrl = credential ? resolveCurrentOriginPairingUrl(credential) : null;
+  const routed = <Url extends string | null>(url: Url): Url =>
+    relay && url !== null ? (setRelayRouteOnUrl(url, relay) as Url) : url;
+  const currentOriginPairingUrl = credential
+    ? routed(resolveCurrentOriginPairingUrl(credential))
+    : null;
   const hostedPairingUrl =
     credential && endpointUrl != null && endpointUrl !== ""
-      ? resolveHostedPairingUrl(endpointUrl, credential)
+      ? routed(resolveHostedPairingUrl(endpointUrl, credential))
       : null;
   const endpointPairingUrl = (() => {
     const endpoint = selectPairingEndpoint(endpoints, defaultEndpointKey);
     return endpoint && credential
-      ? resolveAdvertisedEndpointPairingUrl(endpoint, credential)
+      ? routed(resolveAdvertisedEndpointPairingUrl(endpoint, credential))
       : null;
   })();
   const endpointCopyOptions = (() => {
@@ -193,7 +202,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
       if (endpoint.status === "unavailable") {
         continue;
       }
-      const url = resolveAdvertisedEndpointPairingUrl(endpoint, credential);
+      const url = routed(resolveAdvertisedEndpointPairingUrl(endpoint, credential));
       options.push({
         id: endpoint.id,
         preferenceKey: endpointDefaultPreferenceKey(endpoint),
@@ -208,7 +217,7 @@ const PairingLinkListRow = memo(function PairingLinkListRow({
   const shareablePairingUrl =
     endpointPairingUrl ??
     (credential && endpointUrl != null && endpointUrl !== ""
-      ? (hostedPairingUrl ?? resolveDesktopPairingUrl(endpointUrl, credential))
+      ? (hostedPairingUrl ?? routed(resolveDesktopPairingUrl(endpointUrl, credential)))
       : servedByEnvironment
         ? currentOriginPairingUrl
         : null);
@@ -856,7 +865,7 @@ type PairingClientsListProps = {
   defaultEndpointKey: string | null;
   isLoading: boolean;
   pairingLinks: ReadonlyArray<ServerPairingLinkRecord>;
-  createdPairingCredentials: ReadonlyMap<string, string>;
+  createdPairingCredentials: ReadonlyMap<string, AuthPairingCredentialResult>;
   sharedPairingLinkId: string | null;
   clientSessions: ReadonlyArray<ServerClientSessionRecord>;
   revokingPairingLinkId: string | null;
@@ -888,7 +897,8 @@ export const PairingClientsList = memo(function PairingClientsList({
         <PairingLinkListRow
           key={pairingLink.id}
           pairingLink={pairingLink}
-          credential={createdPairingCredentials.get(pairingLink.id)}
+          credential={createdPairingCredentials.get(pairingLink.id)?.credential}
+          relay={createdPairingCredentials.get(pairingLink.id)?.relay}
           defaultShareOpen={pairingLink.id === sharedPairingLinkId}
           servedByEnvironment={servedByEnvironment}
           endpointUrl={endpointUrl}

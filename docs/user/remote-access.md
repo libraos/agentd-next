@@ -203,11 +203,11 @@ allow remote clients turns the relay off.
 
 ### Pair a phone through the relay
 
-Run `libraos-next pair` while the computer is connected. Its link and QR code
-then also carry the relay's address and what the phone needs to check that it
-is talking to this computer. The link works for one device, once, until it
-expires; through the relay, that is at most 10 minutes even with a longer `--ttl`. Links created in **Settings → Sharing & access** do not carry the
-relay yet.
+While the computer is connected, pairing links from `lnext pair` and from
+**Settings → Sharing & access** also carry the relay's address and what the
+phone needs to check that it is talking to this computer. A link works for one
+device, once, until it expires; through the relay, that is at most 10 minutes,
+even when the link itself lasts longer.
 
 ### Revoke a phone or stop using the relay
 

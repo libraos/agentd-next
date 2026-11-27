@@ -1151,6 +1151,9 @@ importers:
       '@t3tools/provider-core':
         specifier: workspace:*
         version: link:../../packages/provider-core
+      '@t3tools/relay-session':
+        specifier: workspace:*
+        version: link:../../packages/relay-session
       '@t3tools/secret-provider-definitions':
         specifier: workspace:*
         version: link:../../packages/secret-provider-definitions

@@ -344,11 +344,11 @@ function ConnectionsSettingsContent({
     string | null
   >(null);
   const [createdPairingCredentials, setCreatedPairingCredentials] = useState<
-    ReadonlyMap<string, string>
+    ReadonlyMap<string, AuthPairingCredentialResult>
   >(() => new Map());
   const [newestPairingLinkId, setNewestPairingLinkId] = useState<string | null>(null);
   const handlePairingLinkCreated = (created: AuthPairingCredentialResult) => {
-    setCreatedPairingCredentials((current) => new Map(current).set(created.id, created.credential));
+    setCreatedPairingCredentials((current) => new Map(current).set(created.id, created));
     setNewestPairingLinkId(created.id);
   };
   const [revokingDesktopPairingLinkId, setRevokingDesktopPairingLinkId] = useState<string | null>(

@@ -15,7 +15,7 @@ import * as TestConsole from "effect/testing/TestConsole";
 import { Command } from "effect/cli";
 
 import { cli } from "../../binCli.ts";
-import { readRelayConfig } from "./relayStore.ts";
+import { addRelayDevice, listRelayDevices, readRelayConfig } from "./relayStore.ts";
 import { startTestRelay, TEST_HOST_ID, TEST_HOST_TOKEN } from "./testRelay.ts";
 
 const windowsHost = HostProcess.Platform.defaultValue() === "win32";
@@ -28,14 +28,18 @@ const runCli = (args: ReadonlyArray<string>) =>
   );
 
 const withRelayAndBaseDir = <A, E, R>(
-  use: (input: { readonly relayUrl: string; readonly baseDir: string }) => Effect.Effect<A, E, R>,
+  use: (input: {
+    readonly relay: Awaited<ReturnType<typeof startTestRelay>>;
+    readonly relayUrl: string;
+    readonly baseDir: string;
+  }) => Effect.Effect<A, E, R>,
 ) =>
   Effect.acquireUseRelease(
     Effect.promise(async () => ({
       relay: await startTestRelay(),
       baseDir: await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "relay-cli-")),
     })),
-    ({ relay, baseDir }) => use({ relayUrl: relay.url, baseDir }),
+    ({ relay, baseDir }) => use({ relay, relayUrl: relay.url, baseDir }),
     ({ relay, baseDir }) =>
       Effect.promise(async () => {
         await relay.close();
@@ -74,6 +78,35 @@ describe("lnext relay", () => {
 
         yield* runCli(["relay", "disconnect", "--base-dir", baseDir]);
         assert.strictEqual(yield* Effect.promise(() => readRelayConfig(stateDir)), null);
+      }),
+    ),
+  );
+
+  it.effect("revoke deletes the device's key here and revokes it at the relay", () =>
+    withRelayAndBaseDir(({ relay, relayUrl, baseDir }) =>
+      Effect.gen(function* () {
+        yield* runCli([
+          "relay",
+          "connect",
+          relayUrl,
+          "--token",
+          TEST_HOST_TOKEN,
+          "--base-dir",
+          baseDir,
+        ]);
+        const stateDir = NodePath.join(baseDir, "userdata");
+        const { deviceId } = relay.mintDevice();
+        yield* Effect.promise(() =>
+          addRelayDevice(stateDir, {
+            deviceId,
+            publicKey: "key",
+            label: "phone",
+            addedAt: "2026-01-01T00:00:00.000Z",
+          }),
+        );
+        yield* runCli(["relay", "revoke", deviceId, "--base-dir", baseDir]);
+        assert.deepStrictEqual(yield* Effect.promise(() => listRelayDevices(stateDir)), []);
+        assert.deepStrictEqual(relay.revoked, [deviceId]);
       }),
     ),
   );

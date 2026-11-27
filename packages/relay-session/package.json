@@ -18,6 +18,10 @@
     "./session": {
       "types": "./src/session.ts",
       "import": "./src/session.ts"
+    },
+    "./route": {
+      "types": "./src/route.ts",
+      "import": "./src/route.ts"
     }
   },
   "scripts": {
