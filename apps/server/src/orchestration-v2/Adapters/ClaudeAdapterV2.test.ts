@@ -6973,6 +6973,79 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
+  it.effect.each([{ serverDisplayName: undefined }, { serverDisplayName: "agentd" }])(
+    "shows the agentd MCP server as LibraOS Engine with %j",
+    ({ serverDisplayName }) =>
+      Effect.gen(function* () {
+        const harness = yield* makeWakeHarness;
+        yield* harness.runtime.startTurn(
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now: yield* DateTime.now,
+            attemptId: RunAttemptId.make("engine-mcp-presentation"),
+            text: "Dispatch the handoff",
+            attachments: [],
+          }),
+        );
+        const id = "engine-call";
+        yield* harness.offerAndWait(
+          claudeSdkFrame({
+            type: "assistant",
+            uuid: "engine-assistant",
+            session_id: WAKE_NATIVE_SESSION,
+            parent_tool_use_id: null,
+            message: {
+              id: "engine-message",
+              type: "message",
+              role: "assistant",
+              model: "claude-sonnet-4-6",
+              content: [
+                {
+                  type: "tool_use",
+                  id,
+                  name: "mcp__agentd__handoff_dispatch",
+                  input: { id: "hof-1" },
+                },
+              ],
+            },
+            ...(serverDisplayName === undefined
+              ? {}
+              : { tool_use_meta: [{ id, server_display_name: serverDisplayName }] }),
+          }),
+        );
+        yield* Queue.offer(
+          harness.sdkMessages,
+          makeResultFrame({ uuid: "engine-terminal", result: "Dispatched" }),
+        );
+        yield* Queue.take(harness.terminalReceipts);
+        const items = harness.events.flatMap((event) =>
+          event.type === "turn_item.updated" && event.turnItem.type === "dynamic_tool"
+            ? [event.turnItem]
+            : [],
+        );
+        assert.isNotEmpty(items);
+        for (const item of items) {
+          assert.equal(item.title, "handoff dispatch");
+          assert.deepEqual(item.toolSource, {
+            key: "mcp:agentd",
+            name: "LibraOS Engine",
+            kind: "integration",
+          });
+        }
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
+        ),
+      ),
+  );
+
   const MCP_APP_CAPABILITIES = [
     "mcp_tool_ui_meta_v1",
     "mcp_read_resource_v1",
