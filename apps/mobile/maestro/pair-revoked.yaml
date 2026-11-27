@@ -8,6 +8,14 @@ name: A device the computer revoked has to pair again
 # arrived before JavaScript listened for links and the app stayed on Home.
 - stopApp
 - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+# iOS asks "Open in “LibraOS Next”?" before following the link.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Open"
+          optional: true
 - extendedWaitUntil:
     visible: ${ENVIRONMENT_NAME}
     timeout: 30000

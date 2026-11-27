@@ -45,6 +45,14 @@ name: Pair with a real server and open the LibraOS Engine screen
     timeout: 30000
 
 - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
+# iOS asks "Open in “LibraOS Next”?" before following the link.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Open"
+          optional: true
 # The row sits below Connection and Routes, off a small screen.
 - scrollUntilVisible:
     element: "Background tasks and the approvals waiting on you"
