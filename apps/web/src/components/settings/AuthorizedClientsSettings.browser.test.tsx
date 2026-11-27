@@ -1,13 +1,15 @@
 import {
+  type AuthPairingCredentialResult,
   EnvironmentId,
   managedCapabilityDenial,
   type ManagedPolicySummary,
 } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import "~/index.css";
 import { render } from "../../../test/render";
-import { AuthorizedClientsHeaderAction } from "./AuthorizedClientsSettings";
+import { AuthorizedClientsHeaderAction, PairingClientsList } from "./AuthorizedClientsSettings";
 
 const localId = EnvironmentId.make("local");
 const serviceId = EnvironmentId.make("service");
@@ -76,5 +78,55 @@ describe("AuthorizedClientsHeaderAction", () => {
 
     await expect.element(screen.getByRole("button", { name: "Create link" })).toBeEnabled();
     expect(screen.getByRole("group", { name: denial }).query()).toBeNull();
+  });
+});
+
+describe("PairingClientsList", () => {
+  const expiresAt = "2099-01-01T00:10:00.000Z";
+  const created: AuthPairingCredentialResult = {
+    id: "link-1",
+    credential: "one-time",
+    expiresAt: DateTime.makeUnsafe(expiresAt),
+    relay: {
+      relayUrl: "https://relay.example.com",
+      hostId: "host-1",
+      hostKey: "host-key",
+      deviceToken: "device-token",
+    },
+  };
+
+  it("puts the server's relay route in the shared link's fragment", async () => {
+    await using screen = await render(
+      <PairingClientsList
+        servedByEnvironment={false}
+        endpointUrl="http://192.168.1.20:3773"
+        endpoints={[]}
+        defaultEndpointKey={null}
+        isLoading={false}
+        pairingLinks={[
+          {
+            id: "link-1",
+            scopes: [],
+            subject: "one-time-token",
+            createdAt: "2099-01-01T00:00:00.000Z",
+            expiresAt,
+          },
+        ]}
+        createdPairingCredentials={new Map([["link-1", created]])}
+        sharedPairingLinkId="link-1"
+        clientSessions={[]}
+        revokingPairingLinkId={null}
+        revokingClientSessionId={null}
+        onRevokePairingLink={() => {}}
+        onRevokeClientSession={() => {}}
+        canRevoke
+      />,
+    );
+
+    await expect
+      .element(screen.getByText(/^http:\/\/192\.168\.1\.20:3773\/pair#/))
+      .toHaveTextContent(
+        "http://192.168.1.20:3773/pair#token=one-time&relay=https%3A%2F%2Frelay.example.com&host=host-1&hk=host-key&dt=device-token",
+      );
   });
 });

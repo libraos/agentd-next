@@ -4,7 +4,7 @@ Connect a phone, browser, or another desktop app to LibraOS Next running on a di
 machine. That machine must stay running and reachable while you work. On a phone, use the
 LibraOS Next app for iPhone or Android: its first screen asks you to pair with your computer.
 
-Upstream's hosted relay (T3 Connect) and its accounts are not part of LibraOS Next; connect over a LAN, a private network such as Tailscale, or SSH.
+Upstream's hosted relay (T3 Connect) and its accounts are not part of LibraOS Next; connect over a LAN, a private network such as Tailscale, SSH, or [a relay](#reach-this-computer-through-a-relay).
 
 ## Set up with `lnext up`
 
@@ -167,6 +167,63 @@ Upstream's hosted web app at app.t3.codes is not part of LibraOS Next; open the 
 For a plain HTTP LAN endpoint, use the direct pairing URL in a browser that can
 open it, or pair from the desktop app. On mobile, an IP address entered without a
 scheme uses HTTP, so include `https://` when your server uses HTTPS.
+
+## Reach this computer through a relay
+
+A relay lets a paired phone reach this computer from any network, with no VPN
+and no open port: the computer keeps one outgoing connection to the relay, and
+the phone connects to the relay when it is in use. Sessions are end-to-end
+encrypted between the phone and this computer, so the relay passes them on
+without being able to read or change them. It sees only which device talks to
+which computer, when, and how much.
+
+Signing in to the relay is not enough to reach the computer. A phone gets in
+only after it pairs with a link from this computer, and the phone still signs in
+to LibraOS Next with that link, as on a LAN.
+
+### Connect the computer
+
+1. In the relay's web app, add this computer. It shows a host token once.
+2. On the computer, run:
+
+   ```bash
+   lnext relay connect https://relay.example.com --token <token>
+   ```
+
+   The command checks the token with the relay and saves it. A running LibraOS
+   Next server connects within a few seconds; one started later connects on its
+   own. If the relay drops the connection, the server reconnects, waiting longer
+   between attempts while the relay stays away.
+
+If `relay connect` asks for this computer's id, pass the id the relay's web app
+shows with `--host-id`. A relay address must use `https://`; plain `http://`
+works only for a relay on the same computer.
+
+The token and this computer's relay key are kept in its LibraOS Next data
+directory, readable only by your user account. A managed policy that does not
+allow remote clients turns the relay off.
+
+### Pair a phone through the relay
+
+While the computer is connected, pairing links from `lnext pair` and from
+**Settings → Sharing & access** also carry the relay's address and what the
+phone needs to check that it is talking to this computer. A link works for one
+device, once, until it expires; through the relay, that is at most 10 minutes,
+even when the link itself lasts longer.
+
+### Revoke a phone or stop using the relay
+
+```bash
+lnext relay devices        # list phones paired through the relay
+lnext relay revoke <id>    # delete its key here and revoke it at the relay
+lnext relay status
+lnext relay disconnect     # stop connecting to the relay
+```
+
+Revoking ends a connected phone's session within a few seconds. The phone also
+holds a LibraOS Next sign-in; revoke that in **Settings → Sharing & access** as
+well. After `relay disconnect`, paired phones are kept, so connecting to the
+same relay again lets them back in.
 
 ## Desktop-managed SSH
 
