@@ -255,6 +255,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
             {connected && canRead ? (
               <SettingsSection title="LibraOS Engine">
                 <SettingsActionRow
+                  testID="environment-engine-row"
                   icon="person.2"
                   label="LibraOS Engine"
                   description={gt("Background tasks and the approvals waiting on you")}

@@ -53,11 +53,20 @@ name: Pair with a real server and open the LibraOS Engine screen
       - tapOn:
           text: "Open"
           optional: true
-# The row sits below Connection and Routes, off a small screen.
+# The row sits below Connection and Routes, off a small screen. iOS exposes the row only by its
+# label, "LibraOS Engine", which its section title shares, and not the description inside it,
+# so match the row by its id and check the description where Android lists it.
 - scrollUntilVisible:
-    element: "Background tasks and the approvals waiting on you"
+    element:
+      id: "environment-engine-row"
     timeout: 30000
-- tapOn: "Background tasks and the approvals waiting on you"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Background tasks and the approvals waiting on you"
+- tapOn:
+    id: "environment-engine-row"
 - extendedWaitUntil:
     visible: "Set up LibraOS Engine on your computer"
     timeout: 30000

@@ -105,7 +105,9 @@ import {
   flushRootNavigationQueue,
   linkToRootPath,
   rootNavigationRef,
+  whenRootNavigationReady,
 } from "./lib/rootNavigation";
+import { createStartupLinks } from "./lib/startupLinks";
 import { pruneNewTaskFlowStates } from "./features/threads/new-task-flow-state";
 import { pruneNewTaskBranchCheckouts } from "./features/threads/NewTaskDraftRouteScreen";
 import { installAppUpdateChecks } from "./features/updates/app-updates";
@@ -118,6 +120,8 @@ if (process.env.EXPO_PUBLIC_SHOWCASE === "1") {
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 void hydrateWorkspaceSelections();
+
+const startupLinks = createStartupLinks(whenRootNavigationReady);
 
 const linkingConfig = {
   initialRouteName: "Home",
@@ -147,7 +151,12 @@ const appLinking = {
   ],
   config: { initialRouteName: "Home" },
   filter: (url: string) => shouldHandleAppLink(url, hasCloudPublicConfig()),
-  getInitialURL: async () => (await Linking.getInitialURL()) ?? (await launchWorkspaceURL()),
+  getInitialURL: async () => {
+    const launchUrl = await Linking.getInitialURL();
+    startupLinks.recordLaunchUrl(launchUrl);
+    return launchUrl ?? (await launchWorkspaceURL());
+  },
+  subscribe: startupLinks.subscribe,
   getActionFromState: (
     state: Parameters<typeof getActionFromState>[0],
     options: Parameters<typeof getActionFromState>[1],
@@ -198,7 +207,9 @@ function handleNavigationReady(): void {
 
 declare const module: { readonly hot?: FoundationHotModule } | undefined;
 
+const startupLinkEvents = Linking.addEventListener("url", ({ url }) => startupLinks.receive(url));
 const appServiceDisposers = [
+  () => startupLinkEvents.remove(),
   installUiRuntimeMemoryWarningGc(),
   subscribeComposerDraftModelReconciliation({
     registry: appAtomRegistry,

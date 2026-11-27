@@ -11,7 +11,8 @@ removing it would fight every upstream sync.
   slug `libraos-next`, no `owner`, updates off with no feed, no EAS project id, no Clerk extras,
   no default trace endpoint, the `@clerk/expo` plugin only with the hosted relay, and the version
   follows `apps/desktop/package.json` unless `T3CODE_MOBILE_VERSION` is set, and
-  `T3CODE_MOBILE_BUILD_NUMBER` numbers a store build on both platforms.
+  `T3CODE_MOBILE_BUILD_NUMBER` numbers a store build on both platforms, and the
+  `withAndroidKeepNewIntent` plugin.
 - `apps/mobile/app.config.test.ts`: the new ids and the absence of every upstream service.
 - `apps/mobile/eas.json`: no `channel` or `environment` of upstream's EAS project, no App Store
   app id, no pinned TestFlight version.
@@ -23,7 +24,10 @@ removing it would fight every upstream sync.
 - `apps/mobile/src/Stack.tsx`: the `SettingsEngine` route (`settings/engine/:environmentId`),
   titled LibraOS Engine. Its name starts with `Settings` so it opens as a Settings page.
 - `apps/mobile/src/features/settings/SettingsEnvironmentDetailRouteScreen.tsx`: a LibraOS Engine
-  row on a connected environment this device may read.
+  row on a connected environment this device may read, with an id the UI tests match it by.
+- `apps/mobile/src/components/ui/ListActionRow.tsx`: passes a `testID` to the row.
+- `apps/mobile/src/App.tsx`: keeps a link that arrives while the app starts
+  (`src/lib/startupLinks.ts`) and opens it once navigation is ready, instead of dropping it.
 - `apps/mobile/src/features/home/home-empty-state.ts`, `apps/mobile/src/features/layout/WorkspaceEmptyDetail.tsx`:
   with no environment, the first screen asks to pair with your computer and says how.
 - `apps/mobile/src/features/settings/SettingsNotificationsRouteScreen.tsx`: without a relay,
@@ -38,7 +42,9 @@ removing it would fight every upstream sync.
 Ours: `apps/mobile/src/state/agentd.ts`, `apps/mobile/src/features/engine/` (the read-only
 LibraOS Engine screen: tasks by section, Stop for a device with operate permission, approvals
 listed to answer on the computer), `scripts/mobile-release-check.ts` (`env` and `bundle DIR` modes), its test and
-`scripts/mobile-release-check.allow.json`, `scripts/mobile-ui-host.ts` (the server UI tests
+`scripts/mobile-release-check.allow.json`, `apps/mobile/src/lib/startupLinks.ts` and
+`apps/mobile/plugins/withAndroidKeepNewIntent.cjs` (a link that reaches the running activity
+before React starts becomes its intent) with their tests, `scripts/mobile-ui-host.ts` (the server UI tests
 pair with, with no LibraOS Engine) and its test, `apps/mobile/maestro/` (the UI test flows and
 `run-flows.sh`), `.github/workflows/mobile.yml` (UI tests; release check, signing and upload to
 TestFlight and Play internal testing), `.github/scripts/install-maestro.sh`,

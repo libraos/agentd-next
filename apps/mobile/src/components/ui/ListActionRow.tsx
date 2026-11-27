@@ -10,12 +10,14 @@ export function ListActionRow(
     readonly tone?: "default" | "danger";
     readonly loading?: boolean;
     readonly onPress: () => void;
+    readonly testID?: string;
   },
 ) {
   const rippleStyle = useResolveClassNames("bg-subtle-strong");
   const disabled = Boolean(props.disabled || props.loading);
   return (
     <RowPressable
+      testID={props.testID}
       accessibilityRole="button"
       accessibilityLabel={props.label}
       accessibilityHint={props.description}
