@@ -26,18 +26,22 @@ name: A device the computer revoked has to pair again
 - takeScreenshot: revoked-dark
 
 # A link tapped while the app is still starting reaches it before its screens listen; the app
-# keeps it and opens it once they are up. Android only for now: iOS still drops that link.
+# keeps it and opens it once they are up. Without the link the relaunched app opens on Home.
+# On iOS it can arrive before JS runs at all, which React Native drops; expo-linking keeps it.
+- launchApp:
+    stopApp: true
+- openLink: t3code://settings/environments/${ENVIRONMENT_ID}
 - runFlow:
     when:
-      platform: Android
+      platform: iOS
     commands:
-      - launchApp:
-          stopApp: true
-      - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
-      - extendedWaitUntil:
-          visible: ${ENVIRONMENT_NAME}
-          timeout: 30000
-      - extendedWaitUntil:
-          notVisible:
-            id: "environment-engine-row"
-          timeout: 30000
+      - tapOn:
+          text: "Open"
+          optional: true
+- extendedWaitUntil:
+    visible: ${ENVIRONMENT_NAME}
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: "environment-engine-row"
+    timeout: 30000
