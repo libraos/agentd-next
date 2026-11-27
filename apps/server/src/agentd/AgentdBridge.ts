@@ -92,6 +92,7 @@ import {
   serviceAgentd,
   setupAgentd,
 } from "./agentdServices.ts";
+import { makeConfigFiles } from "./agentConfigs/configFileWrite.ts";
 import { makeClaudeTrust, projectFolder } from "./claudeTrust.ts";
 import { makeCloudKeyFile } from "./cloudKeyFile.ts";
 import { AGENTD_SKILLS, workerSkillsDirectories } from "./skillCatalog.ts";
@@ -720,6 +721,7 @@ export const make = Effect.fn("AgentdBridge.make")(function* () {
     path: pathService,
     env,
     home: yield* HostProcess.HomeDirectory,
+    files: makeConfigFiles({ fs, path: pathService, platform }),
   });
 
   // Claude Code checks the main checkout, also for a worktree, then the folder and its parents.
