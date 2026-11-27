@@ -29,6 +29,7 @@ import {
   type ProviderInstance,
 } from "@t3tools/provider-core/server/driver";
 import { codexContinuationIdentity } from "./CodexHomeLayout.ts";
+import { codexSkillSwitch } from "../../agentd/codexSkillSwitch.ts";
 import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
 import { HttpClient } from "effect/http";
 const DRIVER = ProviderDriverKind.make("codex");
@@ -297,6 +298,17 @@ export const makeManagedCodexProvider = Effect.fn("makeManagedCodexProvider")(fu
     orchestrationAdapter,
     textGeneration,
     auth: runtime.auth.controller,
+    skillSwitch: codexSkillSwitch({
+      instanceId,
+      configFile: path.join(runtime.homePath, "config.toml"),
+      spawner,
+      launch: Effect.map(resolveRuntime, ({ config, environment }) => ({
+        binaryPath: config.binaryPath,
+        homePath: config.homePath,
+        launchArgs: config.launchArgs,
+        environment,
+      })),
+    }),
     snapshotForCwd: (cwd: string) =>
       enabled
         ? resolveRuntime.pipe(

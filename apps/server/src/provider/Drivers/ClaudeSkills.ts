@@ -129,7 +129,7 @@ function claudeManagedDirectory(
   return "/etc/claude-code";
 }
 
-function claudeManagedSettingsPaths(
+export function claudeManagedSettingsPaths(
   path: Path.Path,
   platform: NodeJS.Platform,
   environment: NodeJS.ProcessEnv,
@@ -144,7 +144,7 @@ function claudeManagedSettingsPaths(
 }
 
 /** Claude Code settings files, lowest precedence first. */
-function claudeSettingsPaths(
+export function claudeSettingsPaths(
   path: Path.Path,
   configDirPath: string,
   cwd: string | undefined,
@@ -167,7 +167,7 @@ function claudeSettingsPaths(
 }
 
 // Untraced: skill discovery resolves every distinct plugin project path, too often for spans.
-const findRepositoryRoot = Effect.fnUntraced(function* (
+export const findRepositoryRoot = Effect.fnUntraced(function* (
   cwd: string,
 ): Effect.fn.Return<string | undefined, never, FileSystem.FileSystem | Path.Path> {
   const fileSystem = yield* FileSystem.FileSystem;
@@ -231,7 +231,12 @@ const findPluginRepositoryRoot = Effect.fnUntraced(function* (cwd: string) {
  * that file, so this schema does the same rather than applying the valid
  * siblings the CLI ignores.
  */
-const SkillOverrideValue = Schema.Literals(["on", "name-only", "user-invocable-only", "off"]);
+export const SkillOverrideValue = Schema.Literals([
+  "on",
+  "name-only",
+  "user-invocable-only",
+  "off",
+]);
 
 // Lenient because these settings files are hand-edited and Claude Code itself
 // tolerates comments and trailing commas in them.

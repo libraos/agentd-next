@@ -365,7 +365,6 @@ const layerAgentd = Layer.mergeAll(
   AgentdSkills.layer.pipe(Layer.provide(ManagedPolicy.layer)),
   AgentdPlugins.layerLive,
   AgentdConnectors.layer,
-  AgentdCustomizeSkills.layer,
   LibraosGateway.layer.pipe(
     Layer.provide(layerServerSettings),
     Layer.provide(ServerSecretStore.layer),
@@ -832,6 +831,8 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   ReplayMarkers.layer,
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
   PlaceholderCleanup.layer.pipe(Layer.provide(AgentdPlugins.layerLive)),
+  // Reads the provider registry's skill lists and refreshes them after a write.
+  AgentdCustomizeSkills.layer,
 ).pipe(
   Layer.provideMerge(layerOrchestrationApplication),
   // One hub, which the feeders above and the workflow store inside the runtime publish to.
