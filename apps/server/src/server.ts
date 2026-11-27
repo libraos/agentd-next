@@ -220,6 +220,8 @@ import * as AgentdTeamNode from "./agentd/AgentdTeamNode.ts";
 import * as AgentdInit from "./agentd/agentdInit.ts";
 import * as AgentdSkills from "./agentd/AgentdSkills.ts";
 import * as AgentdPlugins from "./agentd/AgentdPlugins.ts";
+import * as AgentdConnectors from "./agentd/AgentdConnectors.ts";
+import * as AgentdCustomizeSkills from "./agentd/AgentdCustomizeSkills.ts";
 import * as PlaceholderCleanup from "./agentd/placeholderCleanup.ts";
 import * as LibraosGateway from "./gateway/LibraosGateway.ts";
 import * as CustomGateway from "./gateway/CustomGateway.ts";
@@ -362,6 +364,9 @@ const layerAgentd = Layer.mergeAll(
   // Layers memoize by reference, so this is the same policy the settings layer reads.
   AgentdSkills.layer.pipe(Layer.provide(ManagedPolicy.layer)),
   AgentdPlugins.layerLive,
+  AgentdConnectors.layer.pipe(
+    Layer.provide(Layer.merge(AgentdPlugins.layerLive, ProjectStore.layer)),
+  ),
   LibraosGateway.layer.pipe(
     Layer.provide(layerServerSettings),
     Layer.provide(ServerSecretStore.layer),
@@ -828,6 +833,8 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   ReplayMarkers.layer,
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
   PlaceholderCleanup.layer.pipe(Layer.provide(AgentdPlugins.layerLive)),
+  // Reads the provider registry's skill lists and refreshes them after a write.
+  AgentdCustomizeSkills.layer,
 ).pipe(
   Layer.provideMerge(layerOrchestrationApplication),
   // One hub, which the feeders above and the workflow store inside the runtime publish to.

@@ -307,7 +307,7 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           />
           <SidebarUtilityItem
             icon={<PuzzleIcon />}
-            label={gt("Plugins")}
+            label={gt("Customize")}
             onClick={() => {
               closeMobileSidebar();
               void navigate({ to: "/plugins" });

@@ -481,6 +481,17 @@ import {
   AgentdPluginsListInput,
 } from "./agentdPlugins.ts";
 import {
+  AgentdConnectorAddInput,
+  AgentdConnectorRef,
+  AgentdConnectors,
+  AgentdConnectorSetEnabledInput,
+  AgentdConnectorsListInput,
+  AgentdCustomizeError,
+  AgentdSkillDetail,
+  AgentdSkillRef,
+  AgentdSkillSetEnabledInput,
+} from "./agentdCustomize.ts";
+import {
   LibraosGatewayConnectInput,
   LibraosGatewayError,
   LibraosGatewaySignIn,
@@ -877,6 +888,12 @@ export const WS_METHODS = {
   agentdPluginsSetEnabled: "agentd.pluginsSetEnabled",
   agentdPluginsSetup: "agentd.pluginsSetup",
   agentdPluginsSetSettings: "agentd.pluginsSetSettings",
+  agentdCustomizeConnectorsList: "agentd.customizeConnectorsList",
+  agentdCustomizeConnectorSetEnabled: "agentd.customizeConnectorSetEnabled",
+  agentdCustomizeConnectorAdd: "agentd.customizeConnectorAdd",
+  agentdCustomizeConnectorRemove: "agentd.customizeConnectorRemove",
+  agentdCustomizeSkillRead: "agentd.customizeSkillRead",
+  agentdCustomizeSkillSetEnabled: "agentd.customizeSkillSetEnabled",
   agentdPluginsAddSource: "agentd.pluginsAddSource",
   agentdPluginsRemoveSource: "agentd.pluginsRemoveSource",
   agentdPluginsSetDeveloperMode: "agentd.pluginsSetDeveloperMode",
@@ -2897,6 +2914,50 @@ const WsAgentdPluginsSetupRpc = Rpc.make(WS_METHODS.agentdPluginsSetup, {
 });
 
 /** Saves a plugin's settings; secret values go to the server's secret store, never to settings. */
+const AgentdCustomizeRpcError = Schema.Union([AgentdCustomizeError, EnvironmentAuthorizationError]);
+
+const WsAgentdCustomizeConnectorsListRpc = Rpc.make(WS_METHODS.agentdCustomizeConnectorsList, {
+  payload: AgentdConnectorsListInput,
+  success: AgentdConnectors,
+  error: AgentdCustomizeRpcError,
+});
+
+/** Writes the agent's own configuration; returns the listing for the same project. */
+const WsAgentdCustomizeConnectorSetEnabledRpc = Rpc.make(
+  WS_METHODS.agentdCustomizeConnectorSetEnabled,
+  {
+    payload: AgentdConnectorSetEnabledInput,
+    success: AgentdConnectors,
+    error: AgentdCustomizeRpcError,
+  },
+);
+
+const WsAgentdCustomizeConnectorAddRpc = Rpc.make(WS_METHODS.agentdCustomizeConnectorAdd, {
+  payload: AgentdConnectorAddInput,
+  success: AgentdConnectors,
+  error: AgentdCustomizeRpcError,
+});
+
+const WsAgentdCustomizeConnectorRemoveRpc = Rpc.make(WS_METHODS.agentdCustomizeConnectorRemove, {
+  payload: AgentdConnectorRef,
+  success: AgentdConnectors,
+  error: AgentdCustomizeRpcError,
+});
+
+/** Only a SKILL.md the provider's skill list named can be read. */
+const WsAgentdCustomizeSkillReadRpc = Rpc.make(WS_METHODS.agentdCustomizeSkillRead, {
+  payload: AgentdSkillRef,
+  success: AgentdSkillDetail,
+  error: AgentdCustomizeRpcError,
+});
+
+/** Writes the agent's own skill switch and refreshes that provider's skill list. */
+const WsAgentdCustomizeSkillSetEnabledRpc = Rpc.make(WS_METHODS.agentdCustomizeSkillSetEnabled, {
+  payload: AgentdSkillSetEnabledInput,
+  success: AgentdSkillDetail,
+  error: AgentdCustomizeRpcError,
+});
+
 const WsAgentdPluginsSetSettingsRpc = Rpc.make(WS_METHODS.agentdPluginsSetSettings, {
   payload: AgentdPluginSettingsInput,
   success: AgentdPlugins,
@@ -3316,6 +3377,12 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentdPluginsSetEnabledRpc,
   WsAgentdPluginsSetupRpc,
   WsAgentdPluginsSetSettingsRpc,
+  WsAgentdCustomizeConnectorsListRpc,
+  WsAgentdCustomizeConnectorSetEnabledRpc,
+  WsAgentdCustomizeConnectorAddRpc,
+  WsAgentdCustomizeConnectorRemoveRpc,
+  WsAgentdCustomizeSkillReadRpc,
+  WsAgentdCustomizeSkillSetEnabledRpc,
   WsAgentdPluginsAddSourceRpc,
   WsAgentdPluginsRemoveSourceRpc,
   WsAgentdPluginsSetDeveloperModeRpc,
