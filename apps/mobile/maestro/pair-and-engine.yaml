@@ -33,17 +33,19 @@ name: Pair with a real server and open the LibraOS Engine screen
 - inputText: ${CODE}
 - pressKey: Enter
 # Pairing lands on Settings, which lists environments one level down.
+# iOS reads the row as "Environments, 1", so match the start of the label.
 - extendedWaitUntil:
-    visible: "Environments"
+    visible: "Environments.*"
     timeout: 30000
-- tapOn: "Environments"
+- tapOn: "Environments.*"
 - extendedWaitUntil:
     visible: ${ENVIRONMENT_NAME}
     timeout: 30000
 
 - openLink: t3code://settings/environments/${ENVIRONMENT_ID}
-- extendedWaitUntil:
-    visible: "Background tasks and the approvals waiting on you"
+# The row sits below Connection and Routes, off a small screen.
+- scrollUntilVisible:
+    element: "Background tasks and the approvals waiting on you"
     timeout: 30000
 - tapOn: "Background tasks and the approvals waiting on you"
 - extendedWaitUntil:
