@@ -4,8 +4,6 @@ An IDE for working with coding agents. Chat with an agent, work on a project wit
 
 The app is free and bring-your-own-key: it includes no model access and uses the agent accounts and keys you already have. It runs on macOS, Windows and Linux.
 
-**No telemetry by default.** With default settings, LibraOS Next sends no usage analytics, crash reports or diagnostic traces to LibraOS or to upstream T3 Code, and it does not derive analytics identifiers from your Claude or Codex sign-in. [Product usage data](./docs/user/telemetry.md) explains local diagnostics, optional exports and the other network connections.
-
 ![A project thread with its branch, changes, background tasks and LibraOS Engine workers beside the conversation](agentd/design/shots/session-panel.png)
 
 ## Install
