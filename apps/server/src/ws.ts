@@ -271,6 +271,8 @@ import * as AgentdTeamNode from "./agentd/AgentdTeamNode.ts";
 import * as AgentdInit from "./agentd/agentdInit.ts";
 import * as AgentdSkills from "./agentd/AgentdSkills.ts";
 import * as AgentdPlugins from "./agentd/AgentdPlugins.ts";
+import * as AgentdConnectors from "./agentd/AgentdConnectors.ts";
+import * as AgentdCustomizeSkills from "./agentd/AgentdCustomizeSkills.ts";
 import { sendConfirmed } from "./agentd/beforeSendConfirm.ts";
 import { enteredKeyFiles, startErrorFor } from "./agentd/cloudFailure.ts";
 import * as LibraosGateway from "./gateway/LibraosGateway.ts";
@@ -1498,6 +1500,8 @@ export const layerWsRpc = (
         | ServerSettings.ServerSettingsService
         | DocumentText.DocumentText
         | AgentdPlugins.AgentdPluginsService
+        | AgentdConnectors.AgentdConnectorsService
+        | AgentdCustomizeSkills.AgentdCustomizeSkillsService
       >();
       const applicationEvents = yield* OrchestrationEventStore.OrchestrationEventStore;
       const projectStore = yield* ProjectStore.ProjectStoreV2;
@@ -1663,6 +1667,8 @@ export const layerWsRpc = (
       const agentdInit = yield* AgentdInit.AgentdInit;
       const agentdSkills = yield* AgentdSkills.AgentdSkillsService;
       const agentdPlugins = yield* AgentdPlugins.AgentdPluginsService;
+      const agentdConnectors = yield* AgentdConnectors.AgentdConnectorsService;
+      const agentdCustomizeSkills = yield* AgentdCustomizeSkills.AgentdCustomizeSkillsService;
       const libraosGateway = yield* LibraosGateway.LibraosGateway;
       const customGateway = yield* CustomGateway.CustomGateway;
       const secretPaths = yield* Path.Path;
@@ -3947,6 +3953,14 @@ export const layerWsRpc = (
         [WS_METHODS.agentdSkillsInstall]: (input) => agentdSkills.install(input),
         [WS_METHODS.agentdSkillsRemove]: (input) => agentdSkills.remove(input),
         [WS_METHODS.agentdPluginsList]: (input) => agentdPlugins.list(input),
+        [WS_METHODS.agentdCustomizeConnectorsList]: (input) => agentdConnectors.list(input),
+        [WS_METHODS.agentdCustomizeConnectorSetEnabled]: (input) =>
+          agentdConnectors.setEnabled(input),
+        [WS_METHODS.agentdCustomizeConnectorAdd]: (input) => agentdConnectors.add(input),
+        [WS_METHODS.agentdCustomizeConnectorRemove]: (input) => agentdConnectors.remove(input),
+        [WS_METHODS.agentdCustomizeSkillRead]: (input) => agentdCustomizeSkills.read(input),
+        [WS_METHODS.agentdCustomizeSkillSetEnabled]: (input) =>
+          agentdCustomizeSkills.setEnabled(input),
         [WS_METHODS.agentdPluginsInstall]: (input) => agentdPlugins.install(input),
         [WS_METHODS.agentdPluginsRemove]: (input) => agentdPlugins.remove(input),
         [WS_METHODS.agentdPluginsSetEnabled]: (input) => agentdPlugins.setEnabled(input),
