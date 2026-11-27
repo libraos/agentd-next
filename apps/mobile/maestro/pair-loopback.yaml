@@ -3,6 +3,12 @@
 appId: com.libraos.next
 name: A loopback pairing address is explained, not retried forever
 ---
+# Saved environments live in the iOS keychain, which clearState keeps.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - clearKeychain
 - launchApp:
     clearState: true
     permissions:
