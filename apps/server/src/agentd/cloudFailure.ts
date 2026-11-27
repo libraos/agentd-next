@@ -62,7 +62,7 @@ export function cloudSetupProblem(message: string): CloudProblem | null {
   )
     return "repository";
   if (
-    /set \[cloud\] url|needs \[cloud\] url|cloud_not_configured|agentd access revoked|cloud\.key_file\b.*(?:no such file|not found|does not exist|missing|failed to read|cannot be read)|\[cloud\] key_file\b.*(?:no such file|not found|does not exist|missing|failed to read|cannot be read)/i.test(
+    /set \[cloud\] url|needs \[cloud\] url|\[cloud\] url is missing|cloud workers are not set up|cloud_not_configured|agentd access revoked|cloud\.key_file\b.*(?:no such file|not found|does not exist|missing|failed to read|cannot be read)|\[cloud\] key_file\b.*(?:no such file|not found|does not exist|missing|failed to read|cannot be read)/i.test(
       message,
     )
   )

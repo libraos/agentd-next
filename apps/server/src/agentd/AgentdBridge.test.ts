@@ -1994,6 +1994,8 @@ describe("AgentdBridge", () => {
       const libraos = "https://cloud-api.libraos.com";
       let target = output(`{"url":"${libraos}","dry_run":true}`);
       let cloudHelp = "usage: agentd cloud sync | balance";
+      let balanceRefusal =
+        "a cloud handoff needs [cloud] url for the Job API. Run agentd cloud setup";
       let setup = output(
         '{"url":"https://cloud-api.libraos.com","balance":{"available_usd":12.5}}',
       );
@@ -2045,9 +2047,7 @@ describe("AgentdBridge", () => {
         if (input.args.join(" ") === "cloud setup --dry-run --json") return Effect.succeed(target);
         if (input.args[1] === "setup") return Effect.succeed(setup);
         if (input.args.join(" ") === "cloud balance --json")
-          return Effect.succeed(
-            output("a cloud handoff needs [cloud] url for the Job API. Run agentd cloud setup", 1),
-          );
+          return Effect.succeed(output(balanceRefusal, 1));
         return Effect.die(`unexpected agentd ${input.args.join(" ")}`);
       });
       // A fresh install, [cloud] unset: v0.1.15's balance refusal is a setup problem, with the form.
@@ -2056,6 +2056,17 @@ describe("AgentdBridge", () => {
         setupUrl: libraos,
         problem: "setup",
       });
+      // Later Engines word it differently and name their own command; still the form.
+      for (const name of ["agentd", "libraos-core", "libraos-engine"]) {
+        balanceRefusal = `Cloud Workers are not set up: [cloud] url is missing. Run ${name} cloud setup`;
+        expect(yield* upgraded.cloudSetup({ cwd: null, includeBalance: true })).toMatchObject({
+          canConfigure: true,
+          setupUrl: libraos,
+          problem: "setup",
+          balanceUsd: null,
+          balanceText: null,
+        });
+      }
       expect(yield* upgraded.cloudSetup({ cwd: null, includeBalance: false })).toMatchObject({
         canConfigure: true,
         setupUrl: libraos,
