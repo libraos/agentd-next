@@ -16,9 +16,14 @@ name: A loopback pairing address is explained, not retried forever
     timeout: 10000
 - tapOn: "Address"
 - inputText: "127.0.0.1:9"
-- tapOn:
-    text: "Code"
-    index: 0
+# As in pair-and-engine.yaml: on Android a tap on the "Code" label leaves focus in Address, so tap
+# the field by its placeholder, with the keyboard hidden first.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- tapOn: "Pairing code"
 - inputText: "LOOPBACK0000"
 - pressKey: Enter
 - extendedWaitUntil:
