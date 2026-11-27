@@ -2,6 +2,8 @@ import { AgentdCommandError } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
+import type { ConfigFiles } from "./agentConfigs/configFileWrite.ts";
+
 // Claude Code stops a worker at "Workspace not trusted" in a folder it never ran in. The app asks
 // first and records the answer where Claude Code keeps it: projects[<folder>].hasTrustDialogAccepted
 // in CLAUDE_CONFIG_DIR/.claude.json, else ~/.claude.json. That file also holds the account and
@@ -16,13 +18,39 @@ export interface TrustPath {
   readonly basename: (path: string) => string;
 }
 
-export function claudeConfigFile(
-  env: { readonly CLAUDE_CONFIG_DIR?: string | undefined },
-  home: string,
-  path: TrustPath,
-): string {
-  return path.join(env.CLAUDE_CONFIG_DIR?.trim() || home, ".claude.json");
+export interface ClaudeConfigEnv {
+  readonly CLAUDE_CONFIG_DIR?: string | undefined;
+  readonly CLAUDE_CODE_CUSTOM_OAUTH_URL?: string | undefined;
 }
+
+/** Claude Code's global config file; a custom OAuth URL gives it a file of its own. */
+export function claudeConfigFile(env: ClaudeConfigEnv, home: string, path: TrustPath): string {
+  const suffix = env.CLAUDE_CODE_CUSTOM_OAUTH_URL ? "-custom-oauth" : "";
+  return path.join(env.CLAUDE_CONFIG_DIR?.trim() || home, `.claude${suffix}.json`);
+}
+
+/** As Claude Code picks it: its old `.config.json` while that is a file and the current one is not. */
+export const resolveClaudeConfigFile = Effect.fn("ClaudeTrust.resolveClaudeConfigFile")(function* (
+  fs: FileSystem.FileSystem,
+  path: TrustPath,
+  env: ClaudeConfigEnv,
+  home: string,
+) {
+  const current = claudeConfigFile(env, home, path);
+  const legacy = path.join(
+    env.CLAUDE_CONFIG_DIR?.trim() || path.join(home, ".claude"),
+    ".config.json",
+  );
+  const isFile = (file: string) =>
+    fs.stat(file).pipe(
+      Effect.map((info) => info.type === "File"),
+      Effect.orElseSucceed(() => false),
+    );
+  return (yield* isFile(legacy)) &&
+    !(yield* fs.exists(current).pipe(Effect.orElseSucceed(() => true)))
+    ? legacy
+    : current;
+});
 
 /** Claude Code's projects key: the normalized path with forward slashes, on Windows too. */
 export function trustKey(folder: string, path: TrustPath): string {
@@ -91,26 +119,22 @@ const notTrusted = (folder: string, why: string) =>
     notSetUp: false,
   });
 
+// Claude Code may save the file at any moment; an edit made from an older text is redone this often.
+const TRUST_ATTEMPTS = 3;
+
 export const makeClaudeTrust = (deps: {
   readonly fs: FileSystem.FileSystem;
   readonly path: TrustPath;
-  readonly env: { readonly CLAUDE_CONFIG_DIR?: string | undefined };
+  readonly env: ClaudeConfigEnv;
   readonly home: string;
+  readonly files: ConfigFiles;
 }) => {
-  const { fs, path } = deps;
-  const configFile = claudeConfigFile(deps.env, deps.home, path);
-
-  // A symlinked config is written where it points, so the link stays.
-  const target = fs.realPath(configFile).pipe(Effect.orElseSucceed(() => configFile));
-  const read = (file: string) =>
-    fs.readFileString(file).pipe(
-      Effect.map((text): string | null => text),
-      Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(null)),
-    );
+  const { fs, path, files } = deps;
+  const configFile = resolveClaudeConfigFile(fs, path, deps.env, deps.home);
 
   const trusted = Effect.fn("ClaudeTrust.trusted")(
     function* (folder: string) {
-      const text = yield* read(yield* target);
+      const text = yield* files.read(yield* configFile);
       return text !== null && isTrusted(parseConfig(text), folder, path);
     },
     // An unreadable config is untrusted: the write that follows says why it can't go on.
@@ -118,35 +142,33 @@ export const makeClaudeTrust = (deps: {
   );
 
   const trust = Effect.fn("ClaudeTrust.trust")(function* (folder: string) {
-    const file = yield* target;
-    const text = yield* read(file).pipe(
-      Effect.mapError(() => notTrusted(folder, "Claude Code’s settings file couldn’t be read.")),
-    );
-    const next = withTrust(text, folder, path);
-    if (next === null)
-      return yield* notTrusted(folder, "Claude Code’s settings file isn’t in the expected format.");
-    const mode =
-      text === null
-        ? 0o600
-        : yield* fs.stat(file).pipe(
-            Effect.map((info) => info.mode & 0o777),
-            Effect.orElseSucceed(() => 0o600),
-          );
-    const dir = path.dirname(file);
-    yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-      // Beside the target, so the rename stays on one filesystem.
-      Effect.andThen(fs.makeTempDirectory({ directory: dir, prefix: ".claude.json." })),
-      Effect.flatMap((staging) => {
-        const staged = path.join(staging, ".claude.json");
-        return fs.writeFileString(staged, next).pipe(
-          // The config keeps the mode it had; a new one is private.
-          Effect.andThen(fs.chmod(staged, mode)),
-          Effect.andThen(fs.rename(staged, file)),
-          Effect.ensuring(fs.remove(staging, { recursive: true }).pipe(Effect.ignore)),
+    const file = yield* configFile;
+    for (let attempt = 1; ; attempt++) {
+      const text = yield* files
+        .read(file)
+        .pipe(
+          Effect.mapError(() =>
+            notTrusted(folder, "Claude Code’s settings file couldn’t be read."),
+          ),
         );
-      }),
-      Effect.mapError(() => notTrusted(folder, "Claude Code’s settings file couldn’t be written.")),
-    );
+      const next = withTrust(text, folder, path);
+      if (next === null)
+        return yield* notTrusted(
+          folder,
+          "Claude Code’s settings file isn’t in the expected format.",
+        );
+      // The config keeps the mode it had and a rolling .bak; a new one is private.
+      const written = yield* files
+        .writeIfUnchanged(file, next, text)
+        .pipe(
+          Effect.mapError(() =>
+            notTrusted(folder, "Claude Code’s settings file couldn’t be written."),
+          ),
+        );
+      if (written) return;
+      if (attempt === TRUST_ATTEMPTS)
+        return yield* notTrusted(folder, "Claude Code kept changing its settings file.");
+    }
   });
 
   return { trusted, trust };
