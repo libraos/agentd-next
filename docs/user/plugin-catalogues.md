@@ -1,6 +1,6 @@
 # Plugin catalogues
 
-**Plugins** in the sidebar (or **Open plugins** in the command palette) installs plugins from the official LibraOS catalogue and from any GitHub
+**Customize → Plugins** in the sidebar (or **Open plugins** in the command palette) installs plugins from the official LibraOS catalogue and from any GitHub
 repository that holds a catalogue, such as your organisation's own.
 
 A plugin is a Claude Code plugin folder, and a catalogue is a Claude Code marketplace

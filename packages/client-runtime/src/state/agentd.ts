@@ -101,6 +101,37 @@ export function createAgentdEnvironmentAtoms<R, E>(
       tag: WS_METHODS.agentdPluginsSetEnabled,
       scheduler,
     }),
+    // Customize: the agents' own connectors and skills. The listing needs maintain access.
+    connectors: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:connectors",
+      tag: WS_METHODS.agentdCustomizeConnectorsList,
+      staleTimeMs: 30_000,
+    }),
+    connectorSetEnabled: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:connector-set-enabled",
+      tag: WS_METHODS.agentdCustomizeConnectorSetEnabled,
+      scheduler,
+    }),
+    connectorAdd: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:connector-add",
+      tag: WS_METHODS.agentdCustomizeConnectorAdd,
+      scheduler,
+    }),
+    connectorRemove: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:connector-remove",
+      tag: WS_METHODS.agentdCustomizeConnectorRemove,
+      scheduler,
+    }),
+    skillRead: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agentd:skill-read",
+      tag: WS_METHODS.agentdCustomizeSkillRead,
+      staleTimeMs: 30_000,
+    }),
+    skillSetEnabled: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agentd:skill-set-enabled",
+      tag: WS_METHODS.agentdCustomizeSkillSetEnabled,
+      scheduler,
+    }),
     beforeSendReview: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agentd:before-send-review",
       tag: WS_METHODS.agentdBeforeSendReview,

@@ -126,11 +126,9 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.agentdPluginsSetup]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdPluginsSetSettings]: AuthEnvironmentMaintainScope,
   // A listing names the files and commands of the host's agents; adding writes a command to run.
-  [WS_METHODS.agentdCustomizeConnectorsList]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdCustomizeConnectorSetEnabled]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdCustomizeConnectorAdd]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdCustomizeConnectorRemove]: AuthEnvironmentMaintainScope,
-  [WS_METHODS.agentdCustomizeSkillRead]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdCustomizeSkillSetEnabled]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdPluginsAddSource]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdPluginsRemoveSource]: AuthEnvironmentMaintainScope,

@@ -1870,7 +1870,18 @@ function OpenCommandPaletteDialog(props: {
   actionItems.push({
     kind: "action",
     value: "action:plugins",
-    searchTerms: ["plugins", "plugin", "catalogue", "catalog", "extensions", "install"],
+    searchTerms: [
+      "plugins",
+      "plugin",
+      "catalogue",
+      "catalog",
+      "extensions",
+      "install",
+      "customize",
+      "connectors",
+      "mcp",
+      "skills",
+    ],
     title: gt("Open plugins"),
     icon: <PuzzleIcon className={ITEM_ICON_CLASS} />,
     run: async () => {

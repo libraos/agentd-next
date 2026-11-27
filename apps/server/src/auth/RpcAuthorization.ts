@@ -273,6 +273,9 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentdPermissionMode]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdSkillsList]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdPluginsList]: AuthOrchestrationReadScope,
+  // Connector command lines can carry tokens, and skill files are read from anywhere the agent looks.
+  [WS_METHODS.agentdCustomizeConnectorsList]: AuthEnvironmentMaintainScope,
+  [WS_METHODS.agentdCustomizeSkillRead]: AuthEnvironmentMaintainScope,
   [WS_METHODS.agentdBeforeSendReview]: AuthOrchestrationReadScope,
   [WS_METHODS.agentdPlaceholders]: AuthOrchestrationReadScope,
   [WS_METHODS.libraosGatewayStatus]: AuthOrchestrationReadScope,
