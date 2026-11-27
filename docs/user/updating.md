@@ -23,7 +23,7 @@ Next as its next update. What it does depends on the system:
   LibraOS Next. Installing LibraOS Next by hand also uninstalls AgentD Next.
 - **Linux, AppImage:** the update replaces the AppImage file with LibraOS Next and
   starts it.
-- **Linux, `.deb`:** the update installs the `libraos-next` package, which removes
+- **Linux, `.deb`:** the update installs the `lnext` package, which removes
   the `agentd-desktop` package. AgentD Next then closes without starting again:
   start LibraOS Next from your applications menu.
 - **macOS:** the update opens the LibraOS Next release page. Install
@@ -41,8 +41,8 @@ With a mirror set, the desktop app checks the mirror instead.
 
 ## Update a server
 
-A server you run with `libraos-next` from the desktop app updates with the app. The
-`libraos-next update` command and the **Update server** action for remote servers
+A server you run with `lnext` from the desktop app updates with the app. The
+`lnext update` command and the **Update server** action for remote servers
 need a release mirror: set `T3CODE_RELEASE_BASE_URL` on the server's machine to a
 mirror laid out like a GitHub release's downloads, or use the managed policy's
 `updates.feedUrl`. Without one they report "Updates are not configured for this
