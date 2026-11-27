@@ -638,8 +638,10 @@ it.effect(
       yield* h.send;
       expect(h.ran.map((run) => run.cwd)).toEqual([folder]);
       const servers = yield* h.service.mcpServers(PROJECT);
-      expect(servers.legacy?.env.LEGACY_URL).toBe("https://legacy.example");
-      expect(yield* fs.readFileString(servers.legacy!.env.LEGACY_KEY_FILE!)).toBe("legacy-secret");
+      const legacy = servers.legacy;
+      if (legacy === undefined || !("env" in legacy)) throw new Error("legacy is not a program");
+      expect(legacy.env.LEGACY_URL).toBe("https://legacy.example");
+      expect(yield* fs.readFileString(legacy.env.LEGACY_KEY_FILE!)).toBe("legacy-secret");
     }).pipe(Effect.provide(dependencies)),
 );
 

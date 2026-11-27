@@ -137,6 +137,12 @@ const REPO_FILES: Record<string, Uint8Array> = {
             OUTREACH_API_KEY_FILE: "${user_config.outreach_token_file}",
           },
         },
+        docs: {
+          type: "http",
+          url: "https://docs.example/mcp",
+          headers: { "X-Site": "${user_config.outreach_url}" },
+        },
+        feed: { type: "sse", url: "https://feed.example/sse" },
       },
     }),
   ),
@@ -1158,14 +1164,27 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
           env: ["OUTREACH_URL", "OUTREACH_API_KEY_FILE"],
           missing: ["outreach_url", "outreach_token_file"],
         },
+        {
+          name: "docs",
+          command: "https://docs.example/mcp",
+          env: ["X-Site"],
+          missing: ["outreach_url"],
+        },
+        // Codex has no SSE transport, so only Claude, which loads the folder itself, reaches it.
+        { name: "feed", command: "https://feed.example/sse", problem: expect.any(String) },
       ],
       settings: [
         { name: "outreach_url", secret: false, set: false },
         { name: "outreach_token_file", secret: true, set: false },
       ],
     });
+    expect(yield* h.service.claudePlugins(PROJECT)).toEqual([]);
     yield* h.service.setEnabled({ id: "claude", enabled: true });
     expect(yield* h.service.mcpServers(PROJECT)).toEqual({});
+    // Claude loads the folder for its skills before the server's settings are given.
+    expect(yield* h.service.claudePlugins(PROJECT)).toEqual([
+      { path: folder, name: "claude", options: {}, ownServers: ["outreach"] },
+    ]);
     yield* h.service.setSettings({
       id: "claude",
       values: { outreach_url: "https://outreach.example", outreach_token_file: "key-1" },
@@ -1178,6 +1197,7 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
       "outreach_token_file",
     );
     expect(yield* h.service.mcpServers(PROJECT)).toEqual({
+      docs: { url: "https://docs.example/mcp", headers: { "X-Site": "https://outreach.example" } },
       outreach: {
         command: h.path.join(folder, "bin", "server.sh"),
         args: ["mcp", "--data", h.path.join(h.config.stateDir, "plugins", "data", "claude")],
@@ -1185,6 +1205,15 @@ it.effect("installs a Claude plugin from a marketplace and launches its server",
       },
     });
     expect(yield* h.fs.readFileString(keyFile)).toBe("key-1");
+    // Claude gets the secret's file, never its value, and is told which server not to start.
+    expect(yield* h.service.claudePlugins(PROJECT)).toEqual([
+      {
+        path: folder,
+        name: "claude",
+        options: { outreach_url: "https://outreach.example", outreach_token_file: keyFile },
+        ownServers: ["outreach"],
+      },
+    ]);
     // The server's file and a file git marks as run are executable; nothing else is.
     const mode = (file: string) =>
       h.fs.stat(h.path.join(folder, file)).pipe(Effect.map((stat) => stat.mode & 0o111));
@@ -1286,9 +1315,16 @@ it.effect("attaches a plugin's MCP servers to Claude and Codex launches only whe
     });
     const on = launches(servers);
     expect(on.claude?.outreach).toEqual({ type: "stdio", ...servers.outreach });
-    expect(on.codex["mcp_servers.outreach"]).toEqual({
-      ...servers.outreach,
-      env: { ...servers.outreach!.env, T3CODE_THREAD_ID: THREAD },
+    expect(on.codex["mcp_servers.outreach"]).toMatchObject({
+      command: h.path.join(h.cache, "mcp", "1.0.0", "server.sh"),
+      env: { OUTREACH_LOG: "quiet", T3CODE_THREAD_ID: THREAD },
+    });
+    // Claude loads a plugin's remote server from the plugin folder; Codex is given its URL.
+    const remote = launches({ docs: { url: "https://docs.example/mcp", headers: { A: "b" } } });
+    expect(remote.claude).not.toHaveProperty("docs");
+    expect(remote.codex["mcp_servers.docs"]).toEqual({
+      url: "https://docs.example/mcp",
+      http_headers: { A: "b" },
     });
     const off = launches(yield* h.service.mcpServers(other));
     expect(off.claude).not.toHaveProperty("outreach");

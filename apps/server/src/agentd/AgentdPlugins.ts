@@ -32,6 +32,7 @@ import {
   type ProjectId,
   type ThreadId,
 } from "@t3tools/contracts";
+import type { ClaudePluginFolder } from "@t3tools/provider-core/server/mcpSession";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveCommandPath, resolveCommandPaths } from "@t3tools/shared/shell";
 import {
@@ -360,6 +361,10 @@ export class AgentdPluginsService extends Context.Service<
     readonly setSettings: (
       input: AgentdPluginSettingsInput,
     ) => Effect.Effect<AgentdPlugins, AgentdPluginError>;
+    /** The Claude plugin folders on in a project, for Claude to load itself. */
+    readonly claudePlugins: (
+      projectId: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<ClaudePluginFolder>>;
     /**
      * The MCP servers of the plugins on in the project, ready to start, by server name. A server
      * whose command is gone, whose setup has not run or that lacks a setting is left out.
@@ -421,7 +426,12 @@ const PLUGIN_LAYOUT = {
   manifest: PLUGIN_INSTALL_RECORD,
 };
 
-const REMOTE_SERVER = "A remote server is not given to agents yet; only a program is.";
+const CLAUDE_ONLY_SERVER =
+  "Only Claude can use this server: it is SSE or signs in with its own OAuth client.";
+const remoteClaudeOnly = (server: {
+  readonly type: "http" | "sse";
+  readonly oauth?: { readonly clientId?: string };
+}) => server.type === "sse" || server.oauth?.clientId !== undefined;
 
 const fail = (reason: AgentdPluginErrorReason, message: string) =>
   Effect.fail(new AgentdPluginError({ reason, message }));
@@ -998,7 +1008,7 @@ const make = Effect.gen(function* () {
             args: [],
             env: Object.keys(server.headers ?? {}),
             missing,
-            problem: REMOTE_SERVER,
+            ...(remoteClaudeOnly(server) ? { problem: CLAUDE_ONLY_SERVER } : {}),
           } satisfies AgentdPluginMcpServer;
         }
         const command = pluginCommand(server.command);
@@ -1039,30 +1049,77 @@ const make = Effect.gen(function* () {
       .pipe(Effect.tapError(() => fs.remove(temporary).pipe(Effect.ignore)));
   });
 
-  const mcpServers = Effect.fn("AgentdPlugins.mcpServers")(function* (projectId: ProjectId) {
+  /** The plugins on in a project that may run now, each with its settings' values, by id. */
+  const launchable = Effect.fn("AgentdPlugins.launchable")(function* (projectId: ProjectId) {
     const settings = yield* readSettings;
     const sources = yield* readSources;
     const ids = new Set([
       ...Object.keys(settings.enabled),
       ...Object.keys(settings.projects[projectId] ?? {}),
     ]);
-    const servers: Record<string, PluginMcpLaunch> = {};
-    const taken = new Set([APP_MCP_SERVER_NAME, APP_MCP_DIRECT_SERVER_NAME]);
+    const plugins: Array<{
+      readonly id: string;
+      readonly found: Installed;
+      readonly manifest: PluginDefinition;
+      readonly values: Map<string, string>;
+    }> = [];
     for (const id of sortPluginKeys(ids)) {
       if (!pluginEnabled(settings, id, projectId) || !runnable(id, sources)) continue;
       const found = yield* installed(id);
-      const declared = found?.manifest?.mcpServers;
-      if (found === null || declared === undefined) continue;
+      if (found === null || found.manifest === null) continue;
       if (yield* needsSetup(found)) continue;
       const { values } = yield* settingValues(found, settings, true);
+      plugins.push({ id, found, manifest: found.manifest, values });
+    }
+    return plugins;
+  });
+
+  const claudePlugins = Effect.fn("AgentdPlugins.claudePlugins")(function* (projectId: ProjectId) {
+    const folders: Array<ClaudePluginFolder> = [];
+    const names = new Set<string>();
+    for (const { id, found, manifest, values } of yield* launchable(projectId)) {
+      // Claude names a plugin's parts by its name, so the first plugin by id keeps a name.
+      if (!manifest.claude || names.has(manifest.id)) continue;
+      names.add(manifest.id);
+      const options: Record<string, string> = {};
+      for (const setting of manifest.settings) {
+        const value = values.get(setting.name);
+        if (!setting.secret) {
+          if (value !== undefined) options[setting.name] = value;
+          continue;
+        }
+        if (value === undefined) continue;
+        const file = secretFile(id, setting.name);
+        const written = yield* writeSecretFile(file, value).pipe(
+          Effect.as(true),
+          Effect.orElseSucceed(() => false),
+        );
+        if (written) options[setting.name] = file;
+      }
+      folders.push({
+        path: found.folder,
+        name: manifest.id,
+        options,
+        ownServers: Object.entries(manifest.mcpServers)
+          .filter(([, server]) => "command" in server)
+          .map(([name]) => name)
+          .toSorted(),
+      });
+    }
+    return folders;
+  });
+
+  const mcpServers = Effect.fn("AgentdPlugins.mcpServers")(function* (projectId: ProjectId) {
+    const servers: Record<string, PluginMcpLaunch> = {};
+    const taken = new Set([APP_MCP_SERVER_NAME, APP_MCP_DIRECT_SERVER_NAME]);
+    for (const { id, found, manifest, values } of yield* launchable(projectId)) {
+      const declared = manifest.mcpServers;
       const filesWritten = new Set<string>();
       for (const [name, server] of Object.entries(declared).toSorted(([a], [b]) =>
         a.localeCompare(b),
       )) {
         // The first plugin by id keeps a name; the app's own servers keep theirs.
         if (taken.has(name)) continue;
-        // A remote server is listed with its reason; only a program is launched for now.
-        if (!("command" in server)) continue;
         const expanded = expandMcpServer(
           server,
           expandContext(found, (setting) =>
@@ -1073,6 +1130,13 @@ const make = Effect.gen(function* () {
               : (values.get(setting.name) ?? setting.default),
           ),
         );
+        if (!("command" in server)) {
+          // Claude loads a plugin's remote servers itself; this one is for agents given a URL.
+          if (expanded._tag !== "Remote" || remoteClaudeOnly(server)) continue;
+          taken.add(name);
+          servers[name] = { url: expanded.url, headers: expanded.headers };
+          continue;
+        }
         if (expanded._tag !== "Stdio") continue;
         const command = yield* resolveCommand(found.folder, [
           pluginCommand(server.command),
@@ -1082,7 +1146,7 @@ const make = Effect.gen(function* () {
         if (command._tag !== "Program") continue;
         let written = true;
         for (const option of serverSettings(server)) {
-          const secret = found.manifest?.settings.some(
+          const secret = manifest.settings.some(
             (setting) => setting.name === option && setting.secret,
           );
           if (secret !== true || filesWritten.has(option)) continue;
@@ -2195,6 +2259,7 @@ const make = Effect.gen(function* () {
     setup,
     setupDone,
     setSettings,
+    claudePlugins,
     mcpServers,
     setEnabled,
     hasBeforeSend,

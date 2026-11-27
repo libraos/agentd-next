@@ -359,6 +359,9 @@ describe("plugin sources", () => {
     expect(
       parseSourceLink("https://raw.githubusercontent.com/acme/plugins/HEAD/catalog.json"),
     ).toEqual({ repository: "acme/plugins" });
+    expect(
+      parseSourceLink("https://github.com/acme/plugins/blob/main/.claude-plugin/marketplace.json"),
+    ).toEqual({ repository: "acme/plugins" });
     for (const bad of [
       "",
       "/home/me/plugin",

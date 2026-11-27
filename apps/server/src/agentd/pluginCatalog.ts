@@ -123,11 +123,12 @@ export interface SourceLink {
 }
 
 const GITHUB_HOSTS = new Set(["github.com", "www.github.com"]);
+const CATALOG_FILES = new Set(["catalog.json", "marketplace.json"]);
 
 /**
  * A source as typed or pasted: `owner/repo`, the repository's link, a link to a folder in it
- * (`github.com/OWNER/REPO/tree/BRANCH/PATH`) or to its catalog.json (on github.com or the raw
- * host). Anything else is null, and nothing here ever names a folder on this computer.
+ * (`github.com/OWNER/REPO/tree/BRANCH/PATH`) or to its catalog.json or marketplace.json (on
+ * github.com or the raw host). Anything else is null, and nothing here ever names a folder on this computer.
  */
 export function parseSourceLink(input: string): SourceLink | null {
   const trimmed = input.trim();
@@ -155,14 +156,14 @@ export function parseSourceLink(input: string): SourceLink | null {
   const repository = sourceRepository(`${owner}/${name}`);
   if (repository === null) return null;
   if (url.host === "raw.githubusercontent.com") {
-    return rest.length >= 2 && rest.at(-1) === "catalog.json" ? { repository } : null;
+    return rest.length >= 2 && CATALOG_FILES.has(rest.at(-1) ?? "") ? { repository } : null;
   }
   if (!GITHUB_HOSTS.has(url.host)) return null;
   if (rest.length === 0) return { repository };
   if (rest[0] === "tree" && rest.length >= 2) {
     return rest.length === 2 ? { repository } : { repository, tree: rest.slice(1).join("/") };
   }
-  if (rest[0] === "blob" && rest.length >= 3 && rest.at(-1) === "catalog.json") {
+  if (rest[0] === "blob" && rest.length >= 3 && CATALOG_FILES.has(rest.at(-1) ?? "")) {
     return { repository };
   }
   return null;
@@ -556,12 +557,14 @@ export function withPluginValues(
 /** The secret store's name for a plugin's secret setting; ids and setting names hold no dot. */
 export const pluginSecretName = (id: string, setting: string) => `agentd-plugin.${id}.${setting}`;
 
-/** A server as a launch gets it: a program, its args and the env it adds. */
-export interface PluginMcpLaunch {
-  readonly command: string;
-  readonly args: ReadonlyArray<string>;
-  readonly env: Readonly<Record<string, string>>;
-}
+/** A server as a launch gets it: a program with its args and added env, or a streamable HTTP URL. */
+export type PluginMcpLaunch =
+  | {
+      readonly command: string;
+      readonly args: ReadonlyArray<string>;
+      readonly env: Readonly<Record<string, string>>;
+    }
+  | { readonly url: string; readonly headers: Readonly<Record<string, string>> };
 
 export type McpServerEnv =
   | { readonly _tag: "Ready"; readonly env: Readonly<Record<string, string>> }

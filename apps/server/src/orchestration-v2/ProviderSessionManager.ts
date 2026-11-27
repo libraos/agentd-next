@@ -727,6 +727,12 @@ export const layerWithOptions = (
                           ),
                           Effect.orElseSucceed(() => ({})),
                         ),
+                        claudePlugins: projectionStore.getThread(threadId).pipe(
+                          Effect.flatMap((thread) =>
+                            agentdPlugins.value.claudePlugins(thread.projectId),
+                          ),
+                          Effect.orElseSucceed(() => []),
+                        ),
                       }),
                   hasPendingWake: projectionStore
                     .getThreadRecords(threadId, ["runs", "subagents"])

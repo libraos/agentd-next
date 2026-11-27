@@ -1734,8 +1734,8 @@ export function codexThreadRuntimeParams(input: {
   readonly threadId: ThreadId | null;
   readonly mcpSession: McpProviderSession.McpProviderSessionConfig | undefined;
   readonly stdioMcpServers?: ReadonlyArray<string>;
-  /** Plugins' stdio servers for this thread; config overrides, so ~/.codex/config.toml is untouched. */
-  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.McpStdioServer>>;
+  /** Plugins' servers for this thread; config overrides, so ~/.codex/config.toml is untouched. */
+  readonly pluginMcpServers?: Readonly<Record<string, McpProviderSession.PluginMcpServer>>;
   readonly modelSelection?: { readonly model: string };
   readonly runtimePolicy?: ProviderAdapter.ProviderAdapterV2RuntimePolicy;
   readonly startEffort?: string | undefined;
@@ -1778,16 +1778,18 @@ export function codexThreadRuntimeParams(input: {
       ...Object.fromEntries(
         Object.entries(input.pluginMcpServers ?? {}).map(([name, server]) => [
           `mcp_servers.${name}`,
-          {
-            command: server.command,
-            args: [...server.args],
-            env: {
-              ...server.env,
-              ...(input.threadId === null
-                ? {}
-                : { [PortScanner.AGENT_THREAD_ENV]: input.threadId }),
-            },
-          },
+          "command" in server
+            ? {
+                command: server.command,
+                args: [...server.args],
+                env: {
+                  ...server.env,
+                  ...(input.threadId === null
+                    ? {}
+                    : { [PortScanner.AGENT_THREAD_ENV]: input.threadId }),
+                },
+              }
+            : { url: server.url, http_headers: { ...server.headers } },
         ]),
       ),
       ...(t3Server === undefined
