@@ -771,6 +771,7 @@ const SPLIT_WS_RPC_PREFIXES = [
   "issueTrackers",
   "provider",
   "orchestration",
+  "libraosGateway",
 ] as const;
 type SplitWsRpc = Extract<
   ServerWsRpc,
@@ -4013,6 +4014,8 @@ export const layerWsRpc = (
         [WS_METHODS.libraosGatewaySignInCancel]: (_input) => libraosGateway.signInCancel,
         [WS_METHODS.libraosGatewayCredits]: (_input) => libraosGateway.credits,
         [WS_METHODS.libraosGatewayCheckout]: (input) => libraosGateway.checkout(input.usd),
+        [WS_METHODS.libraosGatewayPlans]: (_input) => libraosGateway.plans,
+        [WS_METHODS.libraosGatewayPlanCheckout]: (input) => libraosGateway.planCheckout(input.plan),
       });
       const splitHandlers: Pick<typeof handlers, SplitWsRpc["_tag"]> = handlers;
       const otherHandlers: Pick<typeof handlers, Exclude<ServerWsRpc, SplitWsRpc>["_tag"]> =

@@ -6,6 +6,7 @@ import {
   type LibraosGatewayCheckout,
   type LibraosGatewayCredits,
   type LibraosGatewayModel,
+  type LibraosGatewayPlans,
   type LibraosGatewaySignIn,
   type LibraosGatewaySignInPurpose,
   type LibraosGatewayStatus,
@@ -32,7 +33,7 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
-import { readCheckoutAnswer, readCreditsAnswer } from "./gatewayCredits.ts";
+import { readCheckoutAnswer, readCreditsAnswer, readPlansAnswer } from "./gatewayCredits.ts";
 import { askGatewayModels } from "./gatewayKeyModels.ts";
 import {
   GATEWAY_INSTANCE_IDS,
@@ -95,6 +96,12 @@ export class LibraosGateway extends Context.Service<
     readonly credits: Effect.Effect<LibraosGatewayCredits | null, LibraosGatewayError>;
     /** Asks Console for a Stripe Checkout of `usd`; the person pays in their browser. */
     readonly checkout: (usd: number) => Effect.Effect<LibraosGatewayCheckout, LibraosGatewayError>;
+    /** Console's plans for the connected key's account; null when none is connected or none sold. */
+    readonly plans: Effect.Effect<LibraosGatewayPlans | null, LibraosGatewayError>;
+    /** Asks Console for a Stripe Checkout of a plan; the person subscribes in their browser. */
+    readonly planCheckout: (
+      plan: string,
+    ) => Effect.Effect<LibraosGatewayCheckout, LibraosGatewayError>;
   }
 >()("t3/gateway/LibraosGateway") {}
 
@@ -720,6 +727,33 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     },
   );
 
+  const plans: LibraosGateway["Service"]["plans"] = Effect.gen(function* () {
+    const key = yield* readKey;
+    if (Option.isNone(key)) return null;
+    const request = HttpClientRequest.get(`${LIBRAOS_CLOUD_ORIGIN}/v1/plans`).pipe(
+      HttpClientRequest.acceptJson,
+    );
+    const answer = yield* cloudCall(request, key.value);
+    const read = readPlansAnswer(answer.status, answer.body);
+    if ("refusal" in read) return yield* fail(read.refusal);
+    return read.plans;
+  }).pipe(Effect.withSpan("LibraosGateway.plans"));
+
+  const planCheckout: LibraosGateway["Service"]["planCheckout"] = Effect.fn(
+    "LibraosGateway.planCheckout",
+  )(function* (plan) {
+    const key = yield* readKey;
+    if (Option.isNone(key)) return yield* fail("Connect the LibraOS Gateway to choose a plan.");
+    const request = HttpClientRequest.post(`${LIBRAOS_CLOUD_ORIGIN}/v1/plans/checkout`).pipe(
+      HttpClientRequest.acceptJson,
+      HttpClientRequest.bodyJsonUnsafe({ plan }),
+    );
+    const answer = yield* cloudCall(request, key.value);
+    const read = readCheckoutAnswer(answer.status, answer.body);
+    if ("refusal" in read) return yield* fail(read.refusal);
+    return read;
+  });
+
   return LibraosGateway.of({
     status,
     connect,
@@ -731,6 +765,8 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     signInCancel,
     credits,
     checkout,
+    plans,
+    planCheckout,
   });
 });
 

@@ -82,6 +82,18 @@ agent stopped. Pi cannot resume a turn, so with Pi send a message instead. A
 used-up Token Plan shows the same card with **Buy credits**. Starting a cloud
 worker without enough credit offers **Buy credits** too.
 
+### LibraOS plans
+
+Beside the balance, **Plans** lists the plans LibraOS offers, with their price
+and what each includes. **Subscribe** opens Stripe Checkout in your browser, as
+buying credits does; the plans refresh when you come back to the app. Your plan
+shows as **Current plan**, and **Manage plan** opens the LibraOS Console, where
+you change or cancel it. A plan marked **Coming soon** cannot be chosen yet. The
+out-of-credits card offers **See plans** too. To get there from anywhere, search
+Settings for "plans" or run **See LibraOS plans** from the command palette. When
+LibraOS has no plans to show here, **See plans** opens the LibraOS Console
+instead, and the out-of-credits card offers only **Buy credits**.
+
 With **Custom endpoint**, enter a gateway URL with or without a trailing `/v1`.
 Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi.
 **OpenAI** supports Codex, opencode, and Pi. **Anthropic** supports Claude Code

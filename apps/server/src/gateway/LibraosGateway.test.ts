@@ -75,6 +75,9 @@ function setup(
     /** What Console answers GET /v1/credits and POST /v1/credits/checkout; 404 when absent. */
     readonly credits?: { readonly status: number; readonly body: unknown };
     readonly checkout?: { readonly status: number; readonly body: unknown };
+    /** What Console answers GET /v1/plans and POST /v1/plans/checkout; 404 when absent. */
+    readonly plans?: { readonly status: number; readonly body: unknown };
+    readonly planCheckout?: { readonly status: number; readonly body: unknown };
   } = {},
 ) {
   // What Console says of the key now: served, revoked, or the Gateway is down.
@@ -140,7 +143,11 @@ function setup(
         ? options.credits
         : url.pathname === "/v1/credits/checkout" && method === "POST"
           ? options.checkout
-          : undefined;
+          : url.pathname === "/v1/plans" && method === "GET"
+            ? options.plans
+            : url.pathname === "/v1/plans/checkout" && method === "POST"
+              ? options.planCheckout
+              : undefined;
     if (billing !== undefined) return Response.json(billing.body, { status: billing.status });
     return Response.json({ error: "not_found" }, { status: 404 });
   };
@@ -854,4 +861,216 @@ it.effect("checkout refuses an amount Console refuses, and falls back while bill
       assert.strictEqual(error.message, "LibraOS answered with an unreadable checkout.");
     }).pipe(Effect.provide(odd.layer));
   }),
+);
+
+const plansBody = {
+  plans: [
+    {
+      id: "personal",
+      name: "Personal",
+      price_usd: 20,
+      interval: "month",
+      summary: "For one person.",
+      state: "current",
+    },
+    {
+      id: "pro",
+      name: "Pro",
+      price_usd: 200,
+      interval: "year",
+      summary: "More tokens.",
+      state: "available",
+    },
+    {
+      id: "team",
+      name: "Team",
+      price_usd: 50,
+      interval: "month",
+      summary: "",
+      state: "coming_soon",
+    },
+    // Unreadable entries are left out; an unknown state shows the plan with nothing to click.
+    { id: "odd", name: "Odd", price_usd: "free", interval: "month", state: "available" },
+    { id: "later", name: "Later", price_usd: 5, interval: "month", summary: "", state: "beta" },
+  ],
+  current: "personal",
+  manage_url: "https://console.libraos.com/plans?ws=acme",
+};
+
+it.effect("plans reads Console's plans with the connected key", () => {
+  const { cloud, layer } = setup({ plans: { status: 200, body: plansBody } });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    assert.isNull(yield* gateway.plans);
+    assert.lengthOf(cloud, 0);
+    yield* gateway.connect(GOOD_KEY);
+    assert.deepStrictEqual(yield* gateway.plans, {
+      plans: [
+        {
+          id: "personal",
+          name: "Personal",
+          priceUsd: 20,
+          interval: "month",
+          summary: "For one person.",
+          state: "current",
+        },
+        {
+          id: "pro",
+          name: "Pro",
+          priceUsd: 200,
+          interval: "year",
+          summary: "More tokens.",
+          state: "available",
+        },
+        {
+          id: "team",
+          name: "Team",
+          priceUsd: 50,
+          interval: "month",
+          summary: "",
+          state: "coming_soon",
+        },
+        {
+          id: "later",
+          name: "Later",
+          priceUsd: 5,
+          interval: "month",
+          summary: "",
+          state: "unavailable",
+        },
+      ],
+      current: "personal",
+      manageUrl: "https://console.libraos.com/plans?ws=acme",
+    });
+    assert.deepStrictEqual(cloud.at(-1), {
+      method: "GET",
+      url: "/v1/plans",
+      authorization: `Bearer ${GOOD_KEY}`,
+      body: "",
+    });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect(
+  "a Console without plans answers none, and a manage page that is not https falls back",
+  () =>
+    Effect.gen(function* () {
+      for (const plans of [
+        undefined,
+        { status: 501, body: { error: { type: "plans_unavailable", message: "No plans." } } },
+      ]) {
+        const { layer } = setup(plans === undefined ? {} : { plans });
+        yield* Effect.gen(function* () {
+          const gateway = yield* LibraosGateway.LibraosGateway;
+          yield* gateway.connect(GOOD_KEY);
+          assert.isNull(yield* gateway.plans);
+        }).pipe(Effect.provide(layer));
+      }
+
+      const odd = setup({
+        plans: { status: 200, body: { plans: [], current: null, manage_url: "http://evil.test" } },
+      });
+      yield* Effect.gen(function* () {
+        const gateway = yield* LibraosGateway.LibraosGateway;
+        yield* gateway.connect(GOOD_KEY);
+        assert.deepStrictEqual(yield* gateway.plans, {
+          plans: [],
+          current: null,
+          manageUrl: "https://console.libraos.com/credits",
+        });
+      }).pipe(Effect.provide(odd.layer));
+    }),
+);
+
+it.effect("a key Console refuses fails plans with Console's message", () => {
+  const { layer } = setup({
+    plans: {
+      status: 401,
+      body: { error: { type: "invalid_api_key", message: "This API key was revoked." } },
+    },
+  });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    yield* gateway.connect(GOOD_KEY);
+    const error = yield* Effect.flip(gateway.plans);
+    assert.strictEqual(
+      error.message,
+      "LibraOS could not read the plans: This API key was revoked.",
+    );
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("planCheckout returns Stripe's page for the plan chosen", () => {
+  const url = "https://checkout.stripe.com/c/pay/cs_test_plan";
+  const { cloud, layer } = setup({ planCheckout: { status: 200, body: { url } } });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    const before = yield* Effect.flip(gateway.planCheckout("pro"));
+    assert.strictEqual(before.message, "Connect the LibraOS Gateway to choose a plan.");
+    yield* gateway.connect(GOOD_KEY);
+    assert.deepStrictEqual(yield* gateway.planCheckout("pro"), { url });
+    assert.deepStrictEqual(cloud.at(-1), {
+      method: "POST",
+      url: "/v1/plans/checkout",
+      authorization: `Bearer ${GOOD_KEY}`,
+      body: JSON.stringify({ plan: "pro" }),
+    });
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect(
+  "planCheckout says why Console refused, and falls back while plans or billing are down",
+  () =>
+    Effect.gen(function* () {
+      for (const [answer, message] of [
+        [
+          {
+            status: 409,
+            body: { error: { type: "plan_active", message: "You already have Pro." } },
+          },
+          "LibraOS could not start a checkout: You already have Pro.",
+        ],
+        [
+          { status: 400, body: { error: { type: "invalid_plan", message: "No such plan." } } },
+          "LibraOS could not start a checkout: No such plan.",
+        ],
+        [
+          { status: 429, body: { error: { type: "rate_limited", message: "Slow down." } } },
+          "LibraOS could not start a checkout: Slow down.",
+        ],
+        [
+          {
+            status: 502,
+            body: { error: { type: "billing_error", message: "Stripe did not answer." } },
+          },
+          "LibraOS could not start a checkout: Stripe did not answer.",
+        ],
+        [
+          { status: 200, body: { url: "http://checkout.stripe.com/c/pay/cs_test" } },
+          "LibraOS answered with an unreadable checkout.",
+        ],
+      ] as const) {
+        const { layer } = setup({ planCheckout: answer });
+        yield* Effect.gen(function* () {
+          const gateway = yield* LibraosGateway.LibraosGateway;
+          yield* gateway.connect(GOOD_KEY);
+          const error = yield* Effect.flip(gateway.planCheckout("pro"));
+          assert.strictEqual(error.message, message);
+        }).pipe(Effect.provide(layer));
+      }
+
+      for (const answer of [
+        undefined,
+        { status: 503, body: { error: { type: "billing_unavailable", message: "Try later." } } },
+      ]) {
+        const { layer } = setup(answer === undefined ? {} : { planCheckout: answer });
+        yield* Effect.gen(function* () {
+          const gateway = yield* LibraosGateway.LibraosGateway;
+          yield* gateway.connect(GOOD_KEY);
+          assert.deepStrictEqual(yield* gateway.planCheckout("pro"), {
+            url: "https://console.libraos.com/credits",
+          });
+        }).pipe(Effect.provide(layer));
+      }
+    }),
 );

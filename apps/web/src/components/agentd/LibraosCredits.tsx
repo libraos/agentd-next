@@ -10,7 +10,13 @@ import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { formatCreditsUsd, isLowLibraosBalance } from "./libraosCredits.logic";
 
-function ExternalLink({ href, children }: { readonly href: string; readonly children: string }) {
+export function ExternalLink({
+  href,
+  children,
+}: {
+  readonly href: string;
+  readonly children: string;
+}) {
   return (
     <a
       href={href}

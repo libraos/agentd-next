@@ -1132,6 +1132,14 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "libraos-plans",
+    title: msg("LibraOS plans"),
+    to: "/settings/providers",
+    searchTerms: [
+      msg("plans plan subscribe subscription monthly yearly billing stripe gateway libraos"),
+    ],
+  },
+  {
     id: "usage-providers",
     title: msg("Usage providers"),
     to: "/settings/providers",
