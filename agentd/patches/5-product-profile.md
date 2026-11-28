@@ -4,8 +4,7 @@ The profile controls what AgentD Desktop and its web UI show, not what a connect
 
 Windows and Linux use the same UI flags and URL routes; no filesystem paths, shell commands, or native code changed. Browser checks ran on Linux, not on Windows.
 
-- `apps/web/src/productProfile.ts` — defines one default-off switch per overlapping area. `sharingAndAccess` is on, so a phone can pair from Settings → Sharing & access; `guestLinks` stays off because guests arrive through the hosted relay.
-- `apps/web/src/productProfile.test.ts` — exercises default-off redirects and verifies that each affected URL opens when its flag is on.
+- `apps/web/src/productProfile.ts` — one switch per area. Everything is on again except `guestLinks` (guests arrive through the hosted relay) and `mobileApp` (its buttons open T3 Code's store listings).
 - `apps/web/src/state/environments.ts` — combines the existing sidebar availability checks with the profile, without touching shared sidebar code or changing server capabilities.
 - `apps/web/src/components/CommandPalette.tsx` — filters optional navigation and related thread actions, including Share with guest (`guestLinks`), without replacing existing permission checks.
 - `apps/web/src/components/CommandPalette.composition.browser.test.tsx` — checks that a capable environment does not expose hidden actions and Usage stays available.
@@ -32,6 +31,6 @@ Windows and Linux use the same UI flags and URL routes; no filesystem paths, she
 - `apps/web/src/routes/_chat.workflows.tsx` — redirects disabled Workflows visits to chat.
 - `apps/web/src/components/workflows/useWorkflowEnvironmentIds.ts` — no environment offers workflows while the profile hides them, so the command palette has no Open workflows.
 - `apps/web/src/components/ChatView.tsx` — a workflow step thread does not link back to its run while workflows are hidden.
-- `apps/mobile/src/features/agentd/productProfile.ts` (new) — the phone's switches for workflows and agent feedback.
+- `apps/mobile/src/features/agentd/productProfile.ts` (new) — the phone's switches for workflows and agent feedback, both on.
 - `apps/mobile/src/Stack.tsx` — the workflow run screen has no deep link while workflows are hidden (its tab is already off the tab bar upstream).
 - `apps/mobile/src/features/settings/ThreadSettingsSections.tsx` — hides the Agent feedback section.

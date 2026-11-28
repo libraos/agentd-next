@@ -110,7 +110,7 @@ describe("searchSettings", () => {
 
   it("keeps disabled product areas out of navigation and search", () => {
     const paths = settingsNavGroups(true).flatMap((group) => group.paths);
-    expect(paths).not.toContain("/settings/scheduled-tasks");
+    expect(paths).toContain("/settings/scheduled-tasks");
     expect(paths).toContain("/settings/access");
     expect(paths).toContain("/settings/source-control");
     expect(paths).toContain("/settings/diffs");
@@ -120,14 +120,8 @@ describe("searchSettings", () => {
     expect(decodeMsg(SETTINGS_SECTION_LABELS["/settings/diffs"])).toBe("Diffs");
 
     for (const [query, hiddenId] of [
-      ["scheduled tasks", "scheduled-tasks"],
-      ["workflow", "workflows-beta"],
-      ["agent feedback", "agent-feedback"],
       ["guest links", "guest-links"],
       ["mobile app", "mobile-app"],
-      ["issue trackers", "issue-trackers"],
-      ["open pull requests", "pull-request-links-open-in-app"],
-      ["pull request sharing", "pull-request-routing"],
     ] as const) {
       expect(searchSettings(query).map((item) => item.id)).not.toContain(hiddenId);
     }

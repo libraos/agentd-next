@@ -144,22 +144,6 @@ vi.mock("./settings/useAvailableSettingsSearchItems", () => ({
   useAvailableSettingsSearchItems: () => [],
 }));
 
-it("keeps usage but hides overlapping actions even on a capable environment", async () => {
-  setup();
-  await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
-  await act(() => openCommandPalette({ query: "open" }));
-  await expect.element(page.getByRole("option", { name: /Open usage/ })).toBeVisible();
-  await expect.element(page.getByRole("option", { name: /Open issues/ })).not.toBeInTheDocument();
-  await expect
-    .element(page.getByRole("option", { name: /Open pull requests/ }))
-    .not.toBeInTheDocument();
-
-  await page.getByRole("combobox").fill("triage an issue");
-  await expect
-    .element(page.getByRole("option", { name: /Triage an issue/ }))
-    .not.toBeInTheDocument();
-});
-
 // The real palette and Base UI input must agree that confirming composition is typing.
 describe.each(["repository", "folder", "destination"] as const)("add-project %s", (step) => {
   it.each([
