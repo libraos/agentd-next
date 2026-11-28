@@ -40,6 +40,16 @@ export function customGatewayWorkerUrl(agent: CustomGatewayAgent, url: string): 
   return agent === "claude" ? origin : `${origin}/v1`;
 }
 
+/** What a gateway's model makes when it is not a chat model; agents cannot chat with it. */
+export const CustomGatewayMediaKind = Schema.Literals(["video", "image", "audio", "other"]);
+export type CustomGatewayMediaKind = typeof CustomGatewayMediaKind.Type;
+
+export const CustomGatewayMediaModel = Schema.Struct({
+  id: Schema.String,
+  kind: CustomGatewayMediaKind,
+});
+export type CustomGatewayMediaModel = typeof CustomGatewayMediaModel.Type;
+
 /** Stored in server settings; the key is in the server's secret store. */
 export const CustomGatewaySetting = Schema.Struct({
   id: CustomGatewayId,
@@ -48,6 +58,8 @@ export const CustomGatewaySetting = Schema.Struct({
   format: CustomGatewayFormat,
   /** Models the gateway lists that its agents do not offer. */
   hiddenModels: Schema.optional(Schema.Array(Schema.String)),
+  /** Models its last list marked as video, image, audio or vectors, which stay out of chat. */
+  mediaModels: Schema.optional(Schema.Array(CustomGatewayMediaModel)),
 });
 export type CustomGatewaySetting = typeof CustomGatewaySetting.Type;
 
@@ -61,6 +73,8 @@ export const CustomGatewaySummary = Schema.Struct({
   /** The models its agents offer, and the ones turned off. */
   models: Schema.Array(Schema.String),
   hiddenModels: Schema.Array(Schema.String),
+  /** Listed models that are not chat models, so no agent offers them. */
+  mediaModels: Schema.Array(CustomGatewayMediaModel),
   /** The agents this gateway has on this environment. */
   agents: Schema.Array(CustomGatewayAgent),
 });

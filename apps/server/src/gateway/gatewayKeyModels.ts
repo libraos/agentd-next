@@ -1,4 +1,5 @@
 import {
+  type CustomGatewayMediaModel,
   type CustomModelSetting,
   LIBRAOS_GATEWAY_ORIGIN,
   type LibraosGatewayModel,
@@ -21,13 +22,19 @@ import {
   gatewayAgentModels,
   gatewayRefusal,
   isKeyRefusal,
+  parseGatewayMediaModels,
   parseGatewayModels,
 } from "./gatewaySetup.ts";
 
 const CHECK_TIMEOUT = Duration.seconds(15);
 
 export type GatewayModelsAnswer =
-  | { readonly kind: "models"; readonly models: ReadonlyArray<LibraosGatewayModel> }
+  | {
+      readonly kind: "models";
+      readonly models: ReadonlyArray<LibraosGatewayModel>;
+      /** Listed models that are not for chat: video, image, audio or vectors. */
+      readonly media: ReadonlyArray<CustomGatewayMediaModel>;
+    }
   /** 401/403: the key is revoked, deleted or may not list models. */
   | { readonly kind: "refused"; readonly message: string }
   | { readonly kind: "unavailable"; readonly message: string };
@@ -77,7 +84,7 @@ export const askModels = Effect.fn("Gateway.askModels")(function* (gateway: {
             kind: "unavailable",
             message: `${gateway.name} answered with an unreadable model list.`,
           }
-        : { kind: "models", models }
+        : { kind: "models", models, media: parseGatewayMediaModels(body) }
     ) satisfies GatewayModelsAnswer;
   });
   // The deadline covers the body too: a gateway that stalls mid-answer must not hold a refresh.
