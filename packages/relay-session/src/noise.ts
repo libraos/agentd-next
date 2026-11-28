@@ -5,6 +5,8 @@ import { x25519 } from "@noble/curves/ed25519";
 import { blake2s } from "@noble/hashes/blake2s";
 import { hmac } from "@noble/hashes/hmac";
 
+import { getTransportNonceStart } from "./nonceSeam.ts";
+
 export const NOISE_PROTOCOL_NAME = "Noise_XK_25519_ChaChaPoly_BLAKE2s";
 export const KEY_LENGTH = 32;
 export const TAG_LENGTH = 16;
@@ -60,10 +62,18 @@ const hkdf = (chainingKey: Uint8Array, input: Uint8Array): [Uint8Array, Uint8Arr
   return [first, second];
 };
 
+let setNonce: (cipher: CipherState, nonce: number) => void;
+
 /** One direction of a Noise session: a key and a counting nonce. */
 export class CipherState {
   #key: Uint8Array | undefined;
   #nonce = 0;
+
+  static {
+    setNonce = (cipher, nonce) => {
+      cipher.#nonce = nonce;
+    };
+  }
 
   constructor(key?: Uint8Array) {
     this.#key = key;
@@ -141,7 +151,9 @@ class SymmetricState {
 
   split(): [CipherState, CipherState] {
     const [first, second] = hkdf(this.chainingKey, new Uint8Array(0));
-    return [new CipherState(first), new CipherState(second)];
+    const ciphers: [CipherState, CipherState] = [new CipherState(first), new CipherState(second)];
+    for (const cipher of ciphers) setNonce(cipher, getTransportNonceStart());
+    return ciphers;
   }
 }
 

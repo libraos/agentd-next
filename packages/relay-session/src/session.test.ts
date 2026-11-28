@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { encodeText } from "./frames.ts";
-import { generateKeyPair, type KeyPair } from "./noise.ts";
+import { generateKeyPair, type KeyPair, NONCE_LIMIT } from "./noise.ts";
+import { setTransportNonceStart } from "./nonceSeam.ts";
 import { type HandshakeClaims, SecureSession, SessionCloseCode } from "./session.ts";
 
 const HOST_ID = "host-1";
@@ -11,10 +12,13 @@ interface Pair {
   readonly host: SecureSession;
   readonly hostReceived: Array<string>;
   readonly hostClose: Array<number>;
+  readonly deviceReceived: Array<string>;
+  readonly deviceClose: Array<number>;
   readonly claims: Array<HandshakeClaims>;
   /** Delivers queued messages until neither side has more. */
   readonly pump: () => Promise<void>;
   readonly toHost: Array<Uint8Array>;
+  readonly toDevice: Array<Uint8Array>;
 }
 
 const connect = (input: {
@@ -27,6 +31,8 @@ const connect = (input: {
   const toDevice: Array<Uint8Array> = [];
   const hostReceived: Array<string> = [];
   const hostClose: Array<number> = [];
+  const deviceReceived: Array<string> = [];
+  const deviceClose: Array<number> = [];
   const claims: Array<HandshakeClaims> = [];
   const host = SecureSession.responder({
     transport: { send: (data) => toDevice.push(data), close: () => {} },
@@ -45,6 +51,8 @@ const connect = (input: {
     staticKeyPair: generateKeyPair(),
     hostStaticKey: input.hostKeyOnDevice,
     ...(input.pairingCode === undefined ? {} : { pairingCode: input.pairingCode }),
+    onMessage: (plaintext) => deviceReceived.push(new TextDecoder().decode(plaintext)),
+    onClose: (code) => deviceClose.push(code),
   });
   const pump = async () => {
     while (toHost.length > 0 || toDevice.length > 0) {
@@ -54,7 +62,18 @@ const connect = (input: {
       await device.settled();
     }
   };
-  return { device, host, hostReceived, hostClose, claims, pump, toHost };
+  return {
+    device,
+    host,
+    hostReceived,
+    hostClose,
+    deviceReceived,
+    deviceClose,
+    claims,
+    pump,
+    toHost,
+    toDevice,
+  };
 };
 
 describe("SecureSession", () => {
@@ -113,4 +132,80 @@ describe("SecureSession", () => {
     expect(pair.hostReceived).toEqual([]);
     expect(pair.hostClose).toEqual([SessionCloseCode.NOT_AUTHORIZED]);
   });
+});
+
+describe("SecureSession nonce limit", () => {
+  afterEach(() => setTransportNonceStart(0));
+
+  const openNearLimit = async () => {
+    setTransportNonceStart(NONCE_LIMIT - 2);
+    const hostKeys = generateKeyPair();
+    const pair = connect({ hostKeys, hostKeyOnDevice: hostKeys.publicKey, allow: true });
+    await pair.pump();
+    expect(pair.device.isOpen).toBe(true);
+    expect(pair.host.isOpen).toBe(true);
+    return pair;
+  };
+
+  const sides = [
+    {
+      sender: "device",
+      parts: (pair: Pair) => ({
+        from: pair.device,
+        to: pair.host,
+        outbox: pair.toHost,
+        received: pair.hostReceived,
+        senderClose: pair.deviceClose,
+        receiverClose: pair.hostClose,
+      }),
+    },
+    {
+      sender: "host",
+      parts: (pair: Pair) => ({
+        from: pair.host,
+        to: pair.device,
+        outbox: pair.toDevice,
+        received: pair.deviceReceived,
+        senderClose: pair.hostClose,
+        receiverClose: pair.deviceClose,
+      }),
+    },
+  ] as const;
+
+  it.each(sides)(
+    "the $sender sends up to the cutoff, then closes instead of sending past it",
+    async (side) => {
+      const pair = await openNearLimit();
+      const { from, outbox, received, senderClose } = side.parts(pair);
+      from.send(encodeText("at limit - 2"));
+      from.send(encodeText("at limit - 1"));
+      expect(outbox).toHaveLength(2);
+      from.send(encodeText("past the limit"));
+      expect(outbox).toHaveLength(2);
+      expect(from.isClosed).toBe(true);
+      expect(senderClose).toEqual([SessionCloseCode.REKEY]);
+      await pair.pump();
+      expect(received).toEqual(["at limit - 2", "at limit - 1"]);
+    },
+  );
+
+  it.each(sides)(
+    "the $sender's peer receives up to the cutoff, then closes on the next message",
+    async (side) => {
+      const pair = await openNearLimit();
+      const { from, to, outbox, received, receiverClose } = side.parts(pair);
+      from.send(encodeText("at limit - 2"));
+      from.send(encodeText("at limit - 1"));
+      const replay = outbox[1]!.slice();
+      await pair.pump();
+      expect(received).toEqual(["at limit - 2", "at limit - 1"]);
+      expect(to.isOpen).toBe(true);
+      // The sender cannot produce a message at the cutoff; any further message must close the receiver.
+      to.receive(replay);
+      await to.settled();
+      expect(received).toEqual(["at limit - 2", "at limit - 1"]);
+      expect(to.isClosed).toBe(true);
+      expect(receiverClose).toEqual([SessionCloseCode.REKEY]);
+    },
+  );
 });
