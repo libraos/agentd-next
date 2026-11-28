@@ -44,6 +44,8 @@ const state = vi.hoisted(() => ({
   openTerminal: vi.fn(),
   writeTerminal: vi.fn(),
   closeTerminal: vi.fn(),
+  libraosStart: vi.fn(),
+  libraosView: null as unknown,
 }));
 
 vi.mock(import("@t3tools/client-runtime/state/session"), async (original) => {
@@ -79,6 +81,28 @@ vi.mock(import("../../state/server"), async (original) => {
     },
   };
 });
+// Signed out of LibraOS: the row's Sign in starts the sign-in, whose view replaces the page.
+vi.mock(import("../../lib/libraosGatewayState"), async (original) => ({
+  ...(await original()),
+  useLibraosGateway: (() => ({
+    environmentId: "primary",
+    data: { connected: false, refusal: null, signIn: null, models: [], account: null },
+    error: null,
+    isPending: false,
+    isSuccess: true,
+    refresh: () => {},
+  })) as never,
+  useLibraosSignIn: (() => ({
+    environmentId: "primary",
+    canChange: true,
+    view: state.libraosView,
+    signedIn: false,
+    start: state.libraosStart,
+    follow: () => {},
+    cancel: () => {},
+    finish: () => {},
+  })) as never,
+}));
 vi.mock(import("../../state/entities"), async (original) => {
   const { useAtomValue } = await import("@effect/atom-react");
   return {
@@ -318,6 +342,8 @@ async function mountWelcome() {
 // Returns the clock spy so each test can `using` it; the spy would otherwise outlive the test.
 function setup() {
   const now = vi.spyOn(Date, "now").mockReturnValue(NOW);
+  state.libraosStart.mockClear();
+  state.libraosView = null;
   state.sessions.clear();
   for (const id of [primaryId]) {
     state.sessions.set(
@@ -456,9 +482,8 @@ it("shows LibraOS first, then the three agents in order, and enables Continue wh
   expect(rows.all()).toHaveLength(4);
   const libraos = rows.nth(0);
   await expect.element(libraos.getByText("LibraOS", { exact: true })).toBeVisible();
-  await expect
-    .element(libraos.getByRole("link", { name: "Sign in: LibraOS" }))
-    .toHaveAttribute("href", expect.stringContaining("screen=gateway"));
+  await libraos.getByRole("button", { name: "Sign in: LibraOS" }).click();
+  expect(state.libraosStart).toHaveBeenCalledOnce();
   const expected = [
     ["Claude Code", "Checking…"],
     ["Codex", "Needs sign-in"],
@@ -709,7 +734,7 @@ it("installs and signs in to opencode from its row, rechecking after the install
   appAtomRegistry.set(providers, [
     { ...openCode, installed: false, status: "error", auth: { status: "unknown" } },
   ]);
-  await using _screen = await mountWelcome();
+  await using screen = await mountWelcome();
   await vi.waitFor(() => button("Install"));
   await click("Install");
   await vi.waitFor(() => expect(state.writeTerminal).toHaveBeenCalledOnce());
@@ -730,7 +755,7 @@ it("installs and signs in to opencode from its row, rechecking after the install
       { ...openCode, status: "warning", auth: { status: "unknown" } },
     ]),
   );
-  await click("Sign in");
+  await screen.getByRole("button", { name: "Sign in: opencode" }).click();
   await vi.waitFor(() => expect(state.writeTerminal).toHaveBeenCalledTimes(2));
   expect(state.writeTerminal.mock.calls[1]![0].input.data).toBe("opencode auth login");
 });
@@ -806,15 +831,13 @@ it("lists every endpoint, asks which agents use a gateway, and keeps the Gateway
   await screen.getByRole("link", { name: "Back" }).click();
   await expect.element(firstHeading).toBeVisible();
 
-  await screen.getByRole("link", { name: "Sign in: LibraOS" }).click();
-  await expect.element(endpointHeading).toBeVisible();
-  await expect
-    .element(screen.getByText("LibraOS Gateway selected. Requires a LibraOS account."))
-    .toBeVisible();
+  await screen.getByRole("link", { name: "Use an API key or custom gateway" }).click();
   await expect
     .element(options.getByRole("button", { name: "LibraOS Gateway" }))
-    .toHaveAttribute("aria-pressed", "true");
-  await expect.element(screen.getByRole("button", { name: "Sign in with LibraOS" })).toBeVisible();
+    .toHaveAccessibleDescription(/For Claude Code, Codex, opencode, Pi/);
+  await options.getByRole("button", { name: "LibraOS Gateway" }).click();
+  await screen.getByRole("button", { name: "Sign in with LibraOS" }).click();
+  expect(state.libraosStart).toHaveBeenCalledOnce();
   await screen.getByRole("button", { name: "Use an API key instead" }).click();
   await expect
     .element(screen.getByLabelText("LibraOS API key"))
@@ -906,4 +929,42 @@ it("explains an empty scan and still lets a folder be added", async () => {
       }),
     ),
   );
+});
+
+it("while a LibraOS sign-in waits, shows only its view: the code, Open LibraOS again and Cancel", async () => {
+  using _now = setup();
+  state.libraosView = {
+    kind: "waiting",
+    opened: true,
+    signIn: {
+      purpose: "connect",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://console.libraos.com/device",
+      verificationUriComplete: "https://console.libraos.com/device?code=WXYZ-1234",
+      expiresAt: NOW + 600_000,
+    },
+  };
+  await using screen = await mountWelcome();
+  await expect.element(screen.getByRole("heading", { name: "Sign in to LibraOS" })).toBeVisible();
+  await expect.element(screen.getByText("WXYZ-1234")).toBeVisible();
+  await expect.element(screen.getByText("Waiting for approval…")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Open LibraOS again" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Welcome to LibraOS Next" }).all()).toHaveLength(0);
+  expect(screen.getByRole("list", { name: "Endpoint options" }).all()).toHaveLength(0);
+});
+
+it("offers a new code once a sign-in code expired", async () => {
+  using _now = setup();
+  state.libraosView = {
+    kind: "failed",
+    error: "The sign-in code expired before it was approved.",
+    hadCode: true,
+  };
+  await using screen = await mountWelcome();
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("The sign-in code expired before it was approved.");
+  await screen.getByRole("button", { name: "Get a new code" }).click();
+  expect(state.libraosStart).toHaveBeenCalledOnce();
 });

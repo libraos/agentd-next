@@ -18,9 +18,13 @@ unreadable settings with defaults.
 
 ## Agents
 
-The first row is **LibraOS**: one account for every model, paid as you go, with
-no agent to install. **Sign in** opens the LibraOS Gateway screen. Once you are
-connected, the row shows your balance and **Manage** opens the same screen.
+The first row is **LibraOS**: models through LibraOS Gateway, paid as you go,
+with no agent to install. **Sign in** opens LibraOS in your browser; sign in or
+create an account there and click **Approve**. Until you do, the page shows only
+the code to check, **Open LibraOS again** and **Cancel**; a code that expired
+offers **Get a new code**. Once you are connected, the row names the Gateway's
+agents that are ready and your balance, and **Manage** opens the LibraOS Gateway
+screen. When the credits are used up, the row says so and offers **Buy credits**.
 
 Below it, the Welcome page checks Claude Code, Codex, and opencode on the selected
 computer. Open **More agents** to see other agents or browse the ACP Registry. You

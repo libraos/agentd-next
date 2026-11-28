@@ -7,7 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { useEnvironmentScope, readEnvironmentScope } from "../../state/session";
 import { useAtomValue } from "@effect/atom-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { connectionErrorText, connectionStatusTitle } from "@t3tools/client-runtime/connection";
 import {
   errorDisplayMessage,
@@ -88,6 +88,7 @@ import {
 import { ProviderUpdatesAction } from "../ProviderUpdatesAction";
 import { ConnectEndpointScreen } from "../onboarding/ConnectEndpointScreen";
 import { LibraosAccountCard } from "../agentd/LibraosAccountCard";
+import { LibraosSignInGate } from "../agentd/LibraosSignIn";
 import { CustomGatewayList } from "../onboarding/CustomGatewayList";
 import { useGatewayEnvironment } from "../../lib/libraosGatewayState";
 import { Button } from "../ui/button";
@@ -341,32 +342,43 @@ interface ProviderSettingsTarget {
 }
 
 export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
+  const navigate = useNavigate();
   return (
     <SettingsPageContainer className="@container/providers gap-8">
-      {target.setupEndpoint ? (
-        <ConnectEndpointScreen
-          key={String(target.setupEndpoint)}
-          gatewayChosen={target.setupEndpoint === "gateway"}
-          customChosen={target.setupEndpoint === true}
-          environmentId={target.environmentId}
-          back={
-            <Link
-              to="/settings/providers"
-              search={({ setupEndpoint: _closed, ...search }) => search}
-            >
-              <T>Back</T>
-            </Link>
-          }
-        />
-      ) : (
-        <>
-          <GatewaysSection environmentId={target.environmentId} />
-          <ProviderSettingsPanelContent
-            key={`${target.environmentId ?? ""}:${target.instanceId ?? ""}`}
-            {...target}
+      <LibraosSignInGate
+        environmentId={target.environmentId}
+        onFinished={() =>
+          void navigate({
+            to: "/settings/providers",
+            search: ({ setupEndpoint: _closed, ...search }) => search,
+          })
+        }
+      >
+        {target.setupEndpoint ? (
+          <ConnectEndpointScreen
+            key={String(target.setupEndpoint)}
+            gatewayChosen={target.setupEndpoint === "gateway"}
+            customChosen={target.setupEndpoint === true}
+            environmentId={target.environmentId}
+            back={
+              <Link
+                to="/settings/providers"
+                search={({ setupEndpoint: _closed, ...search }) => search}
+              >
+                <T>Back</T>
+              </Link>
+            }
           />
-        </>
-      )}
+        ) : (
+          <>
+            <GatewaysSection environmentId={target.environmentId} />
+            <ProviderSettingsPanelContent
+              key={`${target.environmentId ?? ""}:${target.instanceId ?? ""}`}
+              {...target}
+            />
+          </>
+        )}
+      </LibraosSignInGate>
     </SettingsPageContainer>
   );
 }

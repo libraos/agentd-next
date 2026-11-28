@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { joinedPersonName, parseTeamInvitation } from "./JoinTeamScreen.logic";
+import { joinedPersonName, joinTeamReturnPath, parseTeamInvitation } from "./JoinTeamScreen.logic";
 
 describe("team invitation links", () => {
   it.each([
@@ -66,5 +66,19 @@ describe("joined person", () => {
       ),
     ).toBe("Mira Chen");
     expect(joinedPersonName("agentd did not report a person")).toBeNull();
+  });
+});
+
+describe("joinTeamReturnPath", () => {
+  const paths = ["/settings/general", "/settings/providers"] as const;
+
+  it("returns to the Settings page that opened Join a team", () => {
+    expect(joinTeamReturnPath("/settings/providers", paths)).toBe("/settings/providers");
+  });
+
+  it("returns to the welcome page from anywhere else", () => {
+    expect(joinTeamReturnPath(undefined, paths)).toBeNull();
+    expect(joinTeamReturnPath("https://example.com/settings/providers", paths)).toBeNull();
+    expect(joinTeamReturnPath("/settings/providers/../../", paths)).toBeNull();
   });
 });

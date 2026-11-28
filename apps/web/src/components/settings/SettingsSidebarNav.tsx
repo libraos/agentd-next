@@ -437,7 +437,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         data-settings-section="/welcome"
-                        render={<Link to="/welcome" search={{ screen: "team" }} />}
+                        render={<Link to="/welcome" search={{ screen: "team", from: pathname }} />}
                       >
                         <UsersIcon />
                         <span className="truncate max-md:sr-only">

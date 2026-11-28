@@ -12,7 +12,8 @@ const state = vi.hoisted(() => ({
     data: null as LibraosGatewayPlans | null,
     error: null as string | null,
     isPending: false,
-    refresh: () => {},
+    isSuccess: true,
+    refresh: vi.fn(),
   },
   subscribing: {
     canSubscribe: true,
@@ -77,7 +78,15 @@ function setup(
   subscribing: Partial<typeof state.subscribing> = {},
 ) {
   const subscribe = vi.fn((_plan: string) => Promise.resolve());
-  state.plans = { ...state.plans, data: null, error: null, isPending: false, ...plans };
+  state.plans = {
+    ...state.plans,
+    data: null,
+    error: null,
+    isPending: false,
+    isSuccess: true,
+    ...plans,
+  };
+  state.plans.refresh.mockClear();
   state.subscribing = {
     canSubscribe: true,
     subscribe,
@@ -91,12 +100,26 @@ function setup(
 
 const card = (name: string) => page.getByRole("listitem", { name });
 
-it("with no plans from Console shows only a See plans link, and no error", async () => {
+it("with no plans from Console says none are on offer, beside a See plans link", async () => {
   setup({ data: null });
   await using screen = await render(<LibraosPlansPanel environmentId={environmentId} />);
   const link = page.getByRole("link", { name: "See plans" });
   await expect.element(link).toHaveAttribute("href", "https://console.libraos.com/credits");
-  expect(screen.container.textContent).toBe("See plans");
+  expect(screen.container.textContent).toBe("No plans on offer right now.See plans");
+});
+
+it("says it is reading the plans, and offers Retry when they cannot be read", async () => {
+  setup({ data: null, isSuccess: false });
+  {
+    await using screen = await render(<LibraosPlansPanel environmentId={environmentId} />);
+    await expect.element(screen.getByText("Reading plans…")).toBeVisible();
+    expect(screen.getByText("No plans on offer right now.").all()).toHaveLength(0);
+  }
+  setup({ data: null, isSuccess: false, error: "Couldn't reach LibraOS." });
+  await using screen = await render(<LibraosPlansPanel environmentId={environmentId} />);
+  await expect.element(screen.getByText("Couldn't reach LibraOS.")).toBeVisible();
+  await screen.getByRole("button", { name: "Retry" }).click();
+  expect(state.plans.refresh).toHaveBeenCalledOnce();
 });
 
 it("shows a card per plan with Console's name, price and summary, and subscribes to one", async () => {
@@ -110,7 +133,7 @@ it("shows a card per plan with Console's name, price and summary, and subscribes
   expect(card("Legacy").getByRole("button").elements()).toHaveLength(0);
   expect(screen.container.querySelectorAll("a, button")).toHaveLength(2);
   await expect.element(page.getByRole("link", { name: "Manage plan" })).not.toBeInTheDocument();
-  await card("Pro").getByRole("button", { name: "Subscribe" }).click();
+  await card("Pro").getByRole("button", { name: "Subscribe to Pro" }).click();
   expect(subscribe).toHaveBeenCalledExactlyOnceWith("pro");
 });
 
@@ -162,11 +185,15 @@ it("shows the plan being opened and holds the other Subscribe buttons", async ()
   await expect
     .element(card("Pro").getByRole("button", { name: "Opening checkout…" }))
     .toBeDisabled();
-  await expect.element(card("Personal").getByRole("button", { name: "Subscribe" })).toBeDisabled();
+  await expect
+    .element(card("Personal").getByRole("button", { name: "Subscribe to Personal" }))
+    .toBeDisabled();
 });
 
 it("cannot subscribe without permission to change this environment", async () => {
   setup({ data: offered() }, { canSubscribe: false });
   await using _screen = await render(<LibraosPlansPanel environmentId={environmentId} />);
-  await expect.element(card("Personal").getByRole("button", { name: "Subscribe" })).toBeDisabled();
+  await expect
+    .element(card("Personal").getByRole("button", { name: "Subscribe to Personal" }))
+    .toBeDisabled();
 });

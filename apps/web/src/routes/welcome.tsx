@@ -14,10 +14,13 @@ const decodeEnvironmentId = Schema.decodeOption(EnvironmentId);
 export const Route = createFileRoute("/welcome")({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { screen?: "endpoint" | "gateway" | "team" | undefined } =>
-    search.screen === "endpoint" || search.screen === "gateway" || search.screen === "team"
+  ): { screen?: "endpoint" | "gateway" | "team" | undefined; from?: string | undefined } => ({
+    ...(search.screen === "endpoint" || search.screen === "gateway" || search.screen === "team"
       ? { screen: search.screen }
-      : {},
+      : {}),
+    // The Settings page Join a team was opened from, which its Back and Done return to.
+    ...(search.screen === "team" && typeof search.from === "string" ? { from: search.from } : {}),
+  }),
   beforeLoad: ({ context }) => {
     const { authGateState } = context;
     if (authGateState.status !== "authenticated" && authGateState.status !== "hosted-static") {
