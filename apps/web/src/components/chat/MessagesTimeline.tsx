@@ -107,7 +107,7 @@ import { type HandoffTimelineRun } from "./V2LifecycleRow";
 import { TimelineSystemDivider } from "./TimelineSystemDivider";
 
 import { forwardWheelToTimeline } from "./timelineMinimapWheel";
-import { TimelineMinimap } from "./TimelineMinimap";
+import { createTimelineMinimapAtEnd, TimelineMinimap } from "./TimelineMinimap";
 import {
   type TimelineRowSharedState,
   type TimelineRowActivityState,
@@ -911,7 +911,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
         };
   const [minimapHitStrip, setMinimapHitStrip] = useState({ left: 0, width: 0 });
   const [minimapCurrentIndex, setMinimapCurrentIndex] = useState<number | null>(null);
-  const [minimapAtEnd, setMinimapAtEnd] = useState(false);
+  const [minimapAtEnd] = useState(createTimelineMinimapAtEnd);
   const handleAnchorReady = (info: { anchorIndex: number | undefined }) => {
     if (anchorMessageId !== null && info.anchorIndex !== undefined) {
       onAnchorReady(anchorMessageId, info.anchorIndex);
@@ -992,7 +992,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       current === nextCurrentIndex ? current : nextCurrentIndex,
     );
     // The exact bottom, not the follow re-arm zone: Next can still scroll inside that zone.
-    setMinimapAtEnd(
+    minimapAtEnd.set(
       viewport !== undefined &&
         viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 1,
     );
