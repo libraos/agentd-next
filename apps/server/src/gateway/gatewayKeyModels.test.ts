@@ -1,10 +1,14 @@
+// @effect-diagnostics nodeBuiltinImport:off - one test serves a real certificate this computer does not trust.
+import * as NodeHttps from "node:https";
+import type * as NodeNet from "node:net";
+
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as TestClock from "effect/testing/TestClock";
 import * as Option from "effect/Option";
 import { ProviderInstanceId } from "@t3tools/contracts";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { compileClaudeModelSelection } from "../claudeModelOptions.ts";
@@ -12,6 +16,7 @@ import { BUNDLED_CLAUDE_MODEL_CATALOG } from "../provider/ClaudeModelCatalog.ts"
 
 import {
   askGatewayModels,
+  askModels,
   makeGatewayKeyModels,
   rememberServedModels,
 } from "./gatewayKeyModels.ts";
@@ -189,3 +194,54 @@ it.effect("a Gateway that stalls while sending its list times out", () => {
     assert.strictEqual(answer.kind, "unavailable");
   }).pipe(Effect.provideService(HttpClient.HttpClient, http));
 });
+
+// Non-secret, self-signed 127.0.0.1 certificate, the one outboundHttp.test.ts serves.
+const TEST_KEY = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg3EwCztQysKTvzdcR
+g0LWq+axzUd4tHi9PyMdqh7PlGShRANCAARfQpoLgv/tOsHWCLriDza7Ruaey2b7
+mR/nS6mLu6W7+agkEqDm0mE3F/ngpPjL4Jj0IGadeMcKNKFRSBgiLdfn
+-----END PRIVATE KEY-----
+`;
+const TEST_CERT = `-----BEGIN CERTIFICATE-----
+MIIBsDCCAVagAwIBAgIUWbn2Wt5kTxii1UU57NJMt/wTaUgwCgYIKoZIzj0EAwIw
+JDEiMCAGA1UEAwwZdDNjb2RlIG91dGJvdW5kIGh0dHAgdGVzdDAgFw0yNjEwMTEy
+MjQyMzZaGA8yMTI2MDkxNzIyNDIzNlowJDEiMCAGA1UEAwwZdDNjb2RlIG91dGJv
+dW5kIGh0dHAgdGVzdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABF9CmguC/+06
+wdYIuuIPNrtG5p7LZvuZH+dLqYu7pbv5qCQSoObSYTcX+eCk+MvgmPQgZp14xwo0
+oVFIGCIt1+ejZDBiMB0GA1UdDgQWBBSsekAc30Q/zdIE/tvVDQKJL5oiCDAfBgNV
+HSMEGDAWgBSsekAc30Q/zdIE/tvVDQKJL5oiCDAPBgNVHRMBAf8EBTADAQH/MA8G
+A1UdEQQIMAaHBH8AAAEwCgYIKoZIzj0EAwIDSAAwRQIgebUrkyP56242EJB7nCV7
+A+Ke/q0rNPya3fjQa9O5B+kCIQC1SfmdNaFcNJ4JINlus4FfrRnfKiADS2MIJR9f
+99BN0A==
+-----END CERTIFICATE-----
+`;
+
+it.live("a gateway whose certificate isn't trusted says so instead of blaming the connection", () =>
+  Effect.acquireRelease(
+    Effect.promise(async () => {
+      const server = NodeHttps.createServer({ key: TEST_KEY, cert: TEST_CERT }, (_, response) =>
+        response.end("{}"),
+      );
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      return server;
+    }),
+    (server) => Effect.promise(() => new Promise<void>((resolve) => server.close(() => resolve()))),
+  ).pipe(
+    Effect.flatMap((server) =>
+      askModels({
+        base: `https://127.0.0.1:${(server.address() as NodeNet.AddressInfo).port}/v1`,
+        name: "Scratch",
+        key: null,
+      }),
+    ),
+    Effect.map((answer) => {
+      assert.strictEqual(answer.kind, "unavailable");
+      assert.match(
+        answer.kind === "unavailable" ? answer.message : "",
+        /certificate .* isn't trusted/,
+      );
+    }),
+    Effect.scoped,
+    Effect.provide(FetchHttpClient.layer),
+  ),
+);

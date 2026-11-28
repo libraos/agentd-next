@@ -25,6 +25,7 @@ import {
   parseGatewayMediaModels,
   parseGatewayModels,
 } from "./gatewaySetup.ts";
+import { isUntrustedCertificate } from "../agentd/systemCertificates.ts";
 
 const CHECK_TIMEOUT = Duration.seconds(15);
 
@@ -63,11 +64,19 @@ export const askModels = Effect.fn("Gateway.askModels")(function* (gateway: {
         // A redirect could carry the key to another origin.
         Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error" }),
         Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-        Effect.option,
+        Effect.result,
       );
-    if (response._tag === "None") return unreachable;
-    const body = yield* response.value.json.pipe(Effect.orElseSucceed((): unknown => undefined));
-    const status = response.value.status;
+    if (response._tag === "Failure") {
+      return isUntrustedCertificate(response.failure)
+        ? ({
+            kind: "unavailable",
+            message: `${gateway.name}'s certificate at ${new URL(gateway.base).host} isn't trusted on this computer. Add its CA certificate to the system certificate store, then restart LibraOS Next.`,
+          } satisfies GatewayModelsAnswer)
+        : unreachable;
+    }
+    const value = response.success;
+    const body = yield* value.json.pipe(Effect.orElseSucceed((): unknown => undefined));
+    const status = value.status;
     if (status < 200 || status >= 300) {
       const message = gatewayRefusal(status, body, {
         name: gateway.name,

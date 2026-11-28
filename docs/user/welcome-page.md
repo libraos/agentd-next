@@ -113,6 +113,11 @@ Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi
 and opencode. A key is required for **Both** and **Anthropic**. If the model list
 can't be read, enter the **Model ids** yourself.
 
+A gateway whose certificate comes from your own certificate authority works once
+that CA is in the system certificate store (`update-ca-certificates` on Linux,
+Keychain Access on macOS, the certificate manager on Windows). Restart LibraOS
+Next after adding the CA; it reads the store when it starts.
+
 After saving one format, use the action below the form to add the other format
 to the same gateway. In the model picker, look for the gateway name to select
 the instance that uses it.
