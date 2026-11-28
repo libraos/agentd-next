@@ -453,7 +453,9 @@ export default defineConfig(({ command }) => {
       projects: [
         defineProject(unitTestProject),
         defineProject(browserTestProject),
-        defineProject(renderScenariosProject),
+        // Only scripts/render-metrics.ts runs render scenarios, and it sets the report
+        // directory; a plain or --changed run from the root would otherwise fail them all.
+        ...(process.env.T3CODE_RENDER_REPORT_DIR ? [defineProject(renderScenariosProject)] : []),
       ],
     },
   };
