@@ -28,7 +28,7 @@ export interface RelayRouterOptions {
   /** The relay or the host refused this device (revoked, or no keys): only pairing again helps. */
   readonly onRefused?: (hostLabel: string) => void;
   readonly connect: DeviceSocketFactory;
-  readonly randomBytes: (length: number) => Uint8Array;
+  readonly randomBytes: (length: number) => Uint8Array | Promise<Uint8Array>;
   readonly tunnel?: Pick<RelayTunnelOptions, "openTimeoutMs" | "heartbeatMs" | "idleCloseMs">;
 }
 
@@ -80,7 +80,7 @@ export const createRelayRouter = (options: RelayRouterOptions): RelayRouter => {
       const tunnel = await openRelayTunnel({
         route: stored.route,
         deviceKeys: keyPairFromSecretKey(stored.deviceSecretKey),
-        ephemeralKeyPair: keyPairFromSecretKey(options.randomBytes(32)),
+        ephemeralKeyPair: keyPairFromSecretKey(await options.randomBytes(32)),
         ...(stored.pairingCode === undefined ? {} : { pairingCode: stored.pairingCode }),
         connect: options.connect,
         ...options.tunnel,

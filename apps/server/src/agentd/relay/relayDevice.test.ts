@@ -122,7 +122,8 @@ describe("phone relay transport", () => {
       onPaired: keychain.onPaired,
       onRefused: (label) => refused.push(label),
       connect,
-      randomBytes,
+      // Asynchronous, as the phone's is: it imports its crypto module on first use.
+      randomBytes: async (length) => randomBytes(length),
     });
   });
 

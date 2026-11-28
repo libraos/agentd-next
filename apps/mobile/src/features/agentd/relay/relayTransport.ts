@@ -1,14 +1,11 @@
 import type { DeviceSocket } from "@t3tools/relay-session/device";
 import { createRelayRouter } from "@t3tools/relay-session/deviceRouter";
-import * as ExpoCrypto from "expo-crypto";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Atom } from "effect/reactivity";
 import * as Socket from "effect/socket/Socket";
 
 import { appAtomRegistry } from "../../../state/atom-registry";
-
-import { loadRelayRoute, markRelayRoutePaired } from "./relayKeyStore";
 
 // React Native's WebSocket takes handshake headers as a third argument, which the DOM type lacks.
 type NativeWebSocketConstructor = new (
@@ -33,16 +30,20 @@ const setRefused = (label: string, refused: boolean) => {
 
 export const clearRelayRefusal = (label: string) => setRefused(label, false);
 
+// The app runtime loads this module at startup, possibly while the phone is locked, so the
+// keychain and crypto native modules are imported on first use rather than with it.
+const keyStore = () => import("./relayKeyStore");
+
 export const relayRouter = createRelayRouter({
-  load: loadRelayRoute,
-  onPaired: markRelayRoutePaired,
+  load: async (label) => (await keyStore()).loadRelayRoute(label),
+  onPaired: async (label) => (await keyStore()).markRelayRoutePaired(label),
   onOpened: (label) => setRefused(label, false),
   onRefused: (label) => setRefused(label, true),
   connect: (url, protocols, headers) =>
     new (globalThis.WebSocket as unknown as NativeWebSocketConstructor)(url, protocols, {
       headers,
     }),
-  randomBytes: (length) => ExpoCrypto.getRandomBytes(length),
+  randomBytes: async (length) => (await import("expo-crypto")).getRandomBytes(length),
 });
 
 /** fetch that carries relay addresses through the relay and everything else as before. */
