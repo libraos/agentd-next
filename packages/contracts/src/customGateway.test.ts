@@ -6,11 +6,21 @@ import {
   CustomGatewaySetting,
   customGatewayAgentsOf,
   customGatewayIdOfInstance,
+  defaultGatewayName,
   isGatewayInstanceId,
 } from "./customGateway.ts";
 
 const decodeGatewaySetting = Schema.decodeUnknownSync(CustomGatewaySetting);
 const decodeGatewaySaveInput = Schema.decodeUnknownSync(CustomGatewaySaveInput);
+
+describe("defaultGatewayName", () => {
+  it("names a gateway with no name typed after its URL's host", () => {
+    expect(defaultGatewayName("https://40.49.6.2:18643/v1")).toBe("40.49.6.2");
+    expect(defaultGatewayName(" https://gateway.meganova.ai/v1/ ")).toBe("gateway.meganova.ai");
+    expect(defaultGatewayName("http://[::1]:8080/v1")).toBe("::1");
+    expect(defaultGatewayName("not a url")).toBe("not a url");
+  });
+});
 
 describe("gateway instance ids", () => {
   it("recognizes every gateway agent, Pi included, and nothing else", () => {

@@ -8,6 +8,18 @@ import { isLibraosGatewayInstanceId } from "./libraosGateway.ts";
 export const CustomGatewayFormat = Schema.Literals(["openai", "anthropic", "both"]);
 export type CustomGatewayFormat = typeof CustomGatewayFormat.Type;
 
+/** The name a gateway gets when none is typed: its URL's host, else the URL as entered. */
+export function defaultGatewayName(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, "");
+  try {
+    const host = new URL(trimmed).hostname;
+    // An IPv6 host keeps its brackets in `hostname`.
+    return host === "" ? trimmed : host.replace(/^\[(.*)\]$/, "$1");
+  } catch {
+    return trimmed;
+  }
+}
+
 const GATEWAY_ID_PATTERN = /^[a-z0-9]{1,16}$/;
 export const CustomGatewayId = Schema.String.check(Schema.isPattern(GATEWAY_ID_PATTERN));
 

@@ -27,6 +27,8 @@ const KEY_ENV = "LIBRAOS_API_KEY";
 const PROVIDER_ID = "libraos";
 const OPENCODE_CONFIG_ENV = "OPENCODE_CONFIG_CONTENT";
 const DISPLAY_SUFFIX = "LibraOS Gateway";
+/** The Gateway agents' names end in this; builds before 0.5.1 used `DISPLAY_SUFFIX`. */
+const AGENT_SUFFIX = "LibraOS";
 /** The connected key in the server's secret store. */
 export const GATEWAY_KEY_SECRET = "libraos-gateway-key";
 
@@ -191,6 +193,8 @@ interface GatewayShape extends PiGatewayTarget {
   /** The provider id in Codex's and opencode's config. */
   readonly providerId: string;
   readonly name: string;
+  /** What follows `<Agent> · ` in the agents' display names. */
+  readonly agentSuffix: string;
   /** Claude Code's `ANTHROPIC_BASE_URL`, without `/v1`. */
   readonly origin: string;
   /** Codex's and opencode's base URL, ending in `/v1`. */
@@ -216,6 +220,7 @@ const LIBRAOS_SHAPE: GatewayShape = {
   ids: GATEWAY_INSTANCE_IDS,
   providerId: PROVIDER_ID,
   name: DISPLAY_SUFFIX,
+  agentSuffix: AGENT_SUFFIX,
   origin: LIBRAOS_GATEWAY_ORIGIN,
   base: `${LIBRAOS_GATEWAY_ORIGIN}/v1`,
   keyEnv: KEY_ENV,
@@ -337,6 +342,12 @@ export const LIBRAOS_PI_TARGET: PiGatewayTarget = {
   keyEnv: KEY_ENV,
 };
 
+const AGENT_LABELS = [
+  ["claude", "Claude Code"],
+  ["codex", "Codex"],
+  ["opencode", "opencode"],
+  ["pi", "Pi"],
+] as const;
 const secret = (name: string, value: string) => ({ name, value, sensitive: true });
 const plain = (name: string, value: string) => ({ name, value, sensitive: false });
 
@@ -355,7 +366,7 @@ function shapeInstances(
   const agents: Record<GatewayAgent, ProviderInstanceConfig> = {
     claude: {
       driver: ProviderDriverKind.make("claudeAgent"),
-      displayName: `Claude Code · ${shape.name}`,
+      displayName: `Claude Code · ${shape.agentSuffix}`,
       enabled: true,
       environment: [
         plain("ANTHROPIC_BASE_URL", shape.origin),
@@ -367,7 +378,7 @@ function shapeInstances(
     },
     codex: {
       driver: ProviderDriverKind.make("codex"),
-      displayName: `Codex · ${shape.name}`,
+      displayName: `Codex · ${shape.agentSuffix}`,
       enabled: true,
       environment: keyVariable,
       config: {
@@ -384,7 +395,7 @@ function shapeInstances(
       instanceId: shape.ids.opencode,
       instance: {
         driver: ProviderDriverKind.make("opencode"),
-        displayName: `opencode · ${shape.name}`,
+        displayName: `opencode · ${shape.agentSuffix}`,
         enabled: true,
         environment: [
           ...keyVariable,
@@ -399,7 +410,7 @@ function shapeInstances(
             instanceId: shape.ids.pi,
             instance: {
               driver: ProviderDriverKind.make("pi"),
-              displayName: `Pi · ${shape.name}`,
+              displayName: `Pi · ${shape.agentSuffix}`,
               enabled: true,
               environment: [...keyVariable, plain(PI_AGENT_DIR_ENV, piAgentDir)],
               config: { customModels: piGatewayModels(shape, models) },
@@ -436,7 +447,7 @@ export const customGatewayInstanceIds = (id: string) => ({
   pi: ProviderInstanceId.make(`gw-${id}-pi`),
 });
 
-/** The URL as entered without trailing slashes, which is also the name a gateway gets by default. */
+/** The URL as entered without trailing slashes. */
 export const trimGatewayUrl = (url: string): string => url.trim().replace(/\/+$/, "");
 
 export interface CustomGatewayInput {
@@ -454,6 +465,7 @@ function customShape(gateway: Omit<CustomGatewayInput, "key">, hasKey: boolean):
     ids: customGatewayInstanceIds(gateway.id),
     providerId: `gw_${gateway.id}`,
     name: gateway.name,
+    agentSuffix: gateway.name,
     origin,
     base: `${origin}/v1`,
     keyEnv: hasKey ? CUSTOM_KEY_ENV : null,
@@ -642,6 +654,25 @@ function patchOpencodeGatewayConfig(
   return JSON.stringify(next);
 }
 
+/**
+ * The Gateway agents still named as builds before 0.5.1 named them (`Pi · LibraOS Gateway`) take
+ * the shorter name; a name the person changed stays. Returns `current` itself when nothing changes.
+ */
+export function withShortGatewayNames(
+  current: ProviderInstanceConfigMap,
+): ProviderInstanceConfigMap {
+  const next: Record<string, ProviderInstanceConfig> = { ...current };
+  let changed = false;
+  for (const [agent, label] of AGENT_LABELS) {
+    const instanceId = GATEWAY_INSTANCE_IDS[agent];
+    const existing = current[instanceId];
+    if (existing?.displayName !== `${label} · ${DISPLAY_SUFFIX}`) continue;
+    next[instanceId] = { ...existing, displayName: `${label} · ${AGENT_SUFFIX}` };
+    changed = true;
+  }
+  return changed ? next : current;
+}
+
 /** The key the opencode Gateway agent sends, when it is not `connected` (settings with secrets). */
 export function opencodeOwnGatewayKey(
   current: ProviderInstanceConfigMap,
@@ -724,12 +755,7 @@ export function withCustomGateway(
   );
   const shape = customShape(gateway, hasKey);
   const named: Record<string, ProviderInstanceConfig> = { ...current };
-  for (const [agent, label] of [
-    ["claude", "Claude Code"],
-    ["codex", "Codex"],
-    ["opencode", "opencode"],
-    ["pi", "Pi"],
-  ] as const) {
+  for (const [agent, label] of AGENT_LABELS) {
     const existing = current[ids[agent]];
     if (existing !== undefined)
       named[ids[agent]] = { ...existing, displayName: `${label} · ${gateway.name}` };

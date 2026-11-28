@@ -20,6 +20,7 @@ import * as CustomGateway from "./CustomGateway.ts";
 import { customGatewayInstances, gatewayProviderInstances } from "./gatewaySetup.ts";
 
 const URL = "https://gw.example.com";
+const HOST = "gw.example.com";
 
 const instance = (settings: ServerSettings, id: string) =>
   settings.providerInstances[ProviderInstanceId.make(id)];
@@ -163,7 +164,7 @@ it.effect("add makes only the agents asked for", () => {
     assert.deepStrictEqual((yield* gateways.list).gateways, [
       {
         id,
-        name: URL,
+        name: HOST,
         url: URL,
         format: "openai",
         hasKey: true,
@@ -181,7 +182,7 @@ it.effect("add makes only the agents asked for", () => {
   }).pipe(Effect.provide(layer));
 });
 
-it.effect("add names the gateway after its url", () => {
+it.effect("add names the gateway after its url's host", () => {
   const { secrets, asked, layer } = setup(served);
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -195,14 +196,14 @@ it.effect("add names the gateway after its url", () => {
     });
     assert.strictEqual(result.kind, "added");
     if (result.kind !== "added") return;
-    assert.deepInclude(result.gateway, { name: URL, url: URL, hasKey: true, modelCount: 1 });
+    assert.deepInclude(result.gateway, { name: HOST, url: URL, hasKey: true, modelCount: 1 });
     assert.deepStrictEqual(asked, [{ url: `${URL}/v1/models`, authorization: "Bearer k1" }]);
     const id = result.gateway.id;
     assert.match(id, /^[a-z0-9]{8}$/);
     assert.strictEqual(new TextDecoder().decode(secrets.get(`custom-gateway-key-${id}`)), "k1");
     const settings = yield* (yield* ServerSettingsService).getSettings;
     assert.deepStrictEqual(settings.customGateways, [
-      { id, name: URL, url: URL, format: "openai" },
+      { id, name: HOST, url: URL, format: "openai" },
     ]);
     const instances = Object.keys(settings.providerInstances);
     assert.include(instances, `gw-${id}-codex`);
@@ -219,7 +220,7 @@ it.effect("add names the gateway after its url", () => {
       `gw-${id}-pi`,
     );
     const pi = instance(settings, `gw-${id}-pi`);
-    assert.strictEqual(pi?.displayName, `Pi · ${URL}`);
+    assert.strictEqual(pi?.displayName, `Pi · ${HOST}`);
     assert.deepStrictEqual(pi?.environment, [
       { name: "CUSTOM_GATEWAY_API_KEY", value: "k1", sensitive: true },
       { name: "PI_CODING_AGENT_DIR", value: piDir, sensitive: false },
@@ -460,7 +461,7 @@ it.effect(
   },
 );
 
-it.effect("rename to blank falls back to the url", () => {
+it.effect("rename to blank falls back to the url's host", () => {
   const { layer } = setup(served);
   return Effect.gen(function* () {
     const gateways = yield* CustomGateway.CustomGateway;
@@ -468,12 +469,12 @@ it.effect("rename to blank falls back to the url", () => {
     if (added.kind !== "added") return assert.fail(added.message);
     const id = added.gateway.id;
     const listed = yield* gateways.rename(id, "  ");
-    assert.strictEqual(listed.gateways[0]?.name, URL);
+    assert.strictEqual(listed.gateways[0]?.name, HOST);
     const settings = yield* (yield* ServerSettingsService).getSettings;
-    assert.strictEqual(settings.customGateways[0]?.name, URL);
-    assert.strictEqual(instance(settings, `gw-${id}-codex`)?.displayName, `Codex · ${URL}`);
-    assert.strictEqual(instance(settings, `gw-${id}-opencode`)?.displayName, `opencode · ${URL}`);
-    assert.strictEqual(instance(settings, `gw-${id}-pi`)?.displayName, `Pi · ${URL}`);
+    assert.strictEqual(settings.customGateways[0]?.name, HOST);
+    assert.strictEqual(instance(settings, `gw-${id}-codex`)?.displayName, `Codex · ${HOST}`);
+    assert.strictEqual(instance(settings, `gw-${id}-opencode`)?.displayName, `opencode · ${HOST}`);
+    assert.strictEqual(instance(settings, `gw-${id}-pi`)?.displayName, `Pi · ${HOST}`);
   }).pipe(Effect.provide(layer));
 });
 

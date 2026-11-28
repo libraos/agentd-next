@@ -21,7 +21,7 @@ function SettingsProvidersRoute() {
   return (
     <ProviderSettingsPanel
       environmentId={environment.environmentId}
-      setupEndpoint={target.setupEndpoint === true}
+      {...(target.setupEndpoint ? { setupEndpoint: target.setupEndpoint } : {})}
       {...(target.instanceId ? { instanceId: target.instanceId } : {})}
       projectIds={
         scope.kind === "project" || scope.kind === "checkout"
@@ -38,6 +38,7 @@ function SettingsProvidersRoute() {
 export const Route = createFileRoute("/_chat/settings/providers")({
   validateSearch: (raw: Record<string, unknown>) => ({
     ...(raw.setupEndpoint === true ? { setupEndpoint: true } : {}),
+    ...(raw.setupEndpoint === "gateway" ? { setupEndpoint: "gateway" as const } : {}),
     ...(typeof raw.environmentId === "string" && raw.environmentId.trim()
       ? { environmentId: EnvironmentId.make(raw.environmentId) }
       : {}),

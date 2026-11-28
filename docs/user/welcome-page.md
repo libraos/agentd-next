@@ -1,9 +1,10 @@
 # Welcome page
 
-LibraOS Next shows a Welcome page, **Connect an agent you already use**, when you
-open a new installation. Existing workspaces skip it. You can check your agents,
-connect a key or gateway, join a team, and import projects you have used before.
-You do not need an account to open the page.
+LibraOS Next shows a Welcome page, **Welcome to LibraOS Next**, when you open a
+new installation. Existing workspaces skip it. You can check your agents, sign in
+to LibraOS, connect a key or gateway, and import projects you have used before.
+You do not need an account to open the page. To join a team, use **Join a team**
+in Settings.
 
 To see the page again, go to **Settings → About → Welcome page** and select
 **Open**. Direct links, such as Settings, open normally before setup is done.
@@ -17,10 +18,15 @@ unreadable settings with defaults.
 
 ## Agents
 
-The Welcome page checks Claude Code, Codex, and opencode on the selected computer.
-Open **More agents** to see other agents or browse the ACP Registry. You do not
-need to set up all three; **Continue** is available once any agent is ready.
-Checked projects are imported when you continue.
+The first row is **LibraOS**: one account for every model, paid as you go, with
+no agent to install. **Sign in** opens the LibraOS Gateway screen. Once you are
+connected, the row shows your balance and **Manage** opens the same screen.
+
+Below it, the Welcome page checks Claude Code, Codex, and opencode on the selected
+computer. Open **More agents** to see other agents or browse the ACP Registry. You
+do not need to set up all three; **Continue** is available once any agent is
+ready, including the Pi that LibraOS adds when you sign in. Checked projects are
+imported when you continue.
 
 - **Turn on** enables an agent that is off on this computer, including one only
   some projects use. LibraOS Next then checks whether it is installed and signed in.
@@ -40,9 +46,9 @@ terminal metadata while the terminal process can use them.
 If no agent is ready, **Skip for now** finishes setup without one; connect an
 agent later in **Settings → Providers**.
 
-## API keys, gateways and teams
+## API keys and gateways
 
-**Use an API key or gateway** lets you choose **LibraOS Gateway** and the agent to
+**Use an API key or custom gateway**, below the agents, lets you choose **LibraOS Gateway** and the agent to
 use it with, then **Sign in with LibraOS**: your browser opens to sign in or
 create a LibraOS account and approve a code, and LibraOS makes a key for this
 environment. **Use an API key instead** takes a **LibraOS API key** you paste.
@@ -56,7 +62,8 @@ catalog-named row then runs that route. Claude Code leaves out the few ids
 it would run as another model, such as `best`, `default` or a name ending in
 `[1m]`; Codex still lists them.
 
-Connecting also adds **Pi · LibraOS Gateway**, which needs nothing else installed:
+Connecting adds agents named **Claude Code · LibraOS**, **Codex · LibraOS**,
+**opencode · LibraOS** and **Pi · LibraOS**. Pi needs nothing else installed:
 LibraOS Next ships Pi and uses it when no `pi` is on your `PATH` (your own
 install wins). This Pi keeps its own settings, so your `~/.pi` stays as it is.
 If no default model is chosen yet and neither Claude Code, Codex nor opencode
@@ -64,9 +71,9 @@ is installed, it becomes the default.
 
 ### LibraOS credits
 
-Gateway use is paid from your LibraOS credits; a new LibraOS account starts with
-a one-time US$20 trial. While the Gateway is connected, its panel, **Settings →
-Providers** and the **Usage** page show the balance. To get there from anywhere,
+Gateway use is paid from your LibraOS credits. While the Gateway is connected, its
+panel, the **LibraOS** card at the top of **Settings → Providers** and the
+**Usage** page show the balance. To get there from anywhere,
 search Settings for "credits" or run **Buy LibraOS credits** from the command
 palette.
 
@@ -84,7 +91,7 @@ worker without enough credit offers **Buy credits** too.
 
 ### LibraOS plans
 
-Beside the balance, **Plans** lists the plans LibraOS offers, with their price
+**Plans**, beside **Buy credits**, lists the plans LibraOS offers, with their price
 and what each includes. **Subscribe** opens Stripe Checkout in your browser, as
 buying credits does; the plans refresh when you come back to the app. Your plan
 shows as **Current plan**, and **Manage plan** opens the LibraOS Console, where
@@ -95,6 +102,8 @@ LibraOS has no plans to show here, **See plans** opens the LibraOS Console
 instead, and the out-of-credits card offers only **Buy credits**.
 
 With **Custom endpoint**, enter a gateway URL with or without a trailing `/v1`.
+Without a name, the gateway is named after the URL's host, such as
+`gateway.example.com`. Settings → Providers lists it under **Your gateways**.
 Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi.
 **OpenAI** supports Codex, opencode, and Pi. **Anthropic** supports Claude Code
 and opencode. A key is required for **Both** and **Anthropic**. If the model list
@@ -109,9 +118,9 @@ installed on that computer. Until it is, the model picker shows that source as
 needing Claude Code, and **Install** opens the step that installs it. The same
 holds for Codex and opencode.
 
-**Join a team** takes a **Team invitation link** from your team and enrolls this
-device with its LibraOS Engine server. Joining needs maintenance access to the
-environment.
+**Join a team**, in the Settings sidebar, takes a **Team invitation link** from
+your team and enrolls this device with its LibraOS Engine server. Joining needs
+maintenance access to the environment.
 
 ## The `lnext` command
 

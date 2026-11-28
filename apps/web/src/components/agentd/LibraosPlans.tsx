@@ -8,7 +8,6 @@ import { useId } from "react";
 
 import { useLibraosPlans, useSubscribeLibraosPlan } from "../../lib/libraosGatewayState";
 import { cn } from "../../lib/utils";
-import { useSearchableSetting } from "../settings/settingsSearch";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
@@ -174,30 +173,6 @@ export function SeeLibraosPlansButton({
         <LibraosPlansPanel environmentId={plans.environmentId} />
       </PopoverPopup>
     </Popover>
-  );
-}
-
-/** Settings' card for Console's plans; nothing while the Gateway is not connected. */
-export function LibraosPlansSettings({
-  environmentId,
-}: {
-  readonly environmentId: EnvironmentId | null;
-}) {
-  const searchableSetting = useSearchableSetting();
-  const plans = useLibraosPlans(environmentId);
-  if (!plans.connected) return null;
-  const setting = searchableSetting("libraos-plans");
-  return (
-    <section
-      id={setting.id}
-      aria-label={setting.title}
-      className="space-y-2 rounded-lg border border-border bg-card px-4 py-3"
-    >
-      <h3 className="text-sm font-medium text-foreground">
-        <T>LibraOS Gateway plans</T>
-      </h3>
-      <LibraosPlansPanel environmentId={plans.environmentId} heading={false} />
-    </section>
   );
 }
 

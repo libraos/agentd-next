@@ -20,7 +20,7 @@ The app is free and open source (MIT). It includes no model access and sells non
 
 ## Can I use an API key or OpenRouter instead of a subscription?
 
-Yes. Add another provider instance in Settings and give it its own keys and endpoint, or connect LibraOS Gateway from **Use an API key or gateway**. Claude has a full OpenRouter recipe. Your subscription setup stays untouched. [OpenRouter](./providers-claude.md#openrouter) · [Provider instances](./install.md#providers)
+Yes. Add another provider instance in Settings and give it its own keys and endpoint, or sign in to LibraOS from the **LibraOS** row of the Welcome page or the **LibraOS** card in **Settings → Providers**. Claude has a full OpenRouter recipe. Your subscription setup stays untouched. [OpenRouter](./providers-claude.md#openrouter) · [Provider instances](./install.md#providers)
 
 ## How do I use LibraOS Next remotely?
 

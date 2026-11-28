@@ -4,7 +4,6 @@ import { RefreshCwIcon } from "lucide-react";
 import { useId } from "react";
 
 import { useBuyLibraosCredits, useLibraosCredits } from "../../lib/libraosGatewayState";
-import { useSearchableSetting } from "../settings/settingsSearch";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
@@ -195,30 +194,6 @@ export function LibraosCreditsUsageRow() {
         </p>
       </div>
       <BuyLibraosCreditsButton environmentId={credits.environmentId} variant="outline" />
-    </section>
-  );
-}
-
-/** Settings' card for the connected Gateway's balance; nothing while it is not connected. */
-export function LibraosCreditsSettings({
-  environmentId,
-}: {
-  readonly environmentId: EnvironmentId | null;
-}) {
-  const searchableSetting = useSearchableSetting();
-  const credits = useLibraosCredits(environmentId);
-  if (!credits.connected) return null;
-  const setting = searchableSetting("libraos-credits");
-  return (
-    <section
-      id={setting.id}
-      aria-label={setting.title}
-      className="space-y-2 rounded-lg border border-border bg-card px-4 py-3"
-    >
-      <h3 className="text-sm font-medium text-foreground">
-        <T>LibraOS Gateway credits</T>
-      </h3>
-      <LibraosCreditsPanel environmentId={credits.environmentId} />
     </section>
   );
 }

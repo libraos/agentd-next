@@ -99,7 +99,7 @@ import { toastManager } from "../ui/toast";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
 import { formatRelativeTime } from "../../timestampFormat";
-import { WelcomeAccountCards } from "../agentd/WelcomeAccountCards";
+import { WelcomeLibraosRow } from "../agentd/WelcomeLibraosRow";
 import { ConnectEndpointScreen } from "./ConnectEndpointScreen";
 import { JoinTeamScreen } from "./JoinTeamScreen";
 
@@ -283,15 +283,16 @@ export function WelcomePage({
               ) : (
                 <>
                   <h1 className="mb-7 text-center text-3xl font-semibold tracking-tight text-foreground">
-                    <T>Connect an agent you already use</T>
+                    <T>Welcome to LibraOS Next</T>
                   </h1>
-                  <WelcomeAccountCards
-                    environmentId={environmentId}
-                    agentsId={agentsId}
-                    gatewayLink={<Link to="." search={{ screen: "gateway" }} hash={true} />}
-                  />
                   <AgentsSection
                     id={agentsId}
+                    leading={
+                      <WelcomeLibraosRow
+                        environmentId={environmentId}
+                        gatewayLink={<Link to="." search={{ screen: "gateway" }} hash={true} />}
+                      />
+                    }
                     agents={agents}
                     environmentId={environmentId}
                     label={label}
@@ -313,15 +314,7 @@ export function WelcomePage({
                       hash={true}
                       className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
-                      <T>Use an API key or gateway</T>
-                    </Link>
-                    <Link
-                      to="."
-                      search={{ screen: "team" }}
-                      hash={true}
-                      className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      <T>Join a team</T>
+                      <T>Use an API key or custom gateway</T>
                     </Link>
                   </div>
                   <div className="mt-7 flex justify-center">
@@ -450,6 +443,7 @@ const ACP_REGISTRY_DRIVER_KIND = ProviderDriverKind.make("acpRegistry");
 
 function AgentsSection({
   id,
+  leading,
   agents,
   environmentId,
   label,
@@ -458,6 +452,8 @@ function AgentsSection({
   projects,
 }: {
   readonly id: string;
+  /** A row above the agents, such as another way to get models. */
+  readonly leading?: ReactNode;
   readonly projects: ReactNode;
   readonly agents: ReturnType<typeof useWelcomeAgents>;
   readonly environmentId: EnvironmentId;
@@ -640,10 +636,8 @@ function AgentsSection({
 
   return (
     <section id={id} tabIndex={-1} aria-label={gt("Agents")} className="outline-none">
-      <p className="mb-2.5 text-center text-xs text-muted-foreground">
-        <T>Agents that are on are available in chats. Turn off any you do not want.</T>
-      </p>
       <ul className="space-y-2.5">
+        {leading}
         {primary.map(({ driver, name, provider }) => (
           <AgentRow
             key={driver}

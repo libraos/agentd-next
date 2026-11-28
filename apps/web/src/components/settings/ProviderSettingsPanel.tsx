@@ -87,8 +87,7 @@ import {
 } from "../ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatesAction } from "../ProviderUpdatesAction";
 import { ConnectEndpointScreen } from "../onboarding/ConnectEndpointScreen";
-import { LibraosCreditsSettings } from "../agentd/LibraosCredits";
-import { LibraosPlansSettings } from "../agentd/LibraosPlans";
+import { LibraosAccountCard } from "../agentd/LibraosAccountCard";
 import { CustomGatewayList } from "../onboarding/CustomGatewayList";
 import { useGatewayEnvironment } from "../../lib/libraosGatewayState";
 import { Button } from "../ui/button";
@@ -337,7 +336,8 @@ interface ProviderSettingsTarget {
   readonly scoped?: boolean;
   readonly environmentIds?: readonly EnvironmentId[];
   readonly projectIds?: readonly ProjectId[];
-  readonly setupEndpoint?: boolean;
+  /** Opens the connect screen: true with Custom endpoint chosen, "gateway" with LibraOS. */
+  readonly setupEndpoint?: boolean | "gateway";
 }
 
 export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
@@ -345,7 +345,9 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
     <SettingsPageContainer className="@container/providers gap-8">
       {target.setupEndpoint ? (
         <ConnectEndpointScreen
-          customChosen
+          key={String(target.setupEndpoint)}
+          gatewayChosen={target.setupEndpoint === "gateway"}
+          customChosen={target.setupEndpoint === true}
           environmentId={target.environmentId}
           back={
             <Link
@@ -369,7 +371,7 @@ export function ProviderSettingsPanel(target: ProviderSettingsTarget) {
   );
 }
 
-/** The gateways added here, with the one visible way to add another. */
+/** The LibraOS account, then the gateways added here with the one visible way to add another. */
 function GatewaysSection({
   environmentId,
 }: {
@@ -378,10 +380,11 @@ function GatewaysSection({
   const gatewayEnvironment = useGatewayEnvironment(environmentId);
   return (
     <section className="space-y-3">
+      <LibraosAccountCard environmentId={gatewayEnvironment} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           <h2 className="text-sm font-medium text-foreground">
-            <T>Gateways and API keys</T>
+            <T>Your gateways</T>
           </h2>
           <p className="text-xs text-muted-foreground">
             <T>Run your agents on a gateway's models instead of their own sign-in.</T>
@@ -400,10 +403,8 @@ function GatewaysSection({
           <T>Add gateway</T>
         </Button>
       </div>
-      <LibraosCreditsSettings environmentId={gatewayEnvironment} />
-      <LibraosPlansSettings environmentId={gatewayEnvironment} />
       {gatewayEnvironment === null ? null : (
-        <CustomGatewayList environmentId={gatewayEnvironment} />
+        <CustomGatewayList environmentId={gatewayEnvironment} heading={false} />
       )}
     </section>
   );

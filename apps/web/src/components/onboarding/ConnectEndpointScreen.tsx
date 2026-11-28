@@ -387,8 +387,8 @@ function GatewayConnectPanel({
             </T>
           ) : (
             <T>
-              In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Engine
-              workers use the Gateway too, so tasks accept dollar budgets.
+              In a chat, choose an agent marked LibraOS in the model picker. LibraOS Engine workers
+              use the Gateway too, so tasks accept dollar budgets.
             </T>
           )}
         </p>

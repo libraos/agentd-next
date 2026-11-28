@@ -2,6 +2,7 @@ import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime"
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import {
   customGatewayAgentsOf,
+  defaultGatewayName,
   type CustomGatewayAgent,
   type CustomGatewayFormat,
   type CustomGatewaySaveInput,
@@ -208,7 +209,7 @@ export function CustomGatewayForm({ environmentId }: { readonly environmentId: E
         <Input
           id={`${id}-name`}
           autoComplete="off"
-          placeholder={url.trim() || gt("Named after its URL")}
+          placeholder={url.trim() ? defaultGatewayName(url) : gt("Named after its URL's host")}
           value={name}
           disabled={disabled}
           onChange={(event) => setName(event.currentTarget.value)}

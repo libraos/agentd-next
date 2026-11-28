@@ -434,7 +434,7 @@ it("finishes setup without landing when the imported project never reaches the c
   );
 });
 
-it("shows the three agents in order and enables Continue when one is ready", async () => {
+it("shows LibraOS first, then the three agents in order, and enables Continue when one is ready", async () => {
   using _now = setup();
   const codex: ServerProvider = {
     ...readyClaude,
@@ -453,14 +453,19 @@ it("shows the three agents in order and enables Continue when one is ready", asy
   appAtomRegistry.set(providers, [missingOpenCode, codex]);
   await using screen = await mountWelcome();
   const rows = screen.getByRole("region", { name: "Agents" }).getByRole("listitem");
-  expect(rows.all()).toHaveLength(3);
+  expect(rows.all()).toHaveLength(4);
+  const libraos = rows.nth(0);
+  await expect.element(libraos.getByText("LibraOS", { exact: true })).toBeVisible();
+  await expect
+    .element(libraos.getByRole("link", { name: "Sign in: LibraOS" }))
+    .toHaveAttribute("href", expect.stringContaining("screen=gateway"));
   const expected = [
     ["Claude Code", "Checking…"],
     ["Codex", "Needs sign-in"],
     ["opencode", "Not installed"],
   ] as const;
   for (const [index, [name, status]] of expected.entries()) {
-    const row = rows.nth(index);
+    const row = rows.nth(index + 1);
     await expect.element(row.getByText(name, { exact: true })).toBeVisible();
     await expect.element(row.getByText(status, { exact: true })).toBeVisible();
   }
@@ -473,9 +478,9 @@ it("shows the three agents in order and enables Continue when one is ready", asy
       { ...codex, auth: { status: "unknown" }, message: "Could not check this CLI." },
     ]),
   );
-  await expect.element(rows.nth(0).getByText("Ready", { exact: true })).toBeVisible();
-  await expect.element(rows.nth(1).getByText("Could not check this CLI.")).toBeVisible();
-  expect(rows.nth(1).getByRole("button", { name: "Sign in: Codex" }).all()).toHaveLength(1);
+  await expect.element(rows.nth(1).getByText("Ready", { exact: true })).toBeVisible();
+  await expect.element(rows.nth(2).getByText("Could not check this CLI.")).toBeVisible();
+  expect(rows.nth(2).getByRole("button", { name: "Sign in: Codex" }).all()).toHaveLength(1);
   await pickProjects();
   await start();
   await vi.waitFor(() => expect(state.onDone).toHaveBeenCalledOnce());
@@ -764,11 +769,13 @@ it("keeps other agents behind More agents, even when one of them is ready", asyn
 it("lists every endpoint, asks which agents use a gateway, and keeps the Gateway shortcut selected", async () => {
   using _now = setup();
   await using screen = await mountWelcome();
-  const firstHeading = screen.getByRole("heading", { name: "Connect an agent you already use" });
+  const firstHeading = screen.getByRole("heading", { name: "Welcome to LibraOS Next" });
   const endpointHeading = screen.getByRole("heading", { name: "Use an API key or gateway" });
   const options = screen.getByRole("list", { name: "Endpoint options" });
 
-  await screen.getByRole("link", { name: "Use an API key or gateway" }).click();
+  // One footer link; Join a team is in Settings.
+  expect(screen.getByRole("link", { name: "Join a team" }).all()).toHaveLength(0);
+  await screen.getByRole("link", { name: "Use an API key or custom gateway" }).click();
   await expect.element(endpointHeading).toBeVisible();
   await expect.element(options.getByRole("button").first()).toHaveAccessibleName("LibraOS Gateway");
   expect(options.getByRole("button").elements()).toHaveLength(6);
@@ -799,7 +806,7 @@ it("lists every endpoint, asks which agents use a gateway, and keeps the Gateway
   await screen.getByRole("link", { name: "Back" }).click();
   await expect.element(firstHeading).toBeVisible();
 
-  await screen.getByRole("link", { name: "Use a LibraOS account" }).click();
+  await screen.getByRole("link", { name: "Sign in: LibraOS" }).click();
   await expect.element(endpointHeading).toBeVisible();
   await expect
     .element(screen.getByText("LibraOS Gateway selected. Requires a LibraOS account."))
@@ -812,11 +819,6 @@ it("lists every endpoint, asks which agents use a gateway, and keeps the Gateway
   await expect
     .element(screen.getByLabelText("LibraOS API key"))
     .toHaveAttribute("type", "password");
-  await screen.getByRole("link", { name: "Back" }).click();
-  await expect.element(firstHeading).toBeVisible();
-
-  await screen.getByRole("link", { name: "Join a team" }).click();
-  await expect.element(screen.getByRole("heading", { name: "Join a team" })).toBeVisible();
   await screen.getByRole("link", { name: "Back" }).click();
   await expect.element(firstHeading).toBeVisible();
 });

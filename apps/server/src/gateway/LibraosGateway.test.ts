@@ -260,7 +260,7 @@ it.effect("connect keeps the key for agentd and the agents; disconnect removes i
     const piDir = path.join((yield* ServerConfig.ServerConfig).stateDir, "pi-gateway", "libraosPi");
     const pi = instances[GATEWAY_INSTANCE_IDS.pi];
     assert.strictEqual(pi?.driver, "pi");
-    assert.strictEqual(pi?.displayName, "Pi · LibraOS Gateway");
+    assert.strictEqual(pi?.displayName, "Pi · LibraOS");
     assert.deepStrictEqual(pi?.environment, [
       { name: "LIBRAOS_API_KEY", value: GOOD_KEY, sensitive: true },
       { name: "PI_CODING_AGENT_DIR", value: piDir, sensitive: false },
@@ -567,6 +567,53 @@ it.effect("a key connected before the Gateway had Pi gets the Pi agent at start,
     });
     yield* gateway.backfillPi;
     assert.notProperty((yield* settings.getSettings).providerInstances, GATEWAY_INSTANCE_IDS.pi);
+  }).pipe(Effect.provide(layer));
+});
+
+it.effect("agents named as before 0.5.1 get the shorter name at start, once", () => {
+  const named = (names: Record<string, string>) =>
+    Object.fromEntries(
+      gatewayProviderInstances(GOOD_KEY, [{ id: "openai/gpt-5.5" }], "/pi").map(
+        ({ instanceId, instance }) => [
+          instanceId,
+          { ...instance, displayName: names[instanceId] ?? instance.displayName },
+        ],
+      ),
+    );
+  const { layer } = setup({
+    settings: {
+      providerInstances: named({
+        [GATEWAY_INSTANCE_IDS.claude]: "Claude Code · LibraOS Gateway",
+        [GATEWAY_INSTANCE_IDS.codex]: "Work Codex",
+        [GATEWAY_INSTANCE_IDS.opencode]: "opencode · LibraOS Gateway",
+        [GATEWAY_INSTANCE_IDS.pi]: "Pi · LibraOS Gateway",
+      }),
+    },
+    holdStartup: true,
+  });
+  return Effect.gen(function* () {
+    const gateway = yield* LibraosGateway.LibraosGateway;
+    const settings = yield* ServerSettingsService;
+    const names = Effect.map(settings.getSettings, (current) =>
+      Object.values(GATEWAY_INSTANCE_IDS).map((id) => current.providerInstances[id]?.displayName),
+    );
+    yield* gateway.shortenNames;
+    assert.deepStrictEqual(yield* names, [
+      "Claude Code · LibraOS",
+      "Work Codex",
+      "opencode · LibraOS",
+      "Pi · LibraOS",
+    ]);
+
+    // A person who types the old name back afterwards keeps it through later starts.
+    const pi = (yield* settings.getSettings).providerInstances[GATEWAY_INSTANCE_IDS.pi]!;
+    yield* settings.updateProviderInstance({
+      operation: "upsert",
+      instanceId: GATEWAY_INSTANCE_IDS.pi,
+      instance: { ...pi, displayName: "Pi · LibraOS Gateway" },
+    });
+    yield* gateway.shortenNames;
+    assert.strictEqual((yield* names)[3], "Pi · LibraOS Gateway");
   }).pipe(Effect.provide(layer));
 });
 
