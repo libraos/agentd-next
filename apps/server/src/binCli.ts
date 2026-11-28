@@ -19,7 +19,7 @@ import { pairCommand } from "./cli/pair.ts";
 import { relayCommand } from "./agentd/relay/relayCli.ts";
 import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import { extendConnectionAttemptTimeout, keepOutboundFetchOnHttp1 } from "./outboundHttp.ts";
-import { trustSystemCertificates } from "./gateway/systemCertificates.ts";
+import { trustSystemCertificates } from "./agentd/systemCertificates.ts";
 import { sharedServerCommandFlags } from "./cli/config.ts";
 import { projectCommand } from "./cli/project.ts";
 import { feedbackCommand } from "./cli/feedback.ts";

@@ -18,7 +18,7 @@ import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as CustomGateway from "./CustomGateway.ts";
 import { customGatewayInstances, gatewayProviderInstances } from "./gatewaySetup.ts";
-import { SystemCertificateRefresh } from "./systemCertificates.ts";
+import { SystemCertificateRefresh } from "../agentd/systemCertificates.ts";
 
 const URL = "https://gw.example.com";
 const HOST = "gw.example.com";

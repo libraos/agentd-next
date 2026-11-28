@@ -15,6 +15,8 @@ const startupRoots = NodeTls.getCACertificates("default");
 
 /** Trusts `system` beside the roots Node started with; Node's `fetch` and `https` read this default. */
 export function trustCertificates(system: ReadonlyArray<string>): void {
+  // Older Electron Node lacks this; it keeps Node's defaults.
+  if (typeof NodeTls.setDefaultCACertificates !== "function") return;
   NodeTls.setDefaultCACertificates([...new Set([...startupRoots, ...system])]);
 }
 
@@ -54,47 +56,45 @@ const readPemList = (stdout: string): ReadonlyArray<string> | null => {
  * it, so a CA installed while the server runs counts without a restart. Never fails: a store that
  * cannot be read leaves the trust as it was.
  */
-export const refreshSystemCertificates = Effect.fn("Gateway.refreshSystemCertificates")(
-  function* () {
-    const executable = yield* HostProcess.ExecutablePath;
-    const isExecutable = yield* HostProcess.IsExecutable;
-    const environment = yield* HostProcess.Environment;
-    // In a bundle import.meta.url is bin.mjs; development and tests use this source module.
-    const entry = NodeURL.fileURLToPath(
-      new URL(import.meta.url.endsWith(".ts") ? "../bin.ts" : "./bin.mjs", import.meta.url),
-    );
-    const stdout = yield* Effect.tryPromise({
-      try: (signal) =>
-        new Promise<string>((resolve, reject) => {
-          NodeChildProcess.execFile(
-            executable,
-            [...(isExecutable ? [] : [entry]), SYSTEM_CERTIFICATES_COMMAND],
-            {
-              signal,
-              timeout: 15_000,
-              maxBuffer: 32 * 1024 * 1024,
-              encoding: "utf8",
-              windowsHide: true,
-              env: { ...environment, ELECTRON_RUN_AS_NODE: "1" },
-            },
-            (error, output) => (error ? reject(error) : resolve(output)),
-          );
-        }),
-      catch: (cause) => new SystemCertificatesReadError({ cause }),
-    }).pipe(Effect.result);
-    const system = stdout._tag === "Success" ? readPemList(stdout.success) : null;
-    if (system === null) {
-      const cause = stdout._tag === "Failure" ? stdout.failure : "unreadable output";
-      yield* Effect.logWarning("Could not read the system certificate store again.", { cause });
-      return;
-    }
-    trustCertificates(system);
-  },
-);
+export const refreshSystemCertificates = Effect.fn("SystemCertificates.refresh")(function* () {
+  const executable = yield* HostProcess.ExecutablePath;
+  const isExecutable = yield* HostProcess.IsExecutable;
+  const environment = yield* HostProcess.Environment;
+  // In a bundle import.meta.url is bin.mjs; development and tests use this source module.
+  const entry = NodeURL.fileURLToPath(
+    new URL(import.meta.url.endsWith(".ts") ? "../bin.ts" : "./bin.mjs", import.meta.url),
+  );
+  const stdout = yield* Effect.tryPromise({
+    try: (signal) =>
+      new Promise<string>((resolve, reject) => {
+        NodeChildProcess.execFile(
+          executable,
+          [...(isExecutable ? [] : [entry]), SYSTEM_CERTIFICATES_COMMAND],
+          {
+            signal,
+            timeout: 15_000,
+            maxBuffer: 32 * 1024 * 1024,
+            encoding: "utf8",
+            windowsHide: true,
+            env: { ...environment, ELECTRON_RUN_AS_NODE: "1" },
+          },
+          (error, output) => (error ? reject(error) : resolve(output)),
+        );
+      }),
+    catch: (cause) => new SystemCertificatesReadError({ cause }),
+  }).pipe(Effect.result);
+  const system = stdout._tag === "Success" ? readPemList(stdout.success) : null;
+  if (system === null) {
+    const cause = stdout._tag === "Failure" ? stdout.failure : "unreadable output";
+    yield* Effect.logWarning("Could not read the system certificate store again.", { cause });
+    return;
+  }
+  trustCertificates(system);
+});
 
 /** How a gateway check re-reads the system store; tests replace it. */
 export const SystemCertificateRefresh = Context.Reference<Effect.Effect<void>>(
-  "t3/gateway/SystemCertificateRefresh",
+  "t3/agentd/SystemCertificateRefresh",
   { defaultValue: () => refreshSystemCertificates() },
 );
 

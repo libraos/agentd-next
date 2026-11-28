@@ -6,7 +6,7 @@ A custom gateway whose certificate comes from an internal CA needed Next started
 - Node reads the system store once per process. When a custom gateway's model list fails on an untrusted certificate (adding, testing or refreshing it), the server reads the store again in a child process (`__system-certificates`, the same fast-path way as `__document-text`), trusts the result and asks once more. A CA installed while Next runs works without a restart; an agent's next session reads the store itself.
 - A certificate failure says the gateway's certificate isn't trusted and, for an unknown issuer, to add the CA to this computer's certificate store; other failures still say "Check your connection".
 
-Ours: `apps/server/src/gateway/systemCertificates.ts` (+ test), `gatewayKeyModels.ts` (certificate answer), `CustomGateway.ts` (re-read and retry) and `CustomGateway.test.ts`.
+Ours: `apps/server/src/agentd/systemCertificates.ts` (+ test), `apps/server/src/gateway/gatewayKeyModels.ts` (certificate answer, + test), `CustomGateway.ts` (re-read and retry) and `CustomGateway.test.ts`. The first version (#352) read the store only at start and asked for a restart; this one replaces it in the same module.
 
 ## Upstream files changed
 

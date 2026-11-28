@@ -25,7 +25,7 @@ import {
   parseGatewayMediaModels,
   parseGatewayModels,
 } from "./gatewaySetup.ts";
-import { certificateProblem } from "./systemCertificates.ts";
+import { certificateProblem } from "../agentd/systemCertificates.ts";
 
 const CHECK_TIMEOUT = Duration.seconds(15);
 

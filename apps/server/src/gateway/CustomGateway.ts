@@ -23,7 +23,7 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { askModels } from "./gatewayKeyModels.ts";
-import { SystemCertificateRefresh } from "./systemCertificates.ts";
+import { SystemCertificateRefresh } from "../agentd/systemCertificates.ts";
 import {
   customGatewayInstanceIds,
   customGatewayInstances,

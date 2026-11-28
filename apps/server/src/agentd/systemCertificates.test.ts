@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import { FetchHttpClient } from "effect/http";
 import { afterEach, describe } from "vite-plus/test";
 
-import { askModels } from "./gatewayKeyModels.ts";
+import { askModels } from "../gateway/gatewayKeyModels.ts";
 import {
   refreshSystemCertificates,
   trustCertificates,
