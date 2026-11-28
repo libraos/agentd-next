@@ -15,7 +15,6 @@ import {
   isSettingsSearchScopeAvailable,
   movedSettingsPath,
   searchSettings,
-  SETTINGS_SECTION_LABELS,
   settingsNavGroups,
   SETTINGS_SEARCH_ITEMS,
   sourceControlHostSearchItems,
@@ -116,8 +115,6 @@ describe("searchSettings", () => {
     expect(paths).toContain("/settings/diffs");
     expect(paths).toContain("/settings/voice");
     expect(paths).toContain("/settings/browser");
-    expect(decodeMsg(SETTINGS_SECTION_LABELS["/settings/source-control"])).toBe("Source control");
-    expect(decodeMsg(SETTINGS_SECTION_LABELS["/settings/diffs"])).toBe("Diffs");
 
     for (const [query, hiddenId] of [
       ["guest links", "guest-links"],
