@@ -25,6 +25,7 @@ import {
   parseGatewayMediaModels,
   parseGatewayModels,
 } from "./gatewaySetup.ts";
+import { certificateProblem } from "./systemCertificates.ts";
 
 const CHECK_TIMEOUT = Duration.seconds(15);
 
@@ -37,7 +38,12 @@ export type GatewayModelsAnswer =
     }
   /** 401/403: the key is revoked, deleted or may not list models. */
   | { readonly kind: "refused"; readonly message: string }
-  | { readonly kind: "unavailable"; readonly message: string };
+  | {
+      readonly kind: "unavailable";
+      readonly message: string;
+      /** TLS refused the gateway's certificate; trusting another CA may fix it. */
+      readonly untrusted?: true;
+    };
 
 /**
  * Asks `<base>/models` which models `key` allows; `base` ends in `/v1`. Never fails: an unreachable
@@ -63,11 +69,19 @@ export const askModels = Effect.fn("Gateway.askModels")(function* (gateway: {
         // A redirect could carry the key to another origin.
         Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error" }),
         Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-        Effect.option,
+        Effect.result,
       );
-    if (response._tag === "None") return unreachable;
-    const body = yield* response.value.json.pipe(Effect.orElseSucceed((): unknown => undefined));
-    const status = response.value.status;
+    if (response._tag === "Failure") {
+      const message = certificateProblem(response.failure, {
+        name: gateway.name,
+        host: new URL(gateway.base).host,
+      });
+      return message === null
+        ? unreachable
+        : ({ kind: "unavailable", message, untrusted: true } satisfies GatewayModelsAnswer);
+    }
+    const body = yield* response.success.json.pipe(Effect.orElseSucceed((): unknown => undefined));
+    const status = response.success.status;
     if (status < 200 || status >= 300) {
       const message = gatewayRefusal(status, body, {
         name: gateway.name,

@@ -19,6 +19,7 @@ import { pairCommand } from "./cli/pair.ts";
 import { relayCommand } from "./agentd/relay/relayCli.ts";
 import { hasCloudPublicConfig } from "./cloud/publicConfig.ts";
 import { extendConnectionAttemptTimeout, keepOutboundFetchOnHttp1 } from "./outboundHttp.ts";
+import { trustSystemCertificates } from "./gateway/systemCertificates.ts";
 import { sharedServerCommandFlags } from "./cli/config.ts";
 import { projectCommand } from "./cli/project.ts";
 import { feedbackCommand } from "./cli/feedback.ts";
@@ -130,6 +131,7 @@ export const cli = makeCli();
 export function runCli() {
   extendConnectionAttemptTimeout();
   keepOutboundFetchOnHttp1();
+  trustSystemCertificates(process.env);
   offerCliInstall({
     args: process.argv.slice(2),
     // A child started over IPC (a service launcher) has no one to answer.

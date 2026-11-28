@@ -11,13 +11,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { HttpClient, HttpClientResponse } from "effect/http";
+import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as CustomGateway from "./CustomGateway.ts";
 import { customGatewayInstances, gatewayProviderInstances } from "./gatewaySetup.ts";
+import { SystemCertificateRefresh } from "./systemCertificates.ts";
 
 const URL = "https://gw.example.com";
 const HOST = "gw.example.com";
@@ -26,7 +27,8 @@ const instance = (settings: ServerSettings, id: string) =>
   settings.providerInstances[ProviderInstanceId.make(id)];
 
 function setup(
-  answer: () => Response,
+  /** An Error is what fetch throws when the request fails before any answer. */
+  answer: () => Response | Error,
   options: {
     /** Settings beside the user's own agents; the startup backfill then waits for the test. */
     readonly before?: Pick<ServerSettings, "customGateways" | "providerInstances">;
@@ -42,9 +44,16 @@ function setup(
     getOrCreateRandom: () => Effect.die("unused"),
   });
   const http = HttpClient.make((request) =>
-    Effect.sync(() => {
+    Effect.suspend(() => {
       asked.push({ url: request.url, authorization: request.headers.authorization });
-      return HttpClientResponse.fromWeb(request, answer());
+      const answered = answer();
+      return answered instanceof Error
+        ? Effect.fail(
+            new HttpClientError.HttpClientError({
+              reason: new HttpClientError.TransportError({ request, cause: answered }),
+            }),
+          )
+        : Effect.succeed(HttpClientResponse.fromWeb(request, answered));
     }),
   );
   // The user's own Codex agent and a connected LibraOS Gateway, which a custom gateway leaves be.
@@ -357,6 +366,75 @@ it.effect("a refused model list is redacted and nothing is saved", () => {
     assert.deepStrictEqual(settings.customGateways, []);
     assert.deepStrictEqual(Object.keys(settings.providerInstances), Object.keys(own));
   }).pipe(Effect.provide(layer));
+});
+
+// What Node's fetch throws for a certificate from a CA it does not trust.
+const untrustedCertificate = () =>
+  new TypeError("fetch failed", {
+    cause: Object.assign(new Error("unable to verify the first certificate"), {
+      code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    }),
+  });
+
+it.effect("an untrusted certificate re-reads the system store and asks again", () => {
+  let trusted = false;
+  let refreshes = 0;
+  const { asked, layer } = setup(() => (trusted ? served() : untrustedCertificate()));
+  return Effect.gen(function* () {
+    const gateways = yield* CustomGateway.CustomGateway;
+    const refused = yield* gateways.add({ url: URL, format: "openai", key: "k1", name: "GW" });
+    assert.strictEqual(refused.kind, "modelsProblem");
+    if (refused.kind !== "modelsProblem") return;
+    assert.include(refused.message, `GW's certificate at ${HOST} isn't trusted`);
+    assert.notInclude(refused.message, "Check your connection");
+    assert.strictEqual(refreshes, 1);
+    assert.strictEqual(asked.length, 2);
+
+    // The CA is installed while the app runs: the next add's fresh read trusts it.
+    const added = yield* gateways.add({ url: URL, format: "openai", key: "k1", name: "GW" }).pipe(
+      Effect.provideService(
+        SystemCertificateRefresh,
+        Effect.sync(() => void (refreshes++, (trusted = true))),
+      ),
+    );
+    assert.strictEqual(added.kind, "added");
+    assert.strictEqual(refreshes, 2);
+  }).pipe(
+    Effect.provideService(
+      SystemCertificateRefresh,
+      Effect.sync(() => void refreshes++),
+    ),
+    Effect.provide(layer),
+  );
+});
+
+it.effect("an unreachable gateway asks once and says to check the connection", () => {
+  let refreshes = 0;
+  const { asked, layer } = setup(
+    () =>
+      new TypeError("fetch failed", {
+        cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+      }),
+  );
+  return Effect.gen(function* () {
+    const result = yield* (yield* CustomGateway.CustomGateway).add({
+      url: URL,
+      format: "openai",
+      key: "k1",
+      name: "GW",
+    });
+    assert.strictEqual(result.kind, "modelsProblem");
+    if (result.kind !== "modelsProblem") return;
+    assert.strictEqual(result.message, `Couldn't reach GW at ${HOST}. Check your connection.`);
+    assert.strictEqual(refreshes, 0);
+    assert.strictEqual(asked.length, 1);
+  }).pipe(
+    Effect.provideService(
+      SystemCertificateRefresh,
+      Effect.sync(() => void refreshes++),
+    ),
+    Effect.provide(layer),
+  );
 });
 
 it.effect("typed ids save without asking", () => {

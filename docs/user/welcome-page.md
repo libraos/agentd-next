@@ -113,6 +113,13 @@ Choose **Both** to use one URL and key with Claude Code, Codex, opencode, and Pi
 and opencode. A key is required for **Both** and **Anthropic**. If the model list
 can't be read, enter the **Model ids** yourself.
 
+A gateway whose certificate comes from your organization's own certificate
+authority works once that authority is in this computer's certificate store
+(Keychain on macOS, the Windows certificate store, or the system bundle on
+Linux). You don't need to restart the app: adding the gateway or refreshing its
+models reads the store again. If the authority isn't there, the app says the
+gateway's certificate isn't trusted.
+
 After saving one format, use the action below the form to add the other format
 to the same gateway. In the model picker, look for the gateway name to select
 the instance that uses it.
