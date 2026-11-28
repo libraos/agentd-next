@@ -167,7 +167,7 @@ export type HandshakeRole = "initiator" | "responder";
 export interface HandshakeOptions {
   readonly prologue: Uint8Array;
   readonly staticKeyPair: KeyPair;
-  /** Fixed ephemeral key, only for test vectors. */
+  /** A fixed ephemeral key: for test vectors, or one made from the runtime's own random source. */
   readonly ephemeralKeyPair?: KeyPair;
 }
 

@@ -28,6 +28,7 @@ import {
   BearerConnectionProfile,
   BearerConnectionRegistration,
   type ConnectionCatalogEntry,
+  type ConnectionRoute,
   type ConnectionCredential,
   DpopConnectionCredential,
   SshConnectionProfile,
@@ -44,7 +45,7 @@ import {
 import * as Persistence from "../platform/persistence.ts";
 import * as EnvironmentRegistry from "./registry.ts";
 import { orchestrationProtocolCompatibilityError } from "./compatibility.ts";
-import { connectionRoutes, routeEntry, sshTargetKey } from "./routes.ts";
+import { connectionRoutes, relayAddressConnectionId, routeEntry, sshTargetKey } from "./routes.ts";
 
 export interface PairingConnectionInput {
   readonly pairingUrl?: string;
@@ -124,11 +125,16 @@ function differentMachineError(label: string) {
 
 export const preparePairingRegistration = Effect.fn(
   "clientRuntime.connection.onboarding.preparePairingRegistration",
-)(function* (input: PairingConnectionInput) {
+)(function* (
+  input: PairingConnectionInput,
+  /** Where to reach the host while pairing, when not at the link's own address: its relay address. */
+  via?: string,
+) {
   const target = yield* resolvePairingTarget(input);
   const presentation = yield* ClientCapabilities.ClientPresentation;
+  const exchangeBaseUrl = via ?? target.httpBaseUrl;
   const descriptor = yield* fetchRemoteEnvironmentDescriptor({
-    httpBaseUrl: target.httpBaseUrl,
+    httpBaseUrl: exchangeBaseUrl,
   }).pipe(Effect.mapError(mapRemoteEnvironmentError));
   // Checked before redeeming the one-time code, so a wrong link is not spent.
   if (
@@ -170,13 +176,13 @@ export const preparePairingRegistration = Effect.fn(
       ? yield* signer.value
           .createProof({
             method: "POST",
-            url: environmentEndpointUrl(target.httpBaseUrl, "/oauth/token"),
+            url: environmentEndpointUrl(exchangeBaseUrl, "/oauth/token"),
           })
           .pipe(Effect.option)
       : Option.none<string>();
   if (Option.isSome(dpopProof)) {
     const access = yield* exchangeRemoteDpopAccessToken({
-      httpBaseUrl: target.httpBaseUrl,
+      httpBaseUrl: exchangeBaseUrl,
       credential: target.credential,
       clientMetadata: presentation.metadata,
       dpopProof: dpopProof.value,
@@ -190,7 +196,7 @@ export const preparePairingRegistration = Effect.fn(
     });
   }
   const access = yield* bootstrapRemoteBearerSession({
-    httpBaseUrl: target.httpBaseUrl,
+    httpBaseUrl: exchangeBaseUrl,
     credential: target.credential,
     clientMetadata: presentation.metadata,
   }).pipe(Effect.mapError(mapRemoteEnvironmentError));
@@ -203,14 +209,88 @@ export const preparePairingRegistration = Effect.fn(
   });
 });
 
+const RELAY_CHECK_TIMEOUT_MS = 15_000;
+
+/**
+ * Pairs over the link's own address, or through the relay its link names when that address does
+ * not answer. With a relay, the registration also gets a route through it, which borrows the
+ * paired credential; the relay pairs this device's key on first contact, so that contact happens
+ * now, while the link's code is still valid.
+ */
+const preparePairingWithRelay = Effect.fn(
+  "clientRuntime.connection.onboarding.preparePairingWithRelay",
+)(function* (input: PairingConnectionInput) {
+  const relayKeys = yield* Effect.serviceOption(ClientCapabilities.RelayRouteKeys);
+  const pairingUrl = input.pairingUrl?.trim() ?? "";
+  if (Option.isNone(relayKeys) || pairingUrl === "") {
+    return { registration: yield* preparePairingRegistration(input), relayRoute: undefined };
+  }
+  const target = yield* resolvePairingTarget(input);
+  const relayBaseUrl = yield* relayKeys.value.saveFromPairingUrl(pairingUrl, target.credential);
+  if (Option.isNone(relayBaseUrl)) {
+    return { registration: yield* preparePairingRegistration(input), relayRoute: undefined };
+  }
+  const forgetRelay = relayKeys.value.remove(relayBaseUrl.value);
+  const direct = yield* preparePairingRegistration(input).pipe(Effect.result);
+  const registration =
+    direct._tag === "Success"
+      ? direct.success
+      : direct.failure._tag === "ConnectionTransientError"
+        ? yield* preparePairingRegistration(input, relayBaseUrl.value).pipe(
+            Effect.tapError(() => forgetRelay),
+          )
+        : yield* forgetRelay.pipe(Effect.andThen(Effect.fail(direct.failure)));
+  const { environmentId, label } = registration.target;
+  if (direct._tag === "Success") {
+    const reached = yield* fetchRemoteEnvironmentDescriptor({
+      httpBaseUrl: relayBaseUrl.value,
+      timeoutMs: RELAY_CHECK_TIMEOUT_MS,
+    }).pipe(
+      Effect.map((descriptor) => descriptor.environmentId === environmentId),
+      Effect.orElseSucceed(() => false),
+    );
+    if (!reached) {
+      yield* Effect.logWarning("The pairing link's relay did not reach the host; it is not saved.");
+      yield* forgetRelay;
+      return { registration, relayRoute: undefined };
+    }
+  }
+  const connectionId = relayAddressConnectionId(
+    environmentId,
+    relayBaseUrl.value,
+    registration.target.connectionId,
+  );
+  const relayRoute: ConnectionRoute = {
+    target: new BearerConnectionTarget({ environmentId, label, connectionId }),
+    profile: Option.some(
+      new BearerConnectionProfile({
+        connectionId,
+        environmentId,
+        label,
+        httpBaseUrl: relayBaseUrl.value,
+        wsBaseUrl: deriveWsBaseUrl(relayBaseUrl.value),
+      }),
+    ),
+  };
+  return { registration, relayRoute };
+});
+
 const registerPairingConnection = Effect.fn(
   "clientRuntime.connection.onboarding.registerPairingConnection",
 )(function* (input: PairingConnectionInput) {
-  const registration = yield* preparePairingRegistration(input);
+  const { registration, relayRoute } = yield* preparePairingWithRelay(input);
   const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
   const knownAddressOnly = input.expectedEnvironmentId === undefined;
   if (!(yield* registry.register(registration, { knownAddressOnly }))) {
     return registration.target.environmentId;
+  }
+  if (relayRoute !== undefined) {
+    yield* registry.addRoute(relayRoute).pipe(
+      Effect.catchTags({
+        EnvironmentNotRegisteredError: () => Effect.void,
+        PlatformEnvironmentRemovalError: () => Effect.void,
+      }),
+    );
   }
   yield* registry.setCompatibility(registration.target.environmentId, null);
   yield* registry
@@ -379,6 +459,11 @@ export const make = Effect.gen(function* () {
   const httpClient = yield* HttpClient.HttpClient;
   const ssh = yield* ClientCapabilities.SshEnvironmentGateway;
   const credentials = yield* ConnectionCredentialStore.ConnectionCredentialStore;
+  const relayKeys = yield* Effect.serviceOption(ClientCapabilities.RelayRouteKeys);
+  const withRelayKeys = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Option.isSome(relayKeys)
+      ? Effect.provideService(effect, ClientCapabilities.RelayRouteKeys, relayKeys.value)
+      : effect;
 
   // Provisioning retains the delegated onboarding operation spans.
   return ConnectionOnboarding.of({
@@ -389,6 +474,7 @@ export const make = Effect.gen(function* () {
       Effect.provideService(EnvironmentRegistry.EnvironmentRegistry, registry),
       Effect.provideService(ClientCapabilities.ClientPresentation, presentation),
       Effect.provideService(HttpClient.HttpClient, httpClient),
+      withRelayKeys,
     ),
     registerSsh: Effect.fnUntraced(
       function* (input) {

@@ -39,7 +39,13 @@ import {
 } from "./onboarding.ts";
 import * as EnvironmentRegistry from "./registry.ts";
 import * as ConnectionProfileStore from "./profileStore.ts";
-import { connectionRoutes, routeHttpBaseUrl } from "./routes.ts";
+import {
+  connectionRouteId,
+  connectionRouteKind,
+  connectionRoutes,
+  credentialConnectionId,
+  routeHttpBaseUrl,
+} from "./routes.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 
 const layerClientPresentation = Layer.succeed(
@@ -63,6 +69,8 @@ function layerPairingHttp(
     readonly grantScopes?: ReadonlyArray<AuthEnvironmentScope>;
     readonly exchangeGate?: { readonly reached: () => void; readonly release: Promise<void> };
     readonly accessTokenRenewal?: boolean;
+    /** Hosts whose requests fail as if nothing answered there. */
+    readonly unreachableHosts?: ReadonlyArray<string>;
   },
 ) {
   const grantScopes = options?.grantScopes ?? AuthStandardClientScopes;
@@ -70,6 +78,9 @@ function layerPairingHttp(
   const fetchFn = ((input, init = {}) => {
     const url = String(input);
     calls.push({ url, init });
+    if (options?.unreachableHosts?.includes(new URL(url).host) === true) {
+      return Promise.reject(new TypeError("Network request failed"));
+    }
 
     if (url.endsWith("/.well-known/t3/environment")) {
       if (options?.failDescriptor === true) {
@@ -167,8 +178,12 @@ function layerPairingOnboarding(
   options?: Parameters<typeof layerPairingHttp>[1],
   calls: Array<{ readonly url: string; readonly init: RequestInit }> = [],
   provision?: ClientCapabilities.SshEnvironmentGateway["Service"]["provision"],
+  relayKeys?: ClientCapabilities.RelayRouteKeys["Service"],
 ) {
   const dependencies = Layer.mergeAll(
+    relayKeys === undefined
+      ? Layer.empty
+      : Layer.succeed(ClientCapabilities.RelayRouteKeys, relayKeys),
     layerClientPresentation,
     layerPairingHttp(calls, options),
     Layer.mock(Persistence.ConnectionTargetStore)({
@@ -178,9 +193,10 @@ function layerPairingOnboarding(
     Layer.mock(Persistence.ConnectionRegistrationStore)({
       register: () => Effect.void,
       setEnabled: () => Effect.void,
+      setRoutes: () => Effect.void,
     }),
     Layer.mock(Persistence.EnvironmentCacheStore)({}),
-    Layer.mock(ConnectionProfileStore.ConnectionProfileStore)({}),
+    Layer.mock(ConnectionProfileStore.ConnectionProfileStore)({ put: () => Effect.void }),
     Layer.mock(ConnectionCredentialStore.ConnectionCredentialStore)({
       get: () => Effect.succeedNone,
       put: () => Effect.void,
@@ -747,4 +763,144 @@ describe("connection onboarding", () => {
       });
     }),
   );
+});
+
+const RELAY_HOST_ID = "0123456789abcdef0123456789abcdef";
+const RELAY_ADDRESS = `https://${RELAY_HOST_ID}.relay.invalid/`;
+const RELAY_PAIRING_URL = `https://remote.example.test/pair#token=pairing-token&relay=${encodeURIComponent(
+  "https://relay.example.test",
+)}&host=${RELAY_HOST_ID}&hk=${"A".repeat(43)}&dt=device-token`;
+
+const recordingRelayKeys = () => {
+  const saved: Array<{ readonly pairingUrl: string; readonly pairingCode: string }> = [];
+  const removed: Array<string> = [];
+  const keys = ClientCapabilities.RelayRouteKeys.of({
+    saveFromPairingUrl: (pairingUrl, pairingCode) =>
+      Effect.sync(() => {
+        saved.push({ pairingUrl, pairingCode });
+        return pairingUrl.includes("&relay=") ? Option.some(RELAY_ADDRESS) : Option.none();
+      }),
+    remove: (httpBaseUrl) => Effect.sync(() => void removed.push(httpBaseUrl)),
+  });
+  return { keys, saved, removed };
+};
+
+describe("pairing from a link with a relay route", () => {
+  it.effect(
+    "pairs through the relay when the link's address does not answer, keeping both routes",
+    () => {
+      const calls: Array<{ readonly url: string; readonly init: RequestInit }> = [];
+      const relay = recordingRelayKeys();
+      return Effect.gen(function* () {
+        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        const onboarding = yield* Onboarding.ConnectionOnboarding;
+
+        yield* onboarding.registerPairing({ pairingUrl: RELAY_PAIRING_URL });
+
+        expect(relay.saved).toEqual([
+          { pairingUrl: RELAY_PAIRING_URL, pairingCode: "pairing-token" },
+        ]);
+        expect(calls.map((call) => call.url)).toEqual([
+          "https://remote.example.test/.well-known/t3/environment",
+          `${RELAY_ADDRESS}.well-known/t3/environment`,
+          `${RELAY_ADDRESS}oauth/token`,
+        ]);
+        const entry = (yield* SubscriptionRef.get(registry.entries)).get(PAIRED_ENVIRONMENT_ID)!;
+        const routes = connectionRoutes(entry);
+        expect(routes.map(routeHttpBaseUrl)).toEqual([
+          "https://remote.example.test/",
+          RELAY_ADDRESS,
+        ]);
+        expect(routes.map((route) => connectionRouteKind(route))).toEqual(["public", "relay"]);
+        // The relay route signs in with the credential the direct route was paired with.
+        expect(credentialConnectionId(connectionRouteId(routes[1]!.target))).toBe(
+          connectionRouteId(routes[0]!.target),
+        );
+        expect(relay.removed).toEqual([]);
+      }).pipe(
+        Effect.provide(
+          layerPairingOnboarding(
+            { unreachableHosts: ["remote.example.test"] },
+            calls,
+            undefined,
+            relay.keys,
+          ),
+        ),
+      );
+    },
+  );
+
+  it.effect(
+    "pairs directly when the link's address answers, and checks the relay reaches the host",
+    () => {
+      const calls: Array<{ readonly url: string; readonly init: RequestInit }> = [];
+      const relay = recordingRelayKeys();
+      return Effect.gen(function* () {
+        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        const onboarding = yield* Onboarding.ConnectionOnboarding;
+
+        yield* onboarding.registerPairing({ pairingUrl: RELAY_PAIRING_URL });
+
+        expect(calls.map((call) => call.url)).toEqual([
+          "https://remote.example.test/.well-known/t3/environment",
+          "https://remote.example.test/oauth/token",
+          `${RELAY_ADDRESS}.well-known/t3/environment`,
+        ]);
+        const entry = (yield* SubscriptionRef.get(registry.entries)).get(PAIRED_ENVIRONMENT_ID)!;
+        expect(connectionRoutes(entry).map(routeHttpBaseUrl)).toEqual([
+          "https://remote.example.test/",
+          RELAY_ADDRESS,
+        ]);
+      }).pipe(Effect.provide(layerPairingOnboarding(undefined, calls, undefined, relay.keys)));
+    },
+  );
+
+  it.effect(
+    "saves no relay route, and drops its keys, when the relay does not reach the host",
+    () => {
+      const relay = recordingRelayKeys();
+      return Effect.gen(function* () {
+        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        const onboarding = yield* Onboarding.ConnectionOnboarding;
+
+        yield* onboarding.registerPairing({ pairingUrl: RELAY_PAIRING_URL });
+
+        const entry = (yield* SubscriptionRef.get(registry.entries)).get(PAIRED_ENVIRONMENT_ID)!;
+        expect(connectionRoutes(entry).map(routeHttpBaseUrl)).toEqual([
+          "https://remote.example.test/",
+        ]);
+        expect(relay.removed).toEqual([RELAY_ADDRESS]);
+      }).pipe(
+        Effect.provide(
+          layerPairingOnboarding(
+            { unreachableHosts: [new URL(RELAY_ADDRESS).host] },
+            [],
+            undefined,
+            relay.keys,
+          ),
+        ),
+      );
+    },
+  );
+
+  it.effect("drops the relay keys when neither address pairs", () => {
+    const relay = recordingRelayKeys();
+    return Effect.gen(function* () {
+      const onboarding = yield* Onboarding.ConnectionOnboarding;
+      const error = yield* onboarding
+        .registerPairing({ pairingUrl: RELAY_PAIRING_URL })
+        .pipe(Effect.flip);
+      expect(error._tag).toBe("ConnectionTransientError");
+      expect(relay.removed).toEqual([RELAY_ADDRESS]);
+    }).pipe(
+      Effect.provide(
+        layerPairingOnboarding(
+          { unreachableHosts: ["remote.example.test", new URL(RELAY_ADDRESS).host] },
+          [],
+          undefined,
+          relay.keys,
+        ),
+      ),
+    );
+  });
 });

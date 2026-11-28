@@ -162,7 +162,9 @@ describe("relay host", () => {
     expect(received.equals(Buffer.from(body))).toBe(true);
     const seen = local.requests[0]!;
     expect(seen).toMatchObject({ method: "POST", url: "/echo?x=1" });
-    expect(seen.headers.host).toBe(`127.0.0.1:${String(local.port)}`);
+    // Presented as a local TLS proxy would, so DPoP proofs for the relay address verify.
+    expect(seen.headers.host).toBe(`${HOST_ID}.relay.invalid`);
+    expect(seen.headers["x-forwarded-proto"]).toBe("https");
     expect(seen.headers["x-forwarded-for"]).toBeUndefined();
 
     const ws = device.mux.openWs({ path: "/ws", headers: {}, protocols: [] });

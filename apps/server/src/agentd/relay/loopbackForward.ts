@@ -3,7 +3,8 @@ import * as NodeHttp from "node:http";
 
 import type { Headers, HttpOpen, WsOpen } from "@t3tools/relay-session/frames";
 import type { MuxStream } from "@t3tools/relay-session/mux";
-import { WebSocket } from "undici";
+// `ws`, not undici: undici drops a Host header, and the server must see the host the device addressed.
+import { WebSocket } from "ws";
 
 // The local server stops reading a response once this much waits on the device's credit.
 const HIGH_WATER = 512 * 1024;
@@ -57,7 +58,17 @@ export interface LoopbackTarget {
   /** The address the server listens on, as a URL host: 127.0.0.1, [::1] or a bound address. */
   readonly host: string;
   readonly port: number;
+  /**
+   * The HTTPS host the device addressed (see relayBaseUrl), passed on as a local TLS proxy would,
+   * so the server checks a DPoP proof against the URL the device signed.
+   */
+  readonly originHost?: string;
 }
+
+const targetHeaders = (target: LoopbackTarget): Record<string, string> =>
+  target.originHost === undefined
+    ? { host: `${target.host}:${String(target.port)}` }
+    : { host: target.originHost, "x-forwarded-proto": "https" };
 
 /** Sends one HTTP stream to the server and its response back. */
 export const forwardHttpStream = (target: LoopbackTarget, stream: MuxStream, open: HttpOpen) => {
@@ -68,10 +79,7 @@ export const forwardHttpStream = (target: LoopbackTarget, stream: MuxStream, ope
     port: target.port,
     method: open.method,
     path: open.path,
-    headers: {
-      ...sanitizeRequestHeaders(open.headers),
-      host: `${target.host}:${String(target.port)}`,
-    },
+    headers: { ...sanitizeRequestHeaders(open.headers), ...targetHeaders(target) },
   });
   request.on("response", (incoming) => {
     response = incoming;
@@ -132,23 +140,28 @@ const toCloseCode = (code: number) =>
 
 /** Opens the WebSocket on the server and pipes its messages both ways. */
 export const forwardWsStream = (target: LoopbackTarget, stream: MuxStream, open: WsOpen) => {
-  const socket = new WebSocket(`ws://${target.host}:${String(target.port)}${open.path}`, {
-    protocols: [...open.protocols],
-    headers: singleValued(sanitizeRequestHeaders(open.headers)),
-  });
+  const socket = new WebSocket(
+    `ws://${target.host}:${String(target.port)}${open.path}`,
+    [...open.protocols],
+    {
+      headers: { ...singleValued(sanitizeRequestHeaders(open.headers)), ...targetHeaders(target) },
+      perMessageDeflate: false,
+    },
+  );
   socket.binaryType = "arraybuffer";
   let accepted = false;
-  socket.addEventListener("open", () => {
+  socket.on("open", () => {
     accepted = true;
     stream.accept(socket.protocol);
   });
-  socket.addEventListener("message", (event) => {
-    if (typeof event.data === "string") stream.sendText(event.data);
-    else stream.sendBinary(new Uint8Array(event.data as ArrayBuffer));
+  socket.on("message", (data: ArrayBuffer, isBinary: boolean) => {
+    if (isBinary) stream.sendBinary(new Uint8Array(data));
+    else stream.sendText(Buffer.from(data).toString("utf8"));
   });
-  socket.addEventListener("close", (event) => {
+  socket.on("error", () => {});
+  socket.on("close", (code: number, reason: Buffer) => {
     if (stream.closed) return;
-    if (accepted) stream.sendClose(event.code, event.reason);
+    if (accepted) stream.sendClose(code, reason.toString("utf8"));
     else stream.reject(502);
   });
   const send = (data: string | Uint8Array, credit: number) => {

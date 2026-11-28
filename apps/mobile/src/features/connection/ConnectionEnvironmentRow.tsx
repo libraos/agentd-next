@@ -23,6 +23,7 @@ import { cn } from "../../lib/cn";
 import type { ConnectedEnvironmentSummary } from "../../state/remote-runtime-types";
 import { serverEnvironment } from "../../state/server";
 import { environmentPresentations } from "../../state/presentation";
+import { RelayRouteStatus } from "../agentd/relay/RelayRouteStatus";
 import { ConnectionDiagnosisDetails, useConnectionDiagnosis } from "./ConnectionDiagnosisDetails";
 import { ConnectionFormField } from "./ConnectionFormField";
 import { ConnectionStatusDot } from "./ConnectionStatusDot";
@@ -149,6 +150,12 @@ export function ConnectionEnvironmentRow(props: {
               {props.environment.displayUrl}
             </Text>
           ) : null}
+          <RelayRouteStatus
+            environmentId={props.environment.environmentId}
+            hostLabel={props.environment.environmentLabel}
+            entry={presentation?.entry}
+            connected={enabled && props.environment.connectionState === "connected"}
+          />
           {diagnosis ? (
             <>
               <Text className="text-xs text-danger-foreground">{diagnosis.headline}</Text>

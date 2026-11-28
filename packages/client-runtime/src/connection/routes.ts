@@ -5,6 +5,7 @@ import {
   isTailnetHost,
 } from "@t3tools/shared/hostClassification";
 import type { DesktopSshEnvironmentTarget } from "@t3tools/contracts";
+import { relayHostLabelOfUrl } from "@t3tools/relay-session/route";
 import * as Option from "effect/Option";
 
 import {
@@ -98,6 +99,7 @@ export function connectionRouteKind(route: ConnectionRoute): ConnectionRouteKind
       return "ssh";
     case "PrimaryConnectionTarget":
     case "BearerConnectionTarget": {
+      if (isRelayAddressRoute(route)) return "relay";
       const hostname = routeHostname(route);
       if (hostname === null) return "public";
       const profile = Option.getOrNull(route.profile);
@@ -444,9 +446,29 @@ function learnedConnectionId(
 
 export function credentialConnectionId(connectionId: string): string {
   const at = connectionId.indexOf("@");
-  return connectionId.startsWith("learned:") && at !== -1
+  return (connectionId.startsWith("learned:") ||
+    connectionId.startsWith(RELAY_ADDRESS_ROUTE_PREFIX)) &&
+    at !== -1
     ? connectionId.slice(at + 1)
     : connectionId;
+}
+
+const RELAY_ADDRESS_ROUTE_PREFIX = "relay:";
+
+/** The id of a route through the device's own relay transport, which borrows `lenderId`'s credential. */
+export function relayAddressConnectionId(
+  environmentId: string,
+  httpBaseUrl: string,
+  lenderId: string,
+): string {
+  return `${RELAY_ADDRESS_ROUTE_PREFIX}${environmentId}:${new URL(httpBaseUrl).host}@${lenderId}`;
+}
+
+/** A route to a relay address (see `relayBaseUrl`), which only the device's relay transport carries. */
+export function isRelayAddressRoute(route: ConnectionRoute): boolean {
+  if (route.target._tag !== "BearerConnectionTarget") return false;
+  const httpBaseUrl = routeHttpBaseUrl(route);
+  return httpBaseUrl !== null && relayHostLabelOfUrl(httpBaseUrl) !== null;
 }
 
 export function isLearned(route: ConnectionRoute): boolean {
@@ -468,6 +490,9 @@ export function routesAfterRemoving(
   if (removed === undefined) return routes;
   return routes.filter((route) => {
     if (route === removed) return false;
+    if (isRelayAddressRoute(route)) {
+      return credentialConnectionId(connectionRouteId(route.target)) !== removedId;
+    }
     if (!isLearned(route)) return true;
     const profile = Option.getOrNull(route.profile);
     if (profile?._tag === "BearerConnectionProfile" && profile.authorization === "t3-connect") {

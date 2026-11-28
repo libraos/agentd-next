@@ -68,6 +68,8 @@ export interface InitiatorOptions extends SessionCallbacks {
   readonly hostStaticKey: Uint8Array;
   /** The one-time code from the pairing link, sent only on first contact. */
   readonly pairingCode?: string;
+  /** For runtimes without crypto.getRandomValues (Hermes): an ephemeral key from their own source. */
+  readonly ephemeralKeyPair?: KeyPair;
 }
 
 /** A Noise XK session carried one Noise message per transport message. */
@@ -109,6 +111,9 @@ export class SecureSession {
       prologue: relayPrologue(options.hostId),
       staticKeyPair: options.staticKeyPair,
       remoteStaticKey: options.hostStaticKey,
+      ...(options.ephemeralKeyPair === undefined
+        ? {}
+        : { ephemeralKeyPair: options.ephemeralKeyPair }),
     });
     const session = new SecureSession(
       options.transport,
