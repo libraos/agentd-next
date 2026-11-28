@@ -54,6 +54,12 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
         )
       : null;
   const restored = useRestoredMarkdown(ctx.threadRef, messageText);
+  // Outside the task-draft branch, so the compiler keys it on the item, not the streamed text; a
+  // new one per delta re-renders every finished markdown block.
+  const agentDirectories = () =>
+    ctx.threadRef && row.projectedItem
+      ? agentWorkingDirectories(readThreadTurnItems(ctx.threadRef), row.projectedItem)
+      : [];
 
   return (
     <>
@@ -74,11 +80,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
                 text={messageText}
                 renderInsights
                 cwd={ctx.markdownCwd}
-                agentDirectories={() =>
-                  ctx.threadRef && row.projectedItem
-                    ? agentWorkingDirectories(readThreadTurnItems(ctx.threadRef), row.projectedItem)
-                    : []
-                }
+                agentDirectories={agentDirectories}
                 threadRef={ctx.threadRef ?? undefined}
                 isStreaming={Boolean(row.message.streaming)}
                 lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
