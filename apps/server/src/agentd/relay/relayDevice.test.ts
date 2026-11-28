@@ -165,7 +165,9 @@ describe("phone relay transport", () => {
   });
 
   it("opens WebSockets to the host through the relay", async () => {
-    const fallback = vi.fn();
+    const fallback = vi.fn((_url: string): never => {
+      throw new Error("not a relay address");
+    });
     const socket = router.webSocket(fallback)(
       `${relayBaseUrl(route).replace("https", "wss")}ws?ticket=abc`,
       ["rpc"],

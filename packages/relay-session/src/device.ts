@@ -66,10 +66,12 @@ export interface RelayTunnelOptions {
 
 export type RelayRequestBody = string | ArrayBuffer | ArrayBufferView | URLSearchParams | null;
 
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
+
 export interface RelayRequestInit {
   readonly method?: string;
-  readonly headers?: HeadersInit;
-  readonly body?: RelayRequestBody | BodyInit;
+  readonly headers?: FetchInit["headers"];
+  readonly body?: RelayRequestBody | FetchInit["body"];
   readonly signal?: AbortSignal | null;
 }
 
@@ -109,7 +111,7 @@ const abortError = () => {
   return error;
 };
 
-const headerRecord = (init: HeadersInit | undefined): Record<string, string> => {
+const headerRecord = (init: RelayRequestInit["headers"]): Record<string, string> => {
   const out: Record<string, string> = {};
   new Headers(init).forEach((value, name) => {
     out[name.toLowerCase()] = value;
