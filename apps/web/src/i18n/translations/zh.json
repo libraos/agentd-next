@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, other {已收到 {count} 条更新}}",
   "0435b01700ac8046": "{first} 和 {second}",
   "fbf1dd24dd681515": "{items} 和 {last}",
+  "e16b0b9b490c8bc7": "{label}：{value}",
   "219a211a44b89d07": "已思考",
   "de377e9ebfd7e1f2": "已思考（×{count}）",
   "eb3de8871016043c": "{count, plural, =1 {已使用 {names} 集成} other {已使用 {names} 集成}}",
@@ -5437,7 +5438,6 @@
   "d28c53157c8c0f5f": "{label}：{accounts} 个账号共剩余 {left}%",
   "ba03873d5356238b": "{duration}后 +{percent}% · {time}",
   "78c1d280f021a28f": "来自 {sources}",
-  "e16b0b9b490c8bc7": "{label}：{value}",
   "8ca5d2f328f4181e": "此 Agent 未报告",
   "ba67d0a9ff5dabf0": "复制管理员请求时剪贴板 API 不可用。",
   "aef4bec20e799aab": "无法将管理员请求复制到剪贴板。",
@@ -7335,9 +7335,25 @@
   "46f863624808dbfc": "选择你的智能体从哪里获取模型。",
   "560b12dcbd292d26": "暂不可用",
   "afe41e4541b9846e": "请先连接一个环境。",
-  "3f6b4559d7d4dee2": "在浏览器中登录或创建 LibraOS 账号，然后批准这个验证码：",
-  "2fc60a0937f5a274": "要在 LibraOS 中撤销这个 key，请在浏览器中登录并批准这个验证码：",
-  "64da476e68e83a8a": "打开 LibraOS 登录页面",
+  "54796a9745736d9f": "要在 LibraOS 中撤销这个 key，请在浏览器中登录并点击批准。",
+  "07bb1ddfe1f91c94": "LibraOS 已在浏览器中打开。请在那里登录并点击批准。",
+  "f8b3e60ec1ab4ecf": "在浏览器中继续：登录 LibraOS 并点击批准。",
+  "3d306f61a1b668b6": "再次打开 LibraOS",
+  "90d23b3eb970f6cd": "在浏览器中继续",
+  "53e39b2d10669998": [
+    "请确认页面上显示的是",
+    "",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    "。还没有账号？可以在那里创建。"
+  ],
   "1d489e6296d9c42a": "等待批准…",
   "8ce883f5f230a34d": "仅在此处移除",
   "76b6067a87335bac": "LibraOS Gateway 已连接。",
