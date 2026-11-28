@@ -2278,3 +2278,39 @@ it("caps live thought previews while preserving reasoning detail", () => {
   expect(JSON.parse(activity.getFullDetail()!).item).toMatchObject({ text });
   expect(activity.getCopyText()).toContain(text);
 });
+
+it.each([
+  [undefined, "LibraOS Engine: Handoff dispatch"],
+  [{ _tag: "themed-logo" as const, logoUrl: "https://example.com/engine.svg" }, "Handoff dispatch"],
+])("names an integration on a lone completed call without an icon (%j)", (icon, label) => {
+  const at = "2026-06-20T00:00:02.000Z";
+  const dispatch: OrchestrationV2TurnItem = {
+    ...base("engine-dispatch", at, 1),
+    type: "dynamic_tool",
+    title: "handoff dispatch",
+    toolName: "mcp__agentd__handoff_dispatch",
+    input: { id: "hof-1" },
+    output: "Dispatched",
+    toolSource: {
+      key: "mcp:agentd",
+      name: "LibraOS Engine",
+      kind: "integration",
+      ...(icon ? { icon } : {}),
+    },
+  };
+  const presented = deriveThreadFeedPresentation(
+    buildThreadFeed([
+      projected(userMessage(), 0),
+      projected(dispatch, 1),
+      projected(assistantMessage(), 2),
+    ]),
+    { runId, status: "completed", startedAt: at, completedAt: at },
+    new Set([runId]),
+  );
+  const row = presented.find(
+    (entry) => entry.type === "activity-group" && entry.activities[0]?.groupStandIn,
+  );
+  expect(row?.type === "activity-group" ? row.activities[0]?.groupStandIn?.label : undefined).toBe(
+    label,
+  );
+});

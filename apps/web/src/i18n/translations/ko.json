@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, other {업데이트 {count}개 받음}}",
   "0435b01700ac8046": "{first} 및 {second}",
   "fbf1dd24dd681515": "{items} 및 {last}",
+  "e16b0b9b490c8bc7": "{label}: {value}",
   "219a211a44b89d07": "생각",
   "de377e9ebfd7e1f2": "생각(×{count})",
   "eb3de8871016043c": "{count, plural, =1 {{names} 통합 사용함} other {{names} 통합 사용함}}",
@@ -3866,6 +3867,18 @@
   "9b79c2501002ccd0": "스킬을 읽고 전환하려면 이 환경에 대한 유지 관리 권한이 필요합니다.",
   "960309000b481419": "이 스킬을 전환하려면 프로젝트를 선택하세요. 이 에이전트는 프로젝트별로 스킬을 전환합니다.",
   "dd3b73fd8f895c78": "파일이 더 깁니다. 처음 부분만 표시됩니다.",
+  "7ea256b85f52c1a7": "GitHub App 설치",
+  "fac11c10590e901e": "클라우드 작업에는 이 저장소에 LibraOS GitHub App이 필요합니다.",
+  "945b2ab5a4355592": [
+    "클라우드 작업에는 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "에 LibraOS GitHub App이 필요합니다."
+  ],
+  "c861393b06e2d5ed": "조직 소유자나 저장소 관리자가 설치합니다. 그 밖의 사람은 같은 페이지에서 요청할 수 있습니다.",
   "b05cd1b6f694caf1": "Git이 저장하지 못했습니다.",
   "72fcd24abd213e79": "이름",
   "03872ce8bd1d4d7d": "이메일",
@@ -4228,6 +4241,7 @@
   "32b1f76f321a351e": "Git 저장소",
   "a9f14d01cdb4969e": "Git 이름과 이메일",
   "22db8b503d3c3c3b": "아직 필요: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Cloud Workers용 이 체크아웃의 origin을 읽을 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "576d127b20ad5743": "Cloud Workers를 확인하기 위해 LibraOS Engine에 연결할 수 없습니다. 다시 시도하거나 “편집”을 선택해 “Run in the cloud”를 끄고 이 작업을 여기에서 실행하세요.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4238,7 +4252,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "이 컴퓨터의 Git에 이름 또는 이메일이 없어 워커가 작업을 커밋할 수 없습니다.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",
@@ -5409,7 +5422,6 @@
   "d28c53157c8c0f5f": "{label}: 계정 {accounts}개에서 {left}% 남음",
   "ba03873d5356238b": "{duration} 후 +{percent}% · {time}",
   "78c1d280f021a28f": "출처: {sources}",
-  "e16b0b9b490c8bc7": "{label}: {value}",
   "8ca5d2f328f4181e": "Not reported by this agent",
   "ba67d0a9ff5dabf0": "관리자 요청을 복사하는 중 클립보드 API를 사용할 수 없습니다.",
   "aef4bec20e799aab": "관리자 요청을 클립보드에 복사하지 못했습니다.",
@@ -7304,9 +7316,25 @@
   "46f863624808dbfc": "에이전트가 모델을 가져올 곳을 선택하세요.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
-  "3f6b4559d7d4dee2": "브라우저에서 LibraOS에 로그인하거나 계정을 만든 다음 이 코드를 승인하세요:",
-  "2fc60a0937f5a274": "LibraOS에서 키를 취소하려면 브라우저에서 로그인하고 이 코드를 승인하세요:",
-  "64da476e68e83a8a": "LibraOS 로그인 페이지 열기",
+  "54796a9745736d9f": "LibraOS에서 키를 취소하려면 브라우저에서 로그인하고 승인을 클릭하세요.",
+  "07bb1ddfe1f91c94": "브라우저에서 LibraOS가 열렸습니다. 로그인한 다음 승인을 클릭하세요.",
+  "f8b3e60ec1ab4ecf": "브라우저에서 계속: LibraOS에 로그인하고 승인을 클릭하세요.",
+  "3d306f61a1b668b6": "LibraOS 다시 열기",
+  "90d23b3eb970f6cd": "브라우저에서 계속",
+  "53e39b2d10669998": [
+    "페이지에 다음 코드가 표시되는지 확인하세요:",
+    " ",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    ". 계정이 없다면 그곳에서 만들 수 있습니다."
+  ],
   "1d489e6296d9c42a": "승인 대기 중…",
   "8ce883f5f230a34d": "여기서만 제거",
   "76b6067a87335bac": "LibraOS Gateway connected.",

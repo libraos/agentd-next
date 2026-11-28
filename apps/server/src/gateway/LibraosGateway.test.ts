@@ -626,6 +626,9 @@ it.effect("sign-in makes a key, connects it, keeps no token; disconnect revokes 
     const signIn = yield* gateway.signInStart("connect");
     assert.strictEqual(signIn.userCode, "ABCD-EFGH");
     assert.strictEqual((yield* gateway.status).signIn?.userCode, "ABCD-EFGH");
+    // A second Connect keeps the waiting code, so the page already open in the browser still works.
+    assert.strictEqual((yield* gateway.signInStart("connect")).userCode, "ABCD-EFGH");
+    assert.strictEqual(cloud.filter((r) => r.url === "/v1/device/code").length, 1);
     const wait = yield* Effect.forkChild(gateway.signInWait);
     // 5 s: pending; 10 s: slow_down; then the interval is 10 s, so nothing at 15 s.
     yield* TestClock.adjust("10 seconds");

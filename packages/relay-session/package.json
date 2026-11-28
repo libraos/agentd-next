@@ -1,0 +1,39 @@
+{
+  "name": "@t3tools/relay-session",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./noise": {
+      "types": "./src/noise.ts",
+      "import": "./src/noise.ts"
+    },
+    "./frames": {
+      "types": "./src/frames.ts",
+      "import": "./src/frames.ts"
+    },
+    "./mux": {
+      "types": "./src/mux.ts",
+      "import": "./src/mux.ts"
+    },
+    "./session": {
+      "types": "./src/session.ts",
+      "import": "./src/session.ts"
+    },
+    "./route": {
+      "types": "./src/route.ts",
+      "import": "./src/route.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@noble/ciphers": "catalog:",
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

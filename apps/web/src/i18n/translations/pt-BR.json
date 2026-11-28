@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, one {Recebeu {count} atualização} other {Recebeu {count} atualizações}}",
   "0435b01700ac8046": "{first} e {second}",
   "fbf1dd24dd681515": "{items} e {last}",
+  "e16b0b9b490c8bc7": "{label}: {value}",
   "219a211a44b89d07": "Raciocínio",
   "de377e9ebfd7e1f2": "Raciocínio (×{count})",
   "eb3de8871016043c": "{count, plural, =1 {Usou a integração {names}} other {Usou as integrações {names}}}",
@@ -3867,6 +3868,18 @@
   "9b79c2501002ccd0": "Ler e alternar skills exige acesso de manutenção a este ambiente.",
   "960309000b481419": "Escolha um projeto para alternar esta skill; este agente alterna skills por projeto.",
   "dd3b73fd8f895c78": "O arquivo é maior; apenas o início é exibido.",
+  "7ea256b85f52c1a7": "Instalar o GitHub App",
+  "fac11c10590e901e": "Tarefas na nuvem precisam do GitHub App da LibraOS neste repositório.",
+  "945b2ab5a4355592": [
+    "Tarefas na nuvem precisam do GitHub App da LibraOS em ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "c861393b06e2d5ed": "Um proprietário da organização ou administrador do repositório o instala. Qualquer outra pessoa pode solicitá-lo na mesma página.",
   "b05cd1b6f694caf1": "O Git não conseguiu salvá-los.",
   "72fcd24abd213e79": "Seu nome",
   "03872ce8bd1d4d7d": "Seu e-mail",
@@ -4229,6 +4242,7 @@
   "32b1f76f321a351e": "repositório Git",
   "a9f14d01cdb4969e": "nome e e-mail do Git",
   "22db8b503d3c3c3b": "Ainda falta: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Não foi possível ler o origin deste checkout para o Cloud Workers. Tente novamente ou escolha “Editar” e desative “Run in the cloud” para executar esta tarefa aqui.",
   "576d127b20ad5743": "Não foi possível acessar o LibraOS Engine para verificar o Cloud Workers. Tente novamente ou escolha “Editar” e desative “Run in the cloud” para executar esta tarefa aqui.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4239,7 +4253,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "O Git não tem nome nem e-mail neste computador, então um worker não consegue fazer commit do trabalho.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",
@@ -5422,7 +5435,6 @@
   "d28c53157c8c0f5f": "{label}: {left}% restante em {accounts} contas",
   "ba03873d5356238b": "+{percent}% em {duration} · {time}",
   "78c1d280f021a28f": "De {sources}",
-  "e16b0b9b490c8bc7": "{label}: {value}",
   "8ca5d2f328f4181e": "Not reported by this agent",
   "ba67d0a9ff5dabf0": "A API da área de transferência não está disponível ao copiar o pedido para o administrador.",
   "aef4bec20e799aab": "Falha ao copiar o pedido para o administrador para a área de transferência.",
@@ -7320,9 +7332,25 @@
   "46f863624808dbfc": "Escolha de onde seus agentes obtêm os modelos.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
-  "3f6b4559d7d4dee2": "Entre ou crie uma conta LibraOS no navegador e depois aprove este código:",
-  "2fc60a0937f5a274": "Para revogar a chave no LibraOS, entre no navegador e aprove este código:",
-  "64da476e68e83a8a": "Abrir a página de login do LibraOS",
+  "54796a9745736d9f": "Para revogar a chave no LibraOS, entre no navegador e clique em Aprovar.",
+  "07bb1ddfe1f91c94": "O LibraOS está aberto no seu navegador. Entre lá e clique em Aprovar.",
+  "f8b3e60ec1ab4ecf": "Continue no navegador: entre no LibraOS e clique em Aprovar.",
+  "3d306f61a1b668b6": "Abrir o LibraOS de novo",
+  "90d23b3eb970f6cd": "Continuar no navegador",
+  "53e39b2d10669998": [
+    "Confira se a página mostra",
+    " ",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    ". Ainda não tem conta? Você pode criar uma lá."
+  ],
   "1d489e6296d9c42a": "Aguardando aprovação…",
   "8ce883f5f230a34d": "Remover só aqui",
   "76b6067a87335bac": "LibraOS Gateway connected.",

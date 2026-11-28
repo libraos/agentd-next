@@ -719,6 +719,18 @@ function summaryActionPriority(action: ToolGroupAction | T3McpToolSummaryAction)
   }
 }
 
+/** A lone integration call shows its source by icon; without one, the label names it. */
+export function singleToolCallLabelWithSource(
+  entry: Pick<WorkLogPresentationEntry, "toolSource" | "toolIcon">,
+  label: string,
+  resolve: MFunctionType = mFallback,
+): string {
+  const source = entry.toolSource;
+  if (source?.kind !== "integration" || entry.toolIcon || source.icon) return label;
+  if (label.toLowerCase().includes(source.name.toLowerCase())) return label;
+  return resolve(msg("{label}: {value}", { label: source.name, value: label }));
+}
+
 export function summarizeToolGroup(
   entries: ReadonlyArray<WorkLogPresentationEntry>,
   resolve: MFunctionType = mFallback,

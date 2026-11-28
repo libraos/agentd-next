@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, one {Tog emot {count} uppdatering} other {Tog emot {count} uppdateringar}}",
   "0435b01700ac8046": "{first} och {second}",
   "fbf1dd24dd681515": "{items} och {last}",
+  "e16b0b9b490c8bc7": "{label}: {value}",
   "219a211a44b89d07": "Tanke",
   "de377e9ebfd7e1f2": "Tanke (×{count})",
   "eb3de8871016043c": "{count, plural, =1 {Använde integrationen {names}} other {Använde integrationerna {names}}}",
@@ -3867,6 +3868,18 @@
   "9b79c2501002ccd0": "Att läsa och byta färdigheter kräver underhållsåtkomst till den här miljön.",
   "960309000b481419": "Välj ett projekt för att byta den här färdigheten; den här agenten byter färdigheter per projekt.",
   "dd3b73fd8f895c78": "Filen är längre; bara början visas.",
+  "7ea256b85f52c1a7": "Installera GitHub-appen",
+  "fac11c10590e901e": "Molnuppgifter behöver LibraOS GitHub App i det här repositoryt.",
+  "945b2ab5a4355592": [
+    "Molnuppgifter behöver LibraOS GitHub App i ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    "."
+  ],
+  "c861393b06e2d5ed": "En organisationsägare eller repository-administratör installerar den. Andra kan begära den på samma sida.",
   "b05cd1b6f694caf1": "Git kunde inte spara dem.",
   "72fcd24abd213e79": "Ditt namn",
   "03872ce8bd1d4d7d": "Din e-post",
@@ -4229,6 +4242,7 @@
   "32b1f76f321a351e": "Git-repo",
   "a9f14d01cdb4969e": "Git-namn och e-post",
   "22db8b503d3c3c3b": "Behövs fortfarande: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Det gick inte att läsa den här utcheckningens origin för Cloud Workers. Försök igen, eller välj ”Redigera” och stäng av ”Run in the cloud” för att köra uppgiften här.",
   "576d127b20ad5743": "Det gick inte att nå LibraOS Engine för att kontrollera Cloud Workers. Försök igen, eller välj ”Redigera” och stäng av ”Run in the cloud” för att köra uppgiften här.",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4239,7 +4253,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "Git har inget namn eller ingen e-post på den här datorn, så en worker kan inte committa sitt arbete.",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",
@@ -5423,7 +5436,6 @@
   "d28c53157c8c0f5f": "{label}: {left} % kvar över {accounts} konton",
   "ba03873d5356238b": "+{percent} % om {duration} · {time}",
   "78c1d280f021a28f": "Från {sources}",
-  "e16b0b9b490c8bc7": "{label}: {value}",
   "8ca5d2f328f4181e": "Not reported by this agent",
   "ba67d0a9ff5dabf0": "Urklipps-API:t är inte tillgängligt vid kopiering av administratörsbegäran.",
   "aef4bec20e799aab": "Kunde inte kopiera administratörsbegäran till urklipp.",
@@ -7321,9 +7333,25 @@
   "46f863624808dbfc": "Välj varifrån dina agenter hämtar sina modeller.",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
-  "3f6b4559d7d4dee2": "Logga in eller skapa ett LibraOS-konto i webbläsaren och godkänn sedan den här koden:",
-  "2fc60a0937f5a274": "För att återkalla nyckeln i LibraOS loggar du in i webbläsaren och godkänner den här koden:",
-  "64da476e68e83a8a": "Öppna LibraOS inloggningssida",
+  "54796a9745736d9f": "Logga in i webbläsaren och klicka på Godkänn för att återkalla nyckeln i LibraOS.",
+  "07bb1ddfe1f91c94": "LibraOS är öppet i din webbläsare. Logga in där och klicka på Godkänn.",
+  "f8b3e60ec1ab4ecf": "Fortsätt i webbläsaren: logga in på LibraOS och klicka på Godkänn.",
+  "3d306f61a1b668b6": "Öppna LibraOS igen",
+  "90d23b3eb970f6cd": "Fortsätt i webbläsaren",
+  "53e39b2d10669998": [
+    "Kontrollera att sidan visar",
+    " ",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    ". Inget konto än? Du kan skapa ett där."
+  ],
   "1d489e6296d9c42a": "Väntar på godkännande…",
   "8ce883f5f230a34d": "Ta bort bara här",
   "76b6067a87335bac": "LibraOS Gateway connected.",

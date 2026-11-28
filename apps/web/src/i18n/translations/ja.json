@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, other {{count} 件の更新を受信しました}}",
   "0435b01700ac8046": "{first}、{second}",
   "fbf1dd24dd681515": "{items}、{last}",
+  "e16b0b9b490c8bc7": "{label}: {value}",
   "219a211a44b89d07": "思考",
   "de377e9ebfd7e1f2": "思考 (×{count})",
   "eb3de8871016043c": "{count, plural, =1 {{names} 連携を使用しました} other {{names} 連携を使用しました}}",
@@ -3865,6 +3866,18 @@
   "9b79c2501002ccd0": "スキルの読み取りと切り替えにはこの環境へのメンテナンスアクセスが必要です。",
   "960309000b481419": "このスキルを切り替えるにはプロジェクトを選択してください。このエージェントはプロジェクトごとにスキルを切り替えます。",
   "dd3b73fd8f895c78": "ファイルが長いため、先頭部分のみ表示しています。",
+  "7ea256b85f52c1a7": "GitHub App をインストール",
+  "fac11c10590e901e": "クラウドタスクには、このリポジトリに LibraOS GitHub App が必要です。",
+  "945b2ab5a4355592": [
+    "クラウドタスクには、",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " に LibraOS GitHub App が必要です。"
+  ],
+  "c861393b06e2d5ed": "組織のオーナーまたはリポジトリ管理者がインストールします。それ以外の人は同じページでリクエストできます。",
   "b05cd1b6f694caf1": "Git が保存できませんでした。",
   "72fcd24abd213e79": "あなたの名前",
   "03872ce8bd1d4d7d": "メールアドレス",
@@ -4227,6 +4240,7 @@
   "32b1f76f321a351e": "Git リポジトリ",
   "a9f14d01cdb4969e": "Git の名前とメール",
   "22db8b503d3c3c3b": "まだ必要: {items}",
+  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "ae8470f8ec58cfa1": "Cloud Workers 用にこのチェックアウトの origin を読み取れませんでした。再試行するか、「編集」を選んで「Run in the cloud」をオフにし、このタスクをここで実行してください。",
   "576d127b20ad5743": "Cloud Workers を確認するために LibraOS Engine に接続できませんでした。再試行するか、「編集」を選んで「Run in the cloud」をオフにし、このタスクをここで実行してください。",
   "a4aff358558707df": "This session has no project working directory.",
@@ -4237,7 +4251,6 @@
   "7bc584e54f1ba8d0": "Choose a worker. The default is set in LibraOS Engine.",
   "12cafaa8907f87d8": "このコンピューターの Git に名前またはメールが設定されていないため、ワーカーが作業をコミットできません。",
   "e0fb1011751b53eb": "Cloud Workers aren’t set up. Check the cloud configuration and account key file.",
-  "cb6d9d23cb1d9316": "The repository owner must install the Cloud Workers GitHub App on this repository.",
   "3f8423de9feb2172": "budget up to {cap}",
   "37a4fb7fe9eb5f3b": "time limit {minutes} min",
   "a7e5d8daf7e5e3fb": "LibraOS models",
@@ -5412,7 +5425,6 @@
   "d28c53157c8c0f5f": "{label}: {accounts} 個のアカウントで残り {left}%",
   "ba03873d5356238b": "{duration}後に +{percent}% · {time}",
   "78c1d280f021a28f": "取得元: {sources}",
-  "e16b0b9b490c8bc7": "{label}: {value}",
   "8ca5d2f328f4181e": "Not reported by this agent",
   "ba67d0a9ff5dabf0": "管理者へのリクエストをコピーする際にクリップボード API を利用できませんでした。",
   "aef4bec20e799aab": "管理者へのリクエストをクリップボードにコピーできませんでした。",
@@ -7306,9 +7318,25 @@
   "46f863624808dbfc": "エージェントがモデルを取得する場所を選びます。",
   "560b12dcbd292d26": "Not available yet",
   "afe41e4541b9846e": "Connect to an environment first.",
-  "3f6b4559d7d4dee2": "ブラウザで LibraOS にサインインするかアカウントを作成し、このコードを承認してください：",
-  "2fc60a0937f5a274": "LibraOS でキーを取り消すには、ブラウザでサインインしてこのコードを承認してください：",
-  "64da476e68e83a8a": "LibraOS のサインインページを開く",
+  "54796a9745736d9f": "LibraOS でキーを取り消すには、ブラウザでサインインして「承認」をクリックしてください。",
+  "07bb1ddfe1f91c94": "LibraOS をブラウザで開きました。サインインして「承認」をクリックしてください。",
+  "f8b3e60ec1ab4ecf": "ブラウザで続行：LibraOS にサインインして「承認」をクリックしてください。",
+  "3d306f61a1b668b6": "LibraOS をもう一度開く",
+  "90d23b3eb970f6cd": "ブラウザで続行",
+  "53e39b2d10669998": [
+    "ページに次のコードが表示されていることを確認してください：",
+    "",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    "。アカウントがない場合は、そこで作成できます。"
+  ],
   "1d489e6296d9c42a": "承認を待っています…",
   "8ce883f5f230a34d": "ここでのみ削除",
   "76b6067a87335bac": "LibraOS Gateway connected.",

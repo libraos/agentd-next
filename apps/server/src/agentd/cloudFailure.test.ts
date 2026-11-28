@@ -41,6 +41,13 @@ describe("cloudJobNote", () => {
     ["submitting", "402: insufficient credit", CLOUD_REASONS.credit],
     ["running", "runner starting, timed out once", null],
     ["completed", "the GitHub App is not installed on acme/app", CLOUD_REASONS.repository],
+    // Engine's job result when the Job API could not mint a token for the repository.
+    [
+      "failed_verification",
+      "Nothing pushed: no repository access: the GitHub App is not installed on acme/app",
+      CLOUD_REASONS.repository,
+    ],
+    ["failed", "Nothing pushed: no repository access to push", CLOUD_REASONS.repository],
   ] as const)("%s: %s", (state, message, note) => {
     expect(cloudJobNote(state, [message])).toBe(note);
   });
@@ -73,6 +80,9 @@ describe("cloudSetupProblem", () => {
     ["wrote /home/me/cloud-workers-not-set-up/out.log", null],
     ["402: insufficient credit", "credit"],
     ["the GitHub App is not installed on acme/app", "repository"],
+    ["no repository access: the GitHub App is not installed on acme/app", "repository"],
+    ["Nothing pushed: no repository access to push", "repository"],
+    ["wrote /home/me/no-repository-access/out.log", null],
   ] as const)("%s is %s", (message, problem) => {
     expect(cloudSetupProblem(message)).toBe(problem);
   });

@@ -25,6 +25,7 @@ import {
   liveActivityToolStatus,
   normalizeCompactToolLabel,
   resolveWorkEntryToolPresentation,
+  singleToolCallLabelWithSource,
   summarizeToolGroup,
   toolGroupAction,
   toolGroupSummaryKind,
@@ -115,9 +116,12 @@ function singleToolCallLabel(entry: WorkLogEntry, resolve: MessageResolver): str
     item?.type === "dynamic_tool"
       ? dynamicToolTitle(item.toolName, item.input, item.title, resolve)
       : null;
-  if (title) return title;
-  if (entry.itemType === "web_search") return entry.toolTitle ?? resolve(msg("Web search"));
-  return workEntryDisplayLabel(entry, undefined, resolve);
+  const label =
+    title ||
+    (entry.itemType === "web_search"
+      ? (entry.toolTitle ?? resolve(msg("Web search")))
+      : workEntryDisplayLabel(entry, undefined, resolve));
+  return singleToolCallLabelWithSource(entry, label, resolve);
 }
 
 function workEntryToolDataRecord(entry: WorkLogEntry): Record<string, unknown> | undefined {

@@ -6,6 +6,7 @@ import * as DateTime from "effect/DateTime";
 import {
   resolveViewedImageAsset,
   resolveWorkEntryToolPresentation,
+  singleToolCallLabelWithSource,
   toolItemForDisplay,
   type WorkLogPresentationEntry,
   workEntryIndicatesToolFailure,
@@ -223,5 +224,25 @@ describe("resolveViewedImageAsset", () => {
       resolveViewedImageAsset("file:///repo/my%20shot.png", { threadId: ThreadId.make("thread") })
         ?.resource.path,
     ).toBe("/repo/my shot.png");
+  });
+});
+
+describe("singleToolCallLabelWithSource", () => {
+  const engine = { key: "mcp:agentd", name: "LibraOS Engine", kind: "integration" as const };
+  const logo = { _tag: "themed-logo" as const, logoUrl: "https://example.com/logo.svg" };
+
+  it.each([
+    [{ toolSource: engine }, "Handoff dispatch", "LibraOS Engine: Handoff dispatch"],
+    [{ toolSource: engine }, "Asked LibraOS Engine", "Asked LibraOS Engine"],
+    [{ toolSource: engine, toolIcon: logo }, "Handoff dispatch", "Handoff dispatch"],
+    [{ toolSource: { ...engine, icon: logo } }, "Handoff dispatch", "Handoff dispatch"],
+    [
+      { toolSource: { key: "computer-use", name: "Computer", kind: "computer" as const } },
+      "Click",
+      "Click",
+    ],
+    [{}, "Ran command", "Ran command"],
+  ])("labels %j %j as %j", (entry, label, expected) => {
+    expect(singleToolCallLabelWithSource(entry, label)).toBe(expected);
   });
 });

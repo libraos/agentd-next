@@ -621,6 +621,15 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
   const signInStart: LibraosGateway["Service"]["signInStart"] = Effect.fn(
     "LibraosGateway.signInStart",
   )(function* (purpose) {
+    // A second Connect while one waits keeps its code: the browser page opened for it stays valid.
+    const waiting = yield* Ref.get(pending);
+    if (
+      waiting !== null &&
+      waiting.info.purpose === purpose &&
+      waiting.info.expiresAt > (yield* Clock.currentTimeMillis)
+    ) {
+      return waiting.info;
+    }
     yield* cancelPending;
     const connected = Option.isSome(yield* readKey);
     if (purpose === "connect" && connected) {

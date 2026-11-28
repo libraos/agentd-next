@@ -323,6 +323,15 @@ export function parseMcpApprovalCode(
   return access && { access, code: mcpApprovalCode(access, match[2]!.toUpperCase()) };
 }
 
+/** How a phone reaches this server through its relay; links carry it in their fragment. */
+export const AuthPairingRelayRoute = Schema.Struct({
+  relayUrl: TrimmedNonEmptyString,
+  hostId: TrimmedNonEmptyString,
+  hostKey: TrimmedNonEmptyString,
+  deviceToken: TrimmedNonEmptyString,
+});
+export type AuthPairingRelayRoute = typeof AuthPairingRelayRoute.Type;
+
 export const AuthPairingCredentialResult = Schema.Struct({
   id: TrimmedNonEmptyString,
   credential: TrimmedNonEmptyString,
@@ -331,6 +340,8 @@ export const AuthPairingCredentialResult = Schema.Struct({
   purpose: Schema.optionalKey(Schema.Literal("peer-link")),
   /** Set when the code approves one agent sign-in at this level. Older servers omit it. */
   access: Schema.optionalKey(AuthMcpClientAccess),
+  /** Set when this server is connected to a relay and the code pairs a device. */
+  relay: Schema.optionalKey(AuthPairingRelayRoute),
 });
 export type AuthPairingCredentialResult = typeof AuthPairingCredentialResult.Type;
 

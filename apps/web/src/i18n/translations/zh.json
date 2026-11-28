@@ -977,6 +977,7 @@
   "8607edc6cc0ea393": "{count, plural, other {已收到 {count} 条更新}}",
   "0435b01700ac8046": "{first} 和 {second}",
   "fbf1dd24dd681515": "{items} 和 {last}",
+  "e16b0b9b490c8bc7": "{label}：{value}",
   "219a211a44b89d07": "已思考",
   "de377e9ebfd7e1f2": "已思考（×{count}）",
   "eb3de8871016043c": "{count, plural, =1 {已使用 {names} 集成} other {已使用 {names} 集成}}",
@@ -3867,6 +3868,18 @@
   "9b79c2501002ccd0": "读取和切换技能需要对此环境的维护访问权限。",
   "960309000b481419": "请选择一个项目来切换此技能;此智能体按项目切换技能。",
   "dd3b73fd8f895c78": "文件较长;仅显示开头部分。",
+  "7ea256b85f52c1a7": "安装 GitHub App",
+  "fac11c10590e901e": "云任务需要在此仓库上安装 LibraOS GitHub App。",
+  "945b2ab5a4355592": [
+    "云任务需要在 ",
+    {
+      "i": 1,
+      "k": "_gt_value_1",
+      "v": "v"
+    },
+    " 上安装 LibraOS GitHub App。"
+  ],
+  "c861393b06e2d5ed": "由组织所有者或仓库管理员安装。其他人可以在同一页面上申请。",
   "b05cd1b6f694caf1": "Git 无法保存。",
   "72fcd24abd213e79": "你的名字",
   "03872ce8bd1d4d7d": "你的邮箱",
@@ -4229,6 +4242,7 @@
   "32b1f76f321a351e": "Git 仓库",
   "a9f14d01cdb4969e": "Git 姓名和邮箱",
   "22db8b503d3c3c3b": "仍需：{items}",
+  "cb6d9d23cb1d9316": "仓库所有者需要在这个仓库上安装 Cloud Workers GitHub App。",
   "ae8470f8ec58cfa1": "无法为 Cloud Workers 读取此检出的 origin。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
   "576d127b20ad5743": "无法连接 LibraOS Engine 以检查 Cloud Workers。请重试，或选择“编辑”并关闭“在云端运行”，以在此处运行此任务。",
   "a4aff358558707df": "此会话没有项目工作目录。",
@@ -4239,7 +4253,6 @@
   "7bc584e54f1ba8d0": "请选择 Worker。默认值在 LibraOS Engine 中设置。",
   "12cafaa8907f87d8": "这台电脑上的 Git 没有设置姓名或邮箱，因此 worker 无法提交工作。",
   "e0fb1011751b53eb": "Cloud Workers 尚未设置。请检查云端配置和账号 key 文件。",
-  "cb6d9d23cb1d9316": "仓库所有者需要在这个仓库上安装 Cloud Workers GitHub App。",
   "3f8423de9feb2172": "预算最多 {cap}",
   "37a4fb7fe9eb5f3b": "时间上限 {minutes} 分钟",
   "a7e5d8daf7e5e3fb": "LibraOS 模型",
@@ -5425,7 +5438,6 @@
   "d28c53157c8c0f5f": "{label}：{accounts} 个账号共剩余 {left}%",
   "ba03873d5356238b": "{duration}后 +{percent}% · {time}",
   "78c1d280f021a28f": "来自 {sources}",
-  "e16b0b9b490c8bc7": "{label}：{value}",
   "8ca5d2f328f4181e": "此 Agent 未报告",
   "ba67d0a9ff5dabf0": "复制管理员请求时剪贴板 API 不可用。",
   "aef4bec20e799aab": "无法将管理员请求复制到剪贴板。",
@@ -7323,9 +7335,25 @@
   "46f863624808dbfc": "选择你的智能体从哪里获取模型。",
   "560b12dcbd292d26": "暂不可用",
   "afe41e4541b9846e": "请先连接一个环境。",
-  "3f6b4559d7d4dee2": "在浏览器中登录或创建 LibraOS 账号，然后批准这个验证码：",
-  "2fc60a0937f5a274": "要在 LibraOS 中撤销这个 key，请在浏览器中登录并批准这个验证码：",
-  "64da476e68e83a8a": "打开 LibraOS 登录页面",
+  "54796a9745736d9f": "要在 LibraOS 中撤销这个 key，请在浏览器中登录并点击批准。",
+  "07bb1ddfe1f91c94": "LibraOS 已在浏览器中打开。请在那里登录并点击批准。",
+  "f8b3e60ec1ab4ecf": "在浏览器中继续：登录 LibraOS 并点击批准。",
+  "3d306f61a1b668b6": "再次打开 LibraOS",
+  "90d23b3eb970f6cd": "在浏览器中继续",
+  "53e39b2d10669998": [
+    "请确认页面上显示的是",
+    "",
+    {
+      "t": "span",
+      "i": 1,
+      "c": {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      }
+    },
+    "。还没有账号？可以在那里创建。"
+  ],
   "1d489e6296d9c42a": "等待批准…",
   "8ce883f5f230a34d": "仅在此处移除",
   "76b6067a87335bac": "LibraOS Gateway 已连接。",

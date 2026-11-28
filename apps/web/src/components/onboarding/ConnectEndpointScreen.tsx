@@ -160,13 +160,23 @@ export function ConnectEndpointScreen({
 
 const MODELS_SHOWN = 8;
 
+const opensBrowserItself = () => typeof window !== "undefined" && Boolean(window.desktopBridge);
+
 // The desktop opens the sign-in page itself; a browser blocks a window opened after an await, so
-// the web build relies on the link the panel shows.
+// the web build opens it only from the panel's button.
 function openSignInPage(url: string) {
-  if (typeof window === "undefined" || !window.desktopBridge) return;
+  if (!opensBrowserItself()) return;
   void readLocalApi()
     ?.shell.openExternal(url)
     .catch(() => undefined);
+}
+
+function openSignInPageNow(url: string) {
+  if (opensBrowserItself()) {
+    openSignInPage(url);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 /** Sign in with LibraOS or connect a LibraOS API key, see the models, or disconnect. */
@@ -283,24 +293,30 @@ function GatewayConnectPanel({
         className="space-y-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"
       >
         <p className="text-foreground">
-          {pendingSignIn.purpose === "connect" ? (
-            <T>Sign in or create a LibraOS account in your browser, then approve this code:</T>
+          {pendingSignIn.purpose === "revoke" ? (
+            <T>To revoke the key in LibraOS, sign in in your browser and click Approve.</T>
+          ) : opensBrowserItself() ? (
+            <T>LibraOS is open in your browser. Sign in there and click Approve.</T>
           ) : (
-            <T>To revoke the key in LibraOS, sign in in your browser and approve this code:</T>
+            <T>Continue in your browser: sign in to LibraOS and click Approve.</T>
           )}
         </p>
-        <p className="text-center font-mono text-2xl font-semibold tracking-widest text-foreground">
-          {pendingSignIn.userCode}
-        </p>
-        <p className="text-muted-foreground">
-          <a
-            href={pendingSignIn.verificationUriComplete}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="underline underline-offset-4"
+        <div>
+          <Button
+            size="sm"
+            onClick={() => openSignInPageNow(pendingSignIn.verificationUriComplete)}
           >
-            <T>Open the LibraOS sign-in page</T>
-          </a>
+            {opensBrowserItself() ? <T>Open LibraOS again</T> : <T>Continue in browser</T>}
+          </Button>
+        </div>
+        <p className="text-muted-foreground">
+          <T>
+            Check that the page shows{" "}
+            <span className="font-mono font-semibold text-foreground">
+              <Var>{pendingSignIn.userCode}</Var>
+            </span>
+            . No account yet? You can create one there.
+          </T>
         </p>
         <p className="text-muted-foreground">
           <T>Waiting for approval…</T>
