@@ -42,6 +42,7 @@ import { deriveAuthClientMetadata } from "./utils.ts";
 import { checkRequestDpopProof } from "./dpop.ts";
 import { requestUrl } from "../requestUrl.ts";
 import { withRelayRoute } from "../agentd/relay/relayPairing.ts";
+import { makeRelayAuthHooks } from "../agentd/relay/relayAuthHooks.ts";
 import * as ServerConfig from "../config.ts";
 
 const CREDENTIAL_RESPONSE_HEADERS = {
@@ -291,7 +292,9 @@ export const layer = HttpApiBuilder.group(
   Effect.fnUntraced(function* (handlers) {
     const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const sessions = yield* SessionStore.SessionStore;
-    const addRelayRoute = withRelayRoute((yield* ServerConfig.ServerConfig).stateDir);
+    const { stateDir } = yield* ServerConfig.ServerConfig;
+    const addRelayRoute = withRelayRoute(stateDir);
+    const relayKeys = makeRelayAuthHooks(stateDir, sessions);
 
     return handlers
       .handle(
@@ -367,6 +370,7 @@ export const layer = HttpApiBuilder.group(
               Effect.succeed(HttpServerResponse.mergeCookies(response, sessionCookies)),
             );
             yield* appendCredentialResponseHeaders;
+            yield* relayKeys.linkSession(args.payload.credential, result.sessionToken);
             return result.response;
           },
           Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
@@ -426,7 +430,7 @@ export const layer = HttpApiBuilder.group(
                 proof.consume,
               );
             }
-            return yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
+            const exchanged = yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
               args.payload.subject_token,
               requestedScopes,
               deriveAuthClientMetadata({
@@ -441,6 +445,8 @@ export const layer = HttpApiBuilder.group(
               }),
               proof ? { proofKeyThumbprint: proof.thumbprint } : undefined,
             );
+            yield* relayKeys.linkSession(args.payload.subject_token, exchanged.access_token);
+            return exchanged;
           },
           traceRelayRequest,
           Effect.catchIf(EnvironmentAuth.isServerAuthCredentialError, (error) =>
@@ -538,6 +544,7 @@ export const layer = HttpApiBuilder.group(
             yield* annotateEnvironmentRequest(args.endpoint.name);
             yield* requireEnvironmentScope(AuthAccessWriteScope);
             const revoked = yield* serverAuth.revokePairingLink(args.payload.id);
+            yield* relayKeys.revokedPairingLink(args.payload.id);
             return { revoked };
           },
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
@@ -555,6 +562,7 @@ export const layer = HttpApiBuilder.group(
               session.sessionId,
               args.payload.sessionId,
             );
+            yield* relayKeys.revokedSessions([args.payload.sessionId]);
             return { revoked };
           },
           Effect.catchTags({
@@ -601,6 +609,7 @@ export const layer = HttpApiBuilder.group(
             yield* annotateEnvironmentRequest(args.endpoint.name);
             const session = yield* requireEnvironmentScope(AuthAccessWriteScope);
             const revokedCount = yield* serverAuth.revokeOtherClientSessions(session.sessionId);
+            yield* relayKeys.revokedOtherSessions(session.sessionId);
             return { revokedCount };
           },
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>

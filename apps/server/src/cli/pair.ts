@@ -615,6 +615,7 @@ export const pairCommand = Command.make("pair", {
           expiresAt: DateTime.toEpochMillis(issued.expiresAt),
           label: Option.getOrElse(flags.label, () => "libraos-next pair"),
           now,
+          pairingLinkId: issued.id,
         }),
       );
       const pairingUrl = relayPairing.pairingUrl;
