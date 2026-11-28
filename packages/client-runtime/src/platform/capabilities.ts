@@ -41,6 +41,28 @@ export class RelayDeviceIdentity extends Context.Service<
 >()("@t3tools/client-runtime/platform/capabilities/RelayDeviceIdentity") {}
 
 /**
+ * Keeps the keys of hosts this device reaches through a relay (see `@t3tools/relay-session/route`).
+ * Only a client whose transport carries relay addresses provides it; without it a pairing link's
+ * relay route is ignored and the host is reached directly.
+ */
+export class RelayRouteKeys extends Context.Service<
+  RelayRouteKeys,
+  {
+    /**
+     * Makes this device's key for the link's relay route and saves it with the link's one-time
+     * code, which pairs the key on first contact. Returns the address that reaches the host through
+     * the relay, or none when the link carries no relay route.
+     */
+    readonly saveFromPairingUrl: (
+      pairingUrl: string,
+      pairingCode: string,
+    ) => Effect.Effect<Option.Option<string>, ConnectionAttemptError>;
+    /** Deletes the keys behind a relay address. */
+    readonly remove: (httpBaseUrl: string) => Effect.Effect<void>;
+  }
+>()("@t3tools/client-runtime/platform/capabilities/RelayRouteKeys") {}
+
+/**
  * A random id this client keeps across launches. Environments it connects to
  * record its hash, so two environments opened from one device share an owner
  * in analytics even when nobody is signed in.

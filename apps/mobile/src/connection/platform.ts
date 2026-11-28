@@ -19,6 +19,7 @@ import Constants from "expo-constants";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
 
+import { relayRouteKeys } from "../features/agentd/relay/relayRouteKeys";
 import { authClientMetadata } from "../lib/authClientMetadata";
 import * as Runtime from "../lib/runtime";
 import * as MobileStorage from "../persistence/mobile-storage";
@@ -205,6 +206,7 @@ const layerCapabilities = Layer.effectContext(
           ),
         }),
       ),
+      Context.add(ClientCapabilities.RelayRouteKeys, relayRouteKeys),
       Context.add(
         ClientCapabilities.ClientPresentation,
         ClientCapabilities.ClientPresentation.of({

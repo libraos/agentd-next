@@ -143,6 +143,16 @@ export class EnvironmentRegistry extends Context.Service<
       | EnvironmentNotRegisteredError
       | PlatformEnvironmentRemovalError
     >;
+    /** Adds or replaces one route of a saved user environment, keeping its other routes. */
+    readonly addRoute: (
+      route: ConnectionRoute,
+    ) => Effect.Effect<
+      void,
+      | Persistence.ConnectionPersistenceError
+      | ConnectionAttemptError
+      | EnvironmentNotRegisteredError
+      | PlatformEnvironmentRemovalError
+    >;
     readonly reorderRoutes: (
       environmentId: EnvironmentId,
       routeIds: ReadonlyArray<string>,
@@ -989,6 +999,19 @@ export const make = Effect.gen(function* () {
     );
   });
 
+  const addRoute = Effect.fn("EnvironmentRegistry.addRoute")(function* (route: ConnectionRoute) {
+    const environmentId = route.target.environmentId;
+    yield* withLeaseLock(
+      environmentId,
+      Effect.gen(function* () {
+        const previous = yield* userEntry(environmentId);
+        const profile = Option.getOrNull(route.profile);
+        if (profile !== null) yield* profiles.put(profile);
+        yield* replaceRoutesLocked(previous, upsertRoute(connectionRoutes(previous), route));
+      }),
+    );
+  });
+
   const removeRoute = Effect.fn("EnvironmentRegistry.removeRoute")(function* (
     environmentId: EnvironmentId,
     routeId: string,
@@ -1201,6 +1224,7 @@ export const make = Effect.gen(function* () {
     register,
     assertKnownAddress,
     reconcilePlatform,
+    addRoute,
     remove,
     removeRoute,
     reorderRoutes,

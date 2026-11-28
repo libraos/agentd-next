@@ -22,6 +22,14 @@
     "./route": {
       "types": "./src/route.ts",
       "import": "./src/route.ts"
+    },
+    "./device": {
+      "types": "./src/device.ts",
+      "import": "./src/device.ts"
+    },
+    "./deviceRouter": {
+      "types": "./src/deviceRouter.ts",
+      "import": "./src/deviceRouter.ts"
     }
   },
   "scripts": {

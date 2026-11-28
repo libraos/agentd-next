@@ -1,5 +1,6 @@
 // @effect-diagnostics globalTimers:off globalDate:off globalRandom:off - socket callbacks outside Effect; relayHostLayer.ts owns the lifetime.
 import { Multiplexer } from "@t3tools/relay-session/mux";
+import { relayHostLabel, relayOriginHost } from "@t3tools/relay-session/route";
 import type { KeyPair } from "@t3tools/relay-session/noise";
 import {
   type HandshakeClaims,
@@ -154,6 +155,10 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
       { protocols: [RELAY_SUBPROTOCOL], headers: relayAuthHeaders(config) },
     );
     socket.binaryType = "arraybuffer";
+    const target =
+      relayHostLabel(hostId) === null
+        ? options.target
+        : { ...options.target, originHost: relayOriginHost(hostId) };
     let mux: Multiplexer | undefined;
     const session = SecureSession.responder({
       transport: {
@@ -180,8 +185,8 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
         mux = new Multiplexer({
           role: "host",
           send: (frame) => opened.send(frame),
-          onHttpStream: (stream, open) => forwardHttpStream(options.target, stream, open),
-          onWsStream: (stream, open) => forwardWsStream(options.target, stream, open),
+          onHttpStream: (stream, open) => forwardHttpStream(target, stream, open),
+          onWsStream: (stream, open) => forwardWsStream(target, stream, open),
         });
       },
       onMessage: (plaintext) => mux?.receive(plaintext),

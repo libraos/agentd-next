@@ -211,6 +211,14 @@ phone needs to check that it is talking to this computer. A link works for one
 device, once, until it expires; through the relay, that is at most 10 minutes,
 even when the link itself lasts longer.
 
+Open the link on the phone, or scan its QR code, as you would on a LAN. The
+phone pairs over the computer's own address when it answers and through the
+relay when it does not, and keeps both. Afterwards it uses the computer's
+address whenever that answers and the relay otherwise, and switches back on its
+own. Under **Settings → Environments**, the computer's row says which one it is
+using. The phone keeps its relay keys in the system keychain, on that phone
+only.
+
 ### Revoke a phone or stop using the relay
 
 ```bash
@@ -220,9 +228,10 @@ lnext relay status
 lnext relay disconnect     # stop connecting to the relay
 ```
 
-Revoking ends a connected phone's session within a few seconds. The phone also
-holds a LibraOS Next sign-in; revoke that in **Settings → Sharing & access** as
-well. After `relay disconnect`, paired phones are kept, so connecting to the
+Revoking ends a connected phone's session within a few seconds, and the phone
+asks to be paired again with a new link. The phone also holds a LibraOS Next
+sign-in, which still works over the computer's own address; revoke that in
+**Settings → Sharing & access** as well. After `relay disconnect`, paired phones are kept, so connecting to the
 same relay again lets them back in.
 
 ## Desktop-managed SSH
