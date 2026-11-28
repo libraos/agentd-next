@@ -730,6 +730,11 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     Effect.withSpan("LibraosGateway.signInCancel"),
   );
 
+  // The balance is read on focus, so a key revoked while the app runs shows as refused then,
+  // not at the next start: the Gateway's answer decides, as at startup.
+  const recheckRefusedKey = (status: number) =>
+    status === 401 || status === 403 ? refreshModels : Effect.void;
+
   const credits: LibraosGateway["Service"]["credits"] = Effect.gen(function* () {
     const key = yield* readKey;
     if (Option.isNone(key)) return null;
@@ -737,6 +742,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       HttpClientRequest.acceptJson,
     );
     const answer = yield* cloudCall(request, key.value);
+    yield* recheckRefusedKey(answer.status);
     const read = readCreditsAnswer(answer.status, answer.body);
     if ("refusal" in read) return yield* fail(read.refusal);
     return read.credits;
@@ -764,6 +770,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       HttpClientRequest.acceptJson,
     );
     const answer = yield* cloudCall(request, key.value);
+    yield* recheckRefusedKey(answer.status);
     const read = readPlansAnswer(answer.status, answer.body);
     if ("refusal" in read) return yield* fail(read.refusal);
     return read.plans;

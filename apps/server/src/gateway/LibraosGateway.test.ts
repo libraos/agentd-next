@@ -817,7 +817,7 @@ it.effect("a Console without the balance endpoint or without credits answers no 
 );
 
 it.effect("a key Console refuses fails credits with Console's message", () => {
-  const { layer } = setup({
+  const { gatewayState, layer } = setup({
     credits: {
       status: 401,
       body: { error: { type: "invalid_api_key", message: "This API key was revoked." } },
@@ -826,12 +826,15 @@ it.effect("a key Console refuses fails credits with Console's message", () => {
   return Effect.gen(function* () {
     const gateway = yield* LibraosGateway.LibraosGateway;
     yield* gateway.connect(GOOD_KEY);
+    gatewayState.now = "revoked";
     const error = yield* Effect.flip(gateway.credits);
     assert.strictEqual(error._tag, "LibraosGatewayError");
     assert.strictEqual(
       error.message,
       "LibraOS could not read the balance: This API key was revoked.",
     );
+    // A key revoked while the app runs shows as refused without waiting for the next start.
+    assert.strictEqual((yield* gateway.status).refusal, "This API key is not valid.");
   }).pipe(Effect.provide(layer));
 });
 
