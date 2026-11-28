@@ -1,4 +1,4 @@
-# Simpler welcome page, shorter Gateway agent names, compact LibraOS card
+# 349 — Simpler welcome page, shorter Gateway agent names, compact LibraOS card
 
 The welcome page is back to upstream's shape with our name: **Welcome to LibraOS Next**, the agent list, Continue. The two account cards are gone; a **LibraOS** row heads the agent list (Sign in, or the balance and Manage once connected), and the footer keeps only **Use an API key or custom gateway**. **Join a team** stays in the Settings sidebar. The built-in Gateway's agents are named `<Agent> · LibraOS`; agents still carrying the old `· LibraOS Gateway` default are renamed once per state directory, and a name the person changed is left alone. A custom gateway saved without a name is named after its URL's host. Settings → Providers shows one compact LibraOS card (balance and plan, **Buy credits** and **Plans** in popovers, or **Sign in**) above **Your gateways**. No free trial is promised.
 
