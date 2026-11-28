@@ -24,6 +24,8 @@ export interface RelayDevice {
   readonly publicKey: string;
   readonly label: string;
   readonly addedAt: string;
+  /** The hash of the pairing code it paired with, which ties it to the session that code made. */
+  readonly pairingCodeHash?: string;
 }
 
 const relayDir = (stateDir: string) => NodePath.join(stateDir, "relay");
@@ -31,6 +33,10 @@ const configPath = (stateDir: string) => NodePath.join(relayDir(stateDir), "rela
 const hostKeyPath = (stateDir: string) => NodePath.join(relayDir(stateDir), "host-key");
 const devicesPath = (stateDir: string) => NodePath.join(relayDir(stateDir), "devices.json");
 const pairingDir = (stateDir: string) => NodePath.join(relayDir(stateDir), "pairing");
+const sessionLinksDir = (stateDir: string) => NodePath.join(relayDir(stateDir), "sessions");
+const lastConnectedPath = (stateDir: string) =>
+  NodePath.join(relayDir(stateDir), "last-connected.json");
+const hostStatusPath = (stateDir: string) => NodePath.join(relayDir(stateDir), "host-status.json");
 
 export const toBase64Url = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64url");
 const fromBase64Url = (text: string) => new Uint8Array(Buffer.from(text, "base64url"));
@@ -136,17 +142,22 @@ export const removeRelayDevice = async (
   return removed;
 };
 
+const sha256Hex = (text: string) =>
+  NodeCrypto.createHash("sha256").update(text, "utf8").digest("hex");
+
+/** A pairing code is the link's one-time token, so its hash also names the session it made. */
+export const pairingCodeHash = sha256Hex;
+
 // Codes are stored by hash, one file each, so taking one is a single atomic unlink.
 const pairingCodePath = (stateDir: string, code: string) =>
-  NodePath.join(
-    pairingDir(stateDir),
-    NodeCrypto.createHash("sha256").update(code, "utf8").digest("hex"),
-  );
+  NodePath.join(pairingDir(stateDir), pairingCodeHash(code));
 
 export interface PairingGrant {
   /** The relay device the code was minted with; only that device may use it. */
   readonly deviceId: string;
   readonly label: string;
+  /** The pairing link the code belongs to, so revoking the link drops the code too. */
+  readonly pairingLinkId?: string;
 }
 
 const readExpiry = (content: string) => {
@@ -170,7 +181,12 @@ export const recordPairingCode = async (
   await prunePairingCodes(stateDir, options.now);
   await NodeFSP.writeFile(
     pairingCodePath(stateDir, code),
-    JSON.stringify({ expiresAt, deviceId: grant.deviceId, label: grant.label }),
+    JSON.stringify({
+      expiresAt,
+      deviceId: grant.deviceId,
+      label: grant.label,
+      ...(grant.pairingLinkId === undefined ? {} : { pairingLinkId: grant.pairingLinkId }),
+    }),
     { mode: PRIVATE_FILE, flag: "wx" },
   );
 };
@@ -213,4 +229,155 @@ const prunePairingCodes = async (stateDir: string, now: number) => {
       if (content !== null && readExpiry(content) <= now) await NodeFSP.rm(path, { force: true });
     }),
   );
+};
+
+/** Drops the unused codes of a revoked pairing link; returns how many there were. */
+export const removePairingCodesOfLink = async (stateDir: string, pairingLinkId: string) => {
+  let names: ReadonlyArray<string>;
+  try {
+    names = await NodeFSP.readdir(pairingDir(stateDir));
+  } catch (cause) {
+    if (isMissing(cause)) return 0;
+    throw cause;
+  }
+  let removed = 0;
+  for (const name of names) {
+    const path = NodePath.join(pairingDir(stateDir), name);
+    const content = await readText(path);
+    if (content === null) continue;
+    try {
+      if ((JSON.parse(content) as { pairingLinkId?: unknown }).pairingLinkId !== pairingLinkId) {
+        continue;
+      }
+    } catch {
+      continue;
+    }
+    await NodeFSP.rm(path, { force: true });
+    removed += 1;
+  }
+  return removed;
+};
+
+/** Drops an unused pairing code by its hash, so it can no longer pair a relay key. */
+export const removePairingCodeByHash = (stateDir: string, codeHash: string) =>
+  /^[0-9a-f]{64}$/.test(codeHash)
+    ? NodeFSP.rm(NodePath.join(pairingDir(stateDir), codeHash), { force: true })
+    : Promise.resolve();
+
+// One file per session, so two devices signing in at once cannot lose each other's link.
+export interface RelaySessionLink {
+  readonly sessionId: string;
+  readonly pairingCodeHash: string;
+}
+
+const sessionLinkPath = (stateDir: string, sessionId: string) =>
+  NodePath.join(sessionLinksDir(stateDir), sha256Hex(sessionId));
+
+const hasPairingCodeHash = async (stateDir: string, codeHash: string) =>
+  (await readText(NodePath.join(pairingDir(stateDir), codeHash))) !== null ||
+  (await listRelayDevices(stateDir)).some((device) => device.pairingCodeHash === codeHash);
+
+/**
+ * Remembers that `sessionId` was made with `credential` when that credential is also a relay
+ * pairing code, used or not, so revoking the session revokes the relay key it paired.
+ */
+export const linkRelaySession = async (stateDir: string, credential: string, sessionId: string) => {
+  const codeHash = pairingCodeHash(credential);
+  if (!(await hasPairingCodeHash(stateDir, codeHash))) return false;
+  const link: RelaySessionLink = { sessionId, pairingCodeHash: codeHash };
+  await writePrivateFile(sessionLinkPath(stateDir, sessionId), JSON.stringify(link));
+  return true;
+};
+
+export const listRelaySessionLinks = async (
+  stateDir: string,
+): Promise<ReadonlyArray<RelaySessionLink>> => {
+  let names: ReadonlyArray<string>;
+  try {
+    names = await NodeFSP.readdir(sessionLinksDir(stateDir));
+  } catch (cause) {
+    if (isMissing(cause)) return [];
+    throw cause;
+  }
+  const links: Array<RelaySessionLink> = [];
+  for (const name of names) {
+    if (name.endsWith(".tmp")) continue;
+    const content = await readText(NodePath.join(sessionLinksDir(stateDir), name));
+    if (content === null) continue;
+    try {
+      const value = JSON.parse(content) as Partial<RelaySessionLink>;
+      if (typeof value.sessionId === "string" && typeof value.pairingCodeHash === "string") {
+        links.push({ sessionId: value.sessionId, pairingCodeHash: value.pairingCodeHash });
+      }
+    } catch {
+      // A damaged link ties nothing.
+    }
+  }
+  return links;
+};
+
+export const removeRelaySessionLink = (stateDir: string, sessionId: string) =>
+  NodeFSP.rm(sessionLinkPath(stateDir, sessionId), { force: true });
+
+/** When each relay device last opened a session, by device id. Kept apart from the keys. */
+export const readRelayLastConnected = async (
+  stateDir: string,
+): Promise<Readonly<Record<string, string>>> => {
+  const text = await readText(lastConnectedPath(stateDir));
+  if (text === null) return {};
+  try {
+    const value: unknown = JSON.parse(text);
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        )
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+// A separate file, so recording a connection can never write back a key that was just revoked.
+export const recordRelayConnected = async (stateDir: string, deviceId: string, at: string) => {
+  const seen = await readRelayLastConnected(stateDir);
+  await writePrivateFile(
+    lastConnectedPath(stateDir),
+    `${JSON.stringify({ ...seen, [deviceId]: at }, null, 2)}\n`,
+  );
+};
+
+export const forgetRelayConnected = async (stateDir: string, deviceId: string) => {
+  const seen = await readRelayLastConnected(stateDir);
+  if (!(deviceId in seen)) return;
+  const { [deviceId]: _removed, ...rest } = seen;
+  await writePrivateFile(lastConnectedPath(stateDir), `${JSON.stringify(rest, null, 2)}\n`);
+};
+
+/** Whether the server's relay host has its control socket open, as it last wrote. */
+export interface RelayHostStatusRecord {
+  readonly connected: boolean;
+  readonly at: string;
+  readonly pid: number;
+}
+
+export const writeRelayHostStatus = (stateDir: string, status: RelayHostStatusRecord) =>
+  writePrivateFile(hostStatusPath(stateDir), `${JSON.stringify(status)}\n`);
+
+export const readRelayHostStatus = async (
+  stateDir: string,
+): Promise<RelayHostStatusRecord | null> => {
+  const text = await readText(hostStatusPath(stateDir));
+  if (text === null) return null;
+  try {
+    const value = JSON.parse(text) as Partial<RelayHostStatusRecord>;
+    return typeof value.connected === "boolean" &&
+      typeof value.at === "string" &&
+      typeof value.pid === "number"
+      ? { connected: value.connected, at: value.at, pid: value.pid }
+      : null;
+  } catch {
+    return null;
+  }
 };

@@ -118,8 +118,14 @@ function summarize(
     modelCount: models.length,
     models,
     hiddenModels: gateway.hiddenModels ?? [],
+    mediaModels: gateway.mediaModels ?? [],
   };
 }
+
+const sameMedia = (
+  a: CustomGatewaySetting["mediaModels"],
+  b: CustomGatewaySetting["mediaModels"],
+) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 
 const baseOf = (url: string) => `${url.replace(/\/v1$/, "")}/v1`;
 
@@ -301,18 +307,19 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           const existing = (yield* readSettings).customGateways;
           let id = newCustomGatewayId();
           while (existing.some((entry) => entry.id === id)) id = newCustomGatewayId();
-          const gateway: CustomGatewaySetting = {
+          const base: CustomGatewaySetting = {
             id,
             name: input.name?.trim() || url,
             url,
             format: input.format,
           };
           let models: ReadonlyArray<LibraosGatewayModel>;
+          let gateway = base;
           if (input.models !== undefined) {
             models = typedModels(input.models);
             if (models.length === 0) return yield* fail("Enter at least one model id.");
           } else {
-            const answer = yield* ask(gateway, key);
+            const answer = yield* ask(base, key);
             if (answer.kind !== "models") {
               return {
                 kind: "modelsProblem",
@@ -322,10 +329,11 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
             if (answer.models.length === 0) {
               return {
                 kind: "modelsProblem",
-                message: `${gateway.name} lists no models.`,
+                message: `${base.name} lists no models.`,
               } satisfies CustomGatewayAddResult;
             }
             models = answer.models;
+            if (answer.media.length > 0) gateway = { ...base, mediaModels: answer.media };
           }
           const ids = customGatewayInstanceIds(id);
           const withPi = agents.includes("pi");
@@ -391,6 +399,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
               modelCount: models.length,
               models: models.map((model) => model.id),
               hiddenModels: [],
+              mediaModels: gateway.mediaModels ?? [],
               agents,
             },
           } satisfies CustomGatewayAddResult;
@@ -502,6 +511,15 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           yield* settings
             .updateProviderInstances((current) => withCustomGateway(current, gateway, models))
             .pipe(Effect.catch(storageFailure("update the gateway's agents")));
+          if (sameMedia(gateway.mediaModels, answer.media)) return;
+          const stored = (yield* readSettings).customGateways;
+          yield* settings
+            .updateSettings({
+              customGateways: stored.map((entry) =>
+                entry.id === id ? { ...entry, mediaModels: answer.media } : entry,
+              ),
+            })
+            .pipe(Effect.catch(storageFailure("save the gateway")));
         }),
       )
       .pipe(Effect.andThen(list), Effect.withSpan("CustomGateway.refreshModels"));

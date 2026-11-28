@@ -4,20 +4,25 @@ import * as NodeHttp from "node:http";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import { Multiplexer, type MuxStream, type StreamEvent } from "@t3tools/relay-session/mux";
+import type { MuxStream, StreamEvent } from "@t3tools/relay-session/mux";
 import { generateKeyPair, type KeyPair } from "@t3tools/relay-session/noise";
-import { SecureSession, SessionCloseCode } from "@t3tools/relay-session/session";
+import { SessionCloseCode } from "@t3tools/relay-session/session";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
-import { WebSocket } from "undici";
 import { it as effectIt } from "@effect/vitest";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { WebSocketServer } from "ws";
 
 import { startRelayHost, type RelayHost } from "./relayHost.ts";
 import { addRelayToPairingUrl, withRelayRoute } from "./relayPairing.ts";
-import { listen, startTestRelay, TEST_HOST_ID, TEST_HOST_TOKEN } from "./testRelay.ts";
+import {
+  connectDevice,
+  listen,
+  startTestRelay,
+  TEST_HOST_ID,
+  TEST_HOST_TOKEN,
+} from "./testRelay.ts";
 import {
   listRelayDevices,
   loadOrCreateHostKey,
@@ -59,54 +64,6 @@ const startLocalServer = async () => {
     },
   };
 };
-
-interface DeviceConnection {
-  readonly mux: Multiplexer;
-  readonly session: SecureSession;
-  readonly closed: Promise<number>;
-}
-
-const connectDevice = (input: {
-  readonly relayUrl: string;
-  readonly deviceToken: string;
-  readonly deviceKeys: KeyPair;
-  readonly hostKey: Uint8Array;
-  readonly pairingCode?: string;
-  /** Sent with the first message after the handshake, before the host has answered. */
-  readonly sendAtOnce?: (mux: Multiplexer) => void;
-}) =>
-  new Promise<DeviceConnection>((resolve, reject) => {
-    const socket = new WebSocket(
-      `${input.relayUrl.replace("http", "ws")}/relay/v1/device?host=${HOST_ID}`,
-      { headers: { authorization: `Bearer ${input.deviceToken}` } },
-    );
-    socket.binaryType = "arraybuffer";
-    let resolveClosed: (code: number) => void = () => {};
-    const closed = new Promise<number>((done) => (resolveClosed = done));
-    let mux: Multiplexer | undefined;
-    socket.addEventListener("open", () => {
-      const session = SecureSession.initiator({
-        transport: { send: (data) => socket.send(data), close: (code) => socket.close(code) },
-        hostId: HOST_ID,
-        staticKeyPair: input.deviceKeys,
-        hostStaticKey: input.hostKey,
-        ...(input.pairingCode === undefined ? {} : { pairingCode: input.pairingCode }),
-        onOpen: (opened) => {
-          mux = new Multiplexer({ role: "device", send: (frame) => opened.send(frame) });
-          input.sendAtOnce?.(mux);
-          resolve({ mux, session: opened, closed });
-        },
-        onMessage: (plaintext) => mux?.receive(plaintext),
-      });
-      socket.addEventListener("message", (event) =>
-        session.receive(new Uint8Array(event.data as ArrayBuffer)),
-      );
-    });
-    socket.addEventListener("close", (event) => {
-      resolveClosed(event.code);
-      reject(new Error(`closed ${String(event.code)}`));
-    });
-  });
 
 const collect = (stream: MuxStream) => {
   const events: Array<StreamEvent> = [];

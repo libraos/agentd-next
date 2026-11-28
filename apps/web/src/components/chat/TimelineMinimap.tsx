@@ -1,5 +1,5 @@
 import { resolveTimelineMinimapPreview, type TimelineMinimapItem } from "./timelineMinimapItems";
-import { useRef, useState, type MouseEvent } from "react";
+import { useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 import { T, useGT } from "gt-react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -30,11 +30,32 @@ function onMouseButtonsReleased(onRelease: () => void): () => void {
   return stop;
 }
 
+/** Whether the timeline sits at its exact end; a store so a change re-renders only the minimap. */
+export function createTimelineMinimapAtEnd() {
+  let atEnd = false;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => atEnd,
+    set: (next: boolean) => {
+      if (next === atEnd) return;
+      atEnd = next;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+export type TimelineMinimapAtEnd = ReturnType<typeof createTimelineMinimapAtEnd>;
+
 export function TimelineMinimap({
   hasPersistentGutter,
   hitStrip: { left: hitStripLeft, width: hitStripWidth },
   currentIndex,
-  atEnd,
+  atEnd: atEndStore,
   items,
   stripMap,
   onWheel,
@@ -43,13 +64,14 @@ export function TimelineMinimap({
   hasPersistentGutter: boolean;
   hitStrip: { left: number; width: number };
   currentIndex: number | null;
-  atEnd: boolean;
+  atEnd: TimelineMinimapAtEnd;
   items: ReadonlyArray<TimelineMinimapItem>;
   stripMap: Map<string, HTMLSpanElement>;
   onWheel: (event: WheelEvent) => void;
   onSelect: (item: TimelineMinimapItem) => void;
 }) {
   const gt = useGT();
+  const atEnd = useSyncExternalStore(atEndStore.subscribe, atEndStore.get);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const wheelTargetRef = (node: HTMLDivElement | null) => {
     if (!node) return;

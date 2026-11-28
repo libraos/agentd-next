@@ -41,7 +41,7 @@ export function LabsSettingsPanel() {
       <SettingsSection id="beta" title={gt("Beta")}>
         <BoringSidebarRow />
         {/* Clerk is only mounted when this build has the hosted relay. */}
-        {productProfile.sharingAndAccess &&
+        {productProfile.guestLinks &&
           (hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />)}
         <LinkedEnvironmentsRow />
         {productProfile.workflows && (

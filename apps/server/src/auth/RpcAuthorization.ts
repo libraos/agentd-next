@@ -282,6 +282,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.libraosGatewayCredits]: AuthOrchestrationReadScope,
   [WS_METHODS.libraosGatewayPlans]: AuthOrchestrationReadScope,
   [WS_METHODS.customGatewayList]: AuthOrchestrationReadScope,
+  // Which devices hold a relay key is read as the authorized clients are.
+  [WS_METHODS.relayHostStatus]: AuthAccessReadScope,
 } as const satisfies Readonly<Record<WsRpcMethod, AuthEnvironmentScope>>;
 
 export function requiredScopeForRpcMethod(method: string): AuthEnvironmentScope {

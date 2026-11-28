@@ -19,6 +19,8 @@ export interface RelayPairingInput {
   readonly expiresAt: number;
   readonly label: string;
   readonly now: number;
+  /** The pairing link the credential belongs to, when it is one. */
+  readonly pairingLinkId?: string;
 }
 
 /** No route when this host has no relay; `note` says why one it has could not be added. */
@@ -45,7 +47,11 @@ const mintRelayPairingRoute = async (input: RelayPairingInput): Promise<RelayPai
     await recordPairingCode(
       input.stateDir,
       input.credential,
-      { deviceId: minted.deviceId, label: input.label },
+      {
+        deviceId: minted.deviceId,
+        label: input.label,
+        ...(input.pairingLinkId === undefined ? {} : { pairingLinkId: input.pairingLinkId }),
+      },
       { now: input.now, expiresAt: input.expiresAt },
     );
     return {
@@ -94,6 +100,7 @@ export const withRelayRoute = (stateDir: string) =>
         expiresAt: DateTime.toEpochMillis(issued.expiresAt),
         label: issued.label ?? "Pairing link",
         now,
+        pairingLinkId: issued.id,
       }),
     );
     if (note !== undefined) yield* Effect.logWarning(note);

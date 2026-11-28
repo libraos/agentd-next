@@ -2,10 +2,63 @@
 import * as NodeHttp from "node:http";
 import type * as NodeNet from "node:net";
 
+import { Multiplexer } from "@t3tools/relay-session/mux";
+import type { KeyPair } from "@t3tools/relay-session/noise";
+import { SecureSession } from "@t3tools/relay-session/session";
+import { WebSocket } from "undici";
 import { WebSocketServer, type WebSocket as WsSocket } from "ws";
 
 export const TEST_HOST_TOKEN = "host-token";
 export const TEST_HOST_ID = "0123456789abcdef0123456789abcdef";
+
+export interface DeviceConnection {
+  readonly mux: Multiplexer;
+  readonly session: SecureSession;
+  readonly closed: Promise<number>;
+}
+
+/** A phone reaching the host through the relay: Noise handshake, then the multiplexer. */
+export const connectDevice = (input: {
+  readonly relayUrl: string;
+  readonly deviceToken: string;
+  readonly deviceKeys: KeyPair;
+  readonly hostKey: Uint8Array;
+  readonly pairingCode?: string;
+  /** Sent with the first message after the handshake, before the host has answered. */
+  readonly sendAtOnce?: (mux: Multiplexer) => void;
+}) =>
+  new Promise<DeviceConnection>((resolve, reject) => {
+    const socket = new WebSocket(
+      `${input.relayUrl.replace("http", "ws")}/relay/v1/device?host=${TEST_HOST_ID}`,
+      { headers: { authorization: `Bearer ${input.deviceToken}` } },
+    );
+    socket.binaryType = "arraybuffer";
+    let resolveClosed: (code: number) => void = () => {};
+    const closed = new Promise<number>((done) => (resolveClosed = done));
+    let mux: Multiplexer | undefined;
+    socket.addEventListener("open", () => {
+      const session = SecureSession.initiator({
+        transport: { send: (data) => socket.send(data), close: (code) => socket.close(code) },
+        hostId: TEST_HOST_ID,
+        staticKeyPair: input.deviceKeys,
+        hostStaticKey: input.hostKey,
+        ...(input.pairingCode === undefined ? {} : { pairingCode: input.pairingCode }),
+        onOpen: (opened) => {
+          mux = new Multiplexer({ role: "device", send: (frame) => opened.send(frame) });
+          input.sendAtOnce?.(mux);
+          resolve({ mux, session: opened, closed });
+        },
+        onMessage: (plaintext) => mux?.receive(plaintext),
+      });
+      socket.addEventListener("message", (event) =>
+        session.receive(new Uint8Array(event.data as ArrayBuffer)),
+      );
+    });
+    socket.addEventListener("close", (event) => {
+      resolveClosed(event.code);
+      reject(new Error(`closed ${String(event.code)}`));
+    });
+  });
 
 export const listen = (server: NodeHttp.Server) =>
   new Promise<number>((resolve) =>
@@ -96,8 +149,8 @@ export const startTestRelay = async () => {
     url: `http://127.0.0.1:${String(port)}`,
     /** Device ids revoked with DELETE /relay/v1/devices/{id}. */
     revoked,
-    mintDevice: () => {
-      const deviceId = id();
+    /** A device token; give `deviceId` to stand in for a relay that kept a revoked device's id. */
+    mintDevice: (deviceId = id()) => {
       const deviceToken = `device-token-${deviceId}`;
       devices.set(deviceToken, deviceId);
       return { deviceId, deviceToken };

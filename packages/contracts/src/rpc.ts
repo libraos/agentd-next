@@ -504,6 +504,12 @@ import {
   LibraosGatewayStatus,
 } from "./libraosGateway.ts";
 import {
+  RelayHostError,
+  RelayHostRevokeInput,
+  RelayHostRevokeResult,
+  RelayHostStatus,
+} from "./relayHost.ts";
+import {
   CustomGatewaySaveInput,
   CustomGatewayAddResult,
   CustomGatewayError,
@@ -924,6 +930,8 @@ export const WS_METHODS = {
   libraosGatewayCheckout: "libraosGateway.checkout",
   libraosGatewayPlans: "libraosGateway.plans",
   libraosGatewayPlanCheckout: "libraosGateway.planCheckout",
+  relayHostStatus: "relayHost.status",
+  relayHostRevokeDevice: "relayHost.revokeDevice",
 } as const;
 
 const WsServerUpsertKeybindingRpc = Rpc.make(WS_METHODS.serverUpsertKeybinding, {
@@ -3026,6 +3034,20 @@ const WsAgentdPlaceholdersRpc = Rpc.make(WS_METHODS.agentdPlaceholders, {
 
 const LibraosGatewayRpcError = Schema.Union([LibraosGatewayError, EnvironmentAuthorizationError]);
 
+const RelayHostRpcError = Schema.Union([RelayHostError, EnvironmentAuthorizationError]);
+
+const WsRelayHostStatusRpc = Rpc.make(WS_METHODS.relayHostStatus, {
+  payload: Schema.Struct({}),
+  success: RelayHostStatus,
+  error: RelayHostRpcError,
+});
+
+const WsRelayHostRevokeDeviceRpc = Rpc.make(WS_METHODS.relayHostRevokeDevice, {
+  payload: RelayHostRevokeInput,
+  success: RelayHostRevokeResult,
+  error: RelayHostRpcError,
+});
+
 const WsLibraosGatewayStatusRpc = Rpc.make(WS_METHODS.libraosGatewayStatus, {
   payload: Schema.Struct({}),
   success: LibraosGatewayStatus,
@@ -3443,6 +3465,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsLibraosGatewayCheckoutRpc,
   WsLibraosGatewayPlansRpc,
   WsLibraosGatewayPlanCheckoutRpc,
+  WsRelayHostStatusRpc,
+  WsRelayHostRevokeDeviceRpc,
   WsOrchestrationV2DispatchCommandRpc,
   WsOrchestrationV2GetWorkflowScriptRpc,
   WsOrchestrationV2GetNativeChildWorkRpc,

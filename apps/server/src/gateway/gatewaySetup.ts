@@ -7,6 +7,8 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type CustomModelEntry,
+  type CustomGatewayMediaKind,
+  type CustomGatewayMediaModel,
   type LibraosGatewayModel,
   type ProviderInstanceConfig,
   type ProviderInstanceConfigMap,
@@ -55,7 +57,14 @@ const ModelList = Schema.Struct({
   ),
 });
 // Models a gateway marks as making media or vectors; an agent cannot chat with them.
-const NOT_CHAT_TYPES = new Set(["video", "audio", "image", "embedding", "embeddings", "rerank"]);
+const NOT_CHAT_TYPES: ReadonlyMap<string, CustomGatewayMediaKind> = new Map([
+  ["video", "video"],
+  ["image", "image"],
+  ["audio", "audio"],
+  ["embedding", "other"],
+  ["embeddings", "other"],
+  ["rerank", "other"],
+]);
 const ErrorBody = Schema.Struct({ error: Schema.Struct({ message: Schema.String }) });
 const decodeModelList = Schema.decodeUnknownOption(ModelList);
 const decodeErrorBody = Schema.decodeUnknownOption(ErrorBody);
@@ -66,6 +75,16 @@ export function parseGatewayModels(body: unknown): ReadonlyArray<LibraosGatewayM
   return list.value.data
     .filter((model) => model.id.trim() !== "" && !NOT_CHAT_TYPES.has(model.type ?? ""))
     .map((model) => (model.name ? { id: model.id, name: model.name } : { id: model.id }));
+}
+
+/** The listed models `parseGatewayModels` leaves out of chat, with what each makes. */
+export function parseGatewayMediaModels(body: unknown): ReadonlyArray<CustomGatewayMediaModel> {
+  const list = decodeModelList(body);
+  if (Option.isNone(list)) return [];
+  return list.value.data.flatMap((model) => {
+    const kind = NOT_CHAT_TYPES.get(model.type ?? "");
+    return kind === undefined || model.id.trim() === "" ? [] : [{ id: model.id, kind }];
+  });
 }
 
 const REFUSAL_LIMIT = 200;

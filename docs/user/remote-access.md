@@ -221,6 +221,10 @@ only.
 
 ### Revoke a phone or stop using the relay
 
+**Settings → Relay** shows the relay this computer uses, whether the server is
+connected to it, and each phone paired through it with when it last connected.
+**Revoke** there does what `lnext relay revoke` does. From the terminal:
+
 ```bash
 lnext relay devices        # list phones paired through the relay
 lnext relay revoke <id>    # delete its key here and revoke it at the relay
@@ -229,10 +233,13 @@ lnext relay disconnect     # stop connecting to the relay
 ```
 
 Revoking ends a connected phone's session within a few seconds, and the phone
-asks to be paired again with a new link. The phone also holds a LibraOS Next
-sign-in, which still works over the computer's own address; revoke that in
-**Settings → Sharing & access** as well. After `relay disconnect`, paired phones are kept, so connecting to the
-same relay again lets them back in.
+cannot come back through the relay until it pairs again: it asks to be paired
+again with a new link. The phone also holds a LibraOS Next sign-in, which still
+works over the computer's own address; revoke that in **Settings → Sharing &
+access** as well. Revoking that sign-in there revokes the phone's relay key too,
+and revoking an unused pairing link stops it from pairing through the relay.
+After `relay disconnect`, paired phones are kept, so connecting to the same
+relay again lets them back in.
 
 ## Desktop-managed SSH
 
