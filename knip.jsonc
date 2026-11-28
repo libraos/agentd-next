@@ -117,7 +117,11 @@
     "apps/web": {
       // Worktree setup (scripts/setup-worktree.ts) runs this directly, and evidence
       // fixtures run under node. agentdState.ts serves the agentd screens still to come.
+      // Render scenarios run only through scripts/render-metrics.ts, which defines their
+      // vitest project (vite.config.ts), so knip does not see that project.
       "entry": [
+        "test/*.renders.tsx",
+        "test/renderCounter.ts",
         "scripts/warm-dep-cache.ts",
         "scripts/verify-built-boot.ts",
         "test/fixtures/**/*.mjs",
