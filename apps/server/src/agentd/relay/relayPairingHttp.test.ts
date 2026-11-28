@@ -32,8 +32,17 @@ import * as ServerConfig from "../../config.ts";
 import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import * as ManagedPolicy from "../../policy/ManagedPolicy.ts";
-import { loadOrCreateHostKey, toBase64Url, writeRelayConfig } from "./relayStore.ts";
-import { startTestRelay, TEST_HOST_ID, TEST_HOST_TOKEN } from "./testRelay.ts";
+import { generateKeyPair } from "@t3tools/relay-session/noise";
+import { SessionCloseCode } from "@t3tools/relay-session/session";
+
+import { startRelayHost } from "./relayHost.ts";
+import {
+  listRelayDevices,
+  loadOrCreateHostKey,
+  toBase64Url,
+  writeRelayConfig,
+} from "./relayStore.ts";
+import { connectDevice, startTestRelay, TEST_HOST_ID, TEST_HOST_TOKEN } from "./testRelay.ts";
 
 const DEV_TOKEN = "reusable-dev-auth-token-that-is-long-enough";
 const ORIGIN = "http://127.0.0.1:50029";
@@ -100,6 +109,28 @@ const tokenExchange = (credential: string, dpop?: string) =>
       client_os: "iOS",
     }),
   });
+
+const requestContextFor = (random: SecureRandom.SecureRandom["Service"]) =>
+  Context.make(SecureRandom.SecureRandom, random).pipe(
+    Context.add(
+      ServerSecretStore.ServerSecretStore,
+      ServerSecretStore.ServerSecretStore.of({
+        get: () => Effect.succeedNone,
+        set: () => Effect.void,
+        create: () => Effect.void,
+        getOrCreateRandom: () => Effect.die("Not used by these routes."),
+        remove: () => Effect.void,
+      }),
+    ),
+  );
+
+/** The session id inside an access token's signed claims. */
+const sessionIdOf = (accessToken: string) =>
+  (
+    JSON.parse(Buffer.from(accessToken.split(".")[0]!, "base64url").toString("utf8")) as {
+      sid: string;
+    }
+  ).sid;
 
 // The web handler runs on its own runtime, so DPoP proofs need wall-clock time.
 it.live.each([
@@ -197,6 +228,109 @@ it.live.each([
         Effect.promise(async () => {
           await environment.dispose();
           await testRelay?.close();
+          await NodeFSP.rm(stateDir, { recursive: true, force: true });
+        }),
+    );
+  }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+);
+
+it.live("revoking a phone's session in Settings revokes the relay key it paired", () =>
+  Effect.gen(function* () {
+    const requestContext = requestContextFor(yield* SecureRandom.SecureRandom);
+    return yield* Effect.acquireUseRelease(
+      Effect.promise(async () => {
+        const stateDir = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "relay-revoke-"));
+        const testRelay = await startTestRelay();
+        await writeRelayConfig(stateDir, {
+          relayUrl: testRelay.url,
+          token: TEST_HOST_TOKEN,
+          hostId: TEST_HOST_ID,
+        });
+        const connected = testRelay.nextControl();
+        const host = startRelayHost({
+          stateDir,
+          target: { host: "127.0.0.1", port: 9 },
+          backoff: { initialMs: 10, maxMs: 50 },
+          pollMs: 50,
+        });
+        await connected;
+        return {
+          stateDir,
+          testRelay,
+          host,
+          environment: HttpRouter.toWebHandler(makeAuthRoutes(stateDir), { disableLogger: true }),
+        };
+      }),
+      ({ stateDir, testRelay, environment }) =>
+        Effect.promise(async () => {
+          const browser = await environment.handler(
+            post("/api/auth/browser-session", {
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ credential: DEV_TOKEN }),
+            }),
+            requestContext,
+          );
+          const cookie = browser.headers
+            .getSetCookie()
+            .find((entry) => entry.startsWith("t3_dev_session_"))!
+            .split(";", 1)[0]!;
+          const created = await environment.handler(
+            post("/api/auth/pairing-token", {
+              headers: { "content-type": "application/json", cookie },
+              body: JSON.stringify({ label: "My phone" }),
+            }),
+            requestContext,
+          );
+          const issued = (await created.json()) as {
+            credential: string;
+            relay: { deviceToken: string; hostKey: string };
+          };
+
+          // The phone reaches the host through the relay with the link's token, then signs in.
+          const hostKey = new Uint8Array(Buffer.from(issued.relay.hostKey, "base64url"));
+          const deviceKeys = generateKeyPair();
+          const phone = await connectDevice({
+            relayUrl: testRelay.url,
+            deviceToken: issued.relay.deviceToken,
+            deviceKeys,
+            hostKey,
+            pairingCode: issued.credential,
+          });
+          await phone.mux.ping();
+          const [paired] = await listRelayDevices(stateDir);
+          const exchanged = await environment.handler(
+            tokenExchange(issued.credential),
+            requestContext,
+          );
+          const { access_token } = (await exchanged.json()) as { access_token: string };
+
+          const revoke = await environment.handler(
+            post("/api/auth/clients/revoke", {
+              headers: { "content-type": "application/json", cookie },
+              body: JSON.stringify({ sessionId: sessionIdOf(access_token) }),
+            }),
+            requestContext,
+          );
+          expect(revoke.status).toBe(200);
+          expect(await revoke.json()).toEqual({ revoked: true });
+
+          expect(await phone.closed).toBe(SessionCloseCode.NOT_AUTHORIZED);
+          expect(await listRelayDevices(stateDir)).toEqual([]);
+          expect(testRelay.revoked).toEqual([paired!.deviceId]);
+          // A relay that kept its token would still meet a host that no longer knows its key.
+          const again = await connectDevice({
+            relayUrl: testRelay.url,
+            deviceToken: testRelay.mintDevice(paired!.deviceId).deviceToken,
+            deviceKeys,
+            hostKey,
+          });
+          expect(await again.closed).toBe(SessionCloseCode.NOT_AUTHORIZED);
+        }),
+      ({ stateDir, testRelay, host, environment }) =>
+        Effect.promise(async () => {
+          await host.stop();
+          await environment.dispose();
+          await testRelay.close();
           await NodeFSP.rm(stateDir, { recursive: true, force: true });
         }),
     );

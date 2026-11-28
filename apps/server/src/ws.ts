@@ -283,6 +283,7 @@ import {
   workerGatewayRecordText,
   workerGatewayKeyFile,
 } from "./agentd/workerGatewaySetting.ts";
+import { makeRelayHostRpc } from "./agentd/relay/relayHostRpc.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
@@ -1672,6 +1673,7 @@ export const layerWsRpc = (
       const agentdCustomizeSkills = yield* AgentdCustomizeSkills.AgentdCustomizeSkillsService;
       const libraosGateway = yield* LibraosGateway.LibraosGateway;
       const customGateway = yield* CustomGateway.CustomGateway;
+      const relayHost = makeRelayHostRpc(config.stateDir);
       const secretPaths = yield* Path.Path;
       const workerGatewayFiles = yield* FileSystem.FileSystem;
       const workerGatewayRecordPath = secretPaths.join(
@@ -3998,6 +4000,8 @@ export const layerWsRpc = (
                   }),
             ),
           ),
+        [WS_METHODS.relayHostStatus]: (_input) => relayHost.status(),
+        [WS_METHODS.relayHostRevokeDevice]: (input) => relayHost.revokeDevice(input.deviceId),
         [WS_METHODS.libraosGatewayStatus]: (_input) => libraosGateway.status,
         [WS_METHODS.libraosGatewayConnect]: (input) => libraosGateway.connect(input.key),
         [WS_METHODS.libraosGatewayDisconnect]: (_input) => libraosGateway.disconnect,

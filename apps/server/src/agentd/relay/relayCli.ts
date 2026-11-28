@@ -12,19 +12,11 @@ import { resolveBaseDir } from "../../os-jank.ts";
 import * as ManagedLimits from "../../policy/managedLimits.ts";
 import * as ManagedPolicy from "../../policy/ManagedPolicy.ts";
 import { isProcessAlive, readPersistedServerRuntimeState } from "../../serverRuntimeState.ts";
+import { parseRelayUrl, RELAY_SUBPROTOCOL, relayAuthHeaders, relayEndpoint } from "./relayApi.ts";
+import { readRelayOverview, revokeRelayDevice } from "./relayDevices.ts";
 import {
-  deleteRelayDevice,
-  parseRelayUrl,
-  RELAY_SUBPROTOCOL,
-  relayAuthHeaders,
-  relayEndpoint,
-} from "./relayApi.ts";
-import {
-  listRelayDevices,
   loadOrCreateHostKey,
-  readRelayConfig,
   removeRelayConfig,
-  removeRelayDevice,
   toBase64Url,
   writeRelayConfig,
 } from "./relayStore.ts";
@@ -191,12 +183,17 @@ const statusCommand = Command.make("status", { baseDir: baseDirFlag }).pipe(
   Command.withHandler((flags) =>
     Effect.gen(function* () {
       const stateDir = yield* resolveStateDir(flags.baseDir);
-      const config = yield* attempt(() => readRelayConfig(stateDir));
-      const devices = yield* attempt(() => listRelayDevices(stateDir));
+      const { relay, devices } = yield* attempt(() => readRelayOverview(stateDir));
       yield* Console.log(
-        config === null
+        relay === null
           ? "Relay: not connected. Connect with `lnext relay connect <relay-url> --token <token>`.\n"
-          : `Relay: ${config.relayUrl}\nHost id: ${config.hostId ?? "not known yet"}\nPaired relay devices: ${String(devices.length)}\n`,
+          : [
+              `Relay: ${relay.relayUrl}`,
+              `Host id: ${relay.hostId ?? "not known yet"}`,
+              `Connection: ${relay.online ? "open" : "not open (is the server running?)"}`,
+              `Paired relay devices: ${String(devices.length)}`,
+              "",
+            ].join("\n"),
       );
     }),
   ),
@@ -207,14 +204,14 @@ const devicesCommand = Command.make("devices", { baseDir: baseDirFlag }).pipe(
   Command.withHandler((flags) =>
     Effect.gen(function* () {
       const stateDir = yield* resolveStateDir(flags.baseDir);
-      const devices = yield* attempt(() => listRelayDevices(stateDir));
+      const { devices } = yield* attempt(() => readRelayOverview(stateDir));
       yield* Console.log(
         devices.length === 0
           ? "No devices are paired through the relay.\n"
           : `${devices
               .map(
                 (device) =>
-                  `${device.deviceId}  ${device.label || "(no label)"}  paired ${device.addedAt}`,
+                  `${device.deviceId}  ${device.label || "(no label)"}  paired ${device.addedAt}  last connected ${device.lastConnectedAt ?? "never"}`,
               )
               .join("\n")}\n`,
       );
@@ -234,20 +231,18 @@ const revokeCommand = Command.make("revoke", {
   Command.withHandler((flags) =>
     Effect.gen(function* () {
       const stateDir = yield* resolveStateDir(flags.baseDir);
-      const removed = yield* attempt(() => removeRelayDevice(stateDir, flags.deviceId));
-      const config = yield* attempt(() => readRelayConfig(stateDir));
-      const relayResult =
-        config === null
-          ? "not connected to a relay"
-          : yield* attempt(() => deleteRelayDevice(config, flags.deviceId)).pipe(
-              Effect.as("revoked at the relay"),
-              Effect.catch((error) => Effect.succeed(`not revoked at the relay: ${error.detail}`)),
-            );
-      if (removed === undefined && config === null) {
+      const result = yield* attempt(() => revokeRelayDevice(stateDir, flags.deviceId));
+      if (!result.keyRemoved && result.atRelay.kind === "not-connected") {
         return yield* fail(`No relay device ${flags.deviceId}.`);
       }
+      const relayResult =
+        result.atRelay.kind === "revoked"
+          ? "revoked at the relay"
+          : result.atRelay.kind === "not-connected"
+            ? "not connected to a relay"
+            : `not revoked at the relay: ${result.atRelay.message}`;
       yield* Console.log(
-        `${removed === undefined ? "No key was stored for" : "Deleted the key of"} ${flags.deviceId}; ${relayResult}. A connected session ends within a few seconds.\n`,
+        `${result.keyRemoved ? "Deleted the key of" : "No key was stored for"} ${flags.deviceId}; ${relayResult}. A connected session ends within a few seconds.\n`,
       );
     }),
   ),

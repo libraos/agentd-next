@@ -15,10 +15,13 @@ import {
   consumePairingCode,
   listRelayDevices,
   loadOrCreateHostKey,
+  pairingCodeHash,
   readRelayConfig,
+  recordRelayConnected,
   type RelayConfig,
   toBase64Url,
   writeRelayConfig,
+  writeRelayHostStatus,
 } from "./relayStore.ts";
 
 export type RelayHostLog = (
@@ -97,6 +100,7 @@ const authorizeRelayDevice = async (input: {
     publicKey,
     label: grant.label,
     addedAt: new Date(input.now).toISOString(),
+    pairingCodeHash: pairingCodeHash(input.claims.pairing),
   });
   return true;
 };
@@ -129,6 +133,20 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
       const timer = setTimeout(done, ms);
       wake = done;
     });
+
+  // Settings and `relay status` run apart from this socket, so its state is kept on disk.
+  let statusWritten = Promise.resolve();
+  const reportStatus = (connected: boolean) => {
+    statusWritten = statusWritten
+      .then(() =>
+        writeRelayHostStatus(options.stateDir, {
+          connected,
+          at: new Date(now()).toISOString(),
+          pid: process.pid,
+        }),
+      )
+      .catch(() => {});
+  };
 
   const closeRevokedSessions = async () => {
     const paired = new Set((await listRelayDevices(options.stateDir)).map((d) => d.publicKey));
@@ -171,10 +189,25 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
           deviceKey,
           claims,
           now: now(),
-        }).catch((cause: unknown) => {
-          log("warn", "Relay device check failed", { cause: String(cause) });
-          return false;
-        }),
+        })
+          .then(async (allowed) => {
+            if (allowed) {
+              await recordRelayConnected(
+                options.stateDir,
+                message.deviceId,
+                new Date(now()).toISOString(),
+              ).catch((cause: unknown) =>
+                log("warn", "Could not record the relay device's connection", {
+                  cause: String(cause),
+                }),
+              );
+            }
+            return allowed;
+          })
+          .catch((cause: unknown) => {
+            log("warn", "Relay device check failed", { cause: String(cause) });
+            return false;
+          }),
       onOpen: (opened) => {
         entry.deviceKey = toBase64Url(opened.remoteStaticKey!);
         mux = new Multiplexer({
@@ -217,6 +250,7 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
         if (ended) return;
         ended = true;
         clearInterval(poll);
+        if (controlOpen) reportStatus(false);
         controlOpen = false;
         control = undefined;
         endControl = undefined;
@@ -237,6 +271,7 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
       socket.addEventListener("open", () => {
         opened = true;
         controlOpen = true;
+        reportStatus(true);
         log("info", "Connected to the relay", { relay: config.relayUrl });
       });
       socket.addEventListener("message", (event) => {
@@ -298,6 +333,7 @@ export const startRelayHost = (options: RelayHostOptions): RelayHost => {
       control?.close();
       for (const entry of sessions) entry.session.close(SessionCloseCode.NORMAL, "host stopping");
       await done;
+      await statusWritten;
     },
   };
 };
