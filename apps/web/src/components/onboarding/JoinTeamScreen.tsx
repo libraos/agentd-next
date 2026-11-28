@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { T, useGT } from "gt-react";
 import { useId, useRef, useState, type FormEvent } from "react";
@@ -10,13 +10,20 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { joinedPersonName, parseTeamInvitation } from "./JoinTeamScreen.logic";
+import { SETTINGS_NAV_LABELS, type SettingsPath } from "../settings/settingsSearch";
+import { joinedPersonName, joinTeamReturnPath, parseTeamInvitation } from "./JoinTeamScreen.logic";
+
+const SETTINGS_PATHS = Object.keys(SETTINGS_NAV_LABELS) as SettingsPath[];
 
 export function JoinTeamScreen() {
   const gt = useGT();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const environmentId = usePrimaryEnvironmentId();
+  const returnPath = joinTeamReturnPath(
+    useLocation({ select: (location) => location.search.from }),
+    SETTINGS_PATHS,
+  );
   const canJoin = useAtomValue(agentdEnvironment.joinTeam.permissionAtom(environmentId));
   const joinTeam = useAtomCommand(agentdEnvironment.joinTeam, {
     reportFailure: false,
@@ -136,7 +143,13 @@ export function JoinTeamScreen() {
       <div>
         <Button
           variant={joined ? "default" : "link"}
-          render={<Link to="/welcome" search={{ screen: undefined }} hash={true} />}
+          render={
+            returnPath === null ? (
+              <Link to="/welcome" search={{ screen: undefined }} hash={true} />
+            ) : (
+              <Link to={returnPath} />
+            )
+          }
         >
           {joined
             ? gt("Done", { $context: "button, exits a finished setup step" })

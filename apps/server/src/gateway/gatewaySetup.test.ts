@@ -15,6 +15,7 @@ import {
   piGatewayFiles,
   withCustomGateway,
   withGatewayModels,
+  withShortGatewayNames,
 } from "./gatewaySetup.ts";
 
 // Another family's model keeps its Gateway id, sits under its family and has no agent options.
@@ -161,6 +162,60 @@ describe("gatewaySetup", () => {
         ...(models === both ? [["gpt-5.5", undefined]] : []),
       ]);
     }
+  });
+
+  it("names the Gateway's agents `<Agent> · LibraOS`", () => {
+    const names = gatewayProviderInstances(
+      "lk_test_key_123456",
+      [{ id: "openai/gpt-5.5" }],
+      "/pi",
+    ).map(({ instance }) => instance.displayName);
+    expect(names).toEqual([
+      "Claude Code · LibraOS",
+      "Codex · LibraOS",
+      "opencode · LibraOS",
+      "Pi · LibraOS",
+    ]);
+  });
+
+  it("shortens the old default names of the Gateway's agents, never a name the person chose", () => {
+    const current = Object.fromEntries(
+      gatewayProviderInstances("lk_test_key_123456", [], "/pi").map(({ instanceId, instance }) => [
+        instanceId,
+        instance,
+      ]),
+    );
+    const old = {
+      ...current,
+      [GATEWAY_INSTANCE_IDS.claude]: {
+        ...current[GATEWAY_INSTANCE_IDS.claude]!,
+        displayName: "Claude Code · LibraOS Gateway",
+      },
+      [GATEWAY_INSTANCE_IDS.codex]: {
+        ...current[GATEWAY_INSTANCE_IDS.codex]!,
+        displayName: "My Codex",
+      },
+      [GATEWAY_INSTANCE_IDS.pi]: {
+        ...current[GATEWAY_INSTANCE_IDS.pi]!,
+        displayName: "Pi · LibraOS Gateway",
+      },
+      // Another agent with the old name is not a Gateway agent.
+      [ProviderInstanceId.make("pi")]: {
+        driver: "pi" as never,
+        displayName: "Pi · LibraOS Gateway",
+      },
+    };
+    const next = withShortGatewayNames(old);
+    expect(next[GATEWAY_INSTANCE_IDS.claude]?.displayName).toBe("Claude Code · LibraOS");
+    expect(next[GATEWAY_INSTANCE_IDS.pi]?.displayName).toBe("Pi · LibraOS");
+    expect(next[GATEWAY_INSTANCE_IDS.codex]?.displayName).toBe("My Codex");
+    expect(next[GATEWAY_INSTANCE_IDS.opencode]?.displayName).toBe("opencode · LibraOS");
+    expect(next[ProviderInstanceId.make("pi")]?.displayName).toBe("Pi · LibraOS Gateway");
+    expect(next[GATEWAY_INSTANCE_IDS.pi]?.environment).toBe(
+      current[GATEWAY_INSTANCE_IDS.pi]?.environment,
+    );
+    expect(withShortGatewayNames(next)).toBe(next);
+    expect(withShortGatewayNames(current)).toBe(current);
   });
 
   it("changes only the model lists of the Gateway agents still present", () => {

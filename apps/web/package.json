@@ -9,6 +9,7 @@
     "dev:built": "vp build --watch",
     "build": "vp build",
     "i18n:generate": "gt generate",
+    "i18n:check": "node ../../scripts/i18n-check.ts",
     "preview": "vp preview",
     "test": "vp test run --passWithNoTests --project unit --project browser",
     "bench": "vp test bench --passWithNoTests --project \"unit (bench)\"",

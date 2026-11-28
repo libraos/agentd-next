@@ -43,6 +43,7 @@ import {
   opencodeOwnGatewayKey,
   readGatewayKey,
   withGatewayModels,
+  withShortGatewayNames,
 } from "./gatewaySetup.ts";
 import {
   backfillPiOnce,
@@ -82,6 +83,8 @@ export class LibraosGateway extends Context.Service<
     readonly refreshModels: Effect.Effect<void>;
     /** Gives a key connected before the Gateway had a Pi agent that agent, once; runs at start. */
     readonly backfillPi: Effect.Effect<void>;
+    /** Gives the Gateway agents still named as before 0.5.1 the shorter name, once; runs at start. */
+    readonly shortenNames: Effect.Effect<void>;
     /**
      * Starts a LibraOS device sign-in: connect makes a Gateway key and connects it; revoke revokes
      * the connected key in LibraOS, then disconnects. The session token never leaves the flow.
@@ -520,9 +523,27 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       Effect.withSpan("LibraosGateway.backfillPi"),
     );
 
+  // Once per state directory, so a person who later types the old name back keeps it.
+  const shortenNames: LibraosGateway["Service"]["shortenNames"] = Effect.gen(function* () {
+    const marker = path.join(stateDir, "pi-gateway", ".renamed-libraos");
+    if (yield* fs.exists(marker)) return;
+    const current = (yield* settings.getSettings).providerInstances;
+    if (withShortGatewayNames(current) !== current) {
+      yield* settings.updateProviderInstances(withShortGatewayNames);
+    }
+    yield* fs.makeDirectory(path.dirname(marker), { recursive: true, mode: 0o700 });
+    yield* fs.writeFileString(marker, "");
+  }).pipe(
+    Effect.catch((cause) =>
+      Effect.logWarning("LibraOS Gateway: could not shorten the agents' names", { cause }),
+    ),
+    Effect.withSpan("LibraosGateway.shortenNames"),
+  );
+
   // Agents added by an older build listed the agent's whole catalog; a key changed in Console since the
   // last start shows without waiting for a manual refresh.
   yield* settings.ready.pipe(
+    Effect.andThen(shortenNames),
     Effect.andThen(refreshModels),
     Effect.andThen(backfillPi),
     Effect.catch((cause) =>
@@ -709,6 +730,11 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     Effect.withSpan("LibraosGateway.signInCancel"),
   );
 
+  // The balance is read on focus, so a key revoked while the app runs shows as refused then,
+  // not at the next start: the Gateway's answer decides, as at startup.
+  const recheckRefusedKey = (status: number) =>
+    status === 401 || status === 403 ? refreshModels : Effect.void;
+
   const credits: LibraosGateway["Service"]["credits"] = Effect.gen(function* () {
     const key = yield* readKey;
     if (Option.isNone(key)) return null;
@@ -716,6 +742,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       HttpClientRequest.acceptJson,
     );
     const answer = yield* cloudCall(request, key.value);
+    yield* recheckRefusedKey(answer.status);
     const read = readCreditsAnswer(answer.status, answer.body);
     if ("refusal" in read) return yield* fail(read.refusal);
     return read.credits;
@@ -743,6 +770,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
       HttpClientRequest.acceptJson,
     );
     const answer = yield* cloudCall(request, key.value);
+    yield* recheckRefusedKey(answer.status);
     const read = readPlansAnswer(answer.status, answer.body);
     if ("refusal" in read) return yield* fail(read.refusal);
     return read.plans;
@@ -769,6 +797,7 @@ export const make = Effect.fn("LibraosGateway.make")(function* () {
     disconnect,
     refreshModels,
     backfillPi,
+    shortenNames,
     signInStart,
     signInWait,
     signInCancel,

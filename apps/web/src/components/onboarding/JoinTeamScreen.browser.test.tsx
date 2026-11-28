@@ -106,3 +106,13 @@ it("clears the invite immediately, shows the refusal, and confirms a successful 
   await screen.getByRole("link", { name: "Done" }).click();
   await vi.waitFor(() => expect(screen.router?.state.location.href).toBe("/welcome"));
 });
+
+it("opened from Settings, Back returns to the Settings page that opened it", async () => {
+  runJoin.mockReset();
+  await using screen = await render(<JoinTeamScreen />, {
+    router: "/welcome?screen=team&from=%2Fsettings%2Fproviders",
+  });
+  await expect
+    .element(screen.getByRole("link", { name: "Back" }))
+    .toHaveAttribute("href", "/settings/providers");
+});

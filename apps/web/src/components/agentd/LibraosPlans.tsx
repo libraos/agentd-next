@@ -8,16 +8,17 @@ import { useId } from "react";
 
 import { useLibraosPlans, useSubscribeLibraosPlan } from "../../lib/libraosGatewayState";
 import { cn } from "../../lib/utils";
-import { useSearchableSetting } from "../settings/settingsSearch";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { libraosPlansList } from "./libraosAccount.logic";
 import { ExternalLink } from "./LibraosCredits";
 import { formatCreditsUsd } from "./libraosCredits.logic";
 
 /**
  * Console's plans, one card each, with Subscribe for those that can be bought. Names, prices and
- * summaries are Console's. With no plans to show (an older Console) it is a single See plans link.
+ * summaries are Console's. With none on offer it says so beside See plans; a read still out or
+ * failed says that instead, with Retry.
  */
 export function LibraosPlansPanel({
   environmentId: target,
@@ -32,19 +33,37 @@ export function LibraosPlansPanel({
   const id = useId();
   const plans = useLibraosPlans(target);
   const subscribing = useSubscribeLibraosPlan(plans.environmentId);
-  const data = plans.data;
+  const list = libraosPlansList(plans);
 
-  if (data === null || data.plans.length === 0) {
-    if (plans.isPending) return null;
+  if (list.kind !== "listed") {
     return (
-      <div className="space-y-1 text-sm">
-        {plans.error === null ? null : <p className="text-muted-foreground">{plans.error}</p>}
-        <p>
-          <ExternalLink href={LIBRAOS_CREDITS_URL}>{gt("See plans")}</ExternalLink>
-        </p>
+      <div className="space-y-2 text-sm" role="status">
+        {list.kind === "reading" ? (
+          <p className="text-muted-foreground">
+            <T>Reading plans…</T>
+          </p>
+        ) : list.kind === "failed" ? (
+          <>
+            <p className="text-muted-foreground">{list.error}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="outline" onClick={plans.refresh}>
+                <T>Retry</T>
+              </Button>
+              <ExternalLink href={LIBRAOS_CREDITS_URL}>{gt("See plans")}</ExternalLink>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted-foreground">
+              <T>No plans on offer right now.</T>
+            </p>
+            <ExternalLink href={LIBRAOS_CREDITS_URL}>{gt("See plans")}</ExternalLink>
+          </>
+        )}
       </div>
     );
   }
+  const data = list.plans;
 
   const price = (plan: LibraosGatewayPlan) => {
     const amount = formatCreditsUsd(plan.priceUsd, locale);
@@ -128,7 +147,13 @@ function PlanAction({
     case "available":
       return (
         <div className="mt-auto pt-1">
-          <Button size="sm" variant="outline" disabled={disabled} onClick={onSubscribe}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            aria-label={opening ? undefined : gt("Subscribe to {plan}", { plan: plan.name })}
+            onClick={onSubscribe}
+          >
             {opening ? gt("Opening checkout…") : gt("Subscribe")}
           </Button>
         </div>
@@ -174,30 +199,6 @@ export function SeeLibraosPlansButton({
         <LibraosPlansPanel environmentId={plans.environmentId} />
       </PopoverPopup>
     </Popover>
-  );
-}
-
-/** Settings' card for Console's plans; nothing while the Gateway is not connected. */
-export function LibraosPlansSettings({
-  environmentId,
-}: {
-  readonly environmentId: EnvironmentId | null;
-}) {
-  const searchableSetting = useSearchableSetting();
-  const plans = useLibraosPlans(environmentId);
-  if (!plans.connected) return null;
-  const setting = searchableSetting("libraos-plans");
-  return (
-    <section
-      id={setting.id}
-      aria-label={setting.title}
-      className="space-y-2 rounded-lg border border-border bg-card px-4 py-3"
-    >
-      <h3 className="text-sm font-medium text-foreground">
-        <T>LibraOS Gateway plans</T>
-      </h3>
-      <LibraosPlansPanel environmentId={plans.environmentId} heading={false} />
-    </section>
   );
 }
 

@@ -25,7 +25,7 @@ The first run lists Claude Code, Codex, opencode and more, and says what each ne
 
 - **A subscription you already have**, such as Claude Pro or Max, or a ChatGPT plan.
 - **An API key or another provider**, set the way that agent documents. A second instance in **Settings → Providers** keeps a key apart from your main login. See the guides for [Claude](./docs/user/providers-claude.md), [Codex](./docs/user/providers-codex.md) and [opencode](./docs/user/providers-opencode.md).
-- **LibraOS Gateway**: create a key on the [Console](https://console.libraos.com/api-keys), then open **Use an API key or gateway**, choose **LibraOS Gateway**, paste the key and press **Connect**. Usage is pay as you go, and workers can then take dollar budgets.
+- **LibraOS Gateway**: choose **Sign in** beside LibraOS on the welcome page, then approve in the browser. Its Pi agent needs nothing installed. Usage is pay as you go, and workers can then take dollar budgets. To paste a [Console](https://console.libraos.com/api-keys) key instead, open **Use an API key or custom gateway** and choose **LibraOS Gateway**.
 
 Chat and Code need one connected agent and no LibraOS account.
 
@@ -37,9 +37,7 @@ Chat and Code need one connected agent and no LibraOS account.
 - **Review the result** in the diff viewer.
 - **See LibraOS Engine's state**: checks, approvals waiting on you, workers and team nodes.
 
-| First run                                                            | Hand to a worker                                                                            |
-| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| ![Connect an agent you already use](agentd/design/shots/welcome.png) | ![A task with its goal, criteria, check and budget](agentd/design/shots/hand-to-worker.png) |
+![A task with its goal, criteria, check and budget](agentd/design/shots/hand-to-worker.png)
 
 ## Run from source
 

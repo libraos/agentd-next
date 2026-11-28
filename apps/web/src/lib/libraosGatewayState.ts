@@ -12,6 +12,7 @@ import {
   WS_METHODS,
   type EnvironmentId,
   type LibraosGatewayCheckout,
+  type LibraosGatewaySignIn,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Atom from "effect/reactivity/Atom";
@@ -25,7 +26,12 @@ import { useEnvironmentQuery } from "../state/query";
 import { useEnvironmentScope } from "../state/session";
 import { serverEnvironment } from "../state/server";
 import { useAtomCommand } from "../state/use-atom-command";
-import { isLibraosGatewayUsable, libraosGatewayAgentsChecked } from "./libraosGatewayState.logic";
+import {
+  isLibraosGatewayUsable,
+  libraosGatewayAgentsChecked,
+  type LibraosSignInAttempt,
+  libraosSignInView,
+} from "./libraosGatewayState.logic";
 
 // The LibraOS Gateway on one environment. The server keeps the key; clients learn only whether it
 // is connected and which models it may use.
@@ -238,6 +244,140 @@ export function useLibraosPlans(target?: EnvironmentId | null) {
     );
   }, [connected, environmentId, registry]);
   return { environmentId, connected, ...query };
+}
+
+// The sign-in a click started outlives the row or card that started it: the page shows the waiting
+// view in their place.
+const signInAttempt = Atom.family((environmentId: EnvironmentId) =>
+  Atom.make<LibraosSignInAttempt>({ phase: "idle", ended: null }).pipe(
+    Atom.keepAlive,
+    Atom.withLabel(`environment-data:libraos-gateway:sign-in-attempt:${environmentId}`),
+  ),
+);
+const noSignInAttempt = Atom.make<LibraosSignInAttempt>({ phase: "idle", ended: null }).pipe(
+  Atom.withLabel("environment-data:libraos-gateway:sign-in-attempt:none"),
+);
+let lastSignInAttempt = 0;
+const nextSignInAttempt = () => ++lastSignInAttempt;
+const signInWaits = new Map<EnvironmentId, number>();
+
+const opensBrowserItself = () => typeof window !== "undefined" && Boolean(window.desktopBridge);
+
+/** Opens LibraOS's sign-in page: the desktop's browser, or a new tab from a click on the web. */
+export function openLibraosSignInPage(url: string) {
+  if (opensBrowserItself()) {
+    void readLocalApi()
+      ?.shell.openExternal(url)
+      .catch(() => undefined);
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * The device sign-in one click starts: the browser opens at LibraOS's approval page at once (a tab
+ * opened during the click on the web, which a browser would block after an await), and the page
+ * shows `view` until it ends. `view` is null while there is nothing to wait for.
+ */
+export function useLibraosSignIn(target?: EnvironmentId | null) {
+  const gt = useGT();
+  const m = useMessages();
+  const gateway = useLibraosGateway(target);
+  const environmentId = gateway.environmentId;
+  const registry = useContext(RegistryContext);
+  const { canChange, signInStart, signInWait, signInCancel } =
+    useLibraosGatewayCommands(environmentId);
+  const attempt = useAtomValue(
+    environmentId === null ? noSignInAttempt : signInAttempt(environmentId),
+  );
+  const pending = gateway.data?.signIn ?? null;
+  const view = libraosSignInView(attempt, pending);
+  const failure = (result: Parameters<typeof squashAtomCommandFailure>[0]) =>
+    thrownErrorMessage(squashAtomCommandFailure(result), m) ||
+    gt("Could not reach this environment.");
+
+  const set = (target: EnvironmentId, next: LibraosSignInAttempt, onlyId?: number) => {
+    const atom = signInAttempt(target);
+    const current = registry.get(atom);
+    // A later click or a Cancel owns the view; an older sign-in's answer leaves it alone.
+    if (onlyId !== undefined && (!("id" in current) || current.id !== onlyId)) return;
+    registry.set(atom, next);
+  };
+
+  const wait = async (target: EnvironmentId, id: number, signIn: LibraosGatewaySignIn) => {
+    signInWaits.set(target, (signInWaits.get(target) ?? 0) + 1);
+    const result = await signInWait({ environmentId: target, input: {} });
+    signInWaits.set(target, (signInWaits.get(target) ?? 1) - 1);
+    set(
+      target,
+      result._tag === "Failure"
+        ? { phase: "failed", id, error: failure(result), hadCode: true }
+        : { phase: "done", id, ended: signIn.userCode },
+      id,
+    );
+  };
+
+  const start = async () => {
+    if (environmentId === null || !canChange) return;
+    const desktop = opensBrowserItself();
+    const tab = desktop ? null : window.open("", "_blank");
+    if (tab !== null) tab.opener = null;
+    const id = nextSignInAttempt();
+    set(environmentId, { phase: "starting", id });
+    const result = await signInStart({ environmentId, input: { purpose: "connect" } });
+    if (result._tag === "Failure") {
+      tab?.close();
+      set(environmentId, { phase: "failed", id, error: failure(result), hadCode: false }, id);
+      return;
+    }
+    const signIn = result.value;
+    const now = registry.get(signInAttempt(environmentId));
+    if (!("id" in now) || now.id !== id) {
+      tab?.close();
+      // Cancelled while the code was on its way; a later click's sign-in is left running.
+      if (now.phase !== "idle") return;
+      set(environmentId, { phase: "idle", ended: signIn.userCode });
+      await signInCancel({ environmentId, input: {} });
+      return;
+    }
+    if (tab !== null) tab.location.href = signIn.verificationUriComplete;
+    else if (desktop) openLibraosSignInPage(signIn.verificationUriComplete);
+    set(environmentId, { phase: "waiting", id, signIn, opened: tab !== null || desktop }, id);
+    void wait(environmentId, id, signIn);
+  };
+
+  /** Follows a sign-in the server is already running, as after a reload. */
+  const follow = (signIn: LibraosGatewaySignIn) => {
+    if (environmentId === null || (signInWaits.get(environmentId) ?? 0) > 0) return;
+    const id = nextSignInAttempt();
+    set(environmentId, { phase: "waiting", id, signIn, opened: false });
+    void wait(environmentId, id, signIn);
+  };
+
+  const cancel = async () => {
+    if (environmentId === null) return;
+    const ended = view?.kind === "waiting" ? view.signIn.userCode : null;
+    set(environmentId, { phase: "idle", ended });
+    if (ended === null) return;
+    await signInCancel({ environmentId, input: {} });
+  };
+
+  /** The view handed back to its page; the page may now move focus on. */
+  const finish = () => {
+    if (environmentId === null || attempt.phase !== "done") return;
+    set(environmentId, { phase: "signedIn", ended: attempt.ended });
+  };
+
+  return {
+    environmentId,
+    canChange,
+    view,
+    signedIn: attempt.phase === "signedIn",
+    start,
+    follow,
+    cancel,
+    finish,
+  };
 }
 
 /**

@@ -1,10 +1,6 @@
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import {
-  LIBRAOS_CONSOLE_API_KEYS_URL,
-  type EnvironmentId,
-  type LibraosGatewaySignIn,
-} from "@t3tools/contracts";
+import { LIBRAOS_CONSOLE_API_KEYS_URL, type EnvironmentId } from "@t3tools/contracts";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
 import { CheckIcon, ServerIcon, Settings2Icon } from "lucide-react";
 import {
@@ -18,11 +14,12 @@ import {
 } from "react";
 
 import {
+  openLibraosSignInPage,
   useGatewayEnvironment,
   useLibraosGateway,
   useLibraosGatewayCommands,
+  useLibraosSignIn,
 } from "../../lib/libraosGatewayState";
-import { readLocalApi } from "../../localApi";
 import { LibraosCreditsPanel } from "../agentd/LibraosCredits";
 import { LibraosPlansPanel } from "../agentd/LibraosPlans";
 import { AnthropicIcon, OllamaIcon, OpenAI } from "../Icons";
@@ -33,7 +30,9 @@ import { CustomGatewayForm } from "./CustomGatewayForm";
 import { CustomGatewayList } from "./CustomGatewayList";
 
 const agents = ["Claude Code", "Codex", "opencode"] as const;
-type Agent = (typeof agents)[number];
+type Agent = (typeof agents)[number] | "Pi";
+// A gateway also gets a Pi agent, which needs nothing installed.
+const gatewayAgents: readonly Agent[] = [...agents, "Pi"];
 
 const endpoints: ReadonlyArray<{
   readonly id: string;
@@ -41,7 +40,7 @@ const endpoints: ReadonlyArray<{
   readonly agents: readonly Agent[];
   readonly Icon: typeof T3Wordmark | typeof AnthropicIcon | typeof ServerIcon;
 }> = [
-  { id: "gateway", label: msg("LibraOS Gateway"), agents, Icon: T3Wordmark },
+  { id: "gateway", label: msg("LibraOS Gateway"), agents: gatewayAgents, Icon: T3Wordmark },
   {
     id: "anthropic",
     label: msg("Anthropic API key"),
@@ -51,7 +50,7 @@ const endpoints: ReadonlyArray<{
   { id: "openai", label: msg("OpenAI API key"), agents: ["Codex", "opencode"], Icon: OpenAI },
   { id: "bedrock", label: msg("AWS Bedrock"), agents, Icon: ServerIcon },
   { id: "ollama", label: msg("Ollama"), agents, Icon: OllamaIcon },
-  { id: "custom", label: msg("Custom endpoint"), agents, Icon: Settings2Icon },
+  { id: "custom", label: msg("Custom endpoint"), agents: gatewayAgents, Icon: Settings2Icon },
 ];
 
 export function ConnectEndpointScreen({
@@ -162,21 +161,10 @@ const MODELS_SHOWN = 8;
 
 const opensBrowserItself = () => typeof window !== "undefined" && Boolean(window.desktopBridge);
 
-// The desktop opens the sign-in page itself; a browser blocks a window opened after an await, so
+// The desktop opens the revoke page itself; a browser blocks a window opened after an await, so
 // the web build opens it only from the panel's button.
 function openSignInPage(url: string) {
-  if (!opensBrowserItself()) return;
-  void readLocalApi()
-    ?.shell.openExternal(url)
-    .catch(() => undefined);
-}
-
-function openSignInPageNow(url: string) {
-  if (opensBrowserItself()) {
-    openSignInPage(url);
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
+  if (opensBrowserItself()) openLibraosSignInPage(url);
 }
 
 /** Sign in with LibraOS or connect a LibraOS API key, see the models, or disconnect. */
@@ -191,6 +179,8 @@ function GatewayConnectPanel({
   const gateway = useLibraosGateway(target);
   const { canChange, connect, disconnect, signInStart, signInWait, signInCancel } =
     useLibraosGatewayCommands(gateway.environmentId);
+  // Signing in is the page's waiting view; the panel only follows a revoke.
+  const signIn = useLibraosSignIn(gateway.environmentId);
   const [key, setKey] = useState("");
   const [useKey, setUseKey] = useState(false);
   const waiting = useRef(false);
@@ -227,11 +217,11 @@ function GatewayConnectPanel({
     if (result._tag === "Failure") setError(failure(result));
   };
 
-  const startSignIn = async (purpose: LibraosGatewaySignIn["purpose"]) => {
+  const startRevoke = async () => {
     if (environmentId === null) return;
     setBusy(true);
     setError(null);
-    const result = await signInStart({ environmentId, input: { purpose } });
+    const result = await signInStart({ environmentId, input: { purpose: "revoke" } });
     setBusy(false);
     if (result._tag === "Failure") {
       setError(failure(result));
@@ -258,9 +248,9 @@ function GatewayConnectPanel({
 
   // A key a sign-in made is revoked in LibraOS first, which takes a fresh sign-in: the session
   // token that made it was never kept.
-  const remove = () => (status?.account ? startSignIn("revoke") : removeHere());
+  const remove = () => (status?.account ? startRevoke() : removeHere());
 
-  const pendingSignIn = status?.signIn ?? null;
+  const pendingSignIn = status?.signIn?.purpose === "revoke" ? status.signIn : null;
   const pendingCode = pendingSignIn?.userCode ?? null;
   const follow = useEffectEvent((target: EnvironmentId) => {
     void awaitSignIn(target);
@@ -293,18 +283,12 @@ function GatewayConnectPanel({
         className="space-y-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"
       >
         <p className="text-foreground">
-          {pendingSignIn.purpose === "revoke" ? (
-            <T>To revoke the key in LibraOS, sign in in your browser and click Approve.</T>
-          ) : opensBrowserItself() ? (
-            <T>LibraOS is open in your browser. Sign in there and click Approve.</T>
-          ) : (
-            <T>Continue in your browser: sign in to LibraOS and click Approve.</T>
-          )}
+          <T>To revoke the key in LibraOS, sign in in your browser and click Approve.</T>
         </p>
         <div>
           <Button
             size="sm"
-            onClick={() => openSignInPageNow(pendingSignIn.verificationUriComplete)}
+            onClick={() => openLibraosSignInPage(pendingSignIn.verificationUriComplete)}
           >
             {opensBrowserItself() ? <T>Open LibraOS again</T> : <T>Continue in browser</T>}
           </Button>
@@ -326,11 +310,9 @@ function GatewayConnectPanel({
           <Button variant="outline" size="sm" disabled={!canChange} onClick={cancelSignIn}>
             <T>Cancel</T>
           </Button>
-          {pendingSignIn.purpose === "revoke" ? (
-            <Button variant="ghost" size="sm" disabled={busy || !canChange} onClick={removeHere}>
-              <T>Remove here only</T>
-            </Button>
-          ) : null}
+          <Button variant="ghost" size="sm" disabled={busy || !canChange} onClick={removeHere}>
+            <T>Remove here only</T>
+          </Button>
         </div>
       </section>
     );
@@ -387,8 +369,8 @@ function GatewayConnectPanel({
             </T>
           ) : (
             <T>
-              In a chat, choose the agent marked LibraOS Gateway in the model picker. LibraOS Engine
-              workers use the Gateway too, so tasks accept dollar budgets.
+              In a chat, choose an agent marked LibraOS in the model picker. LibraOS Engine workers
+              use the Gateway too, so tasks accept dollar budgets.
             </T>
           )}
         </p>
@@ -438,8 +420,8 @@ function GatewayConnectPanel({
         </p>
         {errorLine}
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" disabled={busy || !canChange} onClick={() => startSignIn("connect")}>
-            {error === null ? <T>Sign in with LibraOS</T> : <T>Try again</T>}
+          <Button size="sm" disabled={busy || !canChange} onClick={() => void signIn.start()}>
+            <T>Sign in with LibraOS</T>
           </Button>
           <Button
             variant="link"

@@ -4,10 +4,10 @@ import { RefreshCwIcon } from "lucide-react";
 import { useId } from "react";
 
 import { useBuyLibraosCredits, useLibraosCredits } from "../../lib/libraosGatewayState";
-import { useSearchableSetting } from "../settings/settingsSearch";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
+import { libraosBalance } from "./libraosAccount.logic";
 import { formatCreditsUsd, isLowLibraosBalance } from "./libraosCredits.logic";
 
 export function ExternalLink({
@@ -58,7 +58,8 @@ export function LibraosCreditsPanel({
     );
   }
 
-  const low = isLowLibraosBalance(data);
+  const level = libraosBalance(credits, data.plan !== null).kind;
+  const low = level === "low" || level === "usedUp";
   return (
     <div className="space-y-2 text-sm" aria-labelledby={`${id}-balance`}>
       <div className="flex flex-wrap items-center gap-x-2">
@@ -83,7 +84,11 @@ export function LibraosCreditsPanel({
           <RefreshCwIcon aria-hidden />
         </Button>
       </div>
-      {low ? (
+      {level === "usedUp" ? (
+        <p className="text-warning-foreground">
+          <T>Credits used up. Buy credits to use LibraOS Gateway.</T>
+        </p>
+      ) : level === "low" ? (
         <p className="text-warning-foreground">
           <T>Your LibraOS credits are almost used up. Gateway agents stop when they run out.</T>
         </p>
@@ -128,16 +133,18 @@ export function LibraosCreditsPanel({
 export function BuyLibraosCreditsButton({
   environmentId,
   variant = "default",
+  size = "sm",
 }: {
   readonly environmentId?: EnvironmentId | null | undefined;
   readonly variant?: "default" | "outline";
+  readonly size?: "sm" | "xs";
 }) {
   const gt = useGT();
   const credits = useLibraosCredits(environmentId);
   if (credits.data === null || credits.data.amountsUsd.length === 0) {
     return (
       <Button
-        size="sm"
+        size={size}
         variant={variant}
         render={
           <a
@@ -153,7 +160,7 @@ export function BuyLibraosCreditsButton({
   }
   return (
     <Popover>
-      <PopoverTrigger render={<Button size="sm" variant={variant} />}>
+      <PopoverTrigger render={<Button size={size} variant={variant} />}>
         <T>Buy credits</T>
       </PopoverTrigger>
       <PopoverPopup align="end" width="md" aria-label={gt("Buy LibraOS credits")}>
@@ -195,30 +202,6 @@ export function LibraosCreditsUsageRow() {
         </p>
       </div>
       <BuyLibraosCreditsButton environmentId={credits.environmentId} variant="outline" />
-    </section>
-  );
-}
-
-/** Settings' card for the connected Gateway's balance; nothing while it is not connected. */
-export function LibraosCreditsSettings({
-  environmentId,
-}: {
-  readonly environmentId: EnvironmentId | null;
-}) {
-  const searchableSetting = useSearchableSetting();
-  const credits = useLibraosCredits(environmentId);
-  if (!credits.connected) return null;
-  const setting = searchableSetting("libraos-credits");
-  return (
-    <section
-      id={setting.id}
-      aria-label={setting.title}
-      className="space-y-2 rounded-lg border border-border bg-card px-4 py-3"
-    >
-      <h3 className="text-sm font-medium text-foreground">
-        <T>LibraOS Gateway credits</T>
-      </h3>
-      <LibraosCreditsPanel environmentId={credits.environmentId} />
     </section>
   );
 }

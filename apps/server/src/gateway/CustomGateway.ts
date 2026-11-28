@@ -8,6 +8,7 @@ import {
   type LibraosGatewayModel,
   type ProviderInstanceConfigMap,
   customGatewayAgentsOf,
+  defaultGatewayName,
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -55,7 +56,7 @@ export class CustomGateway extends Context.Service<
     readonly add: (
       input: CustomGatewaySaveInput,
     ) => Effect.Effect<CustomGatewayAddResult, CustomGatewayError>;
-    /** A blank name names the gateway after its URL. */
+    /** A blank name names the gateway after its URL's host. */
     readonly rename: (
       id: string,
       name: string,
@@ -309,7 +310,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
           while (existing.some((entry) => entry.id === id)) id = newCustomGatewayId();
           const base: CustomGatewaySetting = {
             id,
-            name: input.name?.trim() || url,
+            name: input.name?.trim() || defaultGatewayName(url),
             url,
             format: input.format,
           };
@@ -413,7 +414,7 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
       .withPermits(1)(
         Effect.gen(function* () {
           const gateway = yield* find(id);
-          const renamed = { ...gateway, name: name.trim() || gateway.url };
+          const renamed = { ...gateway, name: name.trim() || defaultGatewayName(gateway.url) };
           yield* settings
             .updateProviderInstances((current) => withCustomGateway(current, renamed, null))
             .pipe(Effect.catch(storageFailure("rename the gateway's agents")));

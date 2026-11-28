@@ -1,11 +1,12 @@
 import { useAtomValue } from "@effect/atom-react";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
-import type {
-  CustomGatewayAgent,
-  CustomGatewayMediaKind,
-  CustomGatewaySummary,
-  EnvironmentId,
+import {
+  defaultGatewayName,
+  type CustomGatewayAgent,
+  type CustomGatewayMediaKind,
+  type CustomGatewaySummary,
+  type EnvironmentId,
 } from "@t3tools/contracts";
 import { T, msg, useGT, useMessages } from "gt-react";
 import { useId, useState, type FormEvent } from "react";
@@ -31,16 +32,25 @@ const MEDIA_KIND_LABELS: Record<CustomGatewayMediaKind, string> = {
   other: msg("Embedding or other", { $context: "kind of AI model" }),
 };
 
-export function CustomGatewayList({ environmentId }: { readonly environmentId: EnvironmentId }) {
+export function CustomGatewayList({
+  environmentId,
+  heading = true,
+}: {
+  readonly environmentId: EnvironmentId;
+  /** Off where a heading above already says Your gateways. */
+  readonly heading?: boolean;
+}) {
   const gt = useGT();
   const { data } = useCustomGateways(environmentId);
   const gateways = data?.gateways ?? [];
   if (gateways.length === 0) return null;
   return (
     <section aria-label={gt("Your gateways")} className="space-y-2">
-      <h2 className="text-sm font-medium text-foreground">
-        <T>Your gateways</T>
-      </h2>
+      {heading ? (
+        <h2 className="text-sm font-medium text-foreground">
+          <T>Your gateways</T>
+        </h2>
+      ) : null}
       <ul className="space-y-2">
         {gateways.map((gateway) => (
           <GatewayRow key={gateway.id} environmentId={environmentId} gateway={gateway} />
@@ -149,7 +159,7 @@ function GatewayRow({
             className="min-w-0 flex-1"
             autoComplete="off"
             autoFocus
-            placeholder={gateway.url}
+            placeholder={defaultGatewayName(gateway.url)}
             value={name}
             disabled={disabled}
             onChange={(event) => setName(event.currentTarget.value)}

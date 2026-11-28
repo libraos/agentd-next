@@ -1,4 +1,5 @@
 import {
+  LIBRAOS_GATEWAY_INSTANCE_IDS,
   ProjectId,
   resolveProviderInstanceEnabled,
   ProviderDriverKind,
@@ -116,6 +117,40 @@ describe("groupWelcomeAgents", () => {
     );
 
     expect(names(groups.found)).toEqual(["Codex"]);
+    expect(groups.readyCount).toBe(1);
+  });
+
+  it("counts the Gateway's Pi as ready when no other agent is installed, so Continue is on", () => {
+    const missing = { installed: false, status: "error", auth: { status: "unknown" } } as const;
+    const gatewayPi = ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.pi);
+    const groups = groupWelcomeAgents(
+      [
+        provider("Claude", { driver: ProviderDriverKind.make("claudeAgent"), ...missing }),
+        provider("Codex", missing),
+        provider("opencode", missing),
+        provider("GatewayCodex", {
+          instanceId: ProviderInstanceId.make(LIBRAOS_GATEWAY_INSTANCE_IDS.codex),
+          driver: ProviderDriverKind.make("codex"),
+          displayName: "Codex · LibraOS",
+          ...missing,
+        }),
+        provider("GatewayPi", {
+          instanceId: gatewayPi,
+          driver: ProviderDriverKind.make("pi"),
+          displayName: "Pi · LibraOS",
+        }),
+      ],
+      {
+        providerInstances: {
+          [gatewayPi]: { driver: ProviderDriverKind.make("pi"), enabled: true },
+        },
+        projectSettingsOverrides: {},
+      },
+      nameOf,
+      allowAll,
+    );
+
+    expect(names(groups.found)).toEqual(["Pi · LibraOS"]);
     expect(groups.readyCount).toBe(1);
   });
 

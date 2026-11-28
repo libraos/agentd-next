@@ -43,3 +43,11 @@ export function parseTeamInvitation(value: string) {
 export function joinedPersonName(output: string): string | null {
   return /^joined \S+ as device \S+ \(cli, person (.+)\), protocol \d+;/m.exec(output)?.[1] ?? null;
 }
+
+/** Where Join a team's Back and Done go: the Settings page that opened it, else the welcome page. */
+export function joinTeamReturnPath<Path extends string>(
+  from: unknown,
+  settingsPaths: ReadonlyArray<Path>,
+): Path | null {
+  return settingsPaths.find((path) => path === from) ?? null;
+}

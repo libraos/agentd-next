@@ -26,7 +26,7 @@ import {
   ProviderDriverKind,
   ThreadId,
 } from "@t3tools/contracts";
-import { Link, useBlocker, useLocation } from "@tanstack/react-router";
+import { Link, useBlocker, useLocation, useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, TerminalIcon } from "lucide-react";
 import { msg, T, useGT, useLocale, useMessages, Var } from "gt-react";
@@ -36,6 +36,7 @@ import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { isElectron } from "../../env";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { readLocalApi } from "../../localApi";
+import { useLibraosSignIn } from "../../lib/libraosGatewayState";
 import { usePersistEnvironmentProviderInstanceMutation } from "../../hooks/useSettings";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
 import { workspaceAreaProps } from "../../lib/workspaceFocus";
@@ -99,7 +100,8 @@ import { toastManager } from "../ui/toast";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
 import { formatRelativeTime } from "../../timestampFormat";
-import { WelcomeAccountCards } from "../agentd/WelcomeAccountCards";
+import { LibraosSignInGate } from "../agentd/LibraosSignIn";
+import { WelcomeLibraosRow } from "../agentd/WelcomeLibraosRow";
 import { ConnectEndpointScreen } from "./ConnectEndpointScreen";
 import { JoinTeamScreen } from "./JoinTeamScreen";
 
@@ -244,6 +246,13 @@ export function WelcomePage({
   // Without import permission, starting simply skips the projects.
   const selected = projectImport.canWrite ? projectImport.selected : [];
   const agentsId = useId();
+  const navigate = useNavigate();
+  const continueRef = useRef<HTMLButtonElement>(null);
+  const libraosSignedIn = useLibraosSignIn(environmentId).signedIn;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- after a LibraOS sign-in approved in the browser, focus moves to Continue once its agent is ready
+  useEffect(() => {
+    if (libraosSignedIn && agentReady) continueRef.current?.focus();
+  }, [libraosSignedIn, agentReady]);
   const start = () => {
     keepChoicesRef.current = scans.some((scan) => scan.data === null);
     if (selected.length === 0) {
@@ -267,93 +276,97 @@ export function WelcomePage({
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-both">
           <div className="flex min-h-full flex-col px-6 py-10 sm:py-16">
             <div className="m-auto w-full max-w-xl">
-              {screen === "endpoint" || screen === "gateway" ? (
-                <ConnectEndpointScreen
-                  key={screen}
-                  gatewayChosen={screen === "gateway"}
-                  environmentId={environmentId}
-                  back={
-                    <Link to="." search={{ screen: undefined }} hash={true}>
-                      <T>Back</T>
-                    </Link>
-                  }
-                />
-              ) : screen === "team" ? (
-                <JoinTeamScreen />
-              ) : (
-                <>
-                  <h1 className="mb-7 text-center text-3xl font-semibold tracking-tight text-foreground">
-                    <T>Connect an agent you already use</T>
-                  </h1>
-                  <WelcomeAccountCards
+              <LibraosSignInGate
+                environmentId={environmentId}
+                onFinished={() =>
+                  void navigate({ to: ".", search: { screen: undefined }, hash: true })
+                }
+              >
+                {screen === "endpoint" || screen === "gateway" ? (
+                  <ConnectEndpointScreen
+                    key={screen}
+                    gatewayChosen={screen === "gateway"}
                     environmentId={environmentId}
-                    agentsId={agentsId}
-                    gatewayLink={<Link to="." search={{ screen: "gateway" }} hash={true} />}
-                  />
-                  <AgentsSection
-                    id={agentsId}
-                    agents={agents}
-                    environmentId={environmentId}
-                    label={label}
-                    isPrimary={isPrimary}
-                    onImportSourceEnabled={() => scans[0]?.refresh()}
-                    projects={
-                      <ProjectsSection
-                        scan={scans[0]}
-                        projectImport={projectImport}
-                        isImporting={isImporting}
-                        canPickFolder={isPrimary && window.desktopBridge !== undefined}
-                      />
+                    back={
+                      <Link to="." search={{ screen: undefined }} hash={true}>
+                        <T>Back</T>
+                      </Link>
                     }
                   />
-                  <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
-                    <Link
-                      to="."
-                      search={{ screen: "endpoint" }}
-                      hash={true}
-                      className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      <T>Use an API key or gateway</T>
-                    </Link>
-                    <Link
-                      to="."
-                      search={{ screen: "team" }}
-                      hash={true}
-                      className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                    >
-                      <T>Join a team</T>
-                    </Link>
-                  </div>
-                  <div className="mt-7 flex justify-center">
-                    <Button disabled={!agentReady || isImporting} onClick={start}>
-                      {isImporting
-                        ? selected.length > 0
-                          ? gt("Importing…")
-                          : gt("Starting…")
-                        : selected.length > 0
-                          ? gt(
-                              "{count, plural, one {Import {count} project and continue} other {Import {count} projects and continue}}",
-                              { count: selected.length },
-                            )
-                          : gt("Continue", { $context: "verb, finishes setup" })}
-                    </Button>
-                  </div>
-                  {/* Setup must not dead-end when no agent is detected; Settings > Providers connects one later. */}
-                  {agentReady ? null : (
-                    <div className="mt-2 flex justify-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={isImporting}
-                        onClick={() => projectImport.finishAfterImport()}
+                ) : screen === "team" ? (
+                  <JoinTeamScreen />
+                ) : (
+                  <>
+                    <h1 className="mb-7 text-center text-3xl font-semibold tracking-tight text-foreground">
+                      <T>Welcome to LibraOS Next</T>
+                    </h1>
+                    <AgentsSection
+                      id={agentsId}
+                      leading={
+                        <WelcomeLibraosRow
+                          environmentId={environmentId}
+                          gatewayLink={<Link to="." search={{ screen: "gateway" }} hash={true} />}
+                        />
+                      }
+                      agents={agents}
+                      environmentId={environmentId}
+                      label={label}
+                      isPrimary={isPrimary}
+                      onImportSourceEnabled={() => scans[0]?.refresh()}
+                      projects={
+                        <ProjectsSection
+                          scan={scans[0]}
+                          projectImport={projectImport}
+                          isImporting={isImporting}
+                          canPickFolder={isPrimary && window.desktopBridge !== undefined}
+                        />
+                      }
+                    />
+                    <div className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+                      <Link
+                        to="."
+                        search={{ screen: "endpoint" }}
+                        hash={true}
+                        className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                       >
-                        <T>Skip for now</T>
+                        <T>Use an API key or custom gateway</T>
+                      </Link>
+                    </div>
+                    <div className="mt-7 flex justify-center">
+                      <Button
+                        ref={continueRef}
+                        disabled={!agentReady || isImporting}
+                        onClick={start}
+                      >
+                        {isImporting
+                          ? selected.length > 0
+                            ? gt("Importing…")
+                            : gt("Starting…")
+                          : selected.length > 0
+                            ? gt(
+                                "{count, plural, one {Import {count} project and continue} other {Import {count} projects and continue}}",
+                                { count: selected.length },
+                              )
+                            : gt("Continue", { $context: "verb, finishes setup" })}
                       </Button>
                     </div>
-                  )}
-                  <TelemetryNotice environmentId={environmentId} />
-                </>
-              )}
+                    {/* Setup must not dead-end when no agent is detected; Settings > Providers connects one later. */}
+                    {agentReady ? null : (
+                      <div className="mt-2 flex justify-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isImporting}
+                          onClick={() => projectImport.finishAfterImport()}
+                        >
+                          <T>Skip for now</T>
+                        </Button>
+                      </div>
+                    )}
+                    <TelemetryNotice environmentId={environmentId} />
+                  </>
+                )}
+              </LibraosSignInGate>
             </div>
           </div>
         </div>
@@ -450,6 +463,7 @@ const ACP_REGISTRY_DRIVER_KIND = ProviderDriverKind.make("acpRegistry");
 
 function AgentsSection({
   id,
+  leading,
   agents,
   environmentId,
   label,
@@ -458,6 +472,8 @@ function AgentsSection({
   projects,
 }: {
   readonly id: string;
+  /** A row above the agents, such as another way to get models. */
+  readonly leading?: ReactNode;
   readonly projects: ReactNode;
   readonly agents: ReturnType<typeof useWelcomeAgents>;
   readonly environmentId: EnvironmentId;
@@ -640,10 +656,8 @@ function AgentsSection({
 
   return (
     <section id={id} tabIndex={-1} aria-label={gt("Agents")} className="outline-none">
-      <p className="mb-2.5 text-center text-xs text-muted-foreground">
-        <T>Agents that are on are available in chats. Turn off any you do not want.</T>
-      </p>
       <ul className="space-y-2.5">
+        {leading}
         {primary.map(({ driver, name, provider }) => (
           <AgentRow
             key={driver}
