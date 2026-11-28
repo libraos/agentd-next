@@ -23,6 +23,7 @@ import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerConfig from "../config.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { askModels } from "./gatewayKeyModels.ts";
+import { SystemCertificateRefresh } from "../agentd/systemCertificates.ts";
 import {
   customGatewayInstanceIds,
   customGatewayInstances,
@@ -187,10 +188,20 @@ export const make = Effect.fn("CustomGateway.make")(function* () {
     yield* writePi(gateway, (yield* readKey(gateway.id)) !== null, models);
   });
 
-  const ask = (gateway: CustomGatewaySetting, key: string | null) =>
+  const askOnce = (gateway: CustomGatewaySetting, key: string | null) =>
     askModels({ base: baseOf(gateway.url), name: gateway.name, key }).pipe(
       Effect.provideService(HttpClient.HttpClient, http),
     );
+  // A CA installed in the system store since the last read counts without a restart.
+  const ask = Effect.fn("CustomGateway.ask")(function* (
+    gateway: CustomGatewaySetting,
+    key: string | null,
+  ) {
+    const answer = yield* askOnce(gateway, key);
+    if (answer.kind !== "unavailable" || answer.untrusted !== true) return answer;
+    yield* yield* SystemCertificateRefresh;
+    return yield* askOnce(gateway, key);
+  });
 
   const list: CustomGateway["Service"]["list"] = Effect.gen(function* () {
     const current = yield* readSettings;

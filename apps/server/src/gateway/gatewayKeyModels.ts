@@ -25,7 +25,7 @@ import {
   parseGatewayMediaModels,
   parseGatewayModels,
 } from "./gatewaySetup.ts";
-import { isUntrustedCertificate } from "../agentd/systemCertificates.ts";
+import { certificateProblem } from "../agentd/systemCertificates.ts";
 
 const CHECK_TIMEOUT = Duration.seconds(15);
 
@@ -38,7 +38,12 @@ export type GatewayModelsAnswer =
     }
   /** 401/403: the key is revoked, deleted or may not list models. */
   | { readonly kind: "refused"; readonly message: string }
-  | { readonly kind: "unavailable"; readonly message: string };
+  | {
+      readonly kind: "unavailable";
+      readonly message: string;
+      /** TLS refused the gateway's certificate; trusting another CA may fix it. */
+      readonly untrusted?: true;
+    };
 
 /**
  * Asks `<base>/models` which models `key` allows; `base` ends in `/v1`. Never fails: an unreachable
@@ -67,16 +72,16 @@ export const askModels = Effect.fn("Gateway.askModels")(function* (gateway: {
         Effect.result,
       );
     if (response._tag === "Failure") {
-      return isUntrustedCertificate(response.failure)
-        ? ({
-            kind: "unavailable",
-            message: `${gateway.name}'s certificate at ${new URL(gateway.base).host} isn't trusted on this computer. Add its CA certificate to the system certificate store, then restart LibraOS Next.`,
-          } satisfies GatewayModelsAnswer)
-        : unreachable;
+      const message = certificateProblem(response.failure, {
+        name: gateway.name,
+        host: new URL(gateway.base).host,
+      });
+      return message === null
+        ? unreachable
+        : ({ kind: "unavailable", message, untrusted: true } satisfies GatewayModelsAnswer);
     }
-    const value = response.success;
-    const body = yield* value.json.pipe(Effect.orElseSucceed((): unknown => undefined));
-    const status = value.status;
+    const body = yield* response.success.json.pipe(Effect.orElseSucceed((): unknown => undefined));
+    const status = response.success.status;
     if (status < 200 || status >= 300) {
       const message = gatewayRefusal(status, body, {
         name: gateway.name,

@@ -8,7 +8,11 @@ export async function runCliCommand() {
   // Install the socket guard before importing code that can open outbound connections.
   const { ignoreMacosTypeOfServiceEinval } = await import("./outboundHttp.ts");
   ignoreMacosTypeOfServiceEinval();
-  if (command === "__document-text") {
+  if (command === "__system-certificates") {
+    // Node reads the system store once per process; the server asks a new one for a fresh read.
+    const NodeTls = await import("node:tls");
+    process.stdout.write(JSON.stringify(NodeTls.getCACertificates("system")));
+  } else if (command === "__document-text") {
     const { extractDocumentText } = await import("./provider/documentTextWorker.ts");
     try {
       process.stdout.write(await extractDocumentText(process.argv[3]!, process.argv[4]!));

@@ -131,7 +131,7 @@ export const cli = makeCli();
 export function runCli() {
   extendConnectionAttemptTimeout();
   keepOutboundFetchOnHttp1();
-  trustSystemCertificates();
+  trustSystemCertificates(process.env);
   offerCliInstall({
     args: process.argv.slice(2),
     // A child started over IPC (a service launcher) has no one to answer.
