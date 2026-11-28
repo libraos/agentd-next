@@ -294,8 +294,9 @@ it("app-stream-assistant-turn", async () => {
   expect(counted.components.ConversationTimeline).toBeLessThanOrEqual(3);
   expect(counted.components.UserTimelineRow).toBeUndefined();
   expect(counted.components.AssistantTimelineRow).toBe(STREAM_DELTAS);
-  // Each delta adds a paragraph; finished blocks keep their render.
-  expect(counted.components.MarkdownParagraph).toBe(STREAM_DELTAS);
+  // Each delta renders the block it adds, and the block before it once more as it is marked
+  // finished; finished blocks keep their render.
+  expect(counted.components.MarkdownSource).toBe(STREAM_DELTAS * 2 - 1);
   await report("app-stream-assistant-turn", [counted], { commits: false });
 });
 
