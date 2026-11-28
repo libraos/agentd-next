@@ -1,10 +1,11 @@
 export const productProfile = {
-  scheduledTasks: false,
-  triage: false,
-  issues: false,
-  pullRequests: false,
-  sharingAndAccess: false,
+  scheduledTasks: true,
+  triage: true,
+  issues: true,
+  pullRequests: true,
+  sharingAndAccess: true,
+  guestLinks: false,
   mobileApp: false,
-  workflows: false,
-  agentFeedback: false,
+  workflows: true,
+  agentFeedback: true,
 };

@@ -1619,7 +1619,7 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
-  if (productProfile.sharingAndAccess && activeThread !== null && canShareActiveThreadWithGuest) {
+  if (productProfile.guestLinks && activeThread !== null && canShareActiveThreadWithGuest) {
     const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
     actionItems.push({
       kind: "action",
