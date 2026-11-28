@@ -111,7 +111,7 @@ describe("searchSettings", () => {
   it("keeps disabled product areas out of navigation and search", () => {
     const paths = settingsNavGroups(true).flatMap((group) => group.paths);
     expect(paths).not.toContain("/settings/scheduled-tasks");
-    expect(paths).not.toContain("/settings/access");
+    expect(paths).toContain("/settings/access");
     expect(paths).toContain("/settings/source-control");
     expect(paths).toContain("/settings/diffs");
     expect(paths).toContain("/settings/voice");
@@ -123,7 +123,6 @@ describe("searchSettings", () => {
       ["scheduled tasks", "scheduled-tasks"],
       ["workflow", "workflows-beta"],
       ["agent feedback", "agent-feedback"],
-      ["sharing & access", "network-access"],
       ["guest links", "guest-links"],
       ["mobile app", "mobile-app"],
       ["issue trackers", "issue-trackers"],
